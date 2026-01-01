@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="MemQ Help Center - Get answers to frequently asked questions and learn how to use MemQ effectively.">
+    <title>Help Center - MemQ</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary-gradient-start: #4e49fc;
+            --primary-gradient-end: #6b66ff;
+            --secondary-blue: #3B82F6;
+            --text-primary: #111827;
+            --text-secondary: #6B7280;
+            --bg-light: #F9FAFB;
+            --bg-white: #FFFFFF;
+            --border-color: #E5E7EB;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            background: var(--bg-light);
+        }
+
+        /* Navigation styles are loaded from components/navbar.css */
+
+        /* Main Content */
+        .main-content {
+            margin-top: 80px;
+            padding: 4rem 2rem;
+            max-width: 1000px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+
+        .page-header h1 {
+            font-size: 3rem;
+            font-weight: 800;
+            margin-bottom: 1rem;
+            background: linear-gradient(135deg, var(--text-primary) 0%, var(--primary-gradient-start) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .page-header p {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+        }
+
+        /* Search Box */
+        .search-box {
+            background: var(--bg-white);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 1rem 1.5rem;
+            margin-bottom: 3rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .search-box input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1rem;
+            color: var(--text-primary);
+        }
+
+        .search-box input::placeholder {
+            color: var(--text-secondary);
+        }
+
+        /* FAQ Section */
+        .faq-section {
+            margin-bottom: 4rem;
+        }
+
+        .faq-section h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+
+        .faq-item {
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            margin-bottom: 1rem;
+            overflow: hidden;
+            transition: all 0.3s;
+        }
+
+        .faq-item:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        .faq-question {
+            padding: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 1.1rem;
+            color: var(--text-primary);
+        }
+
+        .faq-question:hover {
+            color: var(--primary-gradient-start);
+        }
+
+        .faq-answer {
+            padding: 0 1.5rem;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease, padding 0.3s ease;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        .faq-answer.active {
+            max-height: 500px;
+            padding: 0 1.5rem 1.5rem;
+        }
+
+        .faq-icon {
+            transition: transform 0.3s;
+            color: var(--primary-gradient-start);
+        }
+
+        .faq-item.active .faq-icon {
+            transform: rotate(180deg);
+        }
+
+        /* Guide Section */
+        .guide-section {
+            margin-bottom: 4rem;
+        }
+
+        .guide-section h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 2rem;
+            color: var(--text-primary);
+        }
+
+        .guide-card {
+            background: var(--bg-white);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 2rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .guide-card h3 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+            color: var(--text-primary);
+        }
+
+        .guide-card ol, .guide-card ul {
+            margin-left: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .guide-card li {
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+            line-height: 1.8;
+        }
+
+        /* Contact Section */
+        .contact-section {
+            background: linear-gradient(135deg, var(--primary-gradient-start), var(--primary-gradient-end));
+            color: white;
+            padding: 3rem;
+            border-radius: 16px;
+            text-align: center;
+        }
+
+        .contact-section h2 {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+
+        .contact-section p {
+            margin-bottom: 2rem;
+            opacity: 0.95;
+        }
+
+        .contact-button {
+            background: white;
+            color: var(--primary-gradient-start);
+            padding: 1rem 2rem;
+            border-radius: 8px;
+            text-decoration: none;
+            font-weight: 600;
+            display: inline-block;
+            transition: transform 0.2s;
+        }
+
+        .contact-button:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Footer styles are loaded from components/footer.css */
+        
+        footer {
+            margin-top: 4rem;
+        }
+
+        @media (max-width: 768px) {
+            .page-header h1 {
+                font-size: 2rem;
+            }
+
+        }
+    </style>
+    <script src="components/load-components.js" defer></script>
+</head>
+<body>
+    <!-- Navigation placeholder - will be loaded by load-components.js -->
+    <div id="navbar-placeholder"></div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="page-header">
+            <h1>Help Center</h1>
+            <p>Find answers to common questions and learn how to get the most out of MemQ</p>
+        </div>
+
+        <!-- Search Box -->
+        <div class="search-box">
+            <span>🔍</span>
+            <input type="text" placeholder="Search for help..." id="searchInput">
+        </div>
+
+        <!-- Getting Started -->
+        <div class="guide-section">
+            <h2>Getting Started</h2>
+            
+            <div class="guide-card">
+                <h3>Creating Your First Lesson</h3>
+                <ol>
+                    <li>Open the MemQ app and tap the "Create" button</li>
+                    <li>Enter a name for your lesson (e.g., "Biology Chapter 1")</li>
+                    <li>Optionally add a description and set a deadline</li>
+                    <li>Tap "Create" to save your lesson</li>
+                    <li>Start adding terms to your lesson manually, or use AI to generate them</li>
+                </ol>
+            </div>
+
+            <div class="guide-card">
+                <h3>Adding Terms to Your Lesson</h3>
+                <p>There are several ways to add terms:</p>
+                <ul>
+                    <li><strong>Manual Entry:</strong> Tap "Add Term" and enter the term and definition yourself</li>
+                    <li><strong>AI Generation:</strong> Use the AI assistant to generate terms from a topic or conversation</li>
+                    <li><strong>PDF Upload:</strong> Upload a PDF document and let AI extract key terms automatically</li>
+                    <li><strong>From Topic:</strong> Provide a topic and let AI generate relevant terms and definitions</li>
+                </ul>
+            </div>
+
+            <div class="guide-card">
+                <h3>Studying with Flashcards</h3>
+                <ol>
+                    <li>Navigate to your lesson and tap "Study"</li>
+                    <li>Review the term on the front of the card</li>
+                    <li>Tap the card to flip it and see the definition</li>
+                    <li>Rate your knowledge level (New, Learning, Familiar, Good, Strong, Mastered)</li>
+                    <li>The app will schedule future reviews based on spaced repetition</li>
+                </ol>
+            </div>
+        </div>
+
+        <!-- FAQ Section -->
+        <div class="faq-section">
+            <h2>Frequently Asked Questions</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How does the AI assistant work?</span>
+                    <span class="faq-icon">▼</span>
+                </div>
+                <div class="faq-answer">
+                    The AI assistant uses advanced language models to help you learn. You can ask questions about your study materials, request explanations, generate terms from topics, or extract key concepts from conversations. The AI is designed to provide educational support and enhance your learning experience.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>What is spaced repetition?</span>
+                    <span class="faq-icon">▼</span>
+                </div>
+                <div class="faq-answer">
+                    Spaced repetition is a learning technique that involves reviewing material at increasing intervals over time. MemQ uses intelligent algorithms to determine when you should review each term based on your performance. Terms you struggle with appear more frequently, while mastered terms are reviewed less often, optimizing your study time.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Can I upload PDF documents?</span>
+                    <span class="faq-icon">▼</span>
+                </div>
+                <div class="faq-answer">
+                    Yes! You can upload PDF documents through the AI assistant. The app will analyze the document and automatically extract key terms and concepts, creating flashcards for you. This is especially useful for textbooks, research papers, or study guides.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How do I track my progress?</span>
+                    <span class="faq-icon">▼</span>
+                </div>
+                <div class="faq-answer">
+                    MemQ tracks your progress automatically. On the home screen, you'll see your daily goal and progress. Each lesson shows completion statistics, and you can view detailed progress for individual terms. The app tracks which terms you've mastered and which need more review.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>What are the different learning stages?</span>
+                    <span class="faq-icon">▼</span>
+                </div>
+                <div class="faq-answer">
+                    Terms progress through six stages: <strong>New</strong> (just added), <strong>Learning</strong> (first attempts), <strong>Familiar</strong> (getting comfortable), <strong>Good</strong> (solid understanding), <strong>Strong</strong> (well-known), and <strong>Mastered</strong> (fully learned). The app adjusts review frequency based on these stages.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>How do subscriptions work?</span>
+                    <span class="faq-icon">▼</span>
+                </div>
+                <div class="faq-answer">
+                    MemQ offers subscription plans that unlock premium features. Subscriptions are managed through your device's App Store (iOS) or Google Play Store (Android). You can cancel anytime through your device settings. Subscriptions automatically renew unless canceled at least 24 hours before the end of the billing period.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Can I delete my account?</span>
+                    <span class="faq-icon">▼</span>
+                </div>
+                <div class="faq-answer">
+                    Yes, you can delete your account at any time through the Profile settings in the app. When you delete your account, all your data including lessons, terms, progress, and conversations will be permanently removed. This action cannot be undone.
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">
+                    <span>Is my data secure?</span>
+                    <span class="faq-icon">▼</span>
+                </div>
+                <div class="faq-answer">
+                    Yes, we take data security seriously. All data is encrypted in transit using HTTPS/TLS. We use secure authentication and access controls. Your data is stored securely using industry-standard practices. For more details, please see our Privacy Policy.
+                </div>
+            </div>
+        </div>
+
+        <!-- Contact Section -->
+        <div class="contact-section">
+            <h2>Still Need Help?</h2>
+            <p>Can't find what you're looking for? Our support team is here to help.</p>
+            <a href="mailto:support@riverstudio.cc" class="contact-button">Contact Support</a>
+        </div>
+    </div>
+
+    <!-- Footer placeholder - will be loaded by load-components.js -->
+    <div id="footer-placeholder"></div>
+
+    <script>
+        function toggleFaq(element) {
+            const faqItem = element.parentElement;
+            const answer = faqItem.querySelector('.faq-answer');
+            const isActive = faqItem.classList.contains('active');
+
+            // Close all other FAQs
+            document.querySelectorAll('.faq-item').forEach(item => {
+                if (item !== faqItem) {
+                    item.classList.remove('active');
+                    item.querySelector('.faq-answer').classList.remove('active');
+                }
+            });
+
+            // Toggle current FAQ
+            if (isActive) {
+                faqItem.classList.remove('active');
+                answer.classList.remove('active');
+            } else {
+                faqItem.classList.add('active');
+                answer.classList.add('active');
+            }
+        }
+
+        // Search functionality
+        document.getElementById('searchInput').addEventListener('input', function(e) {
+            const searchTerm = e.target.value.toLowerCase();
+            const faqItems = document.querySelectorAll('.faq-item');
+
+            faqItems.forEach(item => {
+                const question = item.querySelector('.faq-question span').textContent.toLowerCase();
+                const answer = item.querySelector('.faq-answer').textContent.toLowerCase();
+                
+                if (question.includes(searchTerm) || answer.includes(searchTerm)) {
+                    item.style.display = '';
+                } else {
+                    item.style.display = 'none';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
+
