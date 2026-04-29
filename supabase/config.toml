@@ -1,0 +1,88 @@
+
+[functions.generate-questions]
+enabled = true
+verify_jwt = true
+import_map = "./functions/generate-questions/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/generate-questions/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/generate-questions/*.html" ]
+
+[functions.generate-terms-from-topic]
+enabled = true
+verify_jwt = true
+import_map = "./functions/generate-terms-from-topic/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/generate-terms-from-topic/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/generate-terms-from-topic/*.html" ]
+
+[functions.generate-terms]
+enabled = true
+verify_jwt = true
+import_map = "./functions/generate-terms/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/generate-terms/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/generate-terms/*.html" ]
+
+[functions.update-term-progress]
+enabled = true
+verify_jwt = true
+import_map = "./functions/update-term-progress/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/update-term-progress/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/update-term-progress/*.html" ]
+
+[functions.process-file]
+enabled = true
+verify_jwt = true
+import_map = "./functions/process-file/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/process-file/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/process-file/*.html" ]
+
+[functions.chat-extractor]
+enabled = true
+verify_jwt = true
+import_map = "./functions/chat-extractor/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/chat-extractor/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/chat-extractor/*.html" ]
+
+[functions.generate-vocab-terms]
+enabled = true
+verify_jwt = true
+import_map = "./functions/generate-vocab-terms/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/generate-vocab-terms/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/generate-vocab-terms/*.html" ]
+
+[functions.generate-vocab-questions]
+enabled = true
+verify_jwt = true
+import_map = "./functions/generate-vocab-questions/deno.json"
+# Uncomment to specify a custom file path to the entrypoint.
+# Supported file extensions are: .ts, .js, .mjs, .jsx, .tsx
+entrypoint = "./functions/generate-vocab-questions/index.ts"
+# Specifies static files to be bundled with the function. Supports glob patterns.
+# For example, if you want to serve static HTML pages in your function:
+# static_files = [ "./functions/generate-vocab-questions/*.html" ]

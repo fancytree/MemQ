@@ -1,0 +1,271 @@
+/* ── MemQ Design System — Design Tokens ──────────────────────────
+   Source: Editorial theme (blue-green accent, #1A8A72)
+   Font: Space Grotesk (Google Fonts)
+   ─────────────────────────────────────────────────────────────── */
+
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&display=swap');
+
+/* ── Raw color palette ─────────────────────────────────────── */
+:root {
+  /* Backgrounds */
+  --color-bg:            #FAFAF8;   /* page background — warm off-white */
+  --color-surf:          #FFFFFF;   /* card/surface — pure white */
+  --color-inner:         #F4F2F8;   /* L3 inner fill — cool tint */
+  --color-inner-warm:    #F2EDE8;   /* L3 inner fill — warm tint */
+
+  /* Border */
+  --color-border:        #E5E3DE;   /* single border weight */
+
+  /* Primary accent — blue-leaning green */
+  --color-accent:        #1A8A72;
+  --color-accent-dark:   #146B59;
+  --color-accent-light:  #E6F5F2;
+
+  /* Text scale */
+  --color-text-high:     #1A1916;   /* max contrast — titles, big numbers */
+  --color-text:          #37352F;   /* body text */
+  --color-muted:         #9B9790;   /* labels, helper text */
+  --color-dim:           #D8D5CF;   /* tracks, inactive, placeholders */
+
+  /* Semantic — correct */
+  --color-green:         #0F7E4A;
+  --color-green-light:   #EDFBF3;
+  --color-green-border:  #6EE7B7;
+
+  /* Semantic — incorrect */
+  --color-red:           #E03E3E;
+  --color-red-light:     #FEF2F2;
+  --color-red-border:    #FCA5A5;
+}
+
+/* ── Typography scale ──────────────────────────────────────── */
+:root {
+  --font-family:         'Space Grotesk', sans-serif;
+
+  /* Display — hero numbers (streak, big stats) */
+  --text-display-size:   52px;
+  --text-display-weight: 900;
+  --text-display-track:  -0.04em;
+  --text-display-height: 1;
+
+  /* Heading 1 — section stat numbers */
+  --text-h1-size:        28px;
+  --text-h1-weight:      800;
+  --text-h1-track:       -0.03em;
+  --text-h1-height:      1;
+
+  /* Heading 2 — card titles, questions */
+  --text-h2-size:        19px;
+  --text-h2-weight:      700;
+  --text-h2-track:       -0.025em;
+  --text-h2-height:      1.35;
+
+  /* Heading 3 — minor titles */
+  --text-h3-size:        15px;
+  --text-h3-weight:      700;
+  --text-h3-track:       -0.015em;
+  --text-h3-height:      1.4;
+
+  /* Body — explanations, answers */
+  --text-body-size:      13px;
+  --text-body-weight:    400;
+  --text-body-track:     0;
+  --text-body-height:    1.65;
+
+  /* Body medium — card text */
+  --text-body-md-size:   14px;
+  --text-body-md-weight: 500;
+  --text-body-md-height: 1.55;
+
+  /* Label — section headers (UPPERCASE) */
+  --text-label-size:     11px;
+  --text-label-weight:   500;
+  --text-label-track:    0.1em;
+  --text-label-transform:uppercase;
+
+  /* Micro label */
+  --text-micro-size:     10px;
+  --text-micro-weight:   500;
+  --text-micro-track:    0.08em;
+
+  /* Mono — code/example blocks */
+  --text-mono-family:    'Courier New', Courier, monospace;
+  --text-mono-size:      12px;
+  --text-mono-height:    1.6;
+}
+
+/* ── Spacing scale ─────────────────────────────────────────── */
+:root {
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:  10px;
+  --space-4:  12px;
+  --space-5:  14px;
+  --space-6:  16px;
+  --space-7:  18px;
+  --space-8:  20px;
+  --space-10: 24px;
+
+  /* Page horizontal padding */
+  --page-x:   20px;
+}
+
+/* ── Border radius ─────────────────────────────────────────── */
+:root {
+  --radius-xs:   4px;   /* week tick squares */
+  --radius-sm:   6px;   /* small elements, label badges */
+  --radius-md:   8px;   /* option rows, small cards */
+  --radius-lg:  10px;   /* standard cards */
+  --radius-xl:  14px;   /* larger cards */
+  --radius-2xl: 18px;   /* primary cards (streak, question) */
+  --radius-pill: 999px; /* badges, chips */
+}
+
+/* ── Shadows ───────────────────────────────────────────────── */
+:root {
+  /* Default: border only, no shadow */
+  --shadow-none:      none;
+
+  /* Subtle: very faint lift */
+  --shadow-sm:        0 1px 3px rgba(26,25,22,0.05),
+                      0 4px 12px rgba(26,25,22,0.05);
+
+  /* Medium: primary card lift */
+  --shadow-md:        0 2px 6px rgba(26,25,22,0.07),
+                      0 10px 24px rgba(26,25,22,0.08);
+}
+
+/* ── Semantic component tokens ─────────────────────────────── */
+:root {
+  /* Card */
+  --card-bg:            var(--color-surf);
+  --card-border:        1px solid var(--color-border);
+  --card-radius:        var(--radius-lg);
+  --card-padding-x:     var(--space-7);
+  --card-padding-y:     var(--space-6);
+
+  /* Primary card */
+  --card-primary-radius: var(--radius-2xl);
+  --card-primary-shadow: var(--shadow-md);
+
+  /* Button primary */
+  --btn-bg:             var(--color-accent);
+  --btn-color:          #FFFFFF;
+  --btn-radius:         var(--radius-md);
+  --btn-padding:        14px 20px;
+  --btn-font-size:      14px;
+  --btn-font-weight:    700;
+
+  /* Button ghost */
+  --btn-ghost-bg:       transparent;
+  --btn-ghost-color:    var(--color-accent);
+  --btn-ghost-border:   1px solid var(--color-border);
+
+  /* Input */
+  --input-bg:           var(--color-surf);
+  --input-border:       1px solid var(--color-border);
+  --input-radius:       var(--radius-lg);
+  --input-padding:      14px 16px;
+  --input-font-size:    15px;
+  --input-focus-border: 1px solid var(--color-accent);
+
+  /* Badge / chip */
+  --badge-bg:           var(--color-accent-light);
+  --badge-color:        var(--color-accent);
+  --badge-radius:       var(--radius-pill);
+  --badge-padding:      4px 11px;
+  --badge-font-size:    11px;
+  --badge-font-weight:  700;
+}
+
+/* ── Base reset ────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family:      var(--font-family);
+  background:       var(--color-bg);
+  color:            var(--color-text);
+  font-size:        var(--text-body-size);
+  line-height:      var(--text-body-height);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Utility classes ───────────────────────────────────────── */
+.text-display {
+  font-size:      var(--text-display-size);
+  font-weight:    var(--text-display-weight);
+  letter-spacing: var(--text-display-track);
+  line-height:    var(--text-display-height);
+  color:          var(--color-text-high);
+}
+.text-h1 {
+  font-size:      var(--text-h1-size);
+  font-weight:    var(--text-h1-weight);
+  letter-spacing: var(--text-h1-track);
+  color:          var(--color-text-high);
+}
+.text-h2 {
+  font-size:      var(--text-h2-size);
+  font-weight:    var(--text-h2-weight);
+  letter-spacing: var(--text-h2-track);
+  line-height:    var(--text-h2-height);
+  color:          var(--color-text-high);
+}
+.text-h3 {
+  font-size:      var(--text-h3-size);
+  font-weight:    var(--text-h3-weight);
+  letter-spacing: var(--text-h3-track);
+  color:          var(--color-text);
+}
+.text-body   { font-size: var(--text-body-size); font-weight: 400; line-height: var(--text-body-height); color: var(--color-text); }
+.text-muted  { color: var(--color-muted); }
+.text-accent { color: var(--color-accent); }
+.text-label  { font-size: var(--text-label-size); font-weight: var(--text-label-weight); letter-spacing: var(--text-label-track); text-transform: var(--text-label-transform); color: var(--color-muted); }
+.text-micro  { font-size: var(--text-micro-size); font-weight: var(--text-micro-weight); letter-spacing: var(--text-micro-track); text-transform: uppercase; color: var(--color-muted); }
+.text-mono   { font-family: var(--text-mono-family); font-size: var(--text-mono-size); line-height: var(--text-mono-height); }
+
+.card {
+  background:    var(--card-bg);
+  border:        var(--card-border);
+  border-radius: var(--card-radius);
+  padding:       var(--card-padding-y) var(--card-padding-x);
+}
+.card-primary {
+  background:    var(--card-bg);
+  border:        var(--card-border);
+  border-radius: var(--card-primary-radius);
+  box-shadow:    var(--card-primary-shadow);
+  padding:       var(--card-padding-y) var(--card-padding-x);
+}
+
+.btn-primary {
+  display:       inline-flex;
+  align-items:   center;
+  justify-content: center;
+  background:    var(--btn-bg);
+  color:         var(--btn-color);
+  border:        none;
+  border-radius: var(--btn-radius);
+  padding:       var(--btn-padding);
+  font-family:   var(--font-family);
+  font-size:     var(--btn-font-size);
+  font-weight:   var(--btn-font-weight);
+  cursor:        pointer;
+  transition:    background 0.15s;
+}
+.btn-primary:hover { background: var(--color-accent-dark); }
+
+.badge {
+  display:       inline-flex;
+  align-items:   center;
+  background:    var(--badge-bg);
+  color:         var(--badge-color);
+  border-radius: var(--badge-radius);
+  padding:       var(--badge-padding);
+  font-size:     var(--badge-font-size);
+  font-weight:   var(--badge-font-weight);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.divider { height: 1px; background: var(--color-border); }

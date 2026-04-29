@@ -1,0 +1,26 @@
+import React from 'react';
+import Svg, { Path } from 'react-native-svg';
+
+interface FloatingAIButtonIconProps {
+  size?: number;
+}
+
+export default function FloatingAIButtonIcon({ size = 56 }: FloatingAIButtonIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 56 56" fill="none">
+      <Path
+        d="M0 28C0 12.536 12.536 0 28 0C43.464 0 56 12.536 56 28C56 43.464 43.464 56 28 56C12.536 56 0 43.464 0 28Z"
+        fill="#4E49FC"
+      />
+      <Path
+        d="M15.729 5.649C16.5327 5.1121 17.62 5.32834 18.1569 6.13198C18.6938 6.9356 18.4775 8.02293 17.674 8.55989L15.0177 10.3344C14.214 10.8713 13.1267 10.655 12.5898 9.85137C12.053 9.04784 12.2695 7.96131 13.0728 7.42431L15.729 5.649Z"
+        fill="white"
+      />
+      <Path
+        d="M8.91407 11.1284C9.57828 10.4265 10.6859 10.3956 11.388 11.0596C12.0899 11.7239 12.1209 12.8315 11.4567 13.5335L10.7819 14.2475C10.1176 14.9495 9.0099 14.9796 8.30787 14.3154C7.60589 13.6512 7.57493 12.5436 8.23909 11.8415L8.91407 11.1284Z"
+        fill="white"
+      />
+    </Svg>
+  );
+}
+
