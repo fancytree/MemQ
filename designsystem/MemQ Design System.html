@@ -1,0 +1,1427 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MemQ — Design System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800;9..144,900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg:      #F0EEE9;
+    --canvas:  #FAFAF8;
+    --surf:    #FFFFFF;
+    --border:  #E5E3DE;
+    --borderS: #EFEDE8;
+    --accent:  #1A8A72;
+    --accentL: #E6F5F2;
+    --accentRing: rgba(26, 138, 114, 0.12);
+    --accentShadow: rgba(26, 138, 114, 0.25);
+    --accentShadowLg: rgba(26, 138, 114, 0.35);
+    --text:    #1A1916;
+    --sub:     #37352F;
+    --muted:   #9B9790;
+    --dim:     #D8D5CF;
+    --green:   #0F7E4A;
+    --greenL:  #EDFBF3;
+    --red:     #E03E3E;
+    --redL:    #FEF2F2;
+    --warn:    #B89A2E;
+    --warnL:   #FAF4DD;
+
+    --mono:    'JetBrains Mono', ui-monospace, monospace;
+    --grotesk: 'Space Grotesk', sans-serif;
+    --serif:   'Fraunces', Georgia, serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--text); font-family: var(--mono); -webkit-font-smoothing: antialiased; }
+  body { padding: 56px 56px 120px; max-width: 1280px; margin: 0 auto; }
+  button { font-family: inherit; }
+  a { color: inherit; }
+
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .h1 {
+    font-family: var(--grotesk);
+    font-size: 64px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+    color: var(--text);
+  }
+  .h2 {
+    font-family: var(--grotesk);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1.05;
+  }
+  .h3 {
+    font-family: var(--grotesk);
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+  .body {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.65;
+    color: var(--sub);
+  }
+  .meta {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+
+  /* Layout */
+  header.masthead {
+    border-top: 1px solid var(--text);
+    border-bottom: 1px solid var(--border);
+    padding: 18px 0 22px;
+    margin-bottom: 56px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    align-items: end;
+    gap: 24px;
+  }
+  .masthead-meta {
+    display: flex;
+    gap: 32px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .masthead-meta strong {
+    display: block;
+    color: var(--text);
+    font-weight: 600;
+    margin-top: 4px;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    font-size: 12px;
+  }
+
+  .hero {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 48px;
+    padding-bottom: 56px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 56px;
+    align-items: end;
+  }
+  .hero-left .h1 .accent { color: var(--accent); }
+  .hero-deck {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    padding: 22px;
+    background: var(--surf);
+    border: 1px solid var(--border);
+  }
+  .hero-deck .meta-row {
+    display: flex;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 10px;
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+  }
+  .hero-deck p {
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.7;
+    color: var(--sub);
+  }
+
+  /* Section heading */
+  section { margin-bottom: 80px; }
+  .section-head {
+    display: grid;
+    grid-template-columns: 64px 1fr auto;
+    gap: 24px;
+    align-items: baseline;
+    padding-bottom: 14px;
+    border-bottom: 1px solid var(--text);
+    margin-bottom: 32px;
+  }
+  .section-head .num {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 500;
+    letter-spacing: 0.05em;
+  }
+  .section-head .title {
+    font-family: var(--grotesk);
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+  }
+  .section-head .desc {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    max-width: 360px;
+    text-align: right;
+    line-height: 1.55;
+  }
+
+  /* ── COLORS ───────────────────────────────────────────── */
+  .swatch-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+  }
+  .swatch {
+    background: var(--surf);
+    padding: 18px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    min-height: 168px;
+  }
+  .swatch-chip {
+    flex: 1;
+    border: 1px solid rgba(0,0,0,0.06);
+    min-height: 80px;
+  }
+  .swatch-meta { display: flex; flex-direction: column; gap: 2px; }
+  .swatch-name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    letter-spacing: 0.02em;
+  }
+  .swatch-hex {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    text-transform: uppercase;
+  }
+  .swatch-role {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    letter-spacing: 0.05em;
+  }
+
+  .palette-band {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+    align-items: start;
+  }
+  .palette-band h4 {
+    font-family: var(--grotesk);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .palette-band p {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 6px;
+    line-height: 1.55;
+  }
+
+  /* ── TYPOGRAPHY ───────────────────────────────────────── */
+  .type-row {
+    display: grid;
+    grid-template-columns: 200px 1fr;
+    gap: 32px;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--border);
+    align-items: baseline;
+  }
+  .type-row:last-child { border-bottom: none; }
+  .type-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .type-meta .name {
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .type-meta .specs {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .type-sample.display {
+    font-family: var(--grotesk);
+    font-size: 64px;
+    font-weight: 900;
+    letter-spacing: -0.04em;
+    line-height: 0.98;
+  }
+  .type-sample.h1-s { font-family: var(--grotesk); font-size: 38px; font-weight: 900; letter-spacing: -0.04em; line-height: 1.05; }
+  .type-sample.h2-s { font-family: var(--grotesk); font-size: 28px; font-weight: 800; letter-spacing: -0.03em; line-height: 1.1; }
+  .type-sample.h3-s { font-family: var(--grotesk); font-size: 19px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; }
+  .type-sample.body-s { font-family: var(--mono); font-size: 13px; line-height: 1.65; color: var(--sub); max-width: 540px; }
+  .type-sample.label-s { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.09em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  .type-sample.numeric-s { font-family: var(--grotesk); font-size: 52px; font-weight: 900; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums; }
+
+  .stack-card {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1px;
+    background: var(--border);
+    border: 1px solid var(--border);
+    margin-top: 24px;
+  }
+  .stack-card .col {
+    background: var(--surf);
+    padding: 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    min-height: 200px;
+  }
+  .stack-card.active-mono .col[data-active] {
+    background: var(--accentL);
+  }
+  .stack-card .preview {
+    font-size: 32px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1;
+    color: var(--text);
+  }
+  .stack-card .col-label {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .stack-card .col-label .pill {
+    background: var(--accent);
+    color: #fff;
+    font-size: 9px;
+    padding: 2px 7px;
+    border-radius: 8px;
+    font-weight: 600;
+  }
+  .stack-card .col p {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  /* ── SPACING / RADII ──────────────────────────────────── */
+  .spacing-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 12px;
+  }
+  .space-cell {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    padding: 16px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    align-items: flex-start;
+  }
+  .space-cell .box {
+    background: var(--accent);
+  }
+  .space-cell .name {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .space-cell .px {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .radius-row {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .radius-cell {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    align-items: flex-start;
+  }
+  .radius-cell .box {
+    width: 100%;
+    height: 64px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+  }
+  .radius-cell .name {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 600;
+  }
+  .radius-cell .px {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  .rules-list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    border-top: 1px solid var(--border);
+    margin-top: 24px;
+  }
+  .rules-list .rule {
+    padding: 18px 22px;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    display: grid;
+    grid-template-columns: 28px 1fr;
+    gap: 14px;
+    background: var(--surf);
+  }
+  .rules-list .rule:nth-child(2n) { border-right: none; }
+  .rules-list .rule .num {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+  }
+  .rules-list .rule h5 {
+    font-family: var(--grotesk);
+    font-size: 13.5px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .rules-list .rule p {
+    font-family: var(--mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    line-height: 1.6;
+    margin-top: 5px;
+  }
+
+  /* ── COMPONENTS ───────────────────────────────────────── */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+  .comp-card {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+  .comp-card.full { grid-column: 1 / -1; }
+  .comp-card .head {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+  .comp-card .head h4 {
+    font-family: var(--grotesk);
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+  }
+  .comp-card .head .label { font-size: 10px; }
+  .comp-card .stage {
+    padding: 28px 24px;
+    background: var(--canvas);
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    min-height: 120px;
+  }
+  .comp-card .notes {
+    padding: 12px 18px;
+    border-top: 1px solid var(--border);
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    line-height: 1.55;
+  }
+
+  /* Buttons */
+  .btn {
+    font-family: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 11px 18px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    letter-spacing: -0.005em;
+  }
+  .btn-primary { background: var(--accent); color: #fff; }
+  .btn-secondary { background: var(--surf); color: var(--text); border-color: var(--border); }
+  .btn-ghost { background: transparent; color: var(--muted); }
+  .btn-ghost:hover { color: var(--text); }
+  .btn-link {
+    background: none;
+    border: none;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+  }
+  .btn-disabled { background: var(--dim); color: #fff; cursor: not-allowed; }
+
+  /* Badges */
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 10px;
+  }
+  .badge-due { background: var(--accentL); color: var(--accent); }
+  .badge-learning { background: var(--warnL); color: var(--warn); }
+  .badge-mastered { background: var(--bg); color: var(--muted); }
+  .badge-success { background: var(--greenL); color: var(--green); }
+  .badge-error { background: var(--redL); color: var(--red); }
+  .badge-outline { background: var(--bg); color: var(--muted); border: 1px solid var(--border); }
+
+  /* Progress bar */
+  .progress {
+    height: 2px;
+    background: var(--dim);
+    overflow: hidden;
+    border-radius: 1px;
+    width: 100%;
+  }
+  .progress > span { display: block; height: 100%; background: var(--accent); }
+
+  /* Card row sample (deck row from library) */
+  .deck-row {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    width: 100%;
+  }
+  .deck-row .top { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .deck-row .title { font-family: var(--grotesk); font-size: 14px; font-weight: 700; letter-spacing: -0.015em; }
+  .deck-row .due { font-family: var(--mono); font-size: 11px; color: var(--accent); font-weight: 600; }
+  .deck-row .sub { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-top: 3px; }
+  .deck-row .meter { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .deck-row .meter .pct { font-family: var(--mono); font-size: 10.5px; font-weight: 700; }
+  .deck-row .meter .count { font-family: var(--mono); font-size: 10.5px; color: var(--muted); }
+
+  /* Input field */
+  .input-field {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 9px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    color: var(--muted);
+    width: 220px;
+  }
+  .input-field { outline: none; }
+  .input-field:focus { outline: none; }
+  .input-field.focus { background: var(--surf); color: var(--text); border: 1px solid var(--accent); box-shadow: 0 0 0 3px var(--accentRing); }
+
+  /* Tab bar mock — icons + elevated Create FAB */
+  .tabbar {
+    width: 320px;
+    height: 64px;
+    display: flex;
+    align-items: flex-end;
+    border-top: 1px solid var(--border);
+    background: var(--surf);
+    padding-bottom: 14px;
+    position: relative;
+  }
+  .tabbar .tab {
+    flex: 1;
+    padding: 8px 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    position: relative;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .tabbar .tab svg {
+    width: 20px; height: 20px;
+    fill: none; stroke: var(--muted); stroke-width: 1.6;
+    stroke-linecap: round; stroke-linejoin: round;
+  }
+  .tabbar .tab.active svg { stroke: var(--text); }
+  .tabbar .tlabel {
+    font-family: var(--mono);
+    font-size: 10px; letter-spacing: 0.02em;
+    color: var(--muted); font-weight: 500;
+  }
+  .tabbar .tab.active .tlabel { color: var(--text); font-weight: 700; }
+  .tabbar .tab.active::after {
+    content: none;
+  }
+  .tabbar .fab-slot {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 4px;
+    position: relative;
+  }
+  .tabbar .fab {
+    position: absolute; top: -22px; left: 50%;
+    transform: translateX(-50%);
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: 3px solid var(--bg);
+    color: #fff;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 2px 8px var(--accentShadow);
+  }
+  .tabbar .fab.active {
+    box-shadow: 0 0 0 2px var(--accentShadow), 0 4px 14px var(--accentShadowLg);
+  }
+  .tabbar .fab svg {
+    width: 22px; height: 22px;
+    fill: none; stroke: #fff; stroke-width: 2.4; stroke-linecap: round;
+  }
+  .tabbar .fab-label {
+    margin-top: 36px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text);
+    font-weight: 600;
+  }
+  .tabbar .fab-slot.active .fab-label { color: var(--accent); font-weight: 700; }
+
+  /* Card list (Up Next, Library decks) */
+  .card-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-width: 320px;
+  }
+  .card-row {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .card-row .topic {
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+    margin-bottom: 3px;
+  }
+  .card-row .card-title {
+    font-family: var(--mono);
+    font-size: 13px;
+    color: var(--sub);
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .card-row .due-mark {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 600;
+  }
+  .card-row .chev {
+    font-size: 16px;
+    color: var(--dim);
+  }
+
+  /* MCQ row */
+  .mcq {
+    width: 100%;
+    background: var(--surf);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    max-width: 460px;
+  }
+  .mcq .opt {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+  }
+  .mcq .opt:last-child { border-bottom: none; }
+  .mcq .opt .strip { width: 3px; flex-shrink: 0; }
+  .mcq .opt .body { display: flex; gap: 11px; padding: 12px 14px; flex: 1; align-items: flex-start; }
+  .mcq .opt .letter {
+    width: 22px; height: 22px; border-radius: 5px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 11px; font-weight: 700;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .mcq .opt .text { font-family: var(--mono); font-size: 13px; line-height: 1.5; color: var(--text); padding-top: 3px; }
+  .mcq .opt.correct { background: var(--greenL); }
+  .mcq .opt.correct .strip { background: var(--green); }
+  .mcq .opt.correct .letter { background: var(--green); border-color: transparent; color: #fff; }
+  .mcq .opt.correct .text { color: var(--green); font-weight: 500; }
+  .mcq .opt.wrong { background: var(--redL); }
+  .mcq .opt.wrong .strip { background: var(--red); }
+  .mcq .opt.wrong .letter { background: var(--red); border-color: transparent; color: #fff; }
+  .mcq .opt.wrong .text { color: var(--red); font-weight: 500; }
+  .mcq .opt.selected .letter { background: var(--accent); border-color: transparent; color: #fff; }
+  .mcq .opt.selected .strip { background: var(--accent); }
+
+  /* Streak dots */
+  .streak {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+  }
+  .streak .day {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .streak .dot {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 4px;
+    background: var(--bg);
+    border: 1.5px solid var(--border);
+  }
+  .streak .day.on .dot {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  .streak .day .d {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--muted);
+    font-weight: 500;
+  }
+
+  /* Stat card */
+  .stat-card {
+    background: var(--surf);
+    border: 1px solid var(--border);
+    padding: 16px 18px;
+    width: 180px;
+  }
+  .stat-card .stat-label {
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 500;
+  }
+  .stat-card .stat-val {
+    font-family: var(--grotesk);
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    line-height: 1;
+    margin-top: 8px;
+  }
+  .stat-card .stat-sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    margin-top: 4px;
+  }
+
+  /* Footer */
+  .colophon {
+    border-top: 1px solid var(--text);
+    padding-top: 18px;
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 32px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+  }
+  .colophon strong { display: block; color: var(--text); font-size: 12px; font-weight: 700; margin-bottom: 6px; letter-spacing: 0.04em; text-transform: uppercase; }
+
+  /* Token table */
+  .token-table {
+    width: 100%;
+    border: 1px solid var(--border);
+    background: var(--surf);
+    border-collapse: collapse;
+    font-family: var(--mono);
+  }
+  .token-table th, .token-table td {
+    padding: 10px 14px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 11.5px;
+    vertical-align: middle;
+  }
+  .token-table tr:last-child td { border-bottom: none; }
+  .token-table th {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--bg);
+  }
+  .token-table td.var { color: var(--accent); font-weight: 600; }
+  .token-table td.val { color: var(--text); }
+  .token-table td.desc { color: var(--muted); }
+  .token-table .swatchcell {
+    width: 24px; height: 16px; display: inline-block; vertical-align: middle;
+    border: 1px solid rgba(0,0,0,0.08); margin-right: 8px;
+  }
+</style>
+</head>
+<body>
+
+<header class="masthead">
+  <div>
+    <div class="eyebrow">MemQ · Editorial</div>
+    <div style="font-family: var(--grotesk); font-size: 22px; font-weight: 800; letter-spacing: -0.02em; margin-top: 6px;">Design System / v1.0</div>
+  </div>
+  <div class="masthead-meta">
+    <div>Established<strong>April 2026</strong></div>
+    <div>Surface<strong>iOS · Mobile</strong></div>
+    <div>Typography<strong>JetBrains · Mono</strong></div>
+    <div>Status<strong style="color: var(--accent);">● Active</strong></div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="hero-left">
+    <div class="label" style="margin-bottom: 18px;">A learning instrument for<br/>the considered mind</div>
+    <h1 class="h1">Read like an editor.<br/>Recall like a <span class="accent">research&nbsp;notebook</span>.</h1>
+  </div>
+  <aside class="hero-deck">
+    <div class="meta-row">
+      <span>System Brief</span>
+      <span>01 / 06</span>
+    </div>
+    <p>Editorial is a quiet, typography-first system for spaced-repetition learning. It borrows the discipline of editorial print — generous hierarchy, hairline rules, restrained color — and treats the screen as a page.</p>
+    <p style="color: var(--muted);">One accent. One surface tone. One radius scale. Decisions, not options.</p>
+  </aside>
+</section>
+
+<!-- ─── 01 PRINCIPLES ─────────────────────────────────────── -->
+<section>
+  <div class="section-head">
+    <div class="num">01 / Principles</div>
+    <div class="title">Editorial behaviour</div>
+    <div class="desc">Four working rules that govern every visual decision in the product.</div>
+  </div>
+
+  <div class="rules-list">
+    <div class="rule"><div class="num">i.</div><div><h5>Type before chrome</h5><p>Hierarchy is established by weight, scale, and white space — not by boxes, shadows, or accent fills. A heading does the work a card would do elsewhere.</p></div></div>
+    <div class="rule"><div class="num">ii.</div><div><h5>One semantic accent</h5><p>Teal #1A8A72 is reserved for state: due cards, active tabs, primary actions, mastery progress. It earns attention because it is rare.</p></div></div>
+    <div class="rule"><div class="num">iii.</div><div><h5>Hairlines, not shadows</h5><p>1px borders on warm white separate regions. Shadows are not used. Surfaces are flat and meet at clean edges.</p></div></div>
+    <div class="rule"><div class="num">iv.</div><div><h5>Numbers are display</h5><p>Streak counts, queue totals, mastery percentages set in the heaviest grotesk weight at large sizes. Data is the headline.</p></div></div>
+    <div class="rule"><div class="num">v.</div><div><h5>Cards in a stream, not rows in a table</h5><p>Lists of decks and queue items are presented as distinct rounded cards on the page canvas with 8px gaps — never flush list-rows. Each card is its own object.</p></div></div>
+    <div class="rule"><div class="num">vi.</div><div><h5>One elevated action</h5><p>Create is the one moment shadow appears: a circular FAB raised above the tab bar. Every other surface is flat.</p></div></div>
+  </div>
+</section>
+
+<!-- ─── 02 COLORS ─────────────────────────────────────────── -->
+<section>
+  <div class="section-head">
+    <div class="num">02 / Color</div>
+    <div class="title">A warm, restrained palette</div>
+    <div class="desc">Off-white surfaces; one teal accent; muted neutrals tuned to feel papery rather than digital.</div>
+  </div>
+
+  <div class="palette-band">
+    <div>
+      <h4>Surfaces</h4>
+      <p>Two tones of warm white separate the canvas from raised planes. The system never goes pure white.</p>
+    </div>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--bg);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Bg / Page</div>
+          <div class="swatch-hex">#F0EEE9</div>
+          <div class="swatch-role">Outer canvas, dashed empties</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--canvas);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Canvas</div>
+          <div class="swatch-hex">#FAFAF8</div>
+          <div class="swatch-role">App canvas inside the bezel</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--surf);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Surface</div>
+          <div class="swatch-hex">#FFFFFF</div>
+          <div class="swatch-role">Cards, list rows, sheets</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--border);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Border</div>
+          <div class="swatch-hex">#E5E3DE</div>
+          <div class="swatch-role">Hairline rules, dividers</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="palette-band">
+    <div>
+      <h4>Accent &amp; State</h4>
+      <p>Teal carries every interactive signal. Green/red appear only in answer feedback. Amber marks "learning."</p>
+    </div>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--accent);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Accent</div>
+          <div class="swatch-hex">#1A8A72</div>
+          <div class="swatch-role">Primary, active, due</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--accentL);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Accent / Wash</div>
+          <div class="swatch-hex">#E6F5F2</div>
+          <div class="swatch-role">Selected option, due badge</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--green);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Success</div>
+          <div class="swatch-hex">#0F7E4A</div>
+          <div class="swatch-role">Correct answer, "Easy"</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--red);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Error</div>
+          <div class="swatch-hex">#E03E3E</div>
+          <div class="swatch-role">Incorrect, "Again"</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="palette-band">
+    <div>
+      <h4>Type &amp; Neutral</h4>
+      <p>A graphite/text hierarchy on warm white. Contrast steps from text → sub → muted → dim.</p>
+    </div>
+    <div class="swatch-grid">
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--text);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Text</div>
+          <div class="swatch-hex">#1A1916</div>
+          <div class="swatch-role">Headlines, primary copy</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--sub);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Sub</div>
+          <div class="swatch-hex">#37352F</div>
+          <div class="swatch-role">Body, card titles</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--muted);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Muted</div>
+          <div class="swatch-hex">#9B9790</div>
+          <div class="swatch-role">Labels, captions, meta</div>
+        </div>
+      </div>
+      <div class="swatch">
+        <div class="swatch-chip" style="background: var(--dim);"></div>
+        <div class="swatch-meta">
+          <div class="swatch-name">Dim</div>
+          <div class="swatch-hex">#D8D5CF</div>
+          <div class="swatch-role">Progress track, chevrons</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 03 TYPOGRAPHY ─────────────────────────────────────── -->
+<section>
+  <div class="section-head">
+    <div class="num">03 / Type</div>
+    <div class="title">Three voices, one system</div>
+    <div class="desc">Grotesk for display and structure. Mono for copy and data. Serif as an editorial alternate.</div>
+  </div>
+
+  <div class="stack-card active-mono">
+    <div class="col" data-active>
+      <div class="col-label"><span>Mono · Body</span><span class="pill">ACTIVE</span></div>
+      <div class="preview" style="font-family: var(--mono); font-weight: 600;">JetBrains Mono</div>
+      <p>Used for body, labels, captions, and tabular data. Reads like a research notebook; lends quiet authority to learning content.</p>
+    </div>
+    <div class="col">
+      <div class="col-label"><span>Grotesk · Display</span><span style="font-size: 9px;">always on</span></div>
+      <div class="preview" style="font-family: var(--grotesk); font-weight: 900; letter-spacing: -0.04em;">Space Grotesk</div>
+      <p>Headlines, display numerals, deck titles. Heavy weights (800–900) carry hierarchy without color or rules.</p>
+    </div>
+    <div class="col">
+      <div class="col-label"><span>Serif · Alternate</span><span style="font-size: 9px;">tweakable</span></div>
+      <div class="preview" style="font-family: var(--serif); font-weight: 600;">Fraunces</div>
+      <p>An editorial-magazine alternate available via Tweaks. Use when prose density justifies the warmth.</p>
+    </div>
+  </div>
+
+  <div style="margin-top: 32px;">
+    <div class="type-row">
+      <div class="type-meta"><div class="name">Display</div><div class="specs">Grotesk · 64 / 0.98<br/>900 / -0.04em<br/>Headlines, key moments</div></div>
+      <div class="type-sample display">19 cards due today.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta"><div class="name">Numeric</div><div class="specs">Grotesk · 52 / 1.0<br/>900 / tabular-nums<br/>Streaks, queues, %</div></div>
+      <div class="type-sample numeric-s">47<span style="font-size:13px; color:var(--muted); font-weight:500; margin-left:10px; letter-spacing:normal;">days</span></div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta"><div class="name">H1 / Title</div><div class="specs">Grotesk · 38 / 1.05<br/>900 / -0.04em<br/>Page &amp; deck titles</div></div>
+      <div class="type-sample h1-s">World History · 1500–1900</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta"><div class="name">H2</div><div class="specs">Grotesk · 28 / 1.10<br/>800 / -0.03em<br/>Section headers</div></div>
+      <div class="type-sample h2-s">Recently Mastered</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta"><div class="name">H3 / Card</div><div class="specs">Grotesk · 19 / 1.25<br/>700 / -0.02em<br/>Card titles, prompts</div></div>
+      <div class="type-sample h3-s">What sparked the French Revolution?</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta"><div class="name">Body</div><div class="specs">Mono · 13 / 1.65<br/>400<br/>Card bodies, descriptions</div></div>
+      <div class="type-sample body-s">A convergence of fiscal crisis, Enlightenment political thought, and a rigid estate system that excluded the bourgeoisie from real power. Westphalia codified the principle that states have authority over their own territory.</div>
+    </div>
+    <div class="type-row">
+      <div class="type-meta"><div class="name">Label</div><div class="specs">Mono · 10.5 / uppercase<br/>500 / 0.09em tracking<br/>Eyebrows, section labels</div></div>
+      <div class="type-sample label-s">Focus Queue · Up Next</div>
+    </div>
+  </div>
+</section>
+
+<!-- ─── 04 SPACING / RADII ────────────────────────────────── -->
+<section>
+  <div class="section-head">
+    <div class="num">04 / Spacing &amp; Form</div>
+    <div class="title">A 4-pixel grid; a single radius idea</div>
+    <div class="desc">Spacing scales in 4px steps. Radii are restrained: 6 for inline tags, 8 for controls, 10 for cards.</div>
+  </div>
+
+  <div class="label" style="margin-bottom: 12px;">Spacing scale · 4px base</div>
+  <div class="spacing-grid">
+    <div class="space-cell"><div class="box" style="width:4px;height:4px;"></div><div><div class="name">2xs</div><div class="px">4px</div></div></div>
+    <div class="space-cell"><div class="box" style="width:8px;height:8px;"></div><div><div class="name">xs</div><div class="px">8px</div></div></div>
+    <div class="space-cell"><div class="box" style="width:12px;height:12px;"></div><div><div class="name">sm</div><div class="px">12px</div></div></div>
+    <div class="space-cell"><div class="box" style="width:16px;height:16px;"></div><div><div class="name">md</div><div class="px">16px</div></div></div>
+    <div class="space-cell"><div class="box" style="width:20px;height:20px;"></div><div><div class="name">lg</div><div class="px">20px</div></div></div>
+    <div class="space-cell"><div class="box" style="width:24px;height:24px;"></div><div><div class="name">xl</div><div class="px">24px</div></div></div>
+    <div class="space-cell"><div class="box" style="width:32px;height:32px;"></div><div><div class="name">2xl</div><div class="px">32px</div></div></div>
+    <div class="space-cell"><div class="box" style="width:48px;height:48px;"></div><div><div class="name">3xl</div><div class="px">48px</div></div></div>
+  </div>
+
+  <div class="label" style="margin: 36px 0 12px;">Radius scale</div>
+  <div class="radius-row">
+    <div class="radius-cell"><div class="box" style="border-radius: 0;"></div><div><div class="name">Square</div><div class="px">0 · rules, dividers</div></div></div>
+    <div class="radius-cell"><div class="box" style="border-radius: 1px;"></div><div><div class="name">Rule</div><div class="px">1px · progress bar</div></div></div>
+    <div class="radius-cell"><div class="box" style="border-radius: 6px;"></div><div><div class="name">Inline</div><div class="px">6px · MCQ letter, tag</div></div></div>
+    <div class="radius-cell"><div class="box" style="border-radius: 8px;"></div><div><div class="name">Control</div><div class="px">8px · button, input</div></div></div>
+    <div class="radius-cell"><div class="box" style="border-radius: 10px;"></div><div><div class="name">Card</div><div class="px">10px · MCQ, dashed empty</div></div></div>
+    <div class="radius-cell"><div class="box" style="border-radius: 999px;"></div><div><div class="name">Pill</div><div class="px">∞ · status badges</div></div></div>
+  </div>
+
+  <div class="label" style="margin: 36px 0 12px;">Elevation / Borders</div>
+  <table class="token-table">
+    <thead><tr><th style="width: 220px;">Token</th><th style="width: 220px;">Value</th><th>Use</th></tr></thead>
+    <tbody>
+      <tr><td class="var">--border</td><td class="val"><span class="swatchcell" style="background: var(--border)"></span>1px solid #E5E3DE</td><td class="desc">Default hairline. Section dividers, card edges.</td></tr>
+      <tr><td class="var">--borderS</td><td class="val"><span class="swatchcell" style="background: var(--borderS)"></span>1px solid #EFEDE8</td><td class="desc">Sub-divider, used inside dense lists.</td></tr>
+      <tr><td class="var">--border-dashed</td><td class="val"><span class="swatchcell" style="background: var(--dim)"></span>1px dashed #D8D5CF</td><td class="desc">Empty-state CTA, "create new" affordance.</td></tr>
+      <tr><td class="var">--shadow</td><td class="val">none</td><td class="desc">Editorial does not use shadows. Hairlines only.</td></tr>
+      <tr><td class="var">--accentRing</td><td class="val"><span class="swatchcell" style="background: var(--accentRing)"></span>rgba(26, 138, 114, 0.12)</td><td class="desc">Focus ring on inputs &amp; primary actions (3px halo).</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ─── 05 COMPONENTS ─────────────────────────────────────── -->
+<section>
+  <div class="section-head">
+    <div class="num">05 / Components</div>
+    <div class="title">The working set</div>
+    <div class="desc">Eight core patterns lifted directly from the Editorial app. Every screen is composed of these.</div>
+  </div>
+
+  <div class="comp-grid">
+
+    <!-- Buttons -->
+    <div class="comp-card">
+      <div class="head"><h4>Buttons</h4><span class="label">5 variants</span></div>
+      <div class="stage">
+        <button class="btn btn-primary">Start review →</button>
+        <button class="btn btn-secondary">Edit deck</button>
+        <button class="btn btn-ghost">Cancel</button>
+        <button class="btn btn-disabled">Check answer</button>
+        <button class="btn-link">Save all →</button>
+      </div>
+      <div class="notes">Primary fills accent. Secondary uses 1px border on surface. Disabled state uses Dim, not low opacity.</div>
+    </div>
+
+    <!-- Badges -->
+    <div class="comp-card">
+      <div class="head"><h4>Status badges</h4><span class="label">Card lifecycle</span></div>
+      <div class="stage">
+        <span class="badge badge-due">Due</span>
+        <span class="badge badge-learning">Learning</span>
+        <span class="badge badge-mastered">Mastered</span>
+        <span class="badge badge-success">✓ Correct</span>
+        <span class="badge badge-error">✗ No match</span>
+        <span class="badge badge-outline">Choose</span>
+      </div>
+      <div class="notes">Pill radius, mono caps, 9.5px. Color pair: 100-tier wash background, 700-tier text.</div>
+    </div>
+
+    <!-- Inputs -->
+    <div class="comp-card">
+      <div class="head"><h4>Inputs</h4><span class="label">Field states</span></div>
+      <div class="stage">
+        <input class="input-field" placeholder="Search decks" />
+        <input class="input-field focus" value="Quedar" />
+      </div>
+      <div class="notes">Default sits inside the canvas (Bg) on Surface; focused state lifts to Surface with accent border + 12% wash ring.</div>
+    </div>
+
+    <!-- Progress -->
+    <div class="comp-card">
+      <div class="head"><h4>Progress</h4><span class="label">Mastery · queue</span></div>
+      <div class="stage" style="flex-direction: column; align-items: stretch; gap: 18px;">
+        <div>
+          <div class="label" style="margin-bottom: 8px;">Mastery · 62%</div>
+          <div class="progress"><span style="width: 62%;"></span></div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom: 8px;">Daily goal · 32%</div>
+          <div class="progress"><span style="width: 32%;"></span></div>
+        </div>
+      </div>
+      <div class="notes">2px hairline track on Dim. Fill in accent. Never animated as a victory; treated as a quiet line.</div>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="comp-card">
+      <div class="head"><h4>Stat cards</h4><span class="label">Numbers as headline</span></div>
+      <div class="stage" style="gap: 16px;">
+        <div class="stat-card">
+          <div class="stat-label">Reviewed</div>
+          <div class="stat-val">128</div>
+          <div class="stat-sub">this week</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Accuracy</div>
+          <div class="stat-val">84%</div>
+          <div class="stat-sub">7-day avg</div>
+        </div>
+      </div>
+      <div class="notes">Always: small mono label · big grotesk number · small mono caption. Numbers run tabular-nums.</div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="comp-card full">
+      <div class="head"><h4>Tab bar</h4><span class="label">Interactive · click a tab</span></div>
+      <div class="stage" style="padding: 0; align-items: stretch; justify-content: center;">
+        <div style="padding: 48px 20px 24px; display: flex; align-items: center; justify-content: center; width: 100%; background: var(--bg);">
+          <div class="tabbar" id="ds-tabbar">
+            <button class="tab active" type="button" data-tab="home">
+              <svg viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9H4z"/></svg>
+              <span class="tlabel">Today</span>
+            </button>
+            <button class="tab" type="button" data-tab="library">
+              <svg viewBox="0 0 24 24"><rect x="5" y="4" width="14" height="16" rx="1.5"/><path d="M9 4v16"/></svg>
+              <span class="tlabel">Library</span>
+            </button>
+            <div class="fab-slot" data-fab>
+              <button class="fab" type="button" data-tab="create" aria-label="Create">
+                <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              </button>
+              <span class="fab-label">Create</span>
+            </div>
+            <button class="tab" type="button" data-tab="explore">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M15.5 8.5L13 13l-4.5 2.5L11 11z" stroke-linejoin="round"/></svg>
+              <span class="tlabel">Explore</span>
+            </button>
+            <button class="tab" type="button" data-tab="profile">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="9" r="3.5"/><path d="M5 20c1.4-3.6 4-5 7-5s5.6 1.4 7 5"/></svg>
+              <span class="tlabel">You</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div class="notes">Four tabs flank a centered, elevated Create FAB. Tabs use 1.6px stroke icons + mono labels; active state = bold label + dark icon. The FAB is the only surface in the system that uses shadow.</div>
+    </div>
+
+    <script>
+      (function(){
+        var bar = document.getElementById('ds-tabbar');
+        if (!bar) return;
+        var btns = bar.querySelectorAll('[data-tab]');
+        var fabSlot = bar.querySelector('[data-fab]');
+        function setActive(target) {
+          btns.forEach(function(b){
+            var isActive = b === target;
+            if (b.classList.contains('tab')) {
+              b.classList.toggle('active', isActive);
+            }
+            if (b.classList.contains('fab')) {
+              b.classList.toggle('active', isActive);
+              if (fabSlot) fabSlot.classList.toggle('active', isActive);
+            }
+          });
+        }
+        btns.forEach(function(b){
+          b.addEventListener('click', function(){ setActive(b); });
+        });
+      })();
+    </script>
+
+    <!-- Card list pattern -->
+    <div class="comp-card full">
+      <div class="head"><h4>Card list</h4><span class="label">Up Next · Library decks</span></div>
+      <div class="stage" style="padding: 24px; gap: 32px; flex-wrap: wrap; align-items: flex-start;">
+        <div class="card-list">
+          <div class="label" style="margin-bottom: 4px;">Up Next · Today</div>
+          <div class="card-row">
+            <div style="flex:1; min-width: 0;">
+              <div class="topic">World History</div>
+              <div class="card-title">The Treaty of Westphalia (1648)</div>
+            </div>
+            <span class="due-mark">4 due</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="card-row">
+            <div style="flex:1; min-width: 0;">
+              <div class="topic">Spanish · A2</div>
+              <div class="card-title">"Quedar" vs "Quedarse"</div>
+            </div>
+            <span class="due-mark">7 due</span>
+            <span class="chev">›</span>
+          </div>
+          <div class="card-row">
+            <div style="flex:1; min-width: 0;">
+              <div class="topic">Microeconomics</div>
+              <div class="card-title">Cross-price elasticity</div>
+            </div>
+            <span class="due-mark">3 due</span>
+            <span class="chev">›</span>
+          </div>
+        </div>
+
+        <div class="card-list">
+          <div class="label" style="margin-bottom: 4px;">All Decks · Library</div>
+          <div class="deck-row">
+            <div class="top">
+              <div class="title">World History · 1500–1900</div>
+              <div class="due">7 due</div>
+            </div>
+            <div class="sub">Treaties, revolutions, colonization</div>
+            <div class="meter">
+              <div class="progress"><span style="width: 62%;"></span></div>
+              <div class="count">84 cards</div>
+              <div class="pct">62%</div>
+            </div>
+          </div>
+          <div class="deck-row">
+            <div class="top">
+              <div class="title">Spanish · A2</div>
+              <div class="due">11 due</div>
+            </div>
+            <div class="sub">Verbs, prepositions, idioms</div>
+            <div class="meter">
+              <div class="progress"><span style="width: 48%;"></span></div>
+              <div class="count">142 cards</div>
+              <div class="pct">48%</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="notes">Lists are streams of standalone rounded cards (10px radius) on the page canvas, separated by 8px gaps. Each card carries its own 1px border — no flush dividers, no full-bleed rows.</div>
+    </div>
+
+    <!-- MCQ -->
+    <div class="comp-card full">
+      <div class="head"><h4>Multiple choice — answer states</h4><span class="label">Quiz</span></div>
+      <div class="stage" style="flex-direction: column; align-items: stretch; gap: 18px; padding: 32px 24px;">
+        <div class="label">Default · A selected, no answer revealed</div>
+        <div class="mcq">
+          <div class="opt selected"><div class="strip"></div><div class="body"><div class="letter">A</div><div class="text">The principle of state sovereignty in international relations</div></div></div>
+          <div class="opt"><div class="strip"></div><div class="body"><div class="letter">B</div><div class="text">The abolition of the Holy Roman Empire entirely</div></div></div>
+          <div class="opt"><div class="strip"></div><div class="body"><div class="letter">C</div><div class="text">A unified European currency system</div></div></div>
+        </div>
+        <div class="label" style="margin-top: 8px;">Revealed · A correct, C selected</div>
+        <div class="mcq">
+          <div class="opt correct"><div class="strip"></div><div class="body"><div class="letter"><svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7"/></svg></div><div class="text">The principle of state sovereignty in international relations</div></div></div>
+          <div class="opt"><div class="strip"></div><div class="body"><div class="letter">B</div><div class="text">The abolition of the Holy Roman Empire entirely</div></div></div>
+          <div class="opt wrong"><div class="strip"></div><div class="body"><div class="letter"><svg viewBox="0 0 24 24" width="11" height="11" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round"><path d="M6 6l12 12M18 6l-12 12"/></svg></div><div class="text">A unified European currency system</div></div></div>
+        </div>
+      </div>
+      <div class="notes">3px left strip + 100-wash background communicate state. Letter chip swaps to filled solid + check/cross glyph on reveal.</div>
+    </div>
+
+    <!-- Streak -->
+    <div class="comp-card">
+      <div class="head"><h4>Streak grid</h4><span class="label">Profile · 7-day</span></div>
+      <div class="stage" style="flex-direction: column; align-items: stretch;">
+        <div class="streak">
+          <div class="day on"><div class="dot"></div><div class="d">M</div></div>
+          <div class="day on"><div class="dot"></div><div class="d">T</div></div>
+          <div class="day on"><div class="dot"></div><div class="d">W</div></div>
+          <div class="day on"><div class="dot"></div><div class="d">T</div></div>
+          <div class="day"><div class="dot"></div><div class="d">F</div></div>
+          <div class="day"><div class="dot"></div><div class="d">S</div></div>
+          <div class="day"><div class="dot"></div><div class="d">S</div></div>
+        </div>
+      </div>
+      <div class="notes">Square dots, 4px radius. Filled = reviewed. The empty days sit on Bg with a 1.5px Border outline.</div>
+    </div>
+
+    <!-- Empty state -->
+    <div class="comp-card">
+      <div class="head"><h4>Empty / Create state</h4><span class="label">Dashed CTA</span></div>
+      <div class="stage" style="padding: 24px;">
+        <div style="padding: 14px 16px; border: 1px dashed var(--dim); border-radius: 10px; display: flex; align-items: center; justify-content: space-between; width: 100%; background: var(--bg);">
+          <div>
+            <div style="font-family: var(--grotesk); font-size: 13px; font-weight: 600;">Make a new set</div>
+            <div style="font-family: var(--mono); font-size: 11px; color: var(--muted); margin-top: 3px;">Generate cards from a question or doc</div>
+          </div>
+          <span style="font-size: 18px; color: var(--muted);">+</span>
+        </div>
+      </div>
+      <div class="notes">Always dashed Dim border on Bg. Communicates "not yet a thing" without weight or color.</div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ─── 06 TOKENS ─────────────────────────────────────────── -->
+<section>
+  <div class="section-head">
+    <div class="num">06 / Tokens</div>
+    <div class="title">CSS variables</div>
+    <div class="desc">Drop-in tokens. Names match the React const ED used by the prototype.</div>
+  </div>
+
+  <table class="token-table">
+    <thead>
+      <tr><th style="width: 200px;">Token</th><th style="width: 220px;">Value</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="var">--bg</td><td class="val"><span class="swatchcell" style="background: var(--bg)"></span>#F0EEE9</td><td class="desc">Outer page canvas, dashed empty backgrounds</td></tr>
+      <tr><td class="var">--canvas</td><td class="val"><span class="swatchcell" style="background: var(--canvas)"></span>#FAFAF8</td><td class="desc">App canvas inside the device frame</td></tr>
+      <tr><td class="var">--surf</td><td class="val"><span class="swatchcell" style="background: var(--surf)"></span>#FFFFFF</td><td class="desc">Cards, list rows, modal sheets</td></tr>
+      <tr><td class="var">--border</td><td class="val"><span class="swatchcell" style="background: var(--border)"></span>#E5E3DE</td><td class="desc">Default 1px hairline</td></tr>
+      <tr><td class="var">--accent</td><td class="val"><span class="swatchcell" style="background: var(--accent)"></span>#1A8A72</td><td class="desc">Primary action, active state, due signal</td></tr>
+      <tr><td class="var">--accentL</td><td class="val"><span class="swatchcell" style="background: var(--accentL)"></span>#E6F5F2</td><td class="desc">Selected option wash, due badge bg</td></tr>
+      <tr><td class="var">--text</td><td class="val"><span class="swatchcell" style="background: var(--text)"></span>#1A1916</td><td class="desc">Headlines, primary text</td></tr>
+      <tr><td class="var">--sub</td><td class="val"><span class="swatchcell" style="background: var(--sub)"></span>#37352F</td><td class="desc">Body, list item titles</td></tr>
+      <tr><td class="var">--muted</td><td class="val"><span class="swatchcell" style="background: var(--muted)"></span>#9B9790</td><td class="desc">Labels, captions, eyebrow text</td></tr>
+      <tr><td class="var">--dim</td><td class="val"><span class="swatchcell" style="background: var(--dim)"></span>#D8D5CF</td><td class="desc">Progress track, dashed border, chevron</td></tr>
+      <tr><td class="var">--green / --greenL</td><td class="val"><span class="swatchcell" style="background: var(--green)"></span>#0F7E4A · #EDFBF3</td><td class="desc">Correct answer feedback</td></tr>
+      <tr><td class="var">--red / --redL</td><td class="val"><span class="swatchcell" style="background: var(--red)"></span>#E03E3E · #FEF2F2</td><td class="desc">Incorrect answer feedback</td></tr>
+      <tr><td class="var">--warn / --warnL</td><td class="val"><span class="swatchcell" style="background: var(--warn)"></span>#B89A2E · #FAF4DD</td><td class="desc">"Learning" status badge</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer class="colophon">
+  <div><strong>System</strong>MemQ · Editorial v1.0<br/>Derived from the Editorial App prototype.</div>
+  <div><strong>Type</strong>Space Grotesk 400–900<br/>JetBrains Mono 400–700<br/>Fraunces 9..144 (alternate)</div>
+  <div><strong>Surface</strong>iOS 320×640 prototype<br/>Tab bar nav, 6 screens<br/>One accent · one radius scale</div>
+</footer>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="80" fill="#F0EEE9"/>
+  <rect x="20" y="20" width="20" height="40" fill="#1A8A72"/>
+  <rect x="44" y="20" width="20" height="40" fill="#FFFFFF" stroke="#E5E3DE"/>
+  <rect x="68" y="20" width="20" height="40" fill="#1A1916"/>
+  <text x="60" y="74" text-anchor="middle" fill="#9B9790" font-size="6" font-family="monospace">DESIGN SYSTEM</text>
+</svg>
+</template>
+
+</body>
+</html>

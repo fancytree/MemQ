@@ -6,6 +6,7 @@
 import { useSubscription } from '@/context/SubscriptionContext';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/safeBack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import {
@@ -29,7 +30,7 @@ export default function UnlockProScreen() {
   };
 
   const handleClose = () => {
-    router.back();
+    safeBack('/(tabs)/profile');
   };
 
   return (

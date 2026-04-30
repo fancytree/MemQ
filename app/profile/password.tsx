@@ -1,8 +1,9 @@
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import BackIcon from '@/components/icons/BackIcon';
+import { safeBack } from '@/lib/safeBack';
+import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { useNavigation } from '@react-navigation/native';
+import { colors } from '@/theme';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -121,7 +122,7 @@ export default function PasswordEditScreen() {
       Alert.alert('Success', 'Password updated successfully', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: () => safeBack('/(tabs)/profile'),
         },
       ]);
     } catch (err) {
@@ -144,27 +145,18 @@ export default function PasswordEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButtonHeader}
-              activeOpacity={0.7}
-            >
-              <BackIcon size={20} color="#0A0A0A" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Password</Text>
-            <View style={styles.headerRight} />
-          </View>
+          <SecondaryPageNav onBack={() => safeBack('/(tabs)/profile')} />
 
-          {/* 错误提示 */}
-          {error && (
-            <View style={styles.errorBanner}>
-              <Text style={styles.errorBannerText}>{error}</Text>
-            </View>
-          )}
+          <View style={styles.bodyContent}>
+            {/* 错误提示 */}
+            {error && (
+              <View style={styles.errorBanner}>
+                <Text style={styles.errorBannerText}>{error}</Text>
+              </View>
+            )}
 
-          {/* 表单区域 */}
-          <View style={styles.formCard}>
+            {/* 表单区域 */}
+            <View style={styles.formCard}>
             {/* Current Password */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
@@ -192,7 +184,7 @@ export default function PasswordEditScreen() {
                   <Feather
                     name={showCurrentPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color="#6B7280"
+                    color={colors.muted}
                   />
                 </TouchableOpacity>
               </View>
@@ -225,7 +217,7 @@ export default function PasswordEditScreen() {
                   <Feather
                     name={showNewPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color="#6B7280"
+                    color={colors.muted}
                   />
                 </TouchableOpacity>
               </View>
@@ -258,33 +250,34 @@ export default function PasswordEditScreen() {
                   <Feather
                     name={showConfirmPassword ? 'eye-off' : 'eye'}
                     size={20}
-                    color="#6B7280"
+                    color={colors.muted}
                   />
                 </TouchableOpacity>
               </View>
             </View>
 
             <View style={styles.infoBox}>
-              <Feather name="info" size={16} color="#6366F1" />
+              <Feather name="info" size={16} color={colors.accent} />
               <Text style={styles.infoText}>
                 Password must be at least 6 characters long.
               </Text>
             </View>
-          </View>
+            </View>
 
-          {/* Save Changes 按钮 */}
-          <TouchableOpacity
-            style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={saving}
-            activeOpacity={0.8}
-          >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.saveButtonText}>Save Changes</Text>
-            )}
-          </TouchableOpacity>
+            {/* Save Changes 按钮 */}
+            <TouchableOpacity
+              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+              onPress={handleSave}
+              disabled={saving}
+              activeOpacity={0.8}
+            >
+              {saving ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Text style={styles.saveButtonText}>Save Changes</Text>
+              )}
+            </TouchableOpacity>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -294,7 +287,7 @@ export default function PasswordEditScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
   },
   keyboardView: {
     flex: 1,
@@ -305,92 +298,77 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
-  },
-  backButtonHeader: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(120,116,150,0.08)',
-    borderRadius: 16.4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerRight: {
-    width: 40,
+  bodyContent: {
+    paddingTop: 16,
   },
   errorBanner: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#FEF2F2',
     padding: 12,
     marginHorizontal: 20,
     marginBottom: 16,
     borderRadius: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: '#EF4444',
+    borderWidth: 1,
+    borderColor: colors.red,
   },
   errorBannerText: {
-    color: '#DC2626',
-    fontSize: 14,
-    fontWeight: '500',
+    color: colors.red,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
   },
   formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
+    backgroundColor: colors.surf,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 16,
     marginHorizontal: 20,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    color: colors.muted,
     marginBottom: 8,
   },
   required: {
-    color: '#EF4444',
+    color: colors.red,
   },
   passwordInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 8,
   },
   passwordInput: {
     flex: 1,
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 13,
     fontSize: 16,
-    color: '#111827',
+    lineHeight: 22,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+    color: colors.text,
   },
   eyeButton: {
     padding: 12,
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: '#EEF2FF',
+    backgroundColor: colors.accentL,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 12,
     borderRadius: 8,
     alignItems: 'flex-start',
@@ -398,34 +376,34 @@ const styles = StyleSheet.create({
   },
   infoText: {
     flex: 1,
-    fontSize: 13,
-    color: '#4338CA',
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.1,
+    color: colors.sub,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
     marginLeft: 8,
-    lineHeight: 18,
   },
   saveButton: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 12,
-    paddingVertical: 16,
+    backgroundColor: colors.accent,
+    borderWidth: 1,
+    borderColor: '#146B59',
+    borderRadius: 8,
+    paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
   },
 });
 

@@ -1,8 +1,9 @@
-import BackIcon from '@/components/icons/BackIcon';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { Image } from 'expo-image';
-import { router } from 'expo-router';
+import { safeBack } from '@/lib/safeBack';
+import { SecondaryPageNav } from '@/components/SecondaryPageNav';
+import { colors } from '@/theme';
 import React, { useEffect } from 'react';
 import {
     Linking,
@@ -51,23 +52,11 @@ export default function HelpCenterScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <SecondaryPageNav onBack={() => safeBack('/(tabs)/profile')} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButtonHeader}
-            activeOpacity={0.7}
-          >
-            <BackIcon size={20} color="#0A0A0A" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Help Center</Text>
-          <View style={styles.headerRight} />
-        </View>
-
         {/* Content */}
         <View style={styles.content}>
           <Text style={styles.title}>Need Help?</Text>
@@ -113,7 +102,7 @@ export default function HelpCenterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
   },
   scrollView: {
     flex: 1,
@@ -121,102 +110,95 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
-  },
-  backButtonHeader: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(120,116,150,0.08)',
-    borderRadius: 16.4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerRight: {
-    width: 40,
-  },
   content: {
     paddingHorizontal: 20,
-    paddingTop: 20,
+    paddingTop: 16,
   },
   title: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 12,
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: -0.2,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
+    color: colors.text,
+    marginBottom: 10,
   },
   description: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#6B7280',
-    marginBottom: 32,
+    fontSize: 13,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+    color: colors.muted,
+    marginBottom: 20,
   },
   whatsappButton: {
-    backgroundColor: '#25D366',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
+    backgroundColor: colors.accent,
+    borderWidth: 1,
+    borderColor: '#146B59',
+    borderRadius: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    marginBottom: 32,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    marginBottom: 20,
   },
   whatsappButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
   },
   qrCodeContainer: {
     alignItems: 'center',
-    marginBottom: 32,
-    padding: 24,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    marginBottom: 20,
+    padding: 16,
+    backgroundColor: colors.surf,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   qrCodeTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
-    marginBottom: 16,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    color: colors.text,
+    marginBottom: 12,
   },
   qrCodeImage: {
-    width: 200,
-    height: 200,
+    width: 180,
+    height: 180,
   },
   emailContainer: {
-    padding: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    padding: 16,
+    backgroundColor: colors.surf,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
   },
   emailLabel: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+    color: colors.muted,
     marginBottom: 8,
   },
   emailLink: {
-    fontSize: 16,
-    color: '#6366F1',
-    fontWeight: '600',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_600',
+    fontWeight: '400',
+    color: colors.accent,
   },
 });
 

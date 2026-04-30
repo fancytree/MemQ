@@ -1,3 +1,4 @@
+import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
@@ -55,12 +56,12 @@ export default function MenuItem({
             <Switch
               value={toggleValue}
               onValueChange={onToggle}
-              trackColor={{ false: '#E5E7EB', true: '#6366F1' }}
+              trackColor={{ false: colors.border, true: colors.accent }}
               thumbColor="#FFFFFF"
-              ios_backgroundColor="#E5E7EB"
+              ios_backgroundColor={colors.border}
             />
           ) : (
-            <Feather name="chevron-right" size={20} color="#9CA3AF" />
+            <Feather name="chevron-right" size={20} color={colors.muted} />
           )}
         </View>
       </TouchableOpacity>
@@ -74,9 +75,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
   },
   leftSection: {
     flexDirection: 'row',
@@ -87,6 +88,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -95,19 +98,27 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_500',
+    color: colors.text,
     marginBottom: 2,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_400',
+    color: colors.muted,
     marginTop: 2,
   },
   value: {
-    fontSize: 16,
-    color: '#111827',
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
     marginTop: 2,
   },
@@ -116,7 +127,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.border,
     marginLeft: 68, // 对齐文字部分
   },
 });

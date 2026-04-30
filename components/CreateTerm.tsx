@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/safeBack';
 import React, { useState } from 'react';
 import {
     ActivityIndicator,
@@ -130,7 +131,7 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
         {/* 顶部导航栏 */}
         <View style={styles.header}>
           <TouchableOpacity
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(tabs)/library')}
             style={styles.backButton}
             activeOpacity={0.7}
           >

@@ -1,4 +1,5 @@
 import BackIcon from '@/components/icons/BackIcon';
+import { safeBack } from '@/lib/safeBack';
 import { MemQTheme } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
 import * as Linking from 'expo-linking';
@@ -144,7 +145,7 @@ export default function ForgotPasswordScreen() {
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
-              onPress={() => router.back()}
+              onPress={() => safeBack('/login')}
               style={styles.backButton}
               activeOpacity={0.7}
             >
@@ -189,7 +190,7 @@ export default function ForgotPasswordScreen() {
 
           <TouchableOpacity
             style={styles.backToLoginLink}
-            onPress={() => router.back()}
+            onPress={() => safeBack('/login')}
             disabled={loading}
             activeOpacity={0.7}
           >

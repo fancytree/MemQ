@@ -1,10 +1,11 @@
-import BackIcon from '@/components/icons/BackIcon';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/lib/safeBack';
 import React, { useEffect, useRef, useState } from 'react';
+import { colors } from '@/theme';
 import {
   ActivityIndicator,
   Alert,
@@ -183,7 +184,7 @@ export default function LessonSettingsScreen() {
       Alert.alert('Success', 'Lesson updated successfully', [
         {
           text: 'OK',
-          onPress: () => router.back(),
+          onPress: () => safeBack('/(tabs)/library'),
         },
       ]);
     } catch (err) {
@@ -268,7 +269,7 @@ export default function LessonSettingsScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#6366F1" />
+          <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Loading lesson...</Text>
         </View>
       </SafeAreaView>
@@ -279,12 +280,12 @@ export default function LessonSettingsScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
-          <Feather name="alert-circle" size={48} color="#EF4444" />
+          <Feather name="alert-circle" size={48} color={colors.red} />
           <Text style={styles.errorTitle}>Error</Text>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(tabs)/library')}
             activeOpacity={0.8}
           >
             <Text style={styles.backButtonText}>Go Back</Text>
@@ -300,24 +301,23 @@ export default function LessonSettingsScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
+        <View style={styles.topbar}>
+          <TouchableOpacity
+            onPress={() => safeBack('/(tabs)/library')}
+            style={styles.topbarSideBtn}
+            activeOpacity={0.7}
+            disabled={saving || deleting}
+          >
+            <Text style={styles.cancel}>Cancel</Text>
+          </TouchableOpacity>
+          <Text pointerEvents="none" style={styles.title}>Edit Lesson</Text>
+          <View style={styles.topbarSideBtn} />
+        </View>
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButtonHeader}
-              activeOpacity={0.7}
-            >
-              <BackIcon size={20} color="#0A0A0A" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Lesson Settings</Text>
-            <View style={styles.headerRight} />
-          </View>
-
           {/* 错误提示 */}
           {error && (
             <View style={styles.errorBanner}>
@@ -333,9 +333,9 @@ export default function LessonSettingsScreen() {
                 Lesson Name <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.singleLineInput]}
                 placeholder="Enter lesson name"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.muted}
                 value={lessonName}
                 onChangeText={(text) => {
                   setLessonName(text);
@@ -351,7 +351,7 @@ export default function LessonSettingsScreen() {
               <TextInput
                 style={[styles.input, styles.textarea]}
                 placeholder="Enter description (optional)"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.muted}
                 value={description}
                 onChangeText={setDescription}
                 multiline
@@ -367,7 +367,7 @@ export default function LessonSettingsScreen() {
                 <View style={styles.switchLabelContainer}>
                   <Text style={styles.label}>Vocabulary Mode</Text>
                   <Text style={styles.switchDescription}>
-                    Optimizes questions for language learning (pronunciation, synonyms, antonyms, sentences).
+                    For words and phrases only. Not for grammar.
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -418,7 +418,7 @@ export default function LessonSettingsScreen() {
                 )}
               </View>
               <TouchableOpacity
-                style={styles.input}
+                style={[styles.input, styles.singleLineInput, styles.dateInputButton]}
                 onPress={() => !saving && !deleting && setShowDatePicker(true)}
                 disabled={saving || deleting}
                 activeOpacity={0.7}
@@ -459,10 +459,10 @@ export default function LessonSettingsScreen() {
             activeOpacity={0.8}
           >
             {deleting ? (
-              <ActivityIndicator size="small" color="#EF4444" />
+              <ActivityIndicator size="small" color={colors.red} />
             ) : (
               <>
-                <Feather name="trash-2" size={20} color="#EF4444" />
+                <Feather name="trash-2" size={20} color={colors.red} />
                 <Text style={styles.deleteButtonText}>Delete Lesson</Text>
               </>
             )}
@@ -549,10 +549,57 @@ export default function LessonSettingsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
   },
   keyboardView: {
     flex: 1,
+  },
+  topbar: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    position: 'relative',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  topbarSideBtn: {
+    minWidth: 64,
+    zIndex: 2,
+  },
+  cancel: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+  },
+  title: {
+    fontSize: 16,
+    lineHeight: 22.4,
+    letterSpacing: -0.1,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_800',
+    fontWeight: '400',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+  },
+  tag: {
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    color: colors.accent,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
+    textAlign: 'right',
+  },
+  tagDisabled: {
+    opacity: 0.6,
   },
   loadingContainer: {
     flex: 1,
@@ -561,8 +608,9 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: 13,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
   },
   errorContainer: {
     flex: 1,
@@ -571,83 +619,61 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   errorTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 20,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_700',
     marginTop: 16,
     marginBottom: 8,
   },
   errorText: {
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
     textAlign: 'center',
     marginBottom: 32,
   },
   backButton: {
-    backgroundColor: '#3B82F6',
-    paddingHorizontal: 24,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 20,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 8,
   },
   backButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 40,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 24,
-  },
-  backButtonHeader: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(120,116,150,0.08)',
-    borderRadius: 16.4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerRight: {
-    width: 40,
+    paddingBottom: 28,
   },
   errorBanner: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: colors.redLight,
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#EF4444',
+    borderColor: '#FCA5A5',
   },
   errorBannerText: {
-    color: '#DC2626',
-    fontSize: 14,
+    color: colors.red,
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: 'JetBrainsMono_500',
   },
   formCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: colors.surf,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
     padding: 20,
     marginBottom: 24,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   inputGroup: {
     marginBottom: 24,
@@ -659,74 +685,70 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   label: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.1,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_600',
     marginBottom: 8,
   },
   labelInRow: {
     marginBottom: 0,
   },
   required: {
-    color: '#EF4444',
+    color: colors.red,
   },
   input: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
+    backgroundColor: colors.bg,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 16,
-    color: '#111827',
+    lineHeight: 24,
+    letterSpacing: -0.1,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_400',
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   textarea: {
     minHeight: 100,
     paddingTop: 14,
   },
+  singleLineInput: {
+    minHeight: 52,
+    lineHeight: 24,
+    paddingTop: 12,
+    paddingBottom: 16,
+  },
+  dateInputButton: {
+    justifyContent: 'center',
+  },
   datePickerText: {
     fontSize: 16,
-    color: '#111827',
+    lineHeight: 24,
+    letterSpacing: -0.1,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_400',
   },
   datePickerPlaceholder: {
-    color: '#9CA3AF',
+    color: colors.muted,
   },
   clearButton: {
     paddingVertical: 4,
     paddingHorizontal: 8,
   },
   clearButtonText: {
-    fontSize: 14,
-    color: '#EF4444',
-    fontWeight: '500',
-  },
-  saveButton: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 12,
-    paddingVertical: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 12,
+    color: colors.red,
+    lineHeight: 17,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_600',
   },
   deleteButton: {
-    backgroundColor: '#FEE2E2',
-    borderRadius: 12,
+    backgroundColor: colors.redLight,
+    borderRadius: 8,
     paddingVertical: 16,
     flexDirection: 'row',
     alignItems: 'center',
@@ -738,21 +760,47 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   deleteButtonText: {
-    color: '#EF4444',
-    fontSize: 18,
-    fontWeight: '600',
+    color: colors.red,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
     marginLeft: 8,
+  },
+  saveButton: {
+    backgroundColor: colors.accent,
+    borderRadius: 8,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
+  },
+  saveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
     justifyContent: 'flex-end',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 40,
+    backgroundColor: colors.surf,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: colors.border,
+    paddingBottom: 24,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -761,28 +809,32 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   modalButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.text,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   modalCancelText: {
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: 13,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_500',
   },
   modalDoneText: {
-    fontSize: 16,
-    color: '#6366F1',
-    fontWeight: '600',
+    fontSize: 13,
+    color: colors.accent,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   datePickerContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     paddingVertical: 10,
   },
   switchContainer: {
@@ -795,21 +847,22 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   switchDescription: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
     marginTop: 4,
-    lineHeight: 20,
   },
   switch: {
     width: 50,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#D1D5DB',
+    backgroundColor: colors.dim,
     justifyContent: 'center',
     paddingHorizontal: 2,
   },
   switchActive: {
-    backgroundColor: '#4E49FC',
+    backgroundColor: colors.accent,
   },
   switchDisabled: {
     opacity: 0.5,
@@ -819,14 +872,6 @@ const styles = StyleSheet.create({
     height: 26,
     borderRadius: 13,
     backgroundColor: '#FFFFFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
   },
 });
 

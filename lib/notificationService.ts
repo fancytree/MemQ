@@ -5,6 +5,8 @@ import { Platform } from 'react-native';
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
     shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
     shouldPlaySound: true,
     shouldSetBadge: true,
   }),
@@ -34,7 +36,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
         name: 'Study Reminders',
         description: 'Reminders for your daily study sessions',
         importance: Notifications.AndroidImportance.HIGH,
-        sound: true,
+        sound: 'default',
         vibrationPattern: [0, 250, 250, 250],
         lightColor: '#FF231F7C',
       });
@@ -102,7 +104,7 @@ export async function scheduleDailyReminders(times: string[]): Promise<void> {
         content: {
           title: '📚 Time to Study!',
           body: 'Don\'t forget to review your vocabulary today!',
-          sound: true,
+          sound: 'default',
           priority: Notifications.AndroidNotificationPriority.HIGH,
           data: {
             type: 'study-reminder',
@@ -113,7 +115,6 @@ export async function scheduleDailyReminders(times: string[]): Promise<void> {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
           hour: hours,
           minute: minutes,
-          repeats: true, // 每日重复
         },
       });
 

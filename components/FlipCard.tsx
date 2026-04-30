@@ -66,7 +66,6 @@ export default function FlipCard({
             onPress={onFlip}
             activeOpacity={1}
             style={styles.overlay}
-            pointerEvents="auto"
           />
         )}
       </Animated.View>

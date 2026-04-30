@@ -1,10 +1,10 @@
 // import EditIcon from '@/components/icons/EditIcon';
-import FaceIcon from '@/components/icons/FaceIcon';
 import FloatingAIButtonIcon from '@/components/icons/FloatingAIButtonIcon';
 // import HistoryIcon from '@/components/icons/HistoryIcon';
 import SendIcon from '@/components/icons/SendIcon';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Clipboard from 'expo-clipboard';
@@ -19,6 +19,7 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -51,7 +52,9 @@ interface AIChatModalProps {
 }
 
 // 聊天入口类型
-type ChatEntryType = 'ask' | 'vocab_lookup';
+type ChatEntryType = 'ask' | 'vocab_lookup' | 'quiz';
+type InitialTabType = 'qa' | 'vocabulary' | 'quiz';
+type AIStatus = 'thinking' | 'generating' | 'extracting' | 'ready_to_save' | null;
 
 // 本地存储的对话会话
 interface ChatSession {
@@ -60,19 +63,57 @@ interface ChatSession {
   lastUpdated: number;
 }
 
+interface UserLessonOption {
+  id: string;
+  name: string;
+}
+
+interface LessonDropdownPortalState {
+  visible: boolean;
+  messageId: string | null;
+  x: number;
+  y: number;
+  width: number;
+}
+
 export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
+  const INITIAL_INPUT_MIN_HEIGHT = 22;
+  const INITIAL_INPUT_MAX_HEIGHT = 120;
+  const CHAT_INPUT_MAX_HEIGHT = 120;        // ~5 lines before scroll kicks in
   const insets = useSafeAreaInsets();
   const { isPro, showPaywall } = useSubscription();
   const [mode, setMode] = useState<'initial' | 'chat'>('initial');
   const [chatMode, setChatMode] = useState<ChatEntryType>('ask'); // 当前聊天入口
+  const [initialTab, setInitialTab] = useState<InitialTabType>('qa');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
+  const [initialInputHeight, setInitialInputHeight] = useState(INITIAL_INPUT_MIN_HEIGHT);
+  const [isInitialInputScrollable, setIsInitialInputScrollable] = useState(false);
+  const [chatInputScrollable, setChatInputScrollable] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [aiStatus, setAiStatus] = useState<AIStatus>(null);
+  const [aiStatusDots, setAiStatusDots] = useState(1);
   const [keyboardHeight, setKeyboardHeight] = useState(0);
   const [threadId, setThreadId] = useState<string | null>(null); // OpenAI Thread ID
+  const [availableLessons, setAvailableLessons] = useState<UserLessonOption[]>([]);
+  const [quizTargetLessonId, setQuizTargetLessonId] = useState<string>('random');
+  const [quizLessonSearch, setQuizLessonSearch] = useState('');
+  const [lessonDraftByMessage, setLessonDraftByMessage] = useState<Record<string, string>>({});
+  const [lessonDropdownOpenByMessage, setLessonDropdownOpenByMessage] = useState<Record<string, boolean>>({});
+  const [activeLessonMessageId, setActiveLessonMessageId] = useState<string | null>(null);
+  const [lessonDropdownPortal, setLessonDropdownPortal] = useState<LessonDropdownPortalState>({
+    visible: false,
+    messageId: null,
+    x: 0,
+    y: 0,
+    width: 0,
+  });
+  const lessonInputWrapRefs = useRef<Record<string, View | null>>({});
   const flatListRef = useRef<FlatList>(null);
+  const initialScrollRef = useRef<ScrollView>(null);
   const prevModeRef = useRef<'initial' | 'chat'>('initial');
   const prevMessagesLengthRef = useRef<number>(0);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
   // 对话次数限制（未订阅用户每天可以使用8次）
   const FREE_TIER_MESSAGE_LIMIT = 8;
@@ -82,9 +123,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const [chatSessions, setChatSessions] = useState<{
     ask: ChatSession;
     vocab_lookup: ChatSession;
+    quiz: ChatSession;
   }>({
     ask: { threadId: null, messages: [], lastUpdated: 0 },
     vocab_lookup: { threadId: null, messages: [], lastUpdated: 0 },
+    quiz: { threadId: null, messages: [], lastUpdated: 0 },
   });
   
   // 历史记录相关状态 - 已注释
@@ -104,6 +147,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     const welcomeTexts = {
       ask: "Hello! I'm your AI Study Assistant. How can I help you today?",
       vocab_lookup: "Ready! Type any word, and I'll give you its meaning, pronunciation, and examples.",
+      quiz: "Ready for practice! Choose a lesson (or Random), and I'll start a focused quiz with adaptive difficulty.",
     };
     return {
       id: `welcome-${Date.now()}`,
@@ -210,6 +254,9 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     setMode('chat');
   };
 
+  const getEntryTypeFromTab = (tab: InitialTabType): ChatEntryType =>
+    tab === 'qa' ? 'ask' : tab === 'vocabulary' ? 'vocab_lookup' : 'quiz';
+
   // 获取今天的日期字符串（用于每日重置）
   const getTodayDateString = () => {
     const today = new Date();
@@ -266,15 +313,74 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     if (visible) {
       setMode('initial');
       setChatMode('ask');
+      setInitialTab('qa');
       setInputText('');
+      setInitialInputHeight(INITIAL_INPUT_MIN_HEIGHT);
+      setIsInitialInputScrollable(false);
+      setChatInputScrollable(false);
       setMessages([]);
       setThreadId(null);
+      setAiStatus(null);
+      setLessonDraftByMessage({});
+      setLessonDropdownOpenByMessage({});
+      setActiveLessonMessageId(null);
+      setQuizTargetLessonId('random');
+      setQuizLessonSearch('');
+      setLessonDropdownPortal({
+        visible: false,
+        messageId: null,
+        x: 0,
+        y: 0,
+        width: 0,
+      });
       // 如果不是 Pro 用户，加载对话次数
       if (!isPro) {
         loadMessageCount();
       }
+
+      const loadLessons = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          setAvailableLessons([]);
+          return;
+        }
+        const { data } = await supabase
+          .from('lessons')
+          .select('id, name')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        setAvailableLessons((data || []) as UserLessonOption[]);
+      };
+      loadLessons();
+
+      // 打开时从本地恢复当前入口（Q&A）的历史会话
+      const loadDefaultSession = async () => {
+        const session = await loadChatSession('ask');
+        setThreadId(session.threadId);
+        setMessages(session.messages);
+      };
+      loadDefaultSession();
     }
   }, [visible, isPro]);
+
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) {
+        clearTimeout(statusTimerRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!aiStatus || aiStatus === 'ready_to_save') {
+      setAiStatusDots(1);
+      return;
+    }
+    const timer = setInterval(() => {
+      setAiStatusDots((prev) => (prev % 3) + 1);
+    }, 420);
+    return () => clearInterval(timer);
+  }, [aiStatus]);
 
   // 获取历史记录 - 已注释
   // const fetchHistory = async () => {
@@ -440,6 +546,15 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     }
   }, [messages.length, mode]);
 
+  useEffect(() => {
+    if (mode === 'initial' && messages.length > 0) {
+      const timer = setTimeout(() => {
+        initialScrollRef.current?.scrollToEnd({ animated: true });
+      }, 60);
+      return () => clearTimeout(timer);
+    }
+  }, [messages.length, mode]);
+
   // 发送消息
   const handleSend = async () => {
     if (!inputText.trim() || isLoading) {
@@ -471,10 +586,17 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       }
     }
 
-    // 如果还在初始模式，切换到聊天模式
+    // 保证本次发送使用正确入口，避免 setState 异步导致模式错位
+    const activeEntryType: ChatEntryType =
+      mode === 'initial' ? getEntryTypeFromTab(initialTab) : chatMode;
     if (mode === 'initial') {
-      setMode('chat');
+      setChatMode(activeEntryType);
     }
+
+    const selectedQuizLesson =
+      quizTargetLessonId === 'random'
+        ? null
+        : availableLessons.find((lesson) => lesson.id === quizTargetLessonId) || null;
 
     const userMessage: Message = {
       id: Date.now().toString(),
@@ -485,8 +607,24 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     // 添加用户消息（临时显示，稍后会在保存时包含）
     setMessages((prev) => [...prev, userMessage]);
     const userInput = inputText.trim();
+    const quizBehaviorInstruction =
+      activeEntryType !== 'quiz'
+        ? ''
+        : selectedQuizLesson
+        ? `\n\n[QUIZ_SCOPE]\nTarget lesson: ${selectedQuizLesson.name}\nInstructions:\n- Build a flexible practice session based on this lesson only.\n- Start immediately with a real question (no standalone greeting or setup sentence).\n- You may include a very short heading like "Computer Science - Q1" then ask the question.\n- Mix question styles when suitable (definition recall, scenario usage, multiple choice, short answer).\n- Adapt difficulty dynamically based on my answers.\n- Keep each turn focused and interactive.\n[/QUIZ_SCOPE]`
+        : `\n\n[QUIZ_SCOPE]\nTarget lesson: RANDOM\nInstructions:\n- Pick one lesson randomly from user_lessons.\n- Do NOT send a standalone announcement sentence (for example "Great, we'll practice...").\n- Start immediately with the first real question.\n- If you need to indicate the chosen lesson, place it in a short heading with the question (example: "[Lesson Name] - Q1: ...").\n- Then continue a flexible practice session for that chosen lesson.\n- Adapt difficulty dynamically based on my answers.\n[/QUIZ_SCOPE]`;
+    const userInputWithQuizScope =
+      activeEntryType === 'quiz' ? `${userInput}${quizBehaviorInstruction}` : userInput;
     setInputText('');
+    setChatInputScrollable(false);
     setIsLoading(true);
+    setAiStatus('thinking');
+    if (statusTimerRef.current) {
+      clearTimeout(statusTimerRef.current);
+    }
+    statusTimerRef.current = setTimeout(() => {
+      setAiStatus('generating');
+    }, 450);
 
     // 如果不是 Pro 用户，增加对话次数
     if (!isPro) {
@@ -538,12 +676,18 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           },
           body: JSON.stringify({
             thread_id: threadId || undefined,
-            message: userInput,
+            message: userInputWithQuizScope,
             user_lessons: userLessons.map((lesson) => ({
               id: lesson.id,
               name: lesson.name,
             })),
-            mode: chatMode === 'ask' ? 'normal' : chatMode, // 传递模式信息
+            mode: activeEntryType === 'ask' ? 'normal' : activeEntryType, // 传递模式信息
+            quiz_target_lesson_id:
+              activeEntryType === 'quiz' && selectedQuizLesson ? selectedQuizLesson.id : undefined,
+            quiz_target_lesson_name:
+              activeEntryType === 'quiz' && selectedQuizLesson ? selectedQuizLesson.name : 'Random',
+            quiz_selection_mode:
+              activeEntryType === 'quiz' ? (selectedQuizLesson ? 'fixed_lesson' : 'random_lesson') : undefined,
           }),
         });
 
@@ -681,6 +825,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         }
       }
 
+      // quiz 模式只做问答练习，不展示/保存提炼卡片
+      if (activeEntryType === 'quiz') {
+        extracted_term = null;
+      }
+
       // 清理 displayText：移除可能的 JSON 标记或代码块
       if (displayText.includes('```json') || displayText.includes('```')) {
         if (__DEV__) {
@@ -743,6 +892,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       }
 
       // 第四步：添加 AI 回复消息
+      setAiStatus('extracting');
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: displayText,
@@ -761,7 +911,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         );
         
         // 异步保存到本地存储
-        saveChatSession(chatMode, {
+        saveChatSession(activeEntryType, {
           threadId: thread_id || threadId,
           messages: messagesToSave,
           lastUpdated: Date.now(),
@@ -769,6 +919,17 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         
         return newMessages;
       });
+      if (extracted_term) {
+        setAiStatus('ready_to_save');
+        if (statusTimerRef.current) {
+          clearTimeout(statusTimerRef.current);
+        }
+        statusTimerRef.current = setTimeout(() => {
+          setAiStatus(null);
+        }, 2200);
+      } else {
+        setAiStatus(null);
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage = error instanceof Error ? error.message : 'Something went wrong';
@@ -793,7 +954,17 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         text: `Sorry, I encountered an error: ${userFriendlyMessage}\n\nPlease contact support if this issue persists.`,
         sender: 'ai',
       };
-      setMessages((prev) => [...prev, errorAiMessage]);
+      setMessages((prev) => {
+        const newMessages = [...prev, errorAiMessage];
+        const messagesToSave = newMessages.filter((msg) => !msg.id.startsWith('welcome-'));
+        saveChatSession(activeEntryType, {
+          threadId,
+          messages: messagesToSave,
+          lastUpdated: Date.now(),
+        });
+        return newMessages;
+      });
+      setAiStatus(null);
     } finally {
       setIsLoading(false);
     }
@@ -908,6 +1079,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           msg.id === messageId ? { ...msg, saved: true } : msg
         )
       );
+      setAvailableLessons((prev) => {
+        const exists = prev.some((lesson) => lesson.id === newLesson.id);
+        if (exists) return prev;
+        return [{ id: newLesson.id, name: newLesson.name }, ...prev];
+      });
 
       Alert.alert('Success', `Lesson "${termSuggestion.target_lesson_name}" created and term saved!`);
 
@@ -1034,6 +1210,125 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     }
   };
 
+  const handleSaveToChosenLesson = async (termSuggestion: ExtractedTerm, messageId: string) => {
+    setLessonDropdownOpenByMessage((prev) => ({
+      ...prev,
+      [messageId]: false,
+    }));
+    closeLessonDropdownPortal();
+    const draftName = (lessonDraftByMessage[messageId] || termSuggestion.target_lesson_name || '').trim();
+    const chosenName = draftName || 'Default';
+    const matchedLesson = availableLessons.find(
+      (lesson) => lesson.name.trim().toLowerCase() === chosenName.toLowerCase()
+    );
+
+    if (matchedLesson) {
+      await handleConfirmSave(
+        {
+          ...termSuggestion,
+          target_lesson_id: matchedLesson.id,
+          target_lesson_name: matchedLesson.name,
+          suggested_action: 'save_to_existing',
+        },
+        messageId
+      );
+      return;
+    }
+
+    await handleCreateAndSave(
+      {
+        ...termSuggestion,
+        target_lesson_id: undefined,
+        target_lesson_name: chosenName,
+        suggested_action: 'create_new',
+      },
+      messageId
+    );
+  };
+
+  const getLessonCandidates = (keyword: string) => {
+    const normalizedKeyword = keyword.trim().toLowerCase();
+    if (!normalizedKeyword) {
+      return [];
+    }
+    return availableLessons
+      .filter((lesson) => lesson.name.toLowerCase().includes(normalizedKeyword))
+      .slice(0, 6);
+  };
+
+  const openLessonDropdownPortal = (messageId: string) => {
+    const inputWrapRef = lessonInputWrapRefs.current[messageId];
+    if (!inputWrapRef) return;
+    inputWrapRef.measureInWindow((x, y, width, height) => {
+      const safeHeight = height > 0 ? height : 52;
+      setLessonDropdownPortal({
+        visible: true,
+        messageId,
+        x,
+        y: y + safeHeight + 8,
+        width,
+      });
+    });
+  };
+
+  const closeLessonDropdownPortal = () => {
+    setLessonDropdownPortal((prev) => ({ ...prev, visible: false, messageId: null }));
+    setLessonDropdownOpenByMessage({});
+    setActiveLessonMessageId(null);
+  };
+
+  const handleInitialTabChange = async (tab: InitialTabType) => {
+    closeLessonDropdownPortal();
+    const nextEntryType = getEntryTypeFromTab(tab);
+    const currentEntryType = getEntryTypeFromTab(initialTab);
+
+    setInitialTab(tab);
+
+    if (nextEntryType === currentEntryType) {
+      return;
+    }
+
+    // 切换前先保存当前入口会话，避免未落盘消息丢失
+    await saveChatSession(currentEntryType, {
+      threadId,
+      messages,
+      lastUpdated: Date.now(),
+    });
+
+    const nextSession = await loadChatSession(nextEntryType);
+    setChatMode(nextEntryType);
+    setThreadId(nextSession.threadId);
+    setMessages(nextSession.messages);
+  };
+
+  const handleClearCurrentTabConversation = () => {
+    const currentEntryType = getEntryTypeFromTab(initialTab);
+    Alert.alert(
+      'Clear Conversation',
+      'Clear this tab conversation? This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear',
+          style: 'destructive',
+          onPress: async () => {
+            await saveChatSession(currentEntryType, {
+              threadId: null,
+              messages: [],
+              lastUpdated: 0,
+            });
+            setThreadId(null);
+            setMessages([]);
+            if (chatMode !== currentEntryType) {
+              setChatMode(currentEntryType);
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
+  };
+
   // 渲染 Term 建议卡片
   const renderTermSuggestion = (termSuggestion: ExtractedTerm, messageId: string, saved: boolean = false) => {
     if (saved) {
@@ -1051,6 +1346,15 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     const isExisting = termSuggestion.suggested_action === 'save_to_existing';
     const isCreateNew = termSuggestion.suggested_action === 'create_new';
     const isDefault = termSuggestion.suggested_action === 'save_to_default';
+    const currentDraft = (lessonDraftByMessage[messageId] ?? termSuggestion.target_lesson_name ?? 'Default').trim();
+    const lessonCandidates = getLessonCandidates(currentDraft);
+    const exactMatch = availableLessons.find(
+      (lesson) => lesson.name.trim().toLowerCase() === currentDraft.toLowerCase()
+    );
+    const showDropdown = Boolean(lessonDropdownOpenByMessage[messageId]);
+    const canCreateNew = currentDraft.length > 0 && !exactMatch;
+    const dropdownItemCount = lessonCandidates.length + (canCreateNew ? 1 : 0);
+    const shouldRenderDropdown = showDropdown && dropdownItemCount > 0;
 
     return (
       <View style={styles.suggestionCard}>
@@ -1064,20 +1368,79 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         </View>
 
         {/* Lesson 提示 */}
-        <View style={styles.lessonHint}>
-          {isExisting && (
-            <Text style={styles.lessonHintText}>
-              Save to <Text style={styles.lessonName}>{termSuggestion.target_lesson_name}</Text>?
+        <View
+          style={[
+            styles.lessonHint,
+          ]}
+        >
+          <Text style={styles.lessonHintText}>Lesson</Text>
+          <View
+            collapsable={false}
+            ref={(ref) => {
+              lessonInputWrapRefs.current[messageId] = ref;
+            }}
+            style={styles.lessonInputWrap}
+            onLayout={() => {
+              if (lessonDropdownOpenByMessage[messageId]) {
+                setTimeout(() => openLessonDropdownPortal(messageId), 0);
+              }
+            }}
+          >
+            <TextInput
+              style={styles.lessonInput}
+              value={lessonDraftByMessage[messageId] ?? termSuggestion.target_lesson_name ?? 'Default'}
+              onChangeText={(value) =>
+                {
+                  const normalizedValue = value.trim();
+                  setLessonDraftByMessage((prev) => ({
+                    ...prev,
+                    [messageId]: value,
+                  }));
+                  setActiveLessonMessageId(messageId);
+                  if (normalizedValue.length === 0) {
+                    setLessonDropdownOpenByMessage((prev) => ({
+                      ...prev,
+                      [messageId]: false,
+                    }));
+                    setLessonDropdownPortal((prev) => ({ ...prev, visible: false, messageId: null }));
+                    return;
+                  }
+                  setLessonDropdownOpenByMessage((prev) => ({
+                    ...prev,
+                    [messageId]: true,
+                  }));
+                  setTimeout(() => openLessonDropdownPortal(messageId), 0);
+                }
+              }
+              onFocus={() =>
+                {
+                  const currentValue = (lessonDraftByMessage[messageId] ?? termSuggestion.target_lesson_name ?? '').trim();
+                  setActiveLessonMessageId(messageId);
+                  if (!currentValue) {
+                    setLessonDropdownOpenByMessage((prev) => ({
+                      ...prev,
+                      [messageId]: false,
+                    }));
+                    return;
+                  }
+                  setLessonDropdownOpenByMessage({
+                    [messageId]: true,
+                  });
+                  setTimeout(() => openLessonDropdownPortal(messageId), 0);
+                }
+              }
+              placeholder="Type a lesson name"
+              placeholderTextColor={colors.muted}
+            />
+          </View>
+          {canCreateNew && (
+            <Text style={styles.lessonHintSubtext}>
+              If not found, a new lesson will be created automatically.
             </Text>
           )}
-          {isCreateNew && (
-            <Text style={styles.lessonHintText}>
-              No matching lesson found. Create <Text style={styles.lessonName}>'{termSuggestion.target_lesson_name}'</Text>?
-            </Text>
-          )}
-          {isDefault && (
-            <Text style={styles.lessonHintText}>
-              Save to <Text style={styles.lessonName}>Default</Text>?
+          {exactMatch && (
+            <Text style={styles.lessonMatchedText}>
+              Selected: <Text style={styles.lessonName}>{exactMatch.name}</Text>
             </Text>
           )}
         </View>
@@ -1088,7 +1451,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             <>
               <TouchableOpacity
                 style={[styles.suggestionButton, styles.primaryButton]}
-                onPress={() => handleConfirmSave(termSuggestion, messageId)}
+                onPress={() => handleSaveToChosenLesson(termSuggestion, messageId)}
                 activeOpacity={0.7}
               >
                 <Text style={styles.primaryButtonText}>Confirm Save</Text>
@@ -1099,17 +1462,10 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             <>
               <TouchableOpacity
                 style={[styles.suggestionButton, styles.primaryButton]}
-                onPress={() => handleCreateAndSave(termSuggestion, messageId)}
+                onPress={() => handleSaveToChosenLesson(termSuggestion, messageId)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.primaryButtonText}>Create & Save</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.suggestionButton, styles.secondaryButton]}
-                onPress={() => handleSaveToDefault(termSuggestion, messageId)}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.secondaryButtonText}>Save to 'Default'</Text>
+                <Text style={styles.primaryButtonText}>Confirm Save</Text>
               </TouchableOpacity>
             </>
           )}
@@ -1117,18 +1473,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             <>
             <TouchableOpacity
                 style={[styles.suggestionButton, styles.primaryButton]}
-                onPress={() => handleCreateAndSave(termSuggestion, messageId)}
+                onPress={() => handleSaveToChosenLesson(termSuggestion, messageId)}
                 activeOpacity={0.7}
               >
-                <Text style={styles.primaryButtonText}>Create & Save</Text>
+                <Text style={styles.primaryButtonText}>Confirm Save</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.suggestionButton, styles.secondaryButton]}
-              onPress={() => handleSaveToDefault(termSuggestion, messageId)}
-              activeOpacity={0.7}
-            >
-                <Text style={styles.secondaryButtonText}>Save to Default</Text>
-            </TouchableOpacity>
             </>
           )}
         </View>
@@ -1162,26 +1511,30 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           isLastMessage && styles.messageContainerLast,
         ]}
       >
-        <View style={styles.messageBubbleWrapper}>
-          <Pressable
-            style={[
-              styles.messageBubble,
-              isUser ? styles.userBubble : styles.aiBubble,
-            ]}
-            onLongPress={() => handleCopyMessage(item.text)}
-            delayLongPress={500}
-          >
-            <Text
-              style={[
-                styles.messageText,
-                isUser ? styles.userMessageText : styles.aiMessageText,
-              ]}
-              selectable={true}
+        <View style={[styles.messageBubbleWrapper, !isUser && styles.aiMessageInlineWrap]}>
+          {isUser ? (
+            <Pressable
+              style={[styles.messageBubble, styles.userBubble]}
+              onLongPress={() => handleCopyMessage(item.text)}
+              delayLongPress={500}
             >
-              {item.text}
-            </Text>
-          </Pressable>
-          {/* 渲染 Term 建议卡片（在 AI 消息气泡下方） */}
+              <Text style={[styles.messageText, styles.userMessageText]} selectable={true}>
+                {item.text}
+              </Text>
+            </Pressable>
+          ) : (
+            <View style={styles.aiInlineRow}>
+              <View style={styles.aiInlineIcon}>
+                <FloatingAIButtonIcon size={22} />
+              </View>
+              <Pressable onLongPress={() => handleCopyMessage(item.text)} delayLongPress={500} style={styles.aiInlineTextWrap}>
+                <Text style={styles.aiInlineText} selectable={true}>
+                  {item.text}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+          {/* 渲染 Term 建议卡片（在 AI 消息下方） */}
           {item.termSuggestion && !isUser && (
             <View style={styles.termSuggestionContainer}>
               {renderTermSuggestion(item.termSuggestion, item.id, item.saved)}
@@ -1192,20 +1545,72 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     );
   };
 
+  const activeLessonDraft = activeLessonMessageId
+    ? (lessonDraftByMessage[activeLessonMessageId] ?? 'Default').trim()
+    : '';
+  const activeLessonCandidates = getLessonCandidates(activeLessonDraft);
+  const selectedQuizLessonName =
+    quizTargetLessonId === 'random'
+      ? 'Random'
+      : availableLessons.find((lesson) => lesson.id === quizTargetLessonId)?.name || 'Random';
+  const recentQuizLessons = availableLessons.slice(0, 5);
+  const filteredQuizLessons = availableLessons
+    .filter((lesson) => !recentQuizLessons.some((recent) => recent.id === lesson.id))
+    .filter((lesson) =>
+      lesson.name.toLowerCase().includes(quizLessonSearch.trim().toLowerCase())
+    )
+    .slice(0, 8);
+  const activeLessonExactMatch = availableLessons.find(
+    (lesson) => lesson.name.trim().toLowerCase() === activeLessonDraft.toLowerCase()
+  );
+  const activeLessonCanCreateNew = activeLessonDraft.length > 0 && !activeLessonExactMatch;
+  const shouldShowLessonDropdownPortal =
+    lessonDropdownPortal.visible &&
+    !!lessonDropdownPortal.messageId &&
+    Boolean(lessonDropdownOpenByMessage[lessonDropdownPortal.messageId]) &&
+    (activeLessonCandidates.length > 0 || activeLessonCanCreateNew);
+  const currentEntryType = getEntryTypeFromTab(initialTab);
+  const currentTabHasConversation =
+    (chatMode === currentEntryType
+      ? messages
+      : chatSessions[currentEntryType]?.messages || []
+    ).filter((msg) => !msg.id.startsWith('welcome-')).length > 0;
+
+  const getAiStatusText = () => {
+    const dots = '.'.repeat(aiStatusDots);
+    if (aiStatus === 'thinking') return `Thinking${dots}`;
+    if (aiStatus === 'generating') return `Generating answer${dots}`;
+    if (aiStatus === 'extracting') return `Extracting cards${dots}`;
+    return 'Ready to save';
+  };
+
+  const getInitialInputPlaceholder = () => {
+    if (initialTab === 'qa') return 'Ask anything you want to learn...';
+    if (initialTab === 'vocabulary') return 'Type a word or phrase to look up...';
+    return 'Tell me what to quiz you on...';
+  };
+
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
+      presentationStyle="fullScreen"
       onRequestClose={onClose}
     >
-      <StatusBar style="light" />
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        {/* Toolbar */}
-        <View style={styles.toolbar}>
-          {mode === 'chat' ? (
-            // 对话模式下显示返回按钮
-          <TouchableOpacity
+      <StatusBar style="dark" />
+      <SafeAreaView
+        style={[
+          styles.container,
+          {
+            paddingTop: insets.top,
+            paddingBottom: insets.bottom,
+          },
+        ]}
+        edges={['left', 'right']}
+      >
+        {mode === 'chat' && (
+          <View style={styles.toolbar}>
+            <TouchableOpacity
               style={styles.toolbarButton}
               onPress={() => {
                 setMode('initial');
@@ -1214,106 +1619,324 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             >
               <Feather name="arrow-left" size={20} color="#0A0A0A" />
             </TouchableOpacity>
-          ) : (
-            // 初始模式下显示关闭按钮
-            <TouchableOpacity
-              style={styles.toolbarCloseButton}
-              onPress={onClose}
-              activeOpacity={0.7}
-            >
-              <Feather name="x" size={24} color="#787496" />
-            </TouchableOpacity>
-          )}
-          
-          {/* 历史记录按钮 - 已注释 */}
-          {/* <TouchableOpacity
-            style={styles.toolbarButton}
-            onPress={() => {
-              setShowHistory(true);
-            }}
-            activeOpacity={0.7}
-          >
-            <HistoryIcon size={20} color="#0A0A0A" />
-          </TouchableOpacity> */}
-          
-          {/* Edit button removed - feature not implemented */}
-          
-          {/* 右侧：对话模式下显示清空按钮，初始模式下显示占位 */}
-          {mode === 'chat' ? (
             <TouchableOpacity
               style={styles.toolbarButton}
               onPress={handleClearChat}
               activeOpacity={0.7}
             >
               <Feather name="trash-2" size={20} color="#0A0A0A" />
-          </TouchableOpacity>
-          ) : (
-            <View style={styles.toolbarButton} />
-          )}
-        </View>
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Content */}
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.keyboardView}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? -insets.bottom + 102 :102}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         >
           <View style={[styles.content, mode === 'initial' && styles.contentInitial]}>
             {mode === 'initial' ? (
-              <View style={styles.initialContent}>
-                {/* 圆形图标 */}
-                <View style={styles.iconContainer}>
-                  <View style={styles.iconGradient}>
-                    <FloatingAIButtonIcon size={64} />
-                    <View style={styles.iconFaceContainer}>
-                      <FaceIcon size={34} color="#FFFFFF" />
+              <View style={styles.initialScreen}>
+                <View style={styles.initialTopFixed}>
+                  <View style={styles.assistantHeader}>
+                    <View style={styles.assistantHeaderLeft}>
+                      <View style={styles.assistantBadge}>
+                        <FloatingAIButtonIcon size={28} />
+                      </View>
+                      <View style={styles.assistantHeaderTextWrap}>
+                        <View style={styles.assistantTitleRow}>
+                          <Text style={styles.assistantTitle}>Assistant</Text>
+                          <View style={styles.assistantOnlineDot} />
+                        </View>
+                        <Text style={styles.assistantSubtitle}>grounded in your decks</Text>
+                      </View>
                     </View>
+                    <TouchableOpacity style={styles.assistantRefreshBtn} onPress={onClose} activeOpacity={0.7}>
+                      <Feather name="x" size={20} color="#9B9790" />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.modeTabs}>
+                    <Pressable
+                      style={[styles.modeTab, initialTab === 'qa' && styles.modeTabActive]}
+                      onPress={() => {
+                        handleInitialTabChange('qa');
+                      }}
+                    >
+                      <Text style={[styles.modeTabTitle, initialTab === 'qa' && styles.modeTabTitleActive]}>Q&A</Text>
+                      <Text style={styles.modeTabSub}>ASK</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.modeTab, initialTab === 'vocabulary' && styles.modeTabActive]}
+                      onPress={() => {
+                        handleInitialTabChange('vocabulary');
+                      }}
+                    >
+                      <Text style={[styles.modeTabTitle, initialTab === 'vocabulary' && styles.modeTabTitleActive]}>Vocabulary</Text>
+                      <Text style={styles.modeTabSub}>LOOK UP</Text>
+                    </Pressable>
+                    <Pressable
+                      style={[styles.modeTab, initialTab === 'quiz' && styles.modeTabActive]}
+                      onPress={() => {
+                        handleInitialTabChange('quiz');
+                      }}
+                    >
+                      <Text style={[styles.modeTabTitle, initialTab === 'quiz' && styles.modeTabTitleActive]}>Quiz me</Text>
+                      <Text style={styles.modeTabSub}>TEST</Text>
+                    </Pressable>
                   </View>
                 </View>
 
-                {/* 对话次数提示（未订阅用户） */}
-                {!isPro && (
-                  <View style={styles.messageLimitBanner}>
-                    <Feather name="info" size={16} color="#6366F1" />
-                    <Text style={styles.messageLimitText}>
-                      {messageCount >= FREE_TIER_MESSAGE_LIMIT 
-                        ? 'Daily free messages used up. Upgrade to Pro!'
-                        : `${FREE_TIER_MESSAGE_LIMIT - messageCount} free messages remaining today`}
-                    </Text>
-                    {messageCount >= FREE_TIER_MESSAGE_LIMIT && (
-                      <TouchableOpacity
-                        style={styles.upgradeButton}
-                        onPress={async () => {
-                          onClose();
-                          await showPaywall();
-                        }}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={styles.upgradeButtonText}>Upgrade</Text>
-                      </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.clearFloatingBtn}
+                  onPress={handleClearCurrentTabConversation}
+                  activeOpacity={0.7}
+                  disabled={!currentTabHasConversation}
+                >
+                  <Feather
+                    name="trash-2"
+                    size={15}
+                    color={currentTabHasConversation ? colors.muted : '#C4C1BA'}
+                  />
+                </TouchableOpacity>
+
+                <ScrollView
+                  ref={initialScrollRef}
+                  style={styles.initialScroll}
+                  contentContainerStyle={styles.initialScrollContent}
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled"
+                >
+                  <View style={styles.initialBody}>
+                    <View style={styles.initialPromptRow}>
+                      <View style={styles.initialPromptIcon}>
+                        <FloatingAIButtonIcon size={24} />
+                      </View>
+                      <Text style={styles.initialPromptText}>
+                        {initialTab === 'qa' &&
+                          "Hi there - ask me anything and I'll explain it clearly with step-by-step help."}
+                        {initialTab === 'vocabulary' &&
+                          "Share a word or phrase and I'll give meaning, usage, and practical examples."}
+                        {initialTab === 'quiz' &&
+                          "Pick a lesson (or Random), then I'll run a focused quiz and adjust difficulty as you answer."}
+                      </Text>
+                    </View>
+
+                    {initialTab === 'quiz' && (
+                      <View style={styles.quizScopeWrap}>
+                        <Text style={styles.quizScopeLabel}>Quiz scope</Text>
+                        <View style={styles.quizScopeRecentWrap}>
+                          <TouchableOpacity
+                            style={[
+                              styles.quizScopeChip,
+                              quizTargetLessonId === 'random' && styles.quizScopeChipActive,
+                            ]}
+                            onPress={() => setQuizTargetLessonId('random')}
+                            activeOpacity={0.7}
+                          >
+                            <Text
+                              style={[
+                                styles.quizScopeChipText,
+                                quizTargetLessonId === 'random' && styles.quizScopeChipTextActive,
+                              ]}
+                            >
+                              Random
+                            </Text>
+                          </TouchableOpacity>
+                          {recentQuizLessons.map((lesson) => (
+                            <TouchableOpacity
+                              key={lesson.id}
+                              style={[
+                                styles.quizScopeChip,
+                                quizTargetLessonId === lesson.id && styles.quizScopeChipActive,
+                              ]}
+                              onPress={() => setQuizTargetLessonId(lesson.id)}
+                              activeOpacity={0.7}
+                            >
+                              <Text
+                                style={[
+                                  styles.quizScopeChipText,
+                                  quizTargetLessonId === lesson.id && styles.quizScopeChipTextActive,
+                                ]}
+                              >
+                                {lesson.name}
+                              </Text>
+                            </TouchableOpacity>
+                          ))}
+                        </View>
+                        <TextInput
+                          style={styles.quizScopeSearchInput}
+                          placeholder="Search more lessons..."
+                          placeholderTextColor={colors.muted}
+                          value={quizLessonSearch}
+                          onChangeText={setQuizLessonSearch}
+                          onFocus={closeLessonDropdownPortal}
+                        />
+                        {quizLessonSearch.trim().length > 0 && (
+                          <View style={styles.quizScopeSearchList}>
+                            {filteredQuizLessons.length > 0 ? (
+                              filteredQuizLessons.map((lesson) => (
+                                <TouchableOpacity
+                                  key={lesson.id}
+                                  style={[
+                                    styles.quizScopeSearchItem,
+                                    quizTargetLessonId === lesson.id && styles.quizScopeSearchItemActive,
+                                  ]}
+                                  onPress={() => {
+                                    setQuizTargetLessonId(lesson.id);
+                                    setQuizLessonSearch('');
+                                  }}
+                                  activeOpacity={0.7}
+                                >
+                                  <Text
+                                    style={[
+                                      styles.quizScopeSearchItemText,
+                                      quizTargetLessonId === lesson.id && styles.quizScopeSearchItemTextActive,
+                                    ]}
+                                  >
+                                    {lesson.name}
+                                  </Text>
+                                </TouchableOpacity>
+                              ))
+                            ) : (
+                              <View style={styles.quizScopeSearchEmpty}>
+                                <Text style={styles.quizScopeSearchEmptyText}>No lessons found</Text>
+                              </View>
+                            )}
+                          </View>
+                        )}
+                        <Text style={styles.quizScopeSelectedText}>
+                          Selected: <Text style={styles.lessonName}>{selectedQuizLessonName}</Text>
+                        </Text>
+                      </View>
                     )}
+
+                    {initialTab !== 'quiz' && (
+                      <View style={styles.quickPrompts}>
+                        {(initialTab === 'qa'
+                          ? [
+                              'What is MCP?',
+                              'What is the difference between TCP and UDP?',
+                              'How does photosynthesis work?',
+                            ]
+                          : [
+                              'ubiquitous',
+                              'on the same wavelength',
+                              'resilience',
+                            ]
+                        ).map((preset) => (
+                          <TouchableOpacity
+                            key={preset}
+                            style={styles.quickPromptBtn}
+                            activeOpacity={0.7}
+                            onPress={() => setInputText(preset)}
+                          >
+                            <Text style={styles.quickPromptText}>{preset}</Text>
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    )}
+
+                    {messages.length > 0 && (
+                      <View style={styles.initialChatPreview}>
+                        {messages.slice(-4).map((item) => {
+                          const isUser = item.sender === 'user';
+                          return (
+                            <View
+                              key={item.id}
+                              style={[
+                                styles.messageContainer,
+                                isUser ? styles.userMessageContainer : styles.aiMessageContainer,
+                              ]}
+                            >
+                              <View style={[styles.messageBubbleWrapper, !isUser && styles.aiMessageInlineWrap]}>
+                                {isUser ? (
+                                  <View style={[styles.messageBubble, styles.userBubble]}>
+                                    <Text style={[styles.messageText, styles.userMessageText]}>
+                                      {item.text}
+                                    </Text>
+                                  </View>
+                                ) : (
+                                <View style={styles.aiInlineBlock}>
+                                  <View style={styles.aiInlineRow}>
+                                    <View style={styles.aiInlineIcon}>
+                                      <FloatingAIButtonIcon size={22} />
+                                    </View>
+                                    <View style={styles.aiInlineTextWrap}>
+                                      <Text style={styles.aiInlineText}>{item.text}</Text>
+                                    </View>
+                                    </View>
+                                  {item.termSuggestion && (
+                                    <View style={styles.termSuggestionContainer}>
+                                      {renderTermSuggestion(item.termSuggestion, item.id, item.saved)}
+                                    </View>
+                                  )}
+                                  </View>
+                                )}
+                              </View>
+                            </View>
+                          );
+                        })}
+                      </View>
+                    )}
+                  </View>
+                </ScrollView>
+
+                {aiStatus && (
+                  <View style={styles.aiStatusFloating}>
+                    <View style={styles.aiStatusWrap}>
+                      <View style={styles.aiStatusDot} />
+                      <Text style={styles.aiStatusText}>
+                        {getAiStatusText()}
+                      </Text>
+                    </View>
                   </View>
                 )}
 
-                {/* 选项按钮 */}
-                <View style={styles.optionsContainer}>
-                  <TouchableOpacity
-                    style={styles.optionButton}
-                    onPress={() => handleOptionPress('ask')}
-                    activeOpacity={0.7}
-                  >
-                    <Feather name="search" size={20} color="#0A0A0A" />
-                    <Text style={styles.optionText}>Ask any question</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.optionButton}
-                    onPress={() => handleOptionPress('vocab_lookup')}
-                    activeOpacity={0.7}
-                  >
-                    <Feather name="book-open" size={20} color="#0A0A0A" />
-                    <Text style={styles.optionText}>Look up Vocabulary</Text>
-                  </TouchableOpacity>
+                <View
+                  style={[
+                    styles.initialComposerWrap,
+                    { paddingBottom: 14 },
+                  ]}
+                >
+                  <View style={styles.initialComposer}>
+                    <TextInput
+                      style={[styles.initialComposerInput, { height: initialInputHeight }]}
+                      placeholder={getInitialInputPlaceholder()}
+                      placeholderTextColor="#9B9790"
+                      value={inputText}
+                      onChangeText={setInputText}
+                      onFocus={closeLessonDropdownPortal}
+                      multiline
+                      textAlignVertical="top"
+                      scrollEnabled={isInitialInputScrollable}
+                      onContentSizeChange={(event) => {
+                        const nextHeight = Math.max(
+                          INITIAL_INPUT_MIN_HEIGHT,
+                          Math.min(INITIAL_INPUT_MAX_HEIGHT, event.nativeEvent.contentSize.height)
+                        );
+                        setInitialInputHeight(nextHeight);
+                        setIsInitialInputScrollable(
+                          event.nativeEvent.contentSize.height > INITIAL_INPUT_MAX_HEIGHT
+                        );
+                      }}
+                      editable={!isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT)}
+                      returnKeyType="send"
+                    />
+                    <TouchableOpacity
+                      style={[
+                        styles.initialComposerSend,
+                        (!inputText.trim() || isLoading) &&
+                          styles.initialComposerSendDisabled,
+                      ]}
+                      onPress={handleSend}
+                      disabled={!inputText.trim() || isLoading}
+                      activeOpacity={0.8}
+                    >
+                      <Feather name="arrow-right" size={18} color="#FFFFFF" />
+                    </TouchableOpacity>
+                  </View>
                 </View>
               </View>
             ) : (
@@ -1368,9 +1991,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
               )}
               <View style={[
                 styles.inputContainer,
-                keyboardHeight > 0 && { 
-                  marginBottom: 12
-                }
+                keyboardHeight > 0 && { marginBottom: 12 },
               ]}>
                 <TextInput
                   style={styles.input}
@@ -1378,35 +1999,96 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                   placeholderTextColor="#C6C7CB"
                   value={inputText}
                   onChangeText={setInputText}
+                  onFocus={closeLessonDropdownPortal}
                   multiline
+                  scrollEnabled={chatInputScrollable}
                   maxLength={500}
                   editable={!isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT)}
                   autoCapitalize="sentences"
                   autoCorrect={true}
-                  returnKeyType="send"
-                  onSubmitEditing={handleSend}
+                  textAlignVertical="top"
+                  onContentSizeChange={(e) => {
+                    setChatInputScrollable(
+                      e.nativeEvent.contentSize.height > CHAT_INPUT_MAX_HEIGHT
+                    );
+                  }}
                 />
-                <View style={styles.inputActions}>
-                  <TouchableOpacity
-                    style={[
-                      styles.sendButton,
-                      (!inputText.trim() || isLoading || (!isPro && messageCount >= FREE_TIER_MESSAGE_LIMIT)) && styles.sendButtonDisabled,
-                    ]}
-                    onPress={handleSend}
-                    disabled={!inputText.trim() || isLoading || (!isPro && messageCount >= FREE_TIER_MESSAGE_LIMIT)}
-                    activeOpacity={0.7}
-                  >
-                    <SendIcon 
-                      size={32} 
-                      opacity={inputText.trim() && !isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT) ? 1 : 0.32} 
-                    />
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity
+                  style={[
+                    styles.sendButton,
+                    (!inputText.trim() || isLoading || (!isPro && messageCount >= FREE_TIER_MESSAGE_LIMIT)) && styles.sendButtonDisabled,
+                  ]}
+                  onPress={handleSend}
+                  disabled={!inputText.trim() || isLoading || (!isPro && messageCount >= FREE_TIER_MESSAGE_LIMIT)}
+                  activeOpacity={0.7}
+                >
+                  <SendIcon
+                    size={32}
+                    opacity={inputText.trim() && !isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT) ? 1 : 0.32}
+                  />
+                </TouchableOpacity>
               </View>
             </>
             )}
           </View>
         </KeyboardAvoidingView>
+        {shouldShowLessonDropdownPortal && (
+          <View style={styles.lessonDropdownPortalLayer} pointerEvents="box-none">
+            <View
+              style={[
+                styles.lessonDropdownPortal,
+                {
+                  left: lessonDropdownPortal.x,
+                  top: lessonDropdownPortal.y,
+                  width: lessonDropdownPortal.width,
+                },
+              ]}
+            >
+              {activeLessonCandidates.map((lesson, index) => (
+                <TouchableOpacity
+                  key={lesson.id}
+                  style={[
+                    styles.lessonDropdownItem,
+                    index === 0 && styles.lessonDropdownItemFirst,
+                  ]}
+                  onPress={() => {
+                    if (!lessonDropdownPortal.messageId) return;
+                    const targetMessageId = lessonDropdownPortal.messageId;
+                    setLessonDraftByMessage((prev) => ({
+                      ...prev,
+                      [targetMessageId]: lesson.name,
+                    }));
+                    closeLessonDropdownPortal();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.lessonDropdownItemText}>{lesson.name}</Text>
+                </TouchableOpacity>
+              ))}
+              {activeLessonCanCreateNew && (
+                <TouchableOpacity
+                  style={[
+                    styles.lessonDropdownItem,
+                    activeLessonCandidates.length === 0 && styles.lessonDropdownItemFirst,
+                    styles.lessonDropdownCreateItem,
+                  ]}
+                  onPress={() => {
+                    if (!lessonDropdownPortal.messageId) return;
+                    const targetMessageId = lessonDropdownPortal.messageId;
+                    setLessonDraftByMessage((prev) => ({
+                      ...prev,
+                      [targetMessageId]: activeLessonDraft,
+                    }));
+                    closeLessonDropdownPortal();
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.lessonDropdownCreateText}>Create lesson: {activeLessonDraft}</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        )}
       </SafeAreaView>
 
       {/* 历史记录 Modal - 已注释 */}
@@ -1497,10 +2179,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
+    backgroundColor: '#F7F7F5',
   },
   toolbar: {
     flexDirection: 'row',
@@ -1531,13 +2210,392 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 18,
+    paddingHorizontal: 12,
     paddingTop:0,
     paddingBottom: 0,
     justifyContent: 'flex-end',
   },
   contentInitial: {
-    gap: 0,
+    paddingHorizontal: 0,
+    paddingBottom: 0,
+    justifyContent: 'space-between',
+  },
+  initialScreen: {
+    flex: 1,
+    backgroundColor: '#F7F7F5',
+  },
+  initialTopFixed: {
+    backgroundColor: '#F7F7F5',
+    zIndex: 20,
+    elevation: 20,
+  },
+  assistantHeader: {
+    paddingHorizontal: 18,
+    paddingTop: 10,
+    paddingBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F7F7F5',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E3DE',
+  },
+  assistantHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  assistantBadge: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#111111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  assistantHeaderTextWrap: {
+    flex: 1,
+  },
+  assistantTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  assistantTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    color: '#1A1916',
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+    letterSpacing: -0.2,
+  },
+  assistantOnlineDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#1A8A72',
+  },
+  assistantSubtitle: {
+    marginTop: 2,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#9B9790',
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    letterSpacing: -0.1,
+  },
+  assistantRefreshBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    backgroundColor: '#F7F7F5',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modeTabs: {
+    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E3DE',
+  },
+  modeTab: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent',
+  },
+  modeTabActive: {
+    borderBottomColor: '#1A1916',
+  },
+  modeTabTitle: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#9B9790',
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+  },
+  modeTabTitleActive: {
+    color: '#1A1916',
+  },
+  modeTabSub: {
+    marginTop: 2,
+    fontSize: 11,
+    lineHeight: 15,
+    color: '#9B9790',
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    letterSpacing: 0.5,
+  },
+  clearFloatingBtn: {
+    position: 'absolute',
+    right: 14,
+    top: 150,
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    backgroundColor: '#FFFFFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 25,
+    elevation: 25,
+  },
+  initialBody: {
+    paddingHorizontal: 18,
+    paddingTop: 20,
+  },
+  initialScroll: {
+    flex: 1,
+    position: 'relative',
+    zIndex: 20,
+    elevation: 20,
+  },
+  initialScrollContent: {
+    paddingBottom: 20,
+  },
+  initialPromptRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  initialPromptIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#111111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+    marginTop: 2,
+  },
+  initialPromptText: {
+    flex: 1,
+    fontSize: 14,
+    lineHeight: 22,
+    color: '#1A1916',
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+    letterSpacing: -0.1,
+  },
+  tryLabel: {
+    marginTop: 16,
+    marginBottom: 10,
+    marginLeft: 52,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#9B9790',
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+    letterSpacing: 1,
+  },
+  quickPrompts: {
+    gap: 10,
+    marginLeft: 44,
+    marginTop: 14,
+  },
+  initialChatPreview: {
+    marginTop: 14,
+    gap: 10,
+  },
+  quizScopeWrap: {
+    marginTop: 14,
+    marginLeft: 44,
+    gap: 8,
+  },
+  quizScopeLabel: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: '#9B9790',
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+    letterSpacing: 0.5,
+  },
+  quizScopeRecentWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  quizScopeChip: {
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+  },
+  quizScopeChipActive: {
+    borderColor: colors.accent,
+    backgroundColor: '#EAF7F3',
+  },
+  quizScopeChipText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    letterSpacing: -0.1,
+  },
+  quizScopeChipTextActive: {
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
+  },
+  quizScopeSearchInput: {
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+  },
+  quizScopeSearchList: {
+    gap: 8,
+  },
+  quizScopeSearchItem: {
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  quizScopeSearchItemActive: {
+    borderColor: colors.accent,
+    backgroundColor: '#EAF7F3',
+  },
+  quizScopeSearchItemText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    letterSpacing: -0.1,
+  },
+  quizScopeSearchItemTextActive: {
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
+  },
+  quizScopeSearchEmpty: {
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+  },
+  quizScopeSearchEmptyText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+  },
+  quizScopeSelectedText: {
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
+  },
+  quickPromptBtn: {
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    borderRadius: 8,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  quickPromptText: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#1A1916',
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+    letterSpacing: -0.1,
+  },
+  initialComposerWrap: {
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E3DE',
+    backgroundColor: '#F7F7F5',
+    position: 'relative',
+    zIndex: 10,
+    elevation: 10,
+  },
+  aiStatusWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingLeft: 2,
+  },
+  aiStatusFloating: {
+    position: 'absolute',
+    left: 20,
+    bottom: 112,
+    zIndex: 50,
+    elevation: 50,
+    backgroundColor: '#F7F7F5',
+    paddingRight: 6,
+  },
+  aiStatusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: colors.accent,
+  },
+  aiStatusText: {
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: -0.1,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+  },
+  initialComposer: {
+    minHeight: 56,
+    maxHeight: 156,
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
+    justifyContent: 'space-between',
+  },
+  initialComposerInput: {
+    height: 22,
+    fontSize: 13,
+    lineHeight: 18,
+    color: '#1A1916',
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+    letterSpacing: -0.1,
+    paddingTop: 0,
+    paddingBottom: 0,
+  },
+  initialComposerSend: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: '#1A8A72',
+    alignItems: 'center',
+    justifyContent: 'center',
+    alignSelf: 'flex-end',
+  },
+  initialComposerSendDisabled: {
+    opacity: 0.4,
   },
   initialContent: {
     gap: 8,
@@ -1558,11 +2616,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 15,
     elevation: 5,
-  },
-  iconFaceContainer: {
-    position: 'absolute',
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   optionsContainer: {
     gap: 2,
@@ -1592,43 +2645,85 @@ const styles = StyleSheet.create({
   },
   messageContainer: {
     flexDirection: 'row',
-    marginBottom: 12,
+    marginBottom: 16,
     alignItems: 'flex-end',
+    width: '100%',
   },
   messageContainerLast: {
     marginBottom: 0,
   },
   userMessageContainer: {
     justifyContent: 'flex-end',
+    alignSelf: 'flex-end',
   },
   aiMessageContainer: {
     justifyContent: 'flex-start',
+    alignSelf: 'flex-start',
   },
   messageBubbleWrapper: {
-    maxWidth: '95%',
+    maxWidth: '82%',
+  },
+  aiMessageInlineWrap: {
+    maxWidth: '100%',
+    width: '100%',
+    alignSelf: 'stretch',
+  },
+  aiInlineRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+  },
+  aiInlineBlock: {
+    flex: 1,
+  },
+  aiInlineIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#111111',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  aiInlineTextWrap: {
+    flex: 1,
+  },
+  aiInlineText: {
+    fontSize: 15,
+    lineHeight: 21,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    color: colors.text,
   },
   messageBubble: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 18,
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   userBubble: {
-    backgroundColor: '#6366F1', // 品牌紫色
-    borderBottomRightRadius: 4,
+    backgroundColor: '#111111',
+    borderColor: '#111111',
+    borderBottomRightRadius: 24,
   },
   aiBubble: {
-    backgroundColor: '#F3F4F6',
-    borderBottomLeftRadius: 4,
+    backgroundColor: colors.surf,
+    borderBottomLeftRadius: 8,
   },
   messageText: {
     fontSize: 15,
-    lineHeight: 20,
+    lineHeight: 21,
+    letterSpacing: -0.1,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
   },
   userMessageText: {
     color: '#FFFFFF',
   },
   aiMessageText: {
-    color: '#111827',
+    color: colors.text,
   },
   loadingContainer: {
     paddingHorizontal: 16,
@@ -1696,21 +2791,25 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     paddingHorizontal: 18,
     paddingVertical: 12,
-    minHeight: 106,
-    justifyContent: 'space-between',
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 10,
   },
   input: {
+    flex: 1,
+    minHeight: 22,
+    maxHeight: 120,
     fontSize: 16,
     fontWeight: '400',
     color: '#0A0A0A',
     letterSpacing: -0.3125,
-    lineHeight: 24,
-    flex: 1,
+    lineHeight: 22,
     paddingTop: 0,
     paddingBottom: 0,
     textAlignVertical: 'top',
   },
   inputActions: {
+    // kept for reference — no longer used in JSX
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1733,19 +2832,20 @@ const styles = StyleSheet.create({
     height: 32,
     alignItems: 'center',
     justifyContent: 'center',
+    flexShrink: 0,
   },
   sendButtonDisabled: {
-    // 透明度由 SendIcon 组件控制
+    // opacity controlled by SendIcon
   },
   termSuggestionContainer: {
     marginTop: 12,
   },
   suggestionCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: colors.surf,
+    borderRadius: 8,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     marginTop: 8,
   },
   suggestionHeader: {
@@ -1754,38 +2854,145 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   suggestionLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#6366F1',
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '400',
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
     marginRight: 8,
     minWidth: 20,
   },
   suggestionTerm: {
     flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_600',
+    letterSpacing: -0.1,
   },
   suggestionDefinition: {
     flex: 1,
-    fontSize: 14,
-    color: '#6B7280',
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
+    letterSpacing: -0.1,
   },
   lessonHint: {
     marginTop: 12,
     marginBottom: 12,
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
+    position: 'relative',
+    overflow: 'visible',
+  },
+  lessonHintOpen: {
+    zIndex: 20,
+    elevation: 20,
   },
   lessonHintText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 12,
+    lineHeight: 17,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
+  },
+  lessonHintSubtext: {
+    marginTop: 6,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
   },
   lessonName: {
-    fontWeight: '600',
-    color: '#6366F1',
+    fontWeight: '400',
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
+  },
+  lessonInput: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.bg,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
+  },
+  lessonInputWrap: {
+    position: 'relative',
+    zIndex: 30,
+    overflow: 'visible',
+  },
+  lessonDropdownPortalLayer: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 999,
+    elevation: 999,
+  },
+  lessonDropdownPortal: {
+    position: 'absolute',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surf,
+    overflow: 'hidden',
+    zIndex: 1000,
+    elevation: 1000,
+    maxHeight: 240,
+  },
+  lessonDropdown: {
+    position: 'absolute',
+    top: '100%',
+    marginTop: 6,
+    left: 0,
+    right: 0,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    backgroundColor: colors.surf,
+    overflow: 'hidden',
+    zIndex: 40,
+    elevation: 40,
+    maxHeight: 240,
+  },
+  lessonDropdownItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  lessonDropdownItemFirst: {
+    borderTopWidth: 0,
+  },
+  lessonDropdownItemText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_400',
+    letterSpacing: -0.1,
+  },
+  lessonDropdownCreateItem: {
+    backgroundColor: colors.bg,
+  },
+  lessonDropdownCreateText: {
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_600',
+    letterSpacing: -0.1,
+  },
+  lessonMatchedText: {
+    marginTop: 6,
+    fontSize: 11,
+    lineHeight: 15,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
   },
   suggestionActions: {
     flexDirection: 'row',
@@ -1806,22 +3013,28 @@ const styles = StyleSheet.create({
     minWidth: '100%',
   },
   primaryButton: {
-    backgroundColor: '#6366F1',
+    backgroundColor: colors.accent,
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
+    letterSpacing: -0.1,
   },
   secondaryButton: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surf,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   secondaryButtonText: {
-    color: '#6B7280',
-    fontSize: 14,
-    fontWeight: '600',
+    color: colors.muted,
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_600',
+    letterSpacing: -0.1,
   },
   savedIndicator: {
     flexDirection: 'row',
@@ -1830,9 +3043,12 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   savedText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#10B981',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '400',
+    color: colors.green,
+    fontFamily: 'JetBrainsMono_700',
+    letterSpacing: -0.1,
   },
   // 历史记录样式
   historyContainer: {
@@ -1843,7 +3059,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
@@ -1891,7 +3107,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 18,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',

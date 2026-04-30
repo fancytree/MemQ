@@ -1,6 +1,7 @@
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { safeBack } from '@/lib/safeBack';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -237,7 +238,7 @@ export default function LearnScreen() {
           </Text>
           <TouchableOpacity
             style={styles.backButton}
-            onPress={() => router.back()}
+            onPress={() => safeBack('/(tabs)')}
             activeOpacity={0.7}
           >
             <Text style={styles.backButtonText}>Go Back</Text>

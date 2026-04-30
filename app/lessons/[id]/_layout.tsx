@@ -17,6 +17,8 @@ export default function LessonDetailLayout() {
         name="add-terms" 
         options={{ 
           headerShown: false, // add-terms 页面自己管理 header
+          presentation: 'card',
+          animation: 'slide_from_bottom',
         }} 
       />
     </Stack>

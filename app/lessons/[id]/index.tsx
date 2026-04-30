@@ -1,8 +1,13 @@
-import { loadFromCache, saveToCache, isCacheExpired } from '@/lib/cache';
+import { SectionLabel } from '@/components/SectionLabel';
+import TermCard from '@/components/TermCard';
+import { Button } from '@/components/ui/Button';
+import { isCacheExpired, loadFromCache, saveToCache } from '@/lib/cache';
+import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { router, useLocalSearchParams, Stack, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,14 +18,9 @@ import {
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import LessonStatsCard from '@/components/LessonStatsCard';
-import TermCard from '@/components/TermCard';
-import BackIcon from '@/components/icons/BackIcon';
-import SettingIcon from '@/components/icons/SettingIcon';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // 课程类型定义
 interface Lesson {
@@ -60,6 +60,7 @@ export const options = {
 };
 
 export default function LessonDetailScreen() {
+  const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const navigation = useNavigation();
   const [lesson, setLesson] = useState<Lesson | null>(null);
@@ -330,7 +331,7 @@ export default function LessonDetailScreen() {
 
   // 返回列表页
   const handleGoBack = () => {
-    router.back();
+    safeBack('/(tabs)/library');
   };
 
   // 处理编辑词条
@@ -407,7 +408,7 @@ export default function LessonDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+          <ActivityIndicator size="large" color={colors.accent} />
           <Text style={styles.loadingText}>Loading lesson...</Text>
         </View>
       </SafeAreaView>
@@ -424,101 +425,127 @@ export default function LessonDetailScreen() {
           <Text style={styles.errorText}>
             {error || 'The lesson you are looking for does not exist.'}
           </Text>
-          <TouchableOpacity
+          <Button
             style={styles.backButton}
             onPress={handleGoBack}
             activeOpacity={0.8}
           >
             <Text style={styles.backButtonText}>Back to Lessons</Text>
-          </TouchableOpacity>
+          </Button>
         </View>
       </SafeAreaView>
     );
   }
 
   const formattedDeadline = formatDate(lesson.deadline);
+  const totalCards = terms.length;
+  const masteredCount = terms.filter(
+    (term) => term.user_term_progress?.[0]?.status === 'Mastered'
+  ).length;
+  const dueCount = Math.max(totalCards - masteredCount, 0);
+  const progressPct = totalCards > 0 ? Math.round((masteredCount / totalCards) * 100) : 0;
 
   return (
     <View style={styles.container}>
       <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
-      <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Header 区域（自定义样式） */}
-        <View style={styles.header}>
-          <View style={styles.headerTopRow}>
-            <TouchableOpacity
-              onPress={handleGoBack}
-              style={styles.backButtonHeader}
-              activeOpacity={0.7}
-            >
-              <BackIcon size={20} color="#0A0A0A" />
-            </TouchableOpacity>
-            <View style={styles.headerRightSection}>
-              {/* Vocabulary Mode 标签 */}
-              <View style={[
-                styles.vocabModeBadge,
-                lesson.is_vocab_mode ? styles.vocabModeBadgeActive : styles.vocabModeBadgeInactive
-              ]}>
-                <Text style={[
-                  styles.vocabModeText,
-                  lesson.is_vocab_mode ? styles.vocabModeTextActive : styles.vocabModeTextInactive
-                ]}>
-                  Vocabulary Mode
-                </Text>
-              </View>
-            <TouchableOpacity
-              onPress={() => {
-                router.push(`/lessons/${id}/settings` as any);
-              }}
-              style={styles.headerSettingButton}
-              activeOpacity={0.7}
-            >
-              <SettingIcon size={24} color="#0A0A0A" />
-            </TouchableOpacity>
-            </View>
-          </View>
-          <Text style={styles.lessonTitle}>{lesson.name}</Text>
-          {lesson.description && (
-            <Text style={styles.lessonDescription}>{lesson.description}</Text>
-          )}
+        {/* Top nav */}
+        <View style={styles.nav}>
+          <Button onPress={handleGoBack} activeOpacity={0.7}>
+            <Text style={styles.navBack}>← Library</Text>
+          </Button>
+          <Button
+            onPress={() => router.push(`/lessons/${id}/settings` as any)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.navEdit}>Edit</Text>
+          </Button>
         </View>
 
-        {/* 学习进度统计卡片 */}
-        {terms.length > 0 && (
-          <LessonStatsCard lesson={lesson} terms={terms} />
-          )}
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 28 + insets.bottom }]}
+      >
 
-        {/* Add Items 按钮 */}
-          <TouchableOpacity
-          style={styles.addItemsButton}
-          onPress={handleEditTerms}
+        {/* Title block */}
+        <View style={styles.titleBlock}>
+          <View style={styles.lessonMetaRow}>
+            <SectionLabel size={11}>Lesson</SectionLabel>
+            {lesson.is_vocab_mode && (
+              <View style={styles.vocabModeTag}>
+                <Text style={styles.vocabModeTagText}>Vocabulary Mode</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.lessonTitle}>{lesson.name}</Text>
+          {lesson.description && <Text style={styles.lessonDescription}>{lesson.description}</Text>}
+          <View style={styles.masteryLine}>
+            <Text style={styles.masteryNum}>{progressPct}%</Text>
+            <Text style={styles.masteryUnit}>mastery</Text>
+            <Text style={[styles.masteryUnit, { marginLeft: 'auto' }]}>
+              {masteredCount} of {totalCards}
+            </Text>
+          </View>
+          <View style={styles.barTrack}>
+            <View style={[styles.barFill, { width: `${progressPct}%` }]} />
+          </View>
+        </View>
+
+        {/* Stat row */}
+        <View style={styles.statsRow}>
+          {[
+            { v: totalCards, l: 'cards' },
+            { v: dueCount, l: 'due' },
+            { v: masteredCount, l: 'mastered' },
+          ].map((s, i, arr) => (
+            <View
+              key={s.l}
+              style={[
+                styles.statCell,
+                i < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
+              ]}
+            >
+              <Text style={styles.statVal}>{s.v}</Text>
+              <SectionLabel size={11} style={styles.statLabel}>{s.l}</SectionLabel>
+            </View>
+          ))}
+        </View>
+
+        {/* CTA */}
+        <View style={styles.ctaWrap}>
+          <Button
+            style={styles.continueLearningButton}
+            onPress={handleStartStudy}
             activeOpacity={0.8}
           >
-          <Feather name="plus" size={20} color="#111827" />
-          <Text style={styles.addItemsButtonText}>Add Items</Text>
-          </TouchableOpacity>
+            <Text style={styles.continueLearningButtonText}>Review {dueCount} due →</Text>
+          </Button>
+        </View>
 
         {/* Terms 列表区域 */}
         <View style={styles.termsSection}>
+          <View style={styles.sectionHead}>
+            <SectionLabel>Terms</SectionLabel>
+            <Button onPress={handleEditTerms} activeOpacity={0.7}>
+              <Text style={styles.sectionAction}>Add</Text>
+            </Button>
+          </View>
 
           {/* 工具栏 */}
           <View style={styles.toolbar}>
             {/* 搜索框 */}
             <View style={styles.searchContainer}>
-              <Feather name="search" size={18} color="#9CA3AF" style={styles.searchIcon} />
+              <Feather name="search" size={18} color={colors.dim} style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
                 placeholder="Search Terms or Explanations..."
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.muted}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
               />
             </View>
 
             {/* 筛选器下拉菜单 */}
-          <TouchableOpacity
+          <Button
               style={styles.filterButton}
               onPress={() => setShowFilterModal(true)}
               activeOpacity={0.7}
@@ -529,9 +556,9 @@ export default function LessonDetailScreen() {
               <Feather 
                 name="chevron-down" 
                 size={16} 
-                color="#6B7280"
+                color={colors.muted}
               />
-          </TouchableOpacity>
+          </Button>
         </View>
 
           {/* 列表头 */}
@@ -545,7 +572,7 @@ export default function LessonDetailScreen() {
           {/* 词条列表 */}
           {filteredTerms.length === 0 ? (
             <View style={styles.emptyTermsContainer}>
-              <Feather name="book-open" size={48} color="#9CA3AF" />
+              <Feather name="book-open" size={48} color={colors.dim} />
               <Text style={styles.emptyTermsTitle}>
                 {searchQuery || filterLevel !== 'All'
                   ? 'No Terms Found'
@@ -557,13 +584,13 @@ export default function LessonDetailScreen() {
                   : 'Add terms to get started with this lesson.'}
               </Text>
               {!searchQuery && filterLevel === 'All' && (
-              <TouchableOpacity
+              <Button
                   style={styles.addTermsButtonEmpty}
                 onPress={handleEditTerms}
                 activeOpacity={0.8}
               >
                   <Text style={styles.addTermsButtonTextEmpty}>Add Terms</Text>
-              </TouchableOpacity>
+              </Button>
               )}
             </View>
           ) : (
@@ -595,30 +622,43 @@ export default function LessonDetailScreen() {
       <Modal
         visible={showFilterModal}
         transparent={true}
-        animationType="slide"
+        animationType="fade"
+        statusBarTranslucent
         onRequestClose={() => setShowFilterModal(false)}
       >
         <View style={styles.modalOverlay}>
-          <TouchableOpacity
+          <Button
             style={styles.modalOverlayBackdrop}
             activeOpacity={1}
             onPress={() => setShowFilterModal(false)}
           />
           <View style={styles.filterModalContainer}>
             <View style={styles.filterModalContent}>
-                {/* Handle bar */}
-                <View style={styles.filterModalHandle} />
-                
                 <View style={styles.filterModalHeader}>
-                  <Text style={styles.filterModalTitle}>Filter by Level</Text>
+                  <View style={styles.filterModalHeaderRow}>
+                    <Text style={styles.filterModalTitle}>Filter by Level</Text>
+                    <Button
+                      onPress={() => setShowFilterModal(false)}
+                      style={styles.filterModalCloseButton}
+                      activeOpacity={0.7}
+                    >
+                      <Feather name="x" size={18} color={colors.muted} />
+                    </Button>
+                  </View>
                 </View>
                 
-                <View style={styles.filterOptionsList}>
+                <ScrollView
+                  style={styles.filterOptionsList}
+                  showsVerticalScrollIndicator={false}
+                  bounces={false}
+                >
               {/* All Levels */}
-              <TouchableOpacity
+              <Button
                 style={[
                   styles.filterOption,
+                  styles.filterOptionAll,
                   filterLevel === 'All' && styles.filterOptionSelected,
+                  filterLevel === 'All' && styles.filterOptionSelectedAll,
                 ]}
                 onPress={() => {
                   setFilterLevel('All');
@@ -635,12 +675,12 @@ export default function LessonDetailScreen() {
                   All Levels
                 </Text>
                 {filterLevel === 'All' && (
-                  <Feather name="check" size={20} color="#4E49FC" />
+                  <Feather name="check" size={20} color={colors.accent} />
                 )}
-              </TouchableOpacity>
+              </Button>
 
               {/* New */}
-              <TouchableOpacity
+              <Button
                 style={[
                   styles.filterOption,
                   styles.filterOptionNew,
@@ -662,12 +702,12 @@ export default function LessonDetailScreen() {
                   New
                 </Text>
                 {filterLevel === 'New' && (
-                  <Feather name="check" size={20} color="#4A5565" />
+                  <Feather name="check" size={20} color={colors.muted} />
                 )}
-              </TouchableOpacity>
+              </Button>
 
               {/* Learning */}
-              <TouchableOpacity
+              <Button
                 style={[
                   styles.filterOption,
                   styles.filterOptionLearning,
@@ -691,10 +731,10 @@ export default function LessonDetailScreen() {
                 {filterLevel === 'Learning' && (
                   <Feather name="check" size={20} color="#E7000B" />
                 )}
-              </TouchableOpacity>
+              </Button>
 
               {/* Familiar */}
-              <TouchableOpacity
+              <Button
                 style={[
                   styles.filterOption,
                   styles.filterOptionFamiliar,
@@ -718,10 +758,10 @@ export default function LessonDetailScreen() {
                 {filterLevel === 'Familiar' && (
                   <Feather name="check" size={20} color="#FF6900" />
                 )}
-              </TouchableOpacity>
+              </Button>
 
               {/* Good */}
-              <TouchableOpacity
+              <Button
                 style={[
                   styles.filterOption,
                   styles.filterOptionGood,
@@ -745,10 +785,10 @@ export default function LessonDetailScreen() {
                 {filterLevel === 'Good' && (
                   <Feather name="check" size={20} color="#D08700" />
                 )}
-              </TouchableOpacity>
+              </Button>
 
               {/* Strong */}
-              <TouchableOpacity
+              <Button
                 style={[
                   styles.filterOption,
                   styles.filterOptionStrong,
@@ -770,12 +810,12 @@ export default function LessonDetailScreen() {
                   Strong
                 </Text>
                 {filterLevel === 'Strong' && (
-                  <Feather name="check" size={20} color="#4E49FC" />
+                  <Feather name="check" size={20} color={colors.accent} />
                 )}
-              </TouchableOpacity>
+              </Button>
 
               {/* Mastered */}
-              <TouchableOpacity
+              <Button
                 style={[
                   styles.filterOption,
                   styles.filterOptionMastered,
@@ -799,26 +839,13 @@ export default function LessonDetailScreen() {
                 {filterLevel === 'Mastered' && (
                   <Feather name="check" size={20} color="#00A63E" />
                 )}
-              </TouchableOpacity>
-                </View>
+              </Button>
+                </ScrollView>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* 底部固定栏 */}
-      <SafeAreaView style={styles.footerContainer} edges={['bottom']}>
-        <View style={styles.footerContent}>
-          <TouchableOpacity
-            style={styles.continueLearningButton}
-            onPress={handleStartStudy}
-            activeOpacity={0.8}
-          >
-            <Feather name="play" size={20} color="#FFFFFF" />
-            <Text style={styles.continueLearningButtonText}>Continue Learning</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
     </View>
   );
 }
@@ -826,7 +853,7 @@ export default function LessonDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FAFAF8',
+    backgroundColor: colors.bg,
   },
   safeAreaTop: {
     flex: 1,
@@ -838,8 +865,9 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: 13,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
   },
   errorContainer: {
     flex: 1,
@@ -848,187 +876,192 @@ const styles = StyleSheet.create({
     padding: 40,
   },
   errorTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 20,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_700',
     marginTop: 16,
     marginBottom: 8,
   },
   errorText: {
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
     textAlign: 'center',
     marginBottom: 32,
   },
   backButton: {
-    backgroundColor: '#1A8A72',
-    paddingHorizontal: 24,
+    backgroundColor: colors.accent,
+    paddingHorizontal: 20,
     paddingVertical: 12,
     borderRadius: 8,
   },
   backButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
-    paddingBottom: 100, // 为底部固定按钮留出空间
+    paddingBottom: 28,
   },
-  header: {
-    marginBottom: 12,
-  },
-  headerTopRow: {
+  nav: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
     flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  backButtonHeader: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(120,116,150,0.08)',
-    borderRadius: 16.4,
-    justifyContent: 'center',
-    alignItems: 'center',
+  navBack: {
+    fontSize: 13,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
   },
-  headerRightSection: {
+  navEdit: {
+    fontSize: 13,
+    letterSpacing: -0.1,
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+  },
+  titleBlock: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 18,
+    backgroundColor: colors.surf,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  lessonMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
   },
-  headerSettingButton: {
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginLeft: 8,
+  vocabModeTag: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    backgroundColor: '#EEF2FF',
+    borderWidth: 1,
+    borderColor: '#E0E7FF',
+  },
+  vocabModeTagText: {
+    fontSize: 10,
+    lineHeight: 14,
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
   },
   lessonTitle: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  vocabModeBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    borderWidth: 1,
-  },
-  vocabModeBadgeActive: {
-    backgroundColor: '#F5F3FF',
-    borderColor: '#4E49FC',
-  },
-  vocabModeBadgeInactive: {
-    backgroundColor: '#F3F4F6',
-    borderColor: '#D1D5DB',
-  },
-  vocabModeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.3,
-  },
-  vocabModeTextActive: {
-    color: '#4E49FC',
-  },
-  vocabModeTextInactive: {
-    color: '#6B7280',
+    fontFamily: 'JetBrainsMono_700',
+    fontSize: 22,
+    lineHeight: 27,
+    fontWeight: '400',
+    letterSpacing: -0.7,
+    color: colors.text,
   },
   lessonDescription: {
-    fontSize: 16,
-    color: '#6B7280',
-    lineHeight: 24,
-    marginBottom: 12,
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.muted,
+    marginTop: 6,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
   },
-  deadlineContainer: {
+  masteryLine: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  deadlineText: {
-    fontSize: 14,
-    color: '#6B7280',
-    marginLeft: 8,
-    fontWeight: '500',
-  },
-  actionBar: {
-    marginBottom: 32,
-    gap: 12,
-  },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
+    alignItems: 'baseline',
     gap: 8,
+    marginTop: 18,
   },
-  primaryButton: {
-    backgroundColor: '#3B82F6',
+  masteryNum: {
+    fontFamily: 'JetBrainsMono_800',
+    fontSize: 38,
+    letterSpacing: -1.2,
+    lineHeight: 42,
+    color: colors.text,
+    paddingTop: 2,
+    paddingRight: 2,
   },
-  secondaryButton: {
-    backgroundColor: '#10B981',
+  masteryUnit: {
+    fontSize: 12,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
   },
-  highlightButton: {
-    shadowColor: '#10B981',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+  barTrack: {
+    height: 2,
+    borderRadius: 1,
+    backgroundColor: colors.dim,
+    marginTop: 8,
+    overflow: 'hidden',
   },
-  outlineButton: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 2,
-    borderColor: '#3B82F6',
+  barFill: {
+    height: '100%',
+    backgroundColor: colors.accent,
   },
-  actionButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+  statsRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    backgroundColor: colors.surf,
   },
-  primaryButtonText: {
-    color: '#FFFFFF',
+  statCell: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
-  secondaryButtonText: {
-    color: '#FFFFFF',
+  statVal: {
+    fontFamily: 'JetBrainsMono_800',
+    fontSize: 26,
+    letterSpacing: -0.1,
+    lineHeight: 26,
+    color: colors.text,
+    paddingTop: 2,
   },
-  outlineButtonText: {
-    color: '#3B82F6',
+  statLabel: {
+    marginTop: 0,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    letterSpacing: -0.1,
+    lineHeight: 15,
   },
-  actionButtonDisabled: {
-    opacity: 0.6,
+  ctaWrap: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    backgroundColor: colors.surf,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   // Terms 列表区域样式
   termsSection: {
     marginTop: 0,
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
-  addItemsButton: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 8,
-    paddingVertical: 14,
+  sectionHead: {
+    paddingHorizontal: 4,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E5E3DE',
+    justifyContent: 'space-between',
   },
-  addItemsButtonText: {
-    color: '#1A1916',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+  sectionAction: {
+    fontSize: 13,
+    letterSpacing: -0.1,
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
   },
   addTermsButtonEmpty: {
-    backgroundColor: '#1A8A72',
+    backgroundColor: colors.accent,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1036,8 +1069,9 @@ const styles = StyleSheet.create({
   },
   addTermsButtonTextEmpty: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   toolbar: {
     flexDirection: 'row',
@@ -1048,11 +1082,12 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
+    backgroundColor: colors.surf,
+    borderRadius: 8,
     paddingHorizontal: 12,
+    minHeight: 42,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.dim,
     marginRight: 12,
   },
   searchIcon: {
@@ -1060,24 +1095,27 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
-    color: '#111827',
+    fontSize: 13,
+    lineHeight: 18,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_400',
     paddingVertical: 10,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: colors.surf,
+    borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   filterButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_500',
     marginRight: 6,
   },
   listHeader: {
@@ -1087,22 +1125,26 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   listHeaderTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_700',
   },
   badge: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: 12,
+    backgroundColor: colors.bg,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
     paddingHorizontal: 10,
     paddingVertical: 4,
     minWidth: 32,
     alignItems: 'center',
   },
   badgeText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
+    fontSize: 12,
+    fontWeight: '400',
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_500',
   },
   emptyTermsContainer: {
     alignItems: 'center',
@@ -1110,164 +1152,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   emptyTermsTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 16,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_700',
     marginTop: 16,
     marginBottom: 8,
   },
   emptyTermsText: {
-    fontSize: 16,
-    color: '#6B7280',
+    fontSize: 13,
+    lineHeight: 19,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
     textAlign: 'center',
     marginBottom: 24,
   },
   termsList: {
     gap: 12,
   },
-  termCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  termCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  termIndex: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#3B82F6',
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 6,
-    alignSelf: 'flex-start',
-  },
-  progressBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  // New 样式 - 与 LessonStatsCard 一致
-  progressBadgeNew: {
-    backgroundColor: '#F9FAFB',
-    borderColor: '#F9FAFB',
-  },
-  // Learning 样式 - 与 LessonStatsCard 一致 (红色)
-  progressBadgeLearning: {
-    backgroundColor: '#FEF2F2',
-    borderColor: '#FEF2F2',
-  },
-  // Familiar 样式 - 与 LessonStatsCard 一致 (橙色)
-  progressBadgeFamiliar: {
-    backgroundColor: '#FFF7ED',
-    borderColor: '#FFF7ED',
-  },
-  // Good 样式 - 与 LessonStatsCard 一致 (黄色)
-  progressBadgeGood: {
-    backgroundColor: '#FEFCE8',
-    borderColor: '#FEFCE8',
-  },
-  // Strong 样式 - 与 LessonStatsCard 一致 (紫色)
-  progressBadgeStrong: {
-    backgroundColor: '#FAF5FF',
-    borderColor: '#FAF5FF',
-  },
-  // Mastered 样式 - 与 LessonStatsCard 一致 (绿色)
-  progressBadgeMastered: {
-    backgroundColor: '#F0FDF4',
-    borderColor: '#F0FDF4',
-  },
-  progressBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  // New 文本颜色 - 与 LessonStatsCard 一致
-  progressBadgeTextNew: {
-    color: '#4A5565',
-  },
-  // Learning 文本颜色 - 与 LessonStatsCard 一致
-  progressBadgeTextLearning: {
-    color: '#E7000B',
-  },
-  // Familiar 文本颜色 - 与 LessonStatsCard 一致
-  progressBadgeTextFamiliar: {
-    color: '#FF6900',
-  },
-  // Good 文本颜色 - 与 LessonStatsCard 一致
-  progressBadgeTextGood: {
-    color: '#D08700',
-  },
-  // Strong 文本颜色 - 与 LessonStatsCard 一致
-  progressBadgeTextStrong: {
-    color: '#4E49FC',
-  },
-  // Mastered 文本颜色 - 与 LessonStatsCard 一致
-  progressBadgeTextMastered: {
-    color: '#00A63E',
-  },
-  termContent: {
-    gap: 12,
-  },
-  termRow: {
-    gap: 8,
-  },
-  termLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#6B7280',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  termValue: {
-    fontSize: 16,
-    color: '#111827',
-    lineHeight: 24,
-  },
-  explanationText: {
-    fontSize: 14,
-    color: '#6B7280',
-    fontStyle: 'italic',
-  },
-  footerContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E5E3DE',
-  },
-  footerContent: {
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 12,
-  },
   continueLearningButton: {
-    backgroundColor: '#1A8A72',
+    backgroundColor: colors.accent,
     borderRadius: 8,
-    paddingVertical: 16,
-    flexDirection: 'row',
+    paddingVertical: 15,
     alignItems: 'center',
-    justifyContent: 'center',
   },
   continueLearningButtonText: {
     color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: '600',
-    marginLeft: 8,
+    fontSize: 16,
+    fontWeight: '400',
+    lineHeight: 22,
+    fontFamily: 'JetBrainsMono_700',
+    letterSpacing: -0.1,
   },
   // Filter Modal Styles (iOS bottom sheet style)
   modalOverlay: {
@@ -1280,7 +1195,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.35)',
   },
   filterModalContainer: {
     width: '100%',
@@ -1288,70 +1203,95 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   filterModalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    maxHeight: '70%',
-  },
-  filterModalHandle: {
-    width: 36,
-    height: 5,
-    backgroundColor: '#D1D5DB',
-    borderRadius: 3,
-    alignSelf: 'center',
-    marginTop: 8,
-    marginBottom: 16,
+    borderTopWidth: 1,
+    borderColor: colors.border,
+    paddingBottom: Platform.OS === 'ios' ? 0 : 20,
+    maxHeight: '90%',
   },
   filterModalHeader: {
     paddingHorizontal: 20,
+    paddingTop: 14,
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
+  },
+  filterModalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
   },
   filterModalTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 16,
+    lineHeight: 22,
+    letterSpacing: -0.1,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_700',
+  },
+  filterModalCloseButton: {
+    width: 30,
+    height: 30,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   filterOptionsList: {
-    paddingVertical: 8,
-    paddingHorizontal: 8,
-    maxHeight: 400,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    maxHeight: 320,
   },
   filterOption: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     borderRadius: 8,
-    marginVertical: 2,
+    marginVertical: 3,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   filterOptionSelected: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.bg,
+    borderColor: colors.border,
+  },
+  filterOptionAll: {
+    backgroundColor: colors.surf,
+  },
+  filterOptionSelectedAll: {
+    backgroundColor: colors.accentL,
+    borderColor: colors.accentRing,
   },
   filterOptionText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400',
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_500',
   },
   filterOptionTextSelected: {
-    fontWeight: '600',
-    color: '#4E49FC',
+    fontWeight: '400',
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
   },
   // Filter Option Colors (matching LessonStatsCard)
   filterOptionNew: {
     backgroundColor: 'transparent',
   },
   filterOptionSelectedNew: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
   },
   filterOptionTextNew: {
-    color: '#4A5565',
+    color: colors.muted,
   },
   filterOptionTextSelectedNew: {
-    color: '#4A5565',
+    color: colors.muted,
     fontWeight: '600',
   },
   filterOptionLearning: {
@@ -1400,10 +1340,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FAF5FF',
   },
   filterOptionTextStrong: {
-    color: '#4E49FC',
+    color: colors.accent,
   },
   filterOptionTextSelectedStrong: {
-    color: '#4E49FC',
+    color: colors.accent,
     fontWeight: '600',
   },
   filterOptionMastered: {

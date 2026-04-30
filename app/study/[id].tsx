@@ -6,6 +6,7 @@ import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
+import { safeBack } from '@/lib/safeBack';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -48,6 +49,13 @@ interface UserTermProgress {
   term_id: string;
   status: 'New' | 'Learning' | 'Familiar' | 'Good' | 'Strong' | 'Mastered';
   next_review_at: string | null;
+}
+
+interface LessonTerm {
+  id: string;
+  term: string;
+  definition: string;
+  lesson_id: string;
 }
 
 // Session 大小配置
@@ -110,7 +118,7 @@ export default function StudySessionScreen() {
         const isTodayMode = id === 'today';
 
         // 第一步：获取 terms（根据模式选择）
-        let termsData: any[] = [];
+        let termsData: LessonTerm[] = [];
         let termsError: any = null;
 
         if (isTodayMode) {
@@ -152,14 +160,15 @@ export default function StudySessionScreen() {
           // 合并需要复习的词和新词
           const progressTermIds = new Set<string>();
           if (dueTermsData) {
-            dueTermsData.forEach(item => {
-              if (item.term_id && item.terms) {
+            dueTermsData.forEach((item) => {
+              const relationTerm = Array.isArray(item.terms) ? item.terms[0] : item.terms;
+              if (item.term_id && relationTerm) {
                 progressTermIds.add(item.term_id);
                 termsData.push({
-                  id: item.terms.id,
-                  term: item.terms.term,
-                  definition: item.terms.definition,
-                  lesson_id: item.terms.lesson_id,
+                  id: relationTerm.id,
+                  term: relationTerm.term,
+                  definition: relationTerm.definition,
+                  lesson_id: relationTerm.lesson_id,
                 });
               }
             });
@@ -167,7 +176,7 @@ export default function StudySessionScreen() {
 
           // 添加新词（没有进度记录的）
           if (allTermsData) {
-            allTermsData.forEach(term => {
+            allTermsData.forEach((term) => {
               if (!progressTermIds.has(term.id)) {
                 termsData.push({
                   id: term.id,
@@ -643,7 +652,7 @@ export default function StudySessionScreen() {
       clearTimeout(autoAdvanceTimer);
       setAutoAdvanceTimer(null);
     }
-    router.back();
+    safeBack('/(tabs)/library');
   };
 
   // 清理定时器（组件卸载时）

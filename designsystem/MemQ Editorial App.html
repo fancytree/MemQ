@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MemQ — Editorial App</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700;9..144,800;9..144,900&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: #F0EEE9; color: #1A1916; font-family: 'Space Grotesk', sans-serif; }
+  button { font-family: inherit; }
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="ios-frame.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="screens-editorial.jsx"></script>
+
+<script type="text/babel">
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "typography": "mono"
+}/*EDITMODE-END*/;
+
+const FONT_MAP = {
+  grotesk: "'Space Grotesk', sans-serif",
+  serif:   "'Fraunces', Georgia, serif",
+  mono:    "'JetBrains Mono', ui-monospace, monospace",
+};
+
+function ScreenLabel({ children }) {
+  return (
+    <div style={{
+      position: 'absolute', top: -34, left: '50%', transform: 'translateX(-50%)',
+      whiteSpace: 'nowrap', fontSize: 11, fontWeight: 500, letterSpacing: '0.1em',
+      textTransform: 'uppercase', color: '#1A191660', padding: '3px 11px',
+      borderRadius: 20, border: '1px solid #1A191618', background: '#1A191608',
+      fontFamily: "'Space Grotesk', sans-serif"
+    }}>{children}</div>
+  );
+}
+
+function Phone({ children, label }) {
+  return (
+    <div style={{ position: 'relative', display: 'inline-block' }}>
+      {label && <ScreenLabel>{label}</ScreenLabel>}
+      <div style={{
+        width: 320, height: 640, overflow: 'hidden', background: '#FAFAF8'
+      }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function Header({ title, subtitle }) {
+  return (
+    <div style={{ textAlign: 'center', marginBottom: 28, fontFamily: "'Space Grotesk', sans-serif" }}>
+      <div style={{ fontSize: 21, fontWeight: 700, letterSpacing: '-0.02em', color: '#1A1916' }}>{title}</div>
+      {subtitle && <div style={{ fontSize: 13, color: '#9B9790', marginTop: 5, lineHeight: 1.5 }}>{subtitle}</div>}
+    </div>
+  );
+}
+
+// Single phone with full nav state
+function PhonePrototype({ initial, initialDeckId, fontFamily }) {
+  const [screen, setScreen] = React.useState(initial || 'home');
+  const [stack, setStack] = React.useState(initial === 'deck' ? ['library'] : []);
+  const [deckId, setDeckId] = React.useState(initialDeckId || null);
+
+  const goto = (s) => { setStack(prev => [...prev, screen]); setScreen(s); };
+  const switchTab = (s) => { setScreen(s); setStack([]); setDeckId(null); };
+  const openDeck = (id) => { setStack(prev => [...prev, screen]); setDeckId(id); setScreen('deck'); };
+  const back = () => {
+    setStack(prev => {
+      const next = [...prev];
+      const last = next.pop();
+      setScreen(last || 'library');
+      return next;
+    });
+  };
+
+  const tabFor = screen === 'deck' ? 'library' : screen;
+
+  let content = null;
+  if (screen === 'home')    content = <EditorialHome    goto={switchTab} fontFamily={fontFamily} />;
+  if (screen === 'library') content = <EditorialLibrary openDeck={openDeck} goto={switchTab} fontFamily={fontFamily} />;
+  if (screen === 'deck')    content = <EditorialDeckDetail deckId={deckId} back={back} goto={switchTab} fontFamily={fontFamily} />;
+  if (screen === 'create')  content = <EditorialCreate  fontFamily={fontFamily} />;
+  if (screen === 'explore') content = <EditorialExplore openDeck={openDeck} fontFamily={fontFamily} />;
+  if (screen === 'quiz')    content = <EditorialQuiz    fontFamily={fontFamily} />;
+  if (screen === 'profile') content = <EditorialProfile fontFamily={fontFamily} />;
+
+  return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      {content}
+      <TabBar active={tabFor} onChange={switchTab} />
+    </div>
+  );
+}
+
+function App() {
+  const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
+  const fontFamily = FONT_MAP[tweaks.typography] || FONT_MAP.grotesk;
+
+  return (
+    <>
+      <DesignCanvas
+        title="MemQ · Editorial"
+        subtitle="A clickable mobile prototype — Notion / Linear-inspired. Tap a deck, generate cards, work through a multi-mode quiz. All six screens are connected via the tab bar."
+      >
+        <DCSection id="primary" title="Primary Flow" subtitle="Today → Library → Deck → Explore">
+
+          <DCArtboard id="ed-home" label="Today" width={320} height={640}>
+            <PhonePrototype initial="home" fontFamily={fontFamily} />
+          </DCArtboard>
+
+          <DCArtboard id="ed-library" label="Library" width={320} height={640}>
+            <PhonePrototype initial="library" fontFamily={fontFamily} />
+          </DCArtboard>
+
+          <DCArtboard id="ed-explore" label="Explore" width={320} height={640}>
+            <PhonePrototype initial="explore" fontFamily={fontFamily} />
+          </DCArtboard>
+
+          <DCArtboard id="ed-deck" label="Deck Detail" width={320} height={640}>
+            <PhonePrototype initial="deck" initialDeckId="hist" fontFamily={fontFamily} />
+          </DCArtboard>
+
+        </DCSection>
+
+        <DCSection id="learning" title="Learning Loop" subtitle="Create cards · review across three quiz modes">
+
+          <DCArtboard id="ed-create" label="Create" width={320} height={640}>
+            <PhonePrototype initial="create" fontFamily={fontFamily} />
+          </DCArtboard>
+
+          <DCArtboard id="ed-quiz" label="Quiz" width={320} height={640}>
+            <PhonePrototype initial="quiz" fontFamily={fontFamily} />
+          </DCArtboard>
+
+          <DCArtboard id="ed-profile" label="Profile" width={320} height={640}>
+            <PhonePrototype initial="profile" fontFamily={fontFamily} />
+          </DCArtboard>
+
+        </DCSection>
+      </DesignCanvas>
+
+      <TweaksPanel title="Tweaks">
+        <TweakSection title="Typography">
+          <TweakRadio
+            label="Font system"
+            value={tweaks.typography}
+            onChange={v => setTweak('typography', v)}
+            options={[
+              { value: 'grotesk', label: 'Grotesk' },
+              { value: 'serif',   label: 'Serif'   },
+              { value: 'mono',    label: 'Mono'    },
+            ]}
+          />
+          <div style={{ fontSize: 11, color: '#9B9790', marginTop: 8, lineHeight: 1.5 }}>
+            Grotesk is the canonical Editorial face. Serif (Fraunces) leans editorial-magazine; Mono (JetBrains) reads like a research notebook.
+          </div>
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+  <rect width="120" height="80" fill="#F0EEE9"/>
+  <rect x="18" y="12" width="26" height="56" rx="2" fill="#FAFAF8" stroke="#E5E3DE" stroke-width="1"/>
+  <rect x="47" y="12" width="26" height="56" rx="2" fill="#FAFAF8" stroke="#E5E3DE" stroke-width="1"/>
+  <rect x="76" y="12" width="26" height="56" rx="2" fill="#FAFAF8" stroke="#E5E3DE" stroke-width="1"/>
+  <rect x="22" y="18" width="18" height="2" rx="1" fill="#1A1916" opacity=".7"/>
+  <rect x="22" y="24" width="14" height="1" rx="0.5" fill="#9B9790" opacity=".7"/>
+  <rect x="22" y="30" width="18" height="6" rx="1" fill="#1A8A72" opacity=".25"/>
+  <text x="60" y="76" text-anchor="middle" fill="#9B979080" font-size="5" font-family="sans-serif">MemQ Editorial</text>
+</svg>
+</template>
+</body>
+</html>

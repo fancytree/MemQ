@@ -1,12 +1,18 @@
+import MenuItem from '@/components/MenuItem';
+import { MemQTheme } from '@/constants/theme';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { clearAllCache, formatCacheSize, getCacheSize } from '@/lib/cache';
+import { updateNotificationSchedule } from '@/lib/notificationService';
+import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
-import { router, useFocusEffect } from 'expo-router';
-import BackIcon from '@/components/icons/BackIcon';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
-import React, { useCallback, useEffect, useState, useRef } from 'react';
-import { updateNotificationSchedule } from '@/lib/notificationService';
-import { useSubscription } from '@/context/SubscriptionContext';
-import { getCacheSize, formatCacheSize, clearAllCache } from '@/lib/cache';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Image } from 'expo-image';
+import * as ImagePicker from 'expo-image-picker';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -20,12 +26,6 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import MenuItem from '@/components/MenuItem';
-import { MemQTheme } from '@/constants/theme';
-import * as ImagePicker from 'expo-image-picker';
-import { Image } from 'expo-image';
-import * as FileSystem from 'expo-file-system/legacy';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 export const options = {
   headerShown: false,
@@ -51,17 +51,6 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const notificationInitialized = useRef(false); // 用于跟踪是否已初始化 notification 状态
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
   const [hapticEffectEnabled, setHapticEffectEnabled] = useState(true);
-  
-  // 学习统计状态
-  const [studyStats, setStudyStats] = useState<{
-    studyDays: number;
-    totalReviews: number;
-    masteredTerms: number;
-    totalTerms: number;
-    currentStreak: number;
-    recent7Days: Array<{ date: string; studied: boolean }>;
-  } | null>(null);
-  const [loadingStats, setLoadingStats] = useState(false);
   
   // 缓存大小状态
   const [cacheSize, setCacheSize] = useState<string>('0 B');
@@ -147,128 +136,6 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
     }
   }, []);
 
-  // 获取学习统计
-  const fetchStudyStats = useCallback(async () => {
-    try {
-      setLoadingStats(true);
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) return;
-
-      // 获取所有学习记录
-      const { data: progressData, error: progressError } = await supabase
-        .from('user_term_progress')
-        .select('last_reviewed_at, status')
-        .eq('user_id', currentUser.id)
-        .not('last_reviewed_at', 'is', null);
-
-      if (progressError) {
-        console.error('Error fetching progress:', progressError);
-        return;
-      }
-
-      // 获取总词汇数
-      // 先获取用户的所有 lesson IDs
-      const { data: lessonsData, error: lessonsError } = await supabase
-        .from('lessons')
-        .select('id')
-        .eq('user_id', currentUser.id);
-
-      let totalTerms = 0;
-      if (lessonsData && lessonsData.length > 0) {
-        const lessonIds = lessonsData.map((lesson) => lesson.id);
-        const { data: termsData, error: termsError } = await supabase
-          .from('terms')
-          .select('id')
-          .in('lesson_id', lessonIds);
-
-        if (!termsError && termsData) {
-          totalTerms = termsData.length;
-        }
-      }
-
-      // 获取今天的本地日期（避免时区问题）
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      // 格式化日期为 YYYY-MM-DD（使用本地时间）
-      const formatDateLocal = (date: Date): string => {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      };
-
-      // 统计学习天数（根据 last_reviewed_at 去重，按日期）
-      const studyDaysSet = new Set<string>();
-      if (progressData) {
-        progressData.forEach((record) => {
-          if (record.last_reviewed_at) {
-            const date = new Date(record.last_reviewed_at);
-            date.setHours(0, 0, 0, 0);
-            const dateStr = formatDateLocal(date);
-            studyDaysSet.add(dateStr);
-          }
-        });
-      }
-
-      // 统计已掌握的词汇数
-      const masteredTerms = progressData?.filter(
-        (record) => record.status === 'Mastered'
-      ).length || 0;
-
-      // 计算连续学习天数
-      const sortedDates = Array.from(studyDaysSet).sort().reverse();
-      let currentStreak = 0;
-      const todayStr = formatDateLocal(today);
-      
-      for (let i = 0; i < sortedDates.length; i++) {
-        const date = new Date(sortedDates[i]);
-        date.setHours(0, 0, 0, 0);
-        const expectedDate = new Date(today);
-        expectedDate.setDate(today.getDate() - i);
-        
-        if (date.getTime() === expectedDate.getTime()) {
-          currentStreak++;
-        } else {
-          break;
-        }
-      }
-
-      // 生成最近7天的学习记录（从6天前到今天，最后一天是今天）
-      const recent7Days: Array<{ date: string; studied: boolean }> = [];
-      
-      // 循环从6天前到今天（i从6到0，最后一天i=0是今天）
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(today);
-        date.setDate(today.getDate() - i);
-        const dateStr = formatDateLocal(date);
-        recent7Days.push({
-          date: dateStr,
-          studied: studyDaysSet.has(dateStr),
-        });
-      }
-      
-      // 验证：最后一天应该是今天
-      const lastDayDate = recent7Days[recent7Days.length - 1].date;
-      if (lastDayDate !== todayStr) {
-        console.error('Last day mismatch:', lastDayDate, 'expected:', todayStr);
-      }
-
-      setStudyStats({
-        studyDays: studyDaysSet.size,
-        totalReviews: progressData?.length || 0,
-        masteredTerms,
-        totalTerms,
-        currentStreak,
-        recent7Days,
-      });
-    } catch (error) {
-      console.error('Error fetching study stats:', error);
-    } finally {
-      setLoadingStats(false);
-    }
-  }, []);
-
   // 获取缓存大小
   const fetchCacheSize = useCallback(async () => {
     try {
@@ -314,9 +181,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   // 组件挂载时获取数据
   useEffect(() => {
     fetchUser();
-    fetchStudyStats();
     fetchCacheSize();
-  }, [fetchUser, fetchStudyStats, fetchCacheSize]);
+  }, [fetchUser, fetchCacheSize]);
 
   // 页面重新获得焦点时刷新数据（例如从编辑页面返回时）
   useFocusEffect(
@@ -324,9 +190,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
       if (user) {
         // 只在已经有数据的情况下才刷新（避免初始加载时重复请求）
         fetchUser();
-        fetchStudyStats();
       }
-    }, [user, fetchUser, fetchStudyStats])
+    }, [user, fetchUser])
   );
 
 
@@ -775,58 +640,55 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* 自定义 Header */}
-        <View style={styles.header}>
-          {isTab ? (
-            <View style={styles.backButton} />
-          ) : (
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={styles.backButton}
-              activeOpacity={0.7}
-            >
-              <BackIcon size={20} color="#0A0A0A" />
-            </TouchableOpacity>
-          )}
-          <Text style={styles.headerTitle}>Profile</Text>
-          <View style={styles.headerRight} />
-        </View>
-
-        {/* 用户信息头部 */}
-        <View style={styles.userHeader}>
-          <TouchableOpacity
-            onPress={handleAvatarPress}
-            disabled={uploadingAvatar}
-            activeOpacity={0.7}
-            style={styles.avatarContainer}
-          >
-            {uploadingAvatar ? (
-              <View style={styles.avatar}>
-                <ActivityIndicator size="small" color={t.color.accent} />
-              </View>
-            ) : avatarUrl ? (
-              <Image
-                source={{ uri: avatarUrl }}
-                style={styles.avatarImage}
-                contentFit="cover"
-              />
+        <View style={styles.topHeaderBlock}>
+          {/* 二级页导航（参考 deck 内页） */}
+          <View style={styles.header}>
+            {isTab ? (
+              <Text style={styles.navBack}>Profile</Text>
             ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getUserInitial()}</Text>
-              </View>
+              <TouchableOpacity onPress={() => safeBack('/(tabs)')} activeOpacity={0.7}>
+                <Text style={styles.navBack}>← Profile</Text>
+              </TouchableOpacity>
             )}
-            <View style={styles.avatarEditBadge}>
-              <Feather name="camera" size={14} color="#FFFFFF" />
-            </View>
-          </TouchableOpacity>
-          <Text style={styles.userName}>{getUserDisplayName()}</Text>
+            <View style={styles.navRightSpacer} />
+          </View>
+
+          {/* 用户信息头部 */}
+          <View style={styles.userHeader}>
+            <TouchableOpacity
+              onPress={handleAvatarPress}
+              disabled={uploadingAvatar}
+              activeOpacity={0.7}
+              style={styles.avatarContainer}
+            >
+              {uploadingAvatar ? (
+                <View style={styles.avatar}>
+                  <ActivityIndicator size="small" color={t.color.accent} />
+                </View>
+              ) : avatarUrl ? (
+                <Image
+                  source={{ uri: avatarUrl }}
+                  style={styles.avatarImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{getUserInitial()}</Text>
+                </View>
+              )}
+              <View style={styles.avatarEditBadge}>
+                <Feather name="camera" size={14} color={t.color.accent} />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.userName}>{getUserDisplayName()}</Text>
+          </View>
         </View>
 
         {/* Pro Banner */}
         {!isPro && (
           <View style={styles.premiumBanner}>
             <View style={styles.premiumHeader}>
-              <Feather name="star" size={20} color="#FFFFFF" />
+              <Feather name="star" size={20} color={t.color.muted} />
               <Text style={styles.premiumLabel}>Pro</Text>
             </View>
             <Text style={styles.premiumTitle}>Unlock Your Full Potential</Text>
@@ -840,81 +702,14 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           </View>
         )}
 
-        {/* STUDY STATISTICS Section */}
-        {studyStats && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>STUDY STATISTICS</Text>
-            <View style={styles.statsCard}>
-              {/* Recent 7 Days Calendar */}
-              <View style={styles.recentDaysContainer}>
-                <Text style={styles.recentDaysTitle}>Recent 7 Days</Text>
-                <View style={styles.recentDaysRow}>
-                  {studyStats.recent7Days.map((day, index) => {
-                    const date = new Date(day.date);
-                    const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
-                    const dayNumber = date.getDate();
-                    const isToday = index === studyStats.recent7Days.length - 1;
-                    
-                    return (
-                      <View key={day.date} style={styles.dayItem}>
-                        <Text style={styles.dayName}>{dayName}</Text>
-                        <View
-                          style={[
-                            styles.dayCircle,
-                            day.studied && styles.dayCircleStudied,
-                            isToday && styles.dayCircleToday,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.dayNumber,
-                              day.studied && styles.dayNumberStudied,
-                              isToday && styles.dayNumberToday,
-                            ]}
-                          >
-                            {dayNumber}
-                          </Text>
-                        </View>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-              
-              <View style={styles.statsRow}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{studyStats.studyDays}</Text>
-                  <Text style={styles.statLabel}>Study Days</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{studyStats.totalReviews}</Text>
-                  <Text style={styles.statLabel}>Total Reviews</Text>
-                </View>
-              </View>
-              <View style={[styles.statsRow, styles.statsRowLast]}>
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{studyStats.masteredTerms}</Text>
-                  <Text style={styles.statLabel}>Mastered Terms</Text>
-                </View>
-                <View style={styles.statDivider} />
-                <View style={styles.statItem}>
-                  <Text style={styles.statValue}>{studyStats.currentStreak}</Text>
-                  <Text style={styles.statLabel}>Day Streak</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-        )}
-
         {/* PERSONAL INFO Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>PERSONAL INFO</Text>
           <View style={styles.menuCard}>
             <MenuItem
               icon="user"
-              iconColor="#3B82F6"
-              iconBgColor="#DBEAFE"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="User name"
               value={getUserDisplayName()}
               onPress={() => {
@@ -923,8 +718,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             />
             <MenuItem
               icon="mail"
-              iconColor="#10B981"
-              iconBgColor="#D1FAE5"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="Email"
               value={getUserEmail()}
               onPress={() => {
@@ -933,8 +728,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             />
             <MenuItem
               icon="lock"
-              iconColor="#8B5CF6"
-              iconBgColor="#EDE9FE"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="Password"
               value="••••••••"
               onPress={() => {
@@ -951,8 +746,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           <View style={styles.menuCard}>
             <MenuItem
               icon="bell"
-              iconColor="#F97316"
-              iconBgColor="#FFEDD5"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="Notification"
               subtitle={notificationEnabled && notificationTimes.length > 0 
                 ? `${notificationTimes.length} reminder${notificationTimes.length > 1 ? 's' : ''}`
@@ -984,7 +779,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                         style={styles.deleteTimeButton}
                         activeOpacity={0.7}
                       >
-                        <Feather name="trash-2" size={16} color="#EF4444" />
+                        <Feather name="trash-2" size={16} color={t.color.muted} />
                       </TouchableOpacity>
                     </View>
                   </TouchableOpacity>
@@ -1004,8 +799,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             )}
             <MenuItem
               icon="volume-2"
-              iconColor="#8B5CF6"
-              iconBgColor="#EDE9FE"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="Sound Effects"
               subtitle="Audio feedback"
               type="toggle"
@@ -1014,8 +809,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             />
             <MenuItem
               icon="smartphone"
-              iconColor="#EC4899"
-              iconBgColor="#FCE7F3"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="Haptic effect"
               subtitle="Vibration feedback"
               type="toggle"
@@ -1032,8 +827,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           <View style={styles.menuCard}>
             <View style={styles.cacheItem}>
               <View style={styles.cacheItemLeft}>
-                <View style={[styles.cacheIconContainer, { backgroundColor: '#DBEAFE' }]}>
-                  <Feather name="database" size={20} color="#3B82F6" />
+                <View style={styles.cacheIconContainer}>
+                  <Feather name="database" size={20} color={t.color.muted} />
                 </View>
                 <View style={styles.cacheItemContent}>
                   <Text style={styles.cacheItemTitle}>Local Data</Text>
@@ -1047,7 +842,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                 style={styles.clearCacheButton}
                 activeOpacity={0.7}
               >
-                <Feather name="trash-2" size={18} color="#EF4444" />
+                <Feather name="trash-2" size={18} color={t.color.muted} />
               </TouchableOpacity>
             </View>
           </View>
@@ -1059,8 +854,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           <View style={styles.menuCard}>
             <MenuItem
               icon="shield"
-              iconColor="#3B82F6"
-              iconBgColor="#DBEAFE"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="Privacy policy"
               onPress={() => {
                 router.push('/profile/privacy-policy');
@@ -1068,8 +863,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             />
             <MenuItem
               icon="file-text"
-              iconColor="#10B981"
-              iconBgColor="#D1FAE5"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="Terms of service"
               onPress={() => {
                 router.push('/profile/terms-of-service');
@@ -1077,8 +872,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             />
             <MenuItem
               icon="help-circle"
-              iconColor="#F97316"
-              iconBgColor="#FFEDD5"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
               title="Help center"
               onPress={() => {
                 try {
@@ -1101,7 +896,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             activeOpacity={0.7}
           >
             <View style={styles.actionButtonIconContainer}>
-              <Feather name="log-out" size={20} color="#6B7280" />
+              <Feather name="log-out" size={20} color={t.color.muted} />
             </View>
             <Text style={styles.actionButtonText}>Logout</Text>
           </TouchableOpacity>
@@ -1113,7 +908,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             activeOpacity={0.7}
           >
             <View style={[styles.actionButtonIconContainer, styles.deleteIconContainer]}>
-              <Feather name="trash-2" size={20} color="#EF4444" />
+              <Feather name="trash-2" size={20} color={t.color.danger} />
             </View>
             <Text style={styles.deleteButtonText}>Delete account</Text>
           </TouchableOpacity>
@@ -1211,30 +1006,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
+    paddingTop: 14,
+    paddingBottom: 14,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: t.color.accentLight,
-    borderRadius: t.radius.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
+  topHeaderBlock: {
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: t.color.textHigh,
+  navBack: {
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    color: t.color.muted,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
   },
-  headerRight: {
-    width: 40,
+  navRightSpacer: {
+    width: 52,
   },
   userHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 20,
-    marginBottom: 24,
+    paddingVertical: 18,
+    marginBottom: 22,
   },
   avatarContainer: {
     marginRight: 16,
@@ -1254,7 +1047,8 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 24,
-    fontWeight: '600',
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
     color: t.color.accent,
   },
   avatarEditBadge: {
@@ -1264,32 +1058,29 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: t.color.accent,
+    backgroundColor: t.color.bg,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
     borderColor: t.color.surface,
   },
   userName: {
-    fontSize: 24,
-    fontWeight: '700',
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: -0.1,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
     color: t.color.textHigh,
     flex: 1,
   },
   premiumBanner: {
-    marginHorizontal: 16,
-    marginBottom: 32,
-    borderRadius: t.radius.xxl,
-    padding: 24,
-    backgroundColor: t.color.accent,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 6,
+    marginHorizontal: 20,
+    marginBottom: 22,
+    borderRadius: 10,
+    padding: 18,
+    backgroundColor: t.color.surface,
+    borderWidth: 1,
+    borderColor: t.color.border,
   },
   premiumHeader: {
     flexDirection: 'row',
@@ -1297,110 +1088,113 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   premiumLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_600',
+    color: t.color.muted,
     marginLeft: 8,
   },
   premiumTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#FFFFFF',
-    marginBottom: 20,
+    fontSize: 20,
+    lineHeight: 28,
+    letterSpacing: -0.2,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
+    color: t.color.textHigh,
+    marginBottom: 14,
   },
   premiumButton: {
-    backgroundColor: t.color.surface,
-    borderRadius: 9999,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
+    backgroundColor: t.color.accent,
+    borderWidth: 1,
+    borderColor: t.color.accentDark,
+    borderRadius: 8,
+    paddingVertical: 11,
+    paddingHorizontal: 16,
     alignSelf: 'flex-start',
   },
   premiumButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: t.color.accent,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
+    color: '#FFFFFF',
   },
   section: {
-    marginBottom: 24,
+    marginBottom: 20,
     paddingHorizontal: 20,
   },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_500',
     color: t.color.muted,
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginBottom: 12,
+    letterSpacing: -0.1,
+    marginBottom: 10,
   },
   menuCard: {
     backgroundColor: t.color.surface,
-    borderRadius: t.radius.lg,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: t.color.border,
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
   },
   footerActions: {
     paddingHorizontal: 20,
-    marginTop: 8,
-    marginBottom: 24,
+    marginTop: 4,
+    marginBottom: 20,
   },
   actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: t.color.surface,
-    borderRadius: t.radius.lg,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: t.color.border,
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
+    marginBottom: 10,
   },
   actionButtonIconContainer: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: t.color.inner,
+    backgroundColor: t.color.bg,
+    borderWidth: 1,
+    borderColor: t.color.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   deleteIconContainer: {
-    backgroundColor: '#FEE2E2',
+    backgroundColor: t.color.dangerBg,
+    borderWidth: 1,
+    borderColor: t.color.dangerBorder,
   },
   actionButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_500',
     color: t.color.textHigh,
   },
   deleteButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#EF4444',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_500',
+    color: t.color.danger,
   },
   versionText: {
     fontSize: 12,
+    fontFamily: 'JetBrainsMono_400',
     color: t.color.muted,
     textAlign: 'center',
     marginTop: 8,
   },
   timeItem: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.color.surface,
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
@@ -1411,15 +1205,19 @@ const styles = StyleSheet.create({
   },
   timeItemText: {
     flex: 1,
-    fontSize: 14,
-    color: '#111827',
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    color: t.color.textHigh,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
     marginLeft: 8,
   },
   deleteTimeButton: {
     padding: 4,
   },
   addTimeButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: t.color.surface,
     paddingVertical: 12,
     paddingHorizontal: 16,
   },
@@ -1429,10 +1227,13 @@ const styles = StyleSheet.create({
     marginLeft: 68, // 与 MenuItem 的文字对齐
   },
   addTimeButtonText: {
-    fontSize: 14,
-    color: t.color.accent,
+    fontSize: 13,
+    lineHeight: 18,
+    letterSpacing: -0.1,
+    color: t.color.muted,
     marginLeft: 8,
-    fontWeight: '500',
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_500',
   },
   divider: {
     height: 1,
@@ -1464,18 +1265,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   modalCancelText: {
-    fontSize: 16,
+    fontSize: 14,
+    fontFamily: 'JetBrainsMono_400',
     color: t.color.muted,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 16,
+    letterSpacing: -0.2,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
     color: t.color.textHigh,
   },
   modalDoneText: {
-    fontSize: 16,
-    color: t.color.accent,
-    fontWeight: '600',
+    fontSize: 14,
+    color: t.color.muted,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   timePickerContainer: {
     paddingHorizontal: 20,
@@ -1589,7 +1394,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
+    paddingVertical: 14,
     paddingHorizontal: 16,
   },
   cacheItemLeft: {
@@ -1601,6 +1406,8 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    borderWidth: 1,
+    borderColor: t.color.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1609,20 +1416,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cacheItemTitle: {
-    fontSize: 16,
-    fontWeight: '500',
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_500',
     color: t.color.textHigh,
     marginBottom: 2,
   },
   cacheItemSubtitle: {
-    fontSize: 14,
+    fontSize: 12,
+    lineHeight: 17,
+    fontFamily: 'JetBrainsMono_400',
     color: t.color.muted,
   },
   clearCacheButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: t.color.bg,
+    borderWidth: 1,
+    borderColor: t.color.border,
     alignItems: 'center',
     justifyContent: 'center',
   },

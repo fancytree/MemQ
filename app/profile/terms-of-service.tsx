@@ -1,13 +1,13 @@
-import { router } from 'expo-router';
-import BackIcon from '@/components/icons/BackIcon';
+import { SecondaryPageNav } from '@/components/SecondaryPageNav';
+import { safeBack } from '@/lib/safeBack';
+import { colors } from '@/theme';
 import { useNavigation } from '@react-navigation/native';
 import React, { useEffect } from 'react';
 import {
-  ScrollView,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View,
+    ScrollView,
+    StyleSheet,
+    Text,
+    View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -27,23 +27,11 @@ export default function TermsOfServiceScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      <SecondaryPageNav onBack={() => safeBack('/(tabs)/profile')} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={styles.backButtonHeader}
-            activeOpacity={0.7}
-          >
-            <BackIcon size={20} color="#0A0A0A" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Terms of Service</Text>
-          <View style={styles.headerRight} />
-        </View>
-
         {/* Content */}
         <View style={styles.content}>
           <Text style={styles.lastUpdated}>Last Updated: January 1, 2026</Text>
@@ -208,7 +196,7 @@ export default function TermsOfServiceScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.bg,
   },
   scrollView: {
     flex: 1,
@@ -216,72 +204,68 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
-  },
-  backButtonHeader: {
-    width: 40,
-    height: 40,
-    backgroundColor: 'rgba(120,116,150,0.08)',
-    borderRadius: 16.4,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
-  },
-  headerRight: {
-    width: 40,
-  },
   content: {
     paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 12,
   },
   lastUpdated: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 12,
+    lineHeight: 17,
+    letterSpacing: -0.1,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
     fontStyle: 'italic',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111827',
+    fontSize: 18,
+    lineHeight: 25,
+    letterSpacing: -0.1,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
+    color: colors.text,
     marginTop: 24,
     marginBottom: 12,
   },
   subsectionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#111827',
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_600',
+    color: colors.text,
     marginTop: 16,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   paragraph: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#374151',
+    fontSize: 13,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    color: colors.sub,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
     marginBottom: 12,
   },
   paragraphBold: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#374151',
+    fontSize: 13,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    color: colors.text,
     marginBottom: 12,
-    fontWeight: '600',
+    fontFamily: 'JetBrainsMono_600',
+    fontWeight: '400',
   },
   bulletPoint: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#374151',
+    fontSize: 13,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    color: colors.sub,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
     marginBottom: 8,
-    paddingLeft: 8,
+    paddingLeft: 10,
   },
 });
 
