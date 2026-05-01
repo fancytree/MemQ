@@ -1,13 +1,19 @@
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
+import { useSubscription } from '@/context/SubscriptionContext';
+import {
+  activityDaysFromProgressUpdates,
+  computeBestStreak,
+  computeCurrentStreak,
+} from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
+import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors, fonts } from '@/theme';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
-const DAY_LABELS = ['M', 'T', 'W', 'T', 'F', 'S', 'S'] as const;
-const DAY_ACTIVE = [true, true, true, true, false, false, false] as const;
+const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
 
 interface QuadStat {
   label: string;
@@ -15,18 +21,34 @@ interface QuadStat {
   sub: string;
 }
 
-const STATS_TOP: QuadStat[] = [
-  { label: 'Accuracy',     val: '84%', sub: 'avg across all decks' },
-  { label: 'Certificates', val: '3',   sub: 'completed' },
-];
-const STATS_BOTTOM: QuadStat[] = [
-  { label: 'Global rank', val: '#12', sub: 'this week' },
-  { label: 'Focus queue', val: '5',   sub: 'cards due today' },
-];
+const LEARNING_STAGE_WEIGHTS: Record<string, number> = {
+  New: 0,
+  Learning: 0.2,
+  Familiar: 0.4,
+  Good: 0.6,
+  Strong: 0.8,
+  Mastered: 1.0,
+};
+
+const getStatusWeight = (status: string | null | undefined): number => {
+  if (!status || status === 'New') return LEARNING_STAGE_WEIGHTS.New;
+  return LEARNING_STAGE_WEIGHTS[status] ?? LEARNING_STAGE_WEIGHTS.New;
+};
 
 export default function ProfileScreen() {
+  const { isPro, showPaywall } = useSubscription();
   const [displayName, setDisplayName] = useState('User');
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [dayLabels, setDayLabels] = useState<string[]>(['-', '-', '-', '-', '-', '-', '-']);
+  const [dayActive, setDayActive] = useState<boolean[]>([false, false, false, false, false, false, false]);
+  const [currentStreak, setCurrentStreak] = useState(0);
+  const [bestStreak, setBestStreak] = useState(0);
+  const [stats, setStats] = useState<QuadStat[]>([
+    { label: 'Lessons', val: '0', sub: 'total' },
+    { label: 'Terms', val: '0', sub: 'total cards' },
+    { label: 'Mastered', val: '0', sub: 'status reached' },
+    { label: 'Focus queue', val: '0', sub: 'cards due today' },
+  ]);
 
   useEffect(() => {
     const loadUserProfile = async () => {
@@ -36,34 +58,86 @@ export default function ProfileScreen() {
       const fromEmail = user.email?.split('@')[0];
       const name = (fromMeta?.trim() || fromEmail || 'User').trim();
       setDisplayName(name);
-
       const avatarPath = user.user_metadata?.avatar_url as string | undefined;
       if (!avatarPath) {
         setAvatarUrl(null);
-        return;
-      }
-
-      if (avatarPath.startsWith('http')) {
+      } else if (avatarPath.startsWith('http')) {
         setAvatarUrl(avatarPath);
-        return;
+      } else {
+        const { data } = supabase.storage.from('avatars').getPublicUrl(avatarPath);
+        setAvatarUrl(data.publicUrl || null);
       }
 
-      const { data } = supabase.storage.from('avatars').getPublicUrl(avatarPath);
-      setAvatarUrl(data.publicUrl || null);
+      const [{ data: lessonsData }, { count: lessonsCount }] = await Promise.all([
+        supabase
+          .from('lessons')
+          .select('id')
+          .eq('user_id', user.id),
+        supabase
+          .from('lessons')
+          .select('id', { count: 'exact', head: true })
+          .eq('user_id', user.id),
+      ]);
+
+      const lessonIds = (lessonsData || []).map((lesson) => lesson.id);
+      const { data: termsData } = lessonIds.length
+        ? await supabase
+            .from('terms')
+            .select('id')
+            .in('lesson_id', lessonIds)
+        : { data: [] as { id: string }[] };
+
+      const termIds = (termsData || []).map((term) => term.id);
+      const totalTerms = termIds.length;
+
+      const { data: progressData } = termIds.length
+        ? await supabase
+            .from('user_term_progress')
+            .select('term_id, status, last_reviewed_at')
+            .eq('user_id', user.id)
+            .in('term_id', termIds)
+        : { data: [] as { term_id: string; status: string | null; last_reviewed_at: string | null }[] };
+
+      const progressMap = buildLatestProgressMap(progressData || []);
+      const activityDays = activityDaysFromProgressUpdates(progressData || []);
+
+      let weightedScore = 0;
+      let masteredCount = 0;
+      termIds.forEach((termId) => {
+        const status = progressMap.get(termId);
+        weightedScore += getStatusWeight(status);
+        if (status === 'Mastered') masteredCount += 1;
+      });
+
+      const dueToday = Math.max(totalTerms - Math.round(weightedScore), 0);
+      const weightedPct = totalTerms > 0 ? Math.round((weightedScore / totalTerms) * 100) : 0;
+
+      // 最近 7 天（今天在最后一格）
+      const recent7Days = Array.from({ length: 7 }, (_, idx) => {
+        const d = new Date();
+        d.setHours(0, 0, 0, 0);
+        d.setDate(d.getDate() - (6 - idx));
+        return d;
+      });
+      setDayLabels(recent7Days.map((d) => WEEKDAY_LABELS[d.getDay()]));
+      setDayActive(recent7Days.map((d) => activityDays.has(d.toISOString().slice(0, 10))));
+
+      setCurrentStreak(computeCurrentStreak(activityDays));
+      setBestStreak(computeBestStreak(activityDays));
+
+      setStats([
+        { label: 'Lessons', val: String(lessonsCount || 0), sub: 'total' },
+        { label: 'Terms', val: String(totalTerms), sub: `${weightedPct}% weighted mastery` },
+        { label: 'Mastered', val: String(masteredCount), sub: 'status reached' },
+        { label: 'Focus queue', val: String(dueToday), sub: 'cards due today' },
+      ]);
     };
     loadUserProfile();
   }, []);
 
   const avatarInitial = useMemo(() => displayName.charAt(0).toUpperCase() || 'U', [displayName]);
-
   return (
     <EdBase>
-      {/* Identity bar */}
-      <View style={styles.idBar}>
-        <Text style={styles.idName}>{displayName}</Text>
-        <Text style={styles.idLevel}>Level 14</Text>
-      </View>
-
       {/* Avatar row */}
       <View style={styles.avatarRow}>
         {avatarUrl ? (
@@ -75,9 +149,19 @@ export default function ProfileScreen() {
         )}
         <View style={{ flex: 1 }}>
           <Text style={styles.avName}>{displayName}</Text>
-          <Text style={styles.avMeta}>Member since Jan 2025</Text>
+          <View style={styles.memberRow}>
+            {isPro ? (
+              <View style={styles.proBadge}>
+                <Text style={styles.proBadgeText}>PRO</Text>
+              </View>
+            ) : (
+              <Pressable onPress={showPaywall} style={styles.upgradeEntry}>
+                <Text style={styles.upgradeEntryText}>Go Pro</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
-        <Pressable onPress={() => router.push('/profile')}>
+        <Pressable onPress={() => router.push('/profile/settings' as any)}>
           <Text style={styles.editLink}>Edit</Text>
         </Pressable>
       </View>
@@ -88,51 +172,44 @@ export default function ProfileScreen() {
           Current Streak
         </SectionLabel>
         <View style={styles.streakLine}>
-          <Text style={styles.streakNum}>47</Text>
+          <Text style={styles.streakNum}>{currentStreak}</Text>
           <Text style={styles.streakUnit}>days</Text>
-          <Text style={[styles.streakUnit, { marginLeft: 'auto' }]}>Best: 61</Text>
+          <Text style={[styles.streakUnit, { marginLeft: 'auto' }]}>Best: {bestStreak}</Text>
         </View>
 
         {/* Day cells */}
         <View style={styles.daysRow}>
-          {DAY_LABELS.map((d, i) => {
-            const active = DAY_ACTIVE[i];
+          {dayLabels.map((d, i) => {
+            const active = dayActive[i];
+            const isToday = i === dayLabels.length - 1;
             return (
               <View key={i} style={styles.dayCell}>
                 <View
                   style={[
                     styles.daySquare,
-                    {
-                      backgroundColor: active ? colors.accent : colors.bg,
-                      borderColor: active ? colors.accent : colors.border,
-                    },
+                    active ? styles.daySquareActive : styles.daySquareIdle,
+                    isToday && styles.daySquareToday,
                   ]}
-                />
-                <Text style={styles.dayLabel}>{d}</Text>
+                >
+                  <View style={[styles.dayMarker, active ? styles.dayMarkerActive : styles.dayMarkerIdle]} />
+                </View>
+                <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{d}</Text>
               </View>
             );
           })}
         </View>
 
-        {/* Goal bar */}
-        <View style={styles.barTrack}>
-          <View style={[styles.barFill, { width: '78%' }]} />
-        </View>
-        <View style={styles.barRow}>
-          <Text style={styles.barLabel}>78% to monthly goal</Text>
-          <Text style={styles.barLabel}>Goal: 60 days</Text>
-        </View>
       </View>
 
       {/* Stats grid */}
       <View style={styles.gridBlock}>
         <View style={[styles.gridRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-          {STATS_TOP.map((item, i) => (
+          {stats.slice(0, 2).map((item, i) => (
             <StatCell key={item.label} item={item} hasBorder={i === 0} />
           ))}
         </View>
         <View style={styles.gridRow}>
-          {STATS_BOTTOM.map((item, i) => (
+          {stats.slice(2, 4).map((item, i) => (
             <StatCell key={item.label} item={item} hasBorder={i === 0} />
           ))}
         </View>
@@ -163,16 +240,8 @@ function StatCell({ item, hasBorder }: { item: QuadStat; hasBorder: boolean }) {
 }
 
 const styles = StyleSheet.create({
-  idBar: {
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  idName:  { fontSize: 13, fontWeight: '600', letterSpacing: -0.2, color: colors.text, fontFamily: fonts.grotesk },
-  idLevel: { fontSize: 12, color: colors.muted, fontFamily: fonts.grotesk },
-
   avatarRow: {
-    paddingHorizontal: 20, paddingVertical: 18,
+    paddingHorizontal: 20, paddingTop: 32, paddingBottom: 18,
     flexDirection: 'row', alignItems: 'center', gap: 14,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
@@ -195,12 +264,42 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     color: colors.text,
   },
-  avMeta: {
-    fontSize: 13,
-    lineHeight: 18,
+  memberRow: {
+    marginTop: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  proBadge: {
+    borderWidth: 1,
+    borderColor: colors.accent,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: colors.accentL,
+  },
+  proBadgeText: {
+    fontSize: 10,
+    lineHeight: 14,
+    letterSpacing: 0.4,
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+  },
+  upgradeEntry: {
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: colors.bg,
+  },
+  upgradeEntryText: {
+    fontSize: 10,
+    lineHeight: 14,
+    letterSpacing: 0.2,
     color: colors.muted,
-    marginTop: 2,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: 'JetBrainsMono_500',
     fontWeight: '400',
   },
   editLink: {
@@ -229,21 +328,45 @@ const styles = StyleSheet.create({
   streakUnit: { fontSize: 14, color: colors.muted, fontFamily: fonts.grotesk },
 
   daysRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
-  dayCell: { flex: 1, alignItems: 'center', gap: 6 },
+  dayCell: { flex: 1, alignItems: 'center', gap: 4 },
   daySquare: {
     width: '100%', aspectRatio: 1,
-    borderRadius: 4, borderWidth: 1.5,
+    borderRadius: 6, borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  dayLabel: { fontSize: 9, color: colors.muted, fontWeight: '500', fontFamily: fonts.grotesk },
-
-  barTrack: { height: 2, borderRadius: 1, backgroundColor: colors.dim, marginTop: 14, overflow: 'hidden' },
-  barFill:  { height: '100%', backgroundColor: colors.accent },
-  barRow:   { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
-  barLabel: {
-    fontSize: 11,
-    lineHeight: 15,
+  daySquareActive: {
+    backgroundColor: colors.accentL,
+    borderColor: colors.accent,
+  },
+  daySquareIdle: {
+    backgroundColor: colors.bg,
+    borderColor: colors.border,
+  },
+  daySquareToday: {
+    borderColor: colors.accent,
+    borderWidth: 2,
+  },
+  dayMarker: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  dayMarkerActive: {
+    backgroundColor: colors.accent,
+  },
+  dayMarkerIdle: {
+    backgroundColor: colors.dim,
+  },
+  dayLabel: {
+    fontSize: 9,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '500',
+    fontFamily: fonts.grotesk,
+  },
+  dayLabelToday: {
+    color: colors.accent,
+    fontFamily: 'JetBrainsMono_700',
     fontWeight: '400',
   },
 

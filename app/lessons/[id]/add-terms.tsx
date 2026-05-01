@@ -1,10 +1,10 @@
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
+import { clearCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
-import * as DocumentPicker from 'expo-document-picker';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -27,6 +27,30 @@ interface ManualTermRow {
   saved: boolean;
   editing: boolean;
 }
+
+type DocumentPickerModule = {
+  getDocumentAsync: (options: {
+    type?: string | string[];
+    copyToCacheDirectory?: boolean;
+  }) => Promise<{
+    canceled: boolean;
+    assets?: Array<{ uri?: string; name?: string }>;
+  }>;
+};
+
+let cachedDocumentPicker: DocumentPickerModule | null | undefined = undefined;
+const getDocumentPicker = (): DocumentPickerModule | null => {
+  if (cachedDocumentPicker !== undefined) return cachedDocumentPicker;
+  try {
+    // 惰性加载，避免原生模块缺失时页面初始化崩溃
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('expo-document-picker');
+    cachedDocumentPicker = (mod?.default ?? mod) as DocumentPickerModule;
+  } catch {
+    cachedDocumentPicker = null;
+  }
+  return cachedDocumentPicker;
+};
 
 export default function CreateScreen() {
   const { id, termId } = useLocalSearchParams<{ id: string; termId?: string }>();
@@ -100,7 +124,12 @@ export default function CreateScreen() {
 
   const handlePickPdfAndGenerate = async () => {
     try {
-      const picked = await DocumentPicker.getDocumentAsync({
+      const picker = getDocumentPicker();
+      if (!picker) {
+        Alert.alert('Unavailable', 'Document picker is unavailable in current build.');
+        return;
+      }
+      const picked = await picker.getDocumentAsync({
         type: 'application/pdf',
         copyToCacheDirectory: true,
       });
@@ -111,8 +140,8 @@ export default function CreateScreen() {
       const asset = picked.assets[0];
       if (!asset.uri) {
         Alert.alert('Error', 'Invalid file');
-        return;
-      }
+          return;
+        }
 
       setPhase('generating');
       const { data: authData } = await supabase.auth.getUser();
@@ -154,8 +183,8 @@ export default function CreateScreen() {
   useEffect(() => {
     if (!isGenerating) {
       setGenerateDots('.');
-      return;
-    }
+        return;
+      }
     const timer = setInterval(() => {
       setGenerateDots((prev) => (prev === '...' ? '.' : `${prev}.`));
     }, 350);
@@ -166,8 +195,8 @@ export default function CreateScreen() {
     const isRegenerating = regeneratingCardId !== null || generatingManualId !== null;
     if (!isRegenerating) {
       setRegenerateDots('.');
-      return;
-    }
+          return;
+        }
     const timer = setInterval(() => {
       setRegenerateDots((prev) => (prev === '...' ? '.' : `${prev}.`));
     }, 350);
@@ -196,8 +225,8 @@ export default function CreateScreen() {
             explanation: data.explanation || '',
             saved: true,
             editing: true,
-          },
-        ]);
+            },
+          ]);
       } finally {
         setLoadingTerm(false);
       }
@@ -383,8 +412,8 @@ export default function CreateScreen() {
         const target = manualTerms[0];
         if (!target || !target.term.trim() || !target.definition.trim()) {
           Alert.alert('Error', 'Please fill in Term and Definition');
-          return;
-        }
+      return;
+    }
         const { error } = await supabase
           .from('terms')
           .update({
@@ -395,8 +424,8 @@ export default function CreateScreen() {
           .eq('id', termId);
         if (error) {
           Alert.alert('Error', `Failed to update term: ${error.message}`);
-          return;
-        }
+        return;
+      }
         router.replace(`/lessons/${id}` as any);
         return;
       }
@@ -439,7 +468,10 @@ export default function CreateScreen() {
         return;
       }
 
-        router.replace(`/lessons/${id}` as any);
+      // 词条变了，让详情页和列表重新从服务端拉取最新数据
+      void clearCache('LESSON_DETAIL', id as string);
+
+      router.replace(`/lessons/${id}` as any);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong';
       Alert.alert('Error', message);
@@ -456,21 +488,21 @@ export default function CreateScreen() {
     safeBack('/(tabs)/library');
   };
 
-  return (
+    return (
     <EdBase bottomInset={0} scroll={false}>
       {/* Top bar */}
       <View style={styles.topbar}>
         <Pressable onPress={handleCancel} style={styles.topbarSideBtn}>
           <Text style={styles.cancel}>Cancel</Text>
         </Pressable>
-        <Text pointerEvents="none" style={styles.title}>{isSingleTermEdit ? 'Edit Term' : 'Add Terms'}</Text>
+        <Text style={styles.title}>{isSingleTermEdit ? 'Edit Term' : 'Add Terms'}</Text>
         <Pressable onPress={handleSave} disabled={saving} style={styles.topbarSideBtn}>
           <Text style={[styles.tag, saving && styles.tagDisabled]}>{saving ? 'Saving...' : 'Save'}</Text>
         </Pressable>
-      </View>
+        </View>
 
       {!isSingleTermEdit && (
-      <ScrollView
+        <ScrollView
         style={styles.contentScroll}
         contentContainerStyle={styles.contentScrollBody}
         showsVerticalScrollIndicator={false}
@@ -540,14 +572,14 @@ export default function CreateScreen() {
                   <Text style={[styles.generateLabel, styles.generateDots, { color: colors.muted }]}>
                     {generateDots}
                   </Text>
-                </>
-              ) : (
+                    </>
+                  ) : (
                 <Text style={[styles.generateLabel, { color: colors.accent }]}>Generate →</Text>
-              )}
-            </View>
+                  )}
+              </View>
           </Pressable>
-        </View>
-      </View>
+            </View>
+          </View>
 
       {/* Generated header */}
       <View style={styles.genHead}>
@@ -562,9 +594,9 @@ export default function CreateScreen() {
           <Text style={styles.emptyText}>
             Cards will appear here.{'\n'}
             Try: "Verb conjugation in Spanish," or paste a paragraph.
-          </Text>
-        </View>
-      )}
+              </Text>
+          </View>
+          )}
 
       {/* Generated cards */}
       {cards.map((c) => (
@@ -631,8 +663,8 @@ export default function CreateScreen() {
       {loadingTerm && (
         <View style={styles.loadingWrap}>
           <Text style={styles.loadingText}>Loading term...</Text>
-        </View>
-      )}
+                </View>
+                )}
 
       {isSingleTermEdit && !loadingTerm && (
         <View style={styles.singleEditWrap}>
@@ -677,8 +709,8 @@ export default function CreateScreen() {
               ))}
             </View>
           </View>
-        </View>
-      )}
+                        </View>
+                        )}
     </EdBase>
   );
 }
@@ -748,14 +780,14 @@ function FullCard({
               <View>
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Term</Text>
-                  <TextInput
+                          <TextInput
                 style={styles.manualInput}
                 value={editTitle}
                 onChangeText={setEditTitle}
                 placeholder="e.g. Renaissance"
                 placeholderTextColor={colors.muted}
-              />
-                </View>
+                          />
+                        </View>
 
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Definition</Text>
@@ -840,11 +872,11 @@ function FullCard({
                     ]}
                   >
                     {label}
-                        </Text>
+                </Text>
                 </Pressable>
               );
             })}
-                      </View>
+              </View>
     </View>
   );
 }
@@ -933,7 +965,7 @@ function ManualCard({
               <SectionLabel style={{ marginBottom: 0 }}>Card M{index + 1} · Manual</SectionLabel>
             )}
             {row.saved && !row.editing && <Text style={styles.manualSavedTitle}>{row.term}</Text>}
-          </View>
+                  </View>
           {row.saved && !row.editing ? (
             <Pressable onPress={onEdit}>
               <Text style={styles.editLink}>Edit</Text>
@@ -947,8 +979,8 @@ function ManualCard({
               <Feather name="x" size={14} color={disableDelete ? colors.dim : colors.red} />
             </Pressable>
           ) : null}
-        </View>
-      )}
+                      </View>
+                    )}
 
       <View style={styles.manualCardBody}>
         {row.saved && !row.editing ? (
@@ -974,10 +1006,10 @@ function ManualCard({
                   >
                     <Text style={styles.manualGenerateButtonText}>
                       {isGenerating ? 'Generating...' : 'Generate'}
-                    </Text>
+                      </Text>
                   </Pressable>
-                )}
-                        </View>
+                  )}
+                </View>
                           <TextInput
                 style={styles.manualInput}
                 placeholder="e.g. Renaissance"
@@ -988,7 +1020,7 @@ function ManualCard({
                   onDraftChange('term', text);
                 }}
                           />
-                        </View>
+              </View>
 
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Definition</Text>
@@ -1003,7 +1035,7 @@ function ManualCard({
                   onDraftChange('definition', text);
                 }}
                           />
-                        </View>
+          </View>
 
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Explanation (Optional)</Text>
@@ -1018,7 +1050,7 @@ function ManualCard({
                   onDraftChange('explanation', text);
                 }}
                   />
-                </View>
+                  </View>
                     </>
                   )}
               </View>
@@ -1060,8 +1092,8 @@ function ManualCard({
               </Pressable>
             );
           })}
-                    </View>
-                  )}
+            </View>
+          )}
                 </View>
   );
 }

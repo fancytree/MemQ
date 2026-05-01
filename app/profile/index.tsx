@@ -8,15 +8,14 @@ import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
-import * as FileSystem from 'expo-file-system/legacy';
-import { Image } from 'expo-image';
-import * as ImagePicker from 'expo-image-picker';
+import * as FileSystem from 'expo-file-system';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   Animated,
+  Image,
   Modal,
   Platform,
   ScrollView,
@@ -32,6 +31,32 @@ export const options = {
 };
 
 const t = MemQTheme;
+
+type ImagePickerModule = {
+  requestMediaLibraryPermissionsAsync: () => Promise<{ status: string }>;
+  launchImageLibraryAsync: (options: {
+    mediaTypes?: string[];
+    allowsEditing?: boolean;
+    aspect?: [number, number];
+    quality?: number;
+  }) => Promise<{
+    canceled: boolean;
+    assets?: Array<{ uri?: string; mimeType?: string | null }>;
+  }>;
+};
+
+let cachedImagePicker: ImagePickerModule | null | undefined = undefined;
+const getImagePicker = (): ImagePickerModule | null => {
+  if (cachedImagePicker !== undefined) return cachedImagePicker;
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('expo-image-picker');
+    cachedImagePicker = (mod?.default ?? mod) as ImagePickerModule;
+  } catch {
+    cachedImagePicker = null;
+  }
+  return cachedImagePicker;
+};
 
 export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const navigation = useNavigation();
@@ -51,6 +76,10 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const notificationInitialized = useRef(false); // 用于跟踪是否已初始化 notification 状态
   const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
   const [hapticEffectEnabled, setHapticEffectEnabled] = useState(true);
+  const [dailyStudyMinutes, setDailyStudyMinutes] = useState(30);
+  const [dailyGoalCards, setDailyGoalCards] = useState(20);
+  const [showDailyStudyOptions, setShowDailyStudyOptions] = useState(false);
+  const [showDailyGoalOptions, setShowDailyGoalOptions] = useState(false);
   
   // 缓存大小状态
   const [cacheSize, setCacheSize] = useState<string>('0 B');
@@ -101,6 +130,12 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
         
         setSoundEffectsEnabled(metadata.sound_effects_enabled !== false);
         setHapticEffectEnabled(metadata.haptic_effect_enabled !== false);
+        setDailyStudyMinutes(
+          typeof metadata.daily_study_minutes === 'number' ? metadata.daily_study_minutes : 30
+        );
+        setDailyGoalCards(
+          typeof metadata.daily_goal_cards === 'number' ? metadata.daily_goal_cards : 20
+        );
         notificationInitialized.current = true;
 
         // 如果通知已启用，同步通知计划
@@ -380,6 +415,38 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
     }
   };
 
+  const savePreferenceMetadata = async (updates: Record<string, any>) => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return false;
+      const metadata = currentUser.user_metadata || {};
+      const { error } = await supabase.auth.updateUser({
+        data: {
+          ...metadata,
+          ...updates,
+        },
+      });
+      if (error) {
+        Alert.alert('Error', 'Failed to save preference');
+        return false;
+      }
+      return true;
+    } catch {
+      Alert.alert('Error', 'Failed to save preference');
+      return false;
+    }
+  };
+
+  const handleSetDailyStudyMinutes = async (mins: number) => {
+    const ok = await savePreferenceMetadata({ daily_study_minutes: mins });
+    if (ok) setDailyStudyMinutes(mins);
+  };
+
+  const handleSetDailyGoal = async (cards: number) => {
+    const ok = await savePreferenceMetadata({ daily_goal_cards: cards });
+    if (ok) setDailyGoalCards(cards);
+  };
+
   // 保存 notification 设置
   const saveNotificationSettings = async (enabled: boolean, times: string[]) => {
     try {
@@ -518,15 +585,20 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   // 选择并上传头像
   const handleAvatarPress = async () => {
     try {
+      const imagePicker = getImagePicker();
+      if (!imagePicker) {
+        Alert.alert('Unavailable', 'Image picker is unavailable in current build.');
+        return;
+      }
       // 请求权限
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } = await imagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Please grant camera roll permissions to upload an avatar.');
         return;
       }
 
       // 打开图片选择器
-      const result = await ImagePicker.launchImageLibraryAsync({
+      const result = await imagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
@@ -669,7 +741,6 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                 <Image
                   source={{ uri: avatarUrl }}
                   style={styles.avatarImage}
-                  contentFit="cover"
                 />
               ) : (
                 <View style={styles.avatar}>
@@ -794,6 +865,66 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                     <Text style={styles.addTimeButtonText}>Add reminder time</Text>
                   </View>
                 </TouchableOpacity>
+                <View style={styles.divider} />
+              </>
+            )}
+            <MenuItem
+              icon="clock"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
+              title="Daily study duration"
+              subtitle={`${dailyStudyMinutes} min / day`}
+              onPress={() => setShowDailyStudyOptions((prev) => !prev)}
+            />
+            {showDailyStudyOptions && (
+              <>
+                <View style={styles.inlineOptionWrap}>
+                  {[15, 30, 45, 60, 90].map((mins) => {
+                    const active = dailyStudyMinutes === mins;
+                    return (
+                      <TouchableOpacity
+                        key={mins}
+                        style={[styles.inlineOptionChip, active && styles.inlineOptionChipActive]}
+                        onPress={() => handleSetDailyStudyMinutes(mins)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.inlineOptionChipText, active && styles.inlineOptionChipTextActive]}>
+                          {mins} min
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+                <View style={styles.divider} />
+              </>
+            )}
+            <MenuItem
+              icon="target"
+              iconColor={t.color.muted}
+              iconBgColor={t.color.bg}
+              title="Daily goal"
+              subtitle={`${dailyGoalCards} cards / day`}
+              onPress={() => setShowDailyGoalOptions((prev) => !prev)}
+            />
+            {showDailyGoalOptions && (
+              <>
+                <View style={styles.inlineOptionWrap}>
+                  {[10, 20, 30, 50, 80].map((cards) => {
+                    const active = dailyGoalCards === cards;
+                    return (
+                      <TouchableOpacity
+                        key={cards}
+                        style={[styles.inlineOptionChip, active && styles.inlineOptionChipActive]}
+                        onPress={() => handleSetDailyGoal(cards)}
+                        activeOpacity={0.7}
+                      >
+                        <Text style={[styles.inlineOptionChipText, active && styles.inlineOptionChipTextActive]}>
+                          {cards} cards
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
                 <View style={styles.divider} />
               </>
             )}
@@ -1234,6 +1365,38 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontWeight: '400',
     fontFamily: 'JetBrainsMono_500',
+  },
+  inlineOptionWrap: {
+    marginLeft: 68,
+    marginRight: 16,
+    marginTop: 8,
+    marginBottom: 8,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  inlineOptionChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: t.color.border,
+    backgroundColor: t.color.bg,
+  },
+  inlineOptionChipActive: {
+    borderColor: t.color.accent,
+    backgroundColor: t.color.accentLight,
+  },
+  inlineOptionChipText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: t.color.muted,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+  },
+  inlineOptionChipTextActive: {
+    color: t.color.accent,
+    fontFamily: 'JetBrainsMono_700',
   },
   divider: {
     height: 1,

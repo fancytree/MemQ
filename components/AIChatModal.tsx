@@ -3,11 +3,10 @@ import FloatingAIButtonIcon from '@/components/icons/FloatingAIButtonIcon';
 // import HistoryIcon from '@/components/icons/HistoryIcon';
 import SendIcon from '@/components/icons/SendIcon';
 import { useSubscription } from '@/context/SubscriptionContext';
+import { clearCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Clipboard from 'expo-clipboard';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
@@ -27,6 +26,36 @@ import {
   View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+type AsyncStorageModule = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+  removeItem?: (key: string) => Promise<void>;
+};
+
+const aiModalMemoryStorage = new Map<string, string>();
+const aiModalStorageFallback: AsyncStorageModule = {
+  getItem: async (key: string) => aiModalMemoryStorage.get(key) ?? null,
+  setItem: async (key: string, value: string) => {
+    aiModalMemoryStorage.set(key, value);
+  },
+  removeItem: async (key: string) => {
+    aiModalMemoryStorage.delete(key);
+  },
+};
+// 当前运行时可能缺失 AsyncStorage 原生模块，这里统一走安全兜底，避免页面崩溃。
+const getAIStorage = (): AsyncStorageModule => aiModalStorageFallback;
+
+type ClipboardModule = {
+  setStringAsync: (text: string) => Promise<void>;
+};
+
+const clipboardFallback: ClipboardModule = {
+  setStringAsync: async () => {
+    throw new Error('Clipboard unavailable');
+  },
+};
+const getClipboard = (): ClipboardModule => clipboardFallback;
 
 // Term 建议类型定义
 interface ExtractedTerm {
@@ -76,10 +105,135 @@ interface LessonDropdownPortalState {
   width: number;
 }
 
+// ─────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+// ChatInputBar
+//
+// 布局策略：
+//   TextInput 独占整行宽度（paddingRight 为按钮留白），
+//   发送按钮用 position:absolute 贴在右下角。
+//   这样避免了 flex-row 里 flex:1 的 TextInput 在 iOS 上
+//   宽度不确定导致单行渲染的问题。
+//
+// 高度策略：
+//   用 minHeight + maxHeight 让原生布局自然伸缩，
+//   不手动管理 height state（避免 onContentSizeChange 返回
+//   受约束高度而不是内容高度的问题）。
+//   超过 maxHeight 后开启内部滚动。
+// ─────────────────────────────────────────────────────────────
+
+const CIB_LINE_HEIGHT = 22;
+const CIB_SEND_SIZE   = 32;
+const CIB_H_PAD       = 16;
+const CIB_V_PAD       = 10;
+const CIB_BTN_GAP     = 8;
+const CIB_MIN_H       = CIB_LINE_HEIGHT;       // 1 行
+const CIB_MAX_H       = CIB_LINE_HEIGHT * 3;   // 3 行，约 66px
+
+interface ChatInputBarProps {
+  value: string;
+  onChangeText: (t: string) => void;
+  onSend: () => void;
+  onFocus?: () => void;
+  sendEnabled: boolean;
+  editable: boolean;
+  placeholder?: string;
+  extraStyle?: object;
+}
+
+function ChatInputBar({
+  value,
+  onChangeText,
+  onSend,
+  onFocus,
+  sendEnabled,
+  editable,
+  placeholder = 'Ask, search, or make anything',
+  extraStyle,
+}: ChatInputBarProps) {
+  // scrollEnabled 默认 false：第一次点击立即获焦弹出键盘。
+  // 内容超过 maxHeight 后才开启，让用户在固定高度内滚动查看。
+  // 注意：用 minHeight/maxHeight 时，onContentSizeChange 报告的是
+  // 真实内容高度（不受 min/max 约束），所以判断是准确的。
+  const [scrollEnabled, setScrollEnabled] = React.useState(false);
+
+  return (
+    <View style={[cibStyles.bar, extraStyle]}>
+      <TextInput
+        style={cibStyles.input}
+        value={value}
+        onChangeText={onChangeText}
+        onFocus={onFocus}
+        placeholder={placeholder}
+        placeholderTextColor="#C6C7CB"
+        multiline
+        scrollEnabled={scrollEnabled}
+        editable={editable}
+        autoCapitalize="sentences"
+        autoCorrect
+        textAlignVertical="top"
+        maxLength={500}
+        onContentSizeChange={({ nativeEvent }) => {
+          setScrollEnabled(nativeEvent.contentSize.height > CIB_MAX_H);
+        }}
+      />
+
+      {/* 绝对定位于右下角，不与 TextInput 共享 flex-row */}
+      <TouchableOpacity
+        style={cibStyles.sendBtn}
+        onPress={onSend}
+        disabled={!sendEnabled}
+        activeOpacity={0.7}
+      >
+        <SendIcon size={CIB_SEND_SIZE} opacity={sendEnabled ? 1 : 0.32} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const cibStyles = StyleSheet.create({
+  bar: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 24,
+    paddingLeft: CIB_H_PAD,
+    // 右侧留出按钮宽度 + 间距，文字不会被遮住
+    paddingRight: CIB_H_PAD + CIB_SEND_SIZE + CIB_BTN_GAP,
+    paddingTop: CIB_V_PAD,
+    paddingBottom: CIB_V_PAD,
+  },
+  input: {
+    // minHeight → 默认 1 行；maxHeight → 超过后固定高度 + 内部滚动
+    // 不设固定 height，让原生布局自由伸缩
+    minHeight: CIB_MIN_H,
+    maxHeight: CIB_MAX_H,
+    fontSize: 16,
+    lineHeight: CIB_LINE_HEIGHT,
+    letterSpacing: -0.3125,
+    color: '#0A0A0A',
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingLeft: 0,
+    paddingRight: 0,
+  },
+  sendBtn: {
+    position: 'absolute',
+    right: CIB_H_PAD,
+    // (V_PAD*2 + MIN_H - SEND_SIZE) / 2 = (10+10+22-32)/2 = 5
+    // 单行时按钮垂直居中；多行时贴向底部
+    bottom: (CIB_V_PAD * 2 + CIB_MIN_H - CIB_SEND_SIZE) / 2,
+    width: CIB_SEND_SIZE,
+    height: CIB_SEND_SIZE,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+});
+
+// ─────────────────────────────────────────────────────────────
+
 export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
-  const INITIAL_INPUT_MIN_HEIGHT = 22;
-  const INITIAL_INPUT_MAX_HEIGHT = 120;
-  const CHAT_INPUT_MAX_HEIGHT = 120;        // ~5 lines before scroll kicks in
+
   const insets = useSafeAreaInsets();
   const { isPro, showPaywall } = useSubscription();
   const [mode, setMode] = useState<'initial' | 'chat'>('initial');
@@ -87,9 +241,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const [initialTab, setInitialTab] = useState<InitialTabType>('qa');
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
-  const [initialInputHeight, setInitialInputHeight] = useState(INITIAL_INPUT_MIN_HEIGHT);
-  const [isInitialInputScrollable, setIsInitialInputScrollable] = useState(false);
-  const [chatInputScrollable, setChatInputScrollable] = useState(false);
+  const [initialInputScrollEnabled, setInitialInputScrollEnabled] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [aiStatus, setAiStatus] = useState<AIStatus>(null);
   const [aiStatusDots, setAiStatusDots] = useState(1);
@@ -163,8 +315,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       const threadIdKey = `@chat_${entryType}_threadId`;
       
       const [messagesJson, threadId] = await Promise.all([
-        AsyncStorage.getItem(messagesKey),
-        AsyncStorage.getItem(threadIdKey),
+        getAIStorage().getItem(messagesKey),
+        getAIStorage().getItem(threadIdKey),
       ]);
 
       const messages: Message[] = messagesJson ? JSON.parse(messagesJson) : [];
@@ -188,8 +340,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       const threadIdKey = `@chat_${entryType}_threadId`;
       
       await Promise.all([
-        AsyncStorage.setItem(messagesKey, JSON.stringify(session.messages)),
-        AsyncStorage.setItem(threadIdKey, session.threadId || ''),
+        getAIStorage().setItem(messagesKey, JSON.stringify(session.messages)),
+        getAIStorage().setItem(threadIdKey, session.threadId || ''),
       ]);
 
       // 更新本地状态
@@ -274,15 +426,15 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       const lastDateKey = `@ai_chat_message_last_date_${user.id}`;
       
       // 检查是否是新的日期，如果是则重置计数
-      const lastDate = await AsyncStorage.getItem(lastDateKey);
+      const lastDate = await getAIStorage().getItem(lastDateKey);
       if (lastDate !== today) {
         // 新的一天，重置计数
-        await AsyncStorage.setItem(countKey, '0');
-        await AsyncStorage.setItem(lastDateKey, today);
+        await getAIStorage().setItem(countKey, '0');
+        await getAIStorage().setItem(lastDateKey, today);
         setMessageCount(0);
       } else {
         // 同一天，加载现有计数
-      const count = await AsyncStorage.getItem(countKey);
+      const count = await getAIStorage().getItem(countKey);
       setMessageCount(count ? parseInt(count, 10) : 0);
       }
     } catch (error) {
@@ -300,8 +452,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       const countKey = `@ai_chat_message_count_${user.id}_${today}`;
       const lastDateKey = `@ai_chat_message_last_date_${user.id}`;
       
-      await AsyncStorage.setItem(countKey, count.toString());
-      await AsyncStorage.setItem(lastDateKey, today);
+      await getAIStorage().setItem(countKey, count.toString());
+      await getAIStorage().setItem(lastDateKey, today);
       setMessageCount(count);
     } catch (error) {
       console.error('Error saving message count:', error);
@@ -315,9 +467,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       setChatMode('ask');
       setInitialTab('qa');
       setInputText('');
-      setInitialInputHeight(INITIAL_INPUT_MIN_HEIGHT);
-      setIsInitialInputScrollable(false);
-      setChatInputScrollable(false);
+      setInitialInputScrollEnabled(false);
       setMessages([]);
       setThreadId(null);
       setAiStatus(null);
@@ -616,7 +766,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     const userInputWithQuizScope =
       activeEntryType === 'quiz' ? `${userInput}${quizBehaviorInstruction}` : userInput;
     setInputText('');
-    setChatInputScrollable(false);
     setIsLoading(true);
     setAiStatus('thinking');
     if (statusTimerRef.current) {
@@ -1059,6 +1208,10 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         return;
       }
 
+      // 新课程已创建，清除列表缓存
+      void clearCache('DASHBOARD', user.id);
+      void clearCache('LESSONS', user.id);
+
       // 第二步：保存 Term
       const { data: insertedTerm, error: termError } = await supabase.from('terms').insert({
         lesson_id: newLesson.id,
@@ -1158,6 +1311,9 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         }
 
         defaultLessonId = newDefault.id;
+        // 默认课程已创建，清除列表缓存
+        void clearCache('DASHBOARD', user.id);
+        void clearCache('LESSONS', user.id);
       }
 
       // 第二步：保存 Term
@@ -1488,7 +1644,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   // Copy message to clipboard
   const handleCopyMessage = async (text: string) => {
     try {
-      await Clipboard.setStringAsync(text);
+      await getClipboard().setStringAsync(text);
       // Show success message
       Alert.alert('Copied', 'Message copied to clipboard');
     } catch (error) {
@@ -1902,7 +2058,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                 >
                   <View style={styles.initialComposer}>
                     <TextInput
-                      style={[styles.initialComposerInput, { height: initialInputHeight }]}
+                      style={styles.initialComposerInput}
                       placeholder={getInitialInputPlaceholder()}
                       placeholderTextColor="#9B9790"
                       value={inputText}
@@ -1910,16 +2066,9 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       onFocus={closeLessonDropdownPortal}
                       multiline
                       textAlignVertical="top"
-                      scrollEnabled={isInitialInputScrollable}
-                      onContentSizeChange={(event) => {
-                        const nextHeight = Math.max(
-                          INITIAL_INPUT_MIN_HEIGHT,
-                          Math.min(INITIAL_INPUT_MAX_HEIGHT, event.nativeEvent.contentSize.height)
-                        );
-                        setInitialInputHeight(nextHeight);
-                        setIsInitialInputScrollable(
-                          event.nativeEvent.contentSize.height > INITIAL_INPUT_MAX_HEIGHT
-                        );
+                      scrollEnabled={initialInputScrollEnabled}
+                      onContentSizeChange={({ nativeEvent }) => {
+                        setInitialInputScrollEnabled(nativeEvent.contentSize.height > 66);
                       }}
                       editable={!isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT)}
                       returnKeyType="send"
@@ -1989,45 +2138,20 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                   )}
                 </View>
               )}
-              <View style={[
-                styles.inputContainer,
-                keyboardHeight > 0 && { marginBottom: 12 },
-              ]}>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Ask, search, or make anything"
-                  placeholderTextColor="#C6C7CB"
-                  value={inputText}
-                  onChangeText={setInputText}
-                  onFocus={closeLessonDropdownPortal}
-                  multiline
-                  scrollEnabled={chatInputScrollable}
-                  maxLength={500}
-                  editable={!isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT)}
-                  autoCapitalize="sentences"
-                  autoCorrect={true}
-                  textAlignVertical="top"
-                  onContentSizeChange={(e) => {
-                    setChatInputScrollable(
-                      e.nativeEvent.contentSize.height > CHAT_INPUT_MAX_HEIGHT
-                    );
-                  }}
-                />
-                <TouchableOpacity
-                  style={[
-                    styles.sendButton,
-                    (!inputText.trim() || isLoading || (!isPro && messageCount >= FREE_TIER_MESSAGE_LIMIT)) && styles.sendButtonDisabled,
-                  ]}
-                  onPress={handleSend}
-                  disabled={!inputText.trim() || isLoading || (!isPro && messageCount >= FREE_TIER_MESSAGE_LIMIT)}
-                  activeOpacity={0.7}
-                >
-                  <SendIcon
-                    size={32}
-                    opacity={inputText.trim() && !isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT) ? 1 : 0.32}
-                  />
-                </TouchableOpacity>
-              </View>
+              {/* ── Chat input bar ── */}
+              <ChatInputBar
+                value={inputText}
+                onChangeText={setInputText}
+                onSend={handleSend}
+                onFocus={closeLessonDropdownPortal}
+                sendEnabled={
+                  !!inputText.trim() &&
+                  !isLoading &&
+                  (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT)
+                }
+                editable={!isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT)}
+                extraStyle={keyboardHeight > 0 ? { marginBottom: 12 } : undefined}
+              />
             </>
             )}
           </View>
@@ -2563,19 +2687,20 @@ const styles = StyleSheet.create({
     fontWeight: '400',
   },
   initialComposer: {
-    minHeight: 56,
-    maxHeight: 156,
     borderWidth: 1,
     borderColor: '#E5E3DE',
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
+    // 左侧正常 padding，右侧为按钮留出空间（16 padding + 32 按钮 + 8 间距）
+    paddingLeft: 16,
+    paddingRight: 56,
     paddingTop: 10,
     paddingBottom: 10,
-    justifyContent: 'space-between',
   },
   initialComposerInput: {
-    height: 22,
+    // 不设固定 height，由原生布局自然伸缩
+    minHeight: 22,
+    maxHeight: 66,  // 3 行 × lineHeight 18 ≈ 66px
     fontSize: 13,
     lineHeight: 18,
     color: '#1A1916',
@@ -2586,13 +2711,17 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   initialComposerSend: {
+    position: 'absolute',
+    right: 16,
+    // (paddingTop 10 + minHeight 22 + paddingBottom 10 - buttonHeight 32) / 2 = 5
+    // 单行时按钮垂直居中；多行时随 bar 增高自然贴向底部
+    bottom: 5,
     width: 32,
     height: 32,
     borderRadius: 8,
     backgroundColor: '#1A8A72',
     alignItems: 'center',
     justifyContent: 'center',
-    alignSelf: 'flex-end',
   },
   initialComposerSendDisabled: {
     opacity: 0.4,
@@ -2783,59 +2912,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '600',
-  },
-  inputContainer: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 24,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 10,
-  },
-  input: {
-    flex: 1,
-    minHeight: 22,
-    maxHeight: 120,
-    fontSize: 16,
-    fontWeight: '400',
-    color: '#0A0A0A',
-    letterSpacing: -0.3125,
-    lineHeight: 22,
-    paddingTop: 0,
-    paddingBottom: 0,
-    textAlignVertical: 'top',
-  },
-  inputActions: {
-    // kept for reference — no longer used in JSX
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 8,
-  },
-  uploadButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  uploadText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6A7282',
-    letterSpacing: -0.3125,
-    lineHeight: 24,
-  },
-  sendButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  sendButtonDisabled: {
-    // opacity controlled by SendIcon
   },
   termSuggestionContainer: {
     marginTop: 12,

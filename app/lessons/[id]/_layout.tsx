@@ -21,6 +21,14 @@ export default function LessonDetailLayout() {
           animation: 'slide_from_bottom',
         }} 
       />
+      <Stack.Screen
+        name="settings"
+        options={{
+          headerShown: false,
+          presentation: 'card',
+          animation: 'slide_from_bottom',
+        }}
+      />
     </Stack>
   );
 }

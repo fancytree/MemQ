@@ -1,11 +1,12 @@
 /**
- * PaywallModal - Choose Your Plan
- * 基于 Figma 设计实现 (node-id: 87-3334)
+ * PaywallModal — 套餐选择与购买（与全局 editorial + JetBrains Mono 一致）
  */
 
 import Logo from '@/components/icons/Logo';
 import { useSubscription } from '@/context/SubscriptionContext';
+import { MemQTheme } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -16,16 +17,16 @@ import {
   Linking,
   Modal,
   Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+const t = MemQTheme;
 
 /** RevenueCat Dashboard 的 Offering ID；若改名则回退到 current 或任意含套餐的 Offering（避免审核/线上空白） */
 const PREFERRED_OFFERING_ID = 'default';
@@ -89,7 +90,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
   // 自动选择 Yearly 套餐（默认选中）
   useEffect(() => {
     if (offering && offering.availablePackages.length > 0 && !selectedPlan) {
-      const yearlyPackage = offering.availablePackages.find(pkg => {
+      const yearlyPackage = offering.availablePackages.find((pkg: PurchasesPackage) => {
         const identifier = pkg.identifier.toLowerCase();
         return identifier.includes('yearly') || identifier.includes('year') || identifier.includes('annual');
       });
@@ -137,7 +138,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
   const handlePurchase = async () => {
     if (!offering || !selectedPlan) return;
 
-    const selectedPackage = offering.availablePackages.find(pkg => {
+    const selectedPackage = offering.availablePackages.find((pkg: PurchasesPackage) => {
       const identifier = pkg.identifier.toLowerCase();
       if (selectedPlan === 'yearly') {
         return identifier.includes('yearly') || identifier.includes('year') || identifier.includes('annual');
@@ -201,18 +202,22 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
   const getMonthlyPackage = (): PurchasesPackage | null => {
     if (!offering) return null;
-    return offering.availablePackages.find(pkg => {
-      const identifier = pkg.identifier.toLowerCase();
-      return identifier.includes('monthly') || identifier.includes('month');
-    }) || null;
+    return (
+      offering.availablePackages.find((pkg: PurchasesPackage) => {
+        const identifier = pkg.identifier.toLowerCase();
+        return identifier.includes('monthly') || identifier.includes('month');
+      }) || null
+    );
   };
 
   const getYearlyPackage = (): PurchasesPackage | null => {
     if (!offering) return null;
-    return offering.availablePackages.find(pkg => {
-      const identifier = pkg.identifier.toLowerCase();
-      return identifier.includes('yearly') || identifier.includes('year') || identifier.includes('annual');
-    }) || null;
+    return (
+      offering.availablePackages.find((pkg: PurchasesPackage) => {
+        const identifier = pkg.identifier.toLowerCase();
+        return identifier.includes('yearly') || identifier.includes('year') || identifier.includes('annual');
+      }) || null
+    );
   };
 
   const monthlyPackage = getMonthlyPackage();
@@ -243,39 +248,34 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
       onRequestClose={onClose}
       transparent={false}
     >
-      {/* 深色背景 */}
-      <View style={styles.darkBackground}>
-        <StatusBar style="light" />
-        
-        {/* 白色卡片 */}
+      <View style={styles.sheetBackdrop}>
+        <StatusBar style="dark" />
+
         <SafeAreaView style={styles.sheet} edges={['top', 'bottom']}>
-          {/* Toolbar */}
           <View style={styles.toolbar}>
-            {/* Grabber */}
             <View style={styles.grabber} />
-            
-            {/* Title and Controls */}
+
             <View style={styles.toolbarContent}>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <Feather name="x" size={24} color="#787496" />
+              <TouchableOpacity onPress={onClose} style={styles.closeButton} accessibilityRole="button">
+                <Feather name="x" size={22} color={colors.muted} />
               </TouchableOpacity>
-              
+
               <View style={styles.titleContainer}>
-                <Text style={styles.title}>Choose Your Plan</Text>
+                <Text style={styles.title}>Choose your plan</Text>
               </View>
             </View>
           </View>
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#4E49FC" />
-              <Text style={styles.loadingText}>Loading subscription options...</Text>
+              <ActivityIndicator size="large" color={colors.accent} />
+              <Text style={styles.loadingText}>Loading subscription options…</Text>
             </View>
           ) : offering ? (
             <View style={styles.contentContainer}>
               {/* Logo - fills remaining space */}
               <View style={styles.logoContainer}>
-                <Logo width={120} height={175} color="#4E49FC" />
+                <Logo width={112} />
               </View>
 
               {/* Plan Options + Footer */}
@@ -361,17 +361,19 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                 )}
               </View>
 
-              {/* Footer */}
+              {/* Footer：定价摘要 → 合规说明 → 主 CTA → 恢复购买 */}
               <View style={styles.footer}>
-                <Text style={styles.footerText}>
-                  {selectedPlan === 'monthly'
-                    ? `${monthlyPackage?.product.priceString || '$5.99'}/month after 7-day free trial`
-                    : `${yearlyPackage?.product.priceString || '$49.99'}/year after 7-day free trial`}
-                </Text>
-                <Text style={styles.autoRenewText}>
-                  Subscription auto-renews. Cancel anytime at least 24 hours before the end of the current period in your App Store settings.
-                </Text>
-                
+                <View style={styles.footerCopy}>
+                  <Text style={styles.footerLead}>
+                    {selectedPlan === 'monthly'
+                      ? `7 days on us, then ${monthlyPackage?.product.priceString || '$5.99'}/month`
+                      : `7 days on us, then ${yearlyPackage?.product.priceString || '$49.99'}/year`}
+                  </Text>
+                  <Text style={styles.autoRenewText}>
+                    Auto-renews. Cancel in App Store settings at least 24 hours before renewal.
+                  </Text>
+                </View>
+
                 <TouchableOpacity
                   style={[
                     styles.subscribeButton,
@@ -384,13 +386,13 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   {purchasing ? (
                     <View style={styles.subscribeButtonContent}>
                       <ActivityIndicator size="small" color="#FFFFFF" />
-                      <Text style={styles.subscribeButtonText}>Processing...</Text>
+                      <Text style={styles.subscribeButtonText}>Processing…</Text>
                     </View>
                   ) : (
-                    <Text style={styles.subscribeButtonText}>Try Free and Subscribe</Text>
+                    <Text style={styles.subscribeButtonText}>Start free trial</Text>
                   )}
                 </TouchableOpacity>
-                
+
                 <TouchableOpacity
                   onPress={async () => {
                     try {
@@ -403,18 +405,19 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   }}
                   style={styles.restoreButton}
                 >
-                  <Text style={styles.restoreButtonText}>Restore Purchase</Text>
+                  <Text style={styles.restoreButtonText}>Restore purchases</Text>
                 </TouchableOpacity>
+              </View>
 
-                <View style={styles.legalLinks}>
-                  <TouchableOpacity onPress={() => Linking.openURL(APPLE_EULA_URL)}>
-                    <Text style={styles.legalLinkText}>Terms of Use (EULA)</Text>
-                  </TouchableOpacity>
-                  <Text style={styles.legalLinkSeparator}>|</Text>
-                  <TouchableOpacity onPress={() => { onClose(); router.push('/profile/privacy-policy'); }}>
-                    <Text style={styles.legalLinkText}>Privacy Policy</Text>
-                  </TouchableOpacity>
-                </View>
+              {/* 法律链接贴底：仅保留 SafeAreaView 的 Home Indicator 间距，不再额外垫高 */}
+              <View style={styles.legalLinks}>
+                <TouchableOpacity onPress={() => Linking.openURL(APPLE_EULA_URL)}>
+                  <Text style={styles.legalLinkText}>Terms of Use (EULA)</Text>
+                </TouchableOpacity>
+                <Text style={styles.legalLinkSeparator}>|</Text>
+                <TouchableOpacity onPress={() => { onClose(); router.push('/profile/privacy-policy'); }}>
+                  <Text style={styles.legalLinkText}>Privacy Policy</Text>
+                </TouchableOpacity>
               </View>
               </View>
             </View>
@@ -436,46 +439,54 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 }
 
 const styles = StyleSheet.create({
-  darkBackground: {
+  sheetBackdrop: {
     flex: 1,
-    backgroundColor: '#0A0A0A',
+    backgroundColor: colors.bg,
   },
   sheet: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 15 },
-    shadowOpacity: 0.18,
-    shadowRadius: 75,
-    elevation: 10,
+    backgroundColor: colors.surf,
+    borderTopLeftRadius: t.radius.xxl,
+    borderTopRightRadius: t.radius.xxl,
+    borderTopWidth: 1,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: colors.border,
     overflow: 'hidden',
+    shadowColor: colors.accentShadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
   },
   toolbar: {
-    paddingTop: 10,
-    paddingBottom: 10,
-    backgroundColor: '#FFFFFF',
+    paddingTop: t.space.xs,
+    paddingBottom: t.space.sm,
+    backgroundColor: colors.surf,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.borderS,
   },
   grabber: {
-    width: 36,
+    width: 40,
     height: 4,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.dim,
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: t.space.md,
   },
   toolbarContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: t.space.pageX,
     position: 'relative',
   },
   closeButton: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    borderRadius: t.radius.lg,
+    backgroundColor: colors.bg,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -487,10 +498,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#0A0A0A',
-    letterSpacing: 0.07,
+    fontSize: 17,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+    letterSpacing: -0.4,
+    color: colors.text,
   },
   loadingContainer: {
     flex: 1,
@@ -499,48 +511,51 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
   },
   loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: '#666666',
+    marginTop: t.space.lg,
+    fontSize: 14,
+    fontFamily: 'JetBrainsMono_400',
+    color: colors.muted,
+    textAlign: 'center',
   },
   contentContainer: {
     flex: 1,
-    paddingHorizontal: 18,
+    paddingHorizontal: t.space.pageX,
   },
   logoContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: t.space.lg,
   },
   bottomSection: {
-    paddingBottom: 40,
+    paddingBottom: 0,
   },
   plansContainer: {
-    gap: 12,
-    marginBottom: 12,
+    gap: t.space.md,
+    marginBottom: t.space.md,
   },
   planCard: {
-    borderRadius: 16.4,
-    padding: 18,
-    borderWidth: 1.846,
+    borderRadius: t.radius.xl,
+    padding: t.space.lg,
+    borderWidth: 1,
   },
   planCardYearly: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: colors.accentL,
   },
   planCardMonthly: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
   },
   planCardSelected: {
-    backgroundColor: '#FAF5FF',
-    borderColor: '#4E49FC',
+    backgroundColor: colors.accentL,
+    borderColor: colors.accent,
   },
   planCardUnselected: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#E5E7EB',
+    backgroundColor: colors.surf,
+    borderColor: colors.border,
   },
   planCardSelectedMonthly: {
-    backgroundColor: '#FFFFFF',
-    borderColor: '#4E49FC',
+    backgroundColor: colors.surf,
+    borderColor: colors.accent,
   },
   planCardContent: {
     flexDirection: 'row',
@@ -555,24 +570,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   planCardTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#0A0A0A',
-    letterSpacing: -0.44,
+    fontSize: 15,
+    fontFamily: 'JetBrainsMono_600',
+    fontWeight: '400',
+    letterSpacing: -0.35,
+    color: colors.text,
   },
   savingsBadge: {
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.greenL,
     paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 20,
+    paddingVertical: 3,
+    borderRadius: t.radius.pill,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   savingsBadgeText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: '#008236',
-    lineHeight: 16,
+    fontSize: 11,
+    fontFamily: 'JetBrainsMono_500',
+    color: colors.green,
+    lineHeight: 14,
   },
   planCardPriceRow: {
     flexDirection: 'row',
@@ -581,61 +600,71 @@ const styles = StyleSheet.create({
   },
   planCardPrice: {
     fontSize: 16,
-    fontWeight: '700',
-    color: '#4E49FC',
-    letterSpacing: -0.31,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
+    letterSpacing: -0.35,
+    color: colors.accent,
   },
   planCardPriceUnit: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#6A7282',
-    letterSpacing: -0.15,
+    fontSize: 13,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    color: colors.muted,
+    letterSpacing: -0.2,
   },
   planCardCheckbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 1.846,
-    borderColor: '#4E49FC',
-    backgroundColor: '#4E49FC',
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: colors.accent,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
   planCardCheckboxUnselected: {
     backgroundColor: 'transparent',
-    borderColor: '#D1D5DC',
+    borderColor: colors.border,
   },
   planCardCheckboxSelected: {
-    backgroundColor: '#4E49FC',
-    borderColor: '#4E49FC',
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
   },
   footer: {
-    gap: 8,
-    paddingTop: 8,
+    paddingTop: t.space.md,
+    gap: 0,
   },
-  footerText: {
-    fontSize: 16,
+  // 定价 + 合规：两行贴近；与下方主按钮仍用 marginBottom 拉开
+  footerCopy: {
+    marginBottom: t.space.lg,
+    gap: 3,
+    paddingHorizontal: 4,
+  },
+  footerLead: {
+    fontSize: 15,
+    fontFamily: 'JetBrainsMono_600',
     fontWeight: '400',
-    color: '#6A7282',
+    letterSpacing: -0.35,
+    color: colors.text,
     textAlign: 'center',
-    letterSpacing: -0.31,
-    lineHeight: 25.6,
+    lineHeight: 20,
   },
   autoRenewText: {
     fontSize: 11,
-    fontWeight: '400',
-    color: '#9CA3AF',
+    fontFamily: 'JetBrainsMono_400',
+    color: colors.muted,
     textAlign: 'center',
-    lineHeight: 16,
-    paddingHorizontal: 8,
+    lineHeight: 14,
+    paddingHorizontal: t.space.xs,
   },
   subscribeButton: {
-    backgroundColor: '#4E49FC',
-    borderRadius: 12,
+    backgroundColor: colors.accent,
+    borderRadius: t.radius.lg,
     paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: t.space.lg,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 0,
   },
   subscribeButtonDisabled: {
     opacity: 0.5,
@@ -647,36 +676,42 @@ const styles = StyleSheet.create({
   },
   subscribeButtonText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
     color: '#FFFFFF',
     letterSpacing: -0.15,
   },
   restoreButton: {
-    paddingVertical: 12,
+    paddingVertical: 4,
     alignItems: 'center',
+    marginTop: 2,
+    marginBottom: 0,
   },
   restoreButtonText: {
     fontSize: 12,
-    fontWeight: '600',
-    color: '#6A7282',
-    letterSpacing: -0.31,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
+    color: colors.muted,
+    letterSpacing: -0.15,
   },
   legalLinks: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    paddingBottom: 8,
+    paddingTop: 10,
+    paddingBottom: 0,
   },
   legalLinkText: {
     fontSize: 11,
-    fontWeight: '400',
-    color: '#9CA3AF',
+    fontFamily: 'JetBrainsMono_400',
+    color: colors.muted,
     textDecorationLine: 'underline',
   },
   legalLinkSeparator: {
     fontSize: 11,
-    color: '#D1D5DB',
+    color: colors.dim,
+    fontFamily: 'JetBrainsMono_400',
   },
   errorContainer: {
     flex: 1,
@@ -686,20 +721,23 @@ const styles = StyleSheet.create({
     paddingVertical: 48,
   },
   errorText: {
-    fontSize: 16,
-    color: '#666666',
+    fontSize: 14,
+    fontFamily: 'JetBrainsMono_400',
+    color: colors.sub,
     marginBottom: 24,
     textAlign: 'center',
+    lineHeight: 22,
   },
   errorButton: {
-    backgroundColor: '#4E49FC',
-    borderRadius: 8,
+    backgroundColor: colors.accent,
+    borderRadius: t.radius.lg,
     paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingVertical: 14,
   },
   errorButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
   },
 });

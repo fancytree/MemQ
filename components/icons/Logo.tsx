@@ -1,4 +1,5 @@
 import React from 'react';
+import { colors } from '@/theme';
 import { StyleProp, ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
@@ -9,7 +10,7 @@ interface LogoProps {
   color?: string; // 新增颜色属性
 }
 
-export default function Logo({ width = 120, height, style, color = '#4E49FC' }: LogoProps) {
+export default function Logo({ width = 120, height, style, color = colors.accent }: LogoProps) {
   // Logo.svg 的 viewBox 是 "0 0 377 99"，宽高比约为 3.8:1
   // 如果只提供了 width，根据比例计算 height
   const finalHeight = height || width / 3.8;

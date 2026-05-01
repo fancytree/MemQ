@@ -1,5 +1,7 @@
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
+import { loadFromCache, saveToCache } from '@/lib/cache';
+import { buildLatestProgressMap } from '@/lib/termProgress';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts } from '@/theme';
 import { router, useFocusEffect } from 'expo-router';
@@ -15,6 +17,22 @@ interface LessonSummary {
   pct: number;
 }
 
+type LearningStage = 'New' | 'Learning' | 'Familiar' | 'Good' | 'Strong' | 'Mastered';
+
+const LEARNING_STAGE_WEIGHTS: Record<LearningStage, number> = {
+  New: 0,
+  Learning: 0.2,
+  Familiar: 0.4,
+  Good: 0.6,
+  Strong: 0.8,
+  Mastered: 1.0,
+};
+
+const getStatusWeight = (status?: LearningStage | null): number => {
+  if (!status) return LEARNING_STAGE_WEIGHTS.New;
+  return LEARNING_STAGE_WEIGHTS[status] ?? LEARNING_STAGE_WEIGHTS.New;
+};
+
 export default function LibraryScreen() {
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
 
@@ -24,6 +42,12 @@ export default function LibraryScreen() {
     if (!user) {
       setLessons([]);
       return;
+    }
+
+    // 先从本地缓存加载，立即显示（stale-while-revalidate）
+    const cached = await loadFromCache<LessonSummary[]>('LESSONS', user.id);
+    if (cached && cached.length > 0) {
+      setLessons(cached);
     }
 
     const { data: lessonsData, error: lessonsError } = await supabase
@@ -52,15 +76,12 @@ export default function LibraryScreen() {
     const { data: progressData } = termIds.length
       ? await supabase
           .from('user_term_progress')
-          .select('term_id, status')
+          .select('term_id, status, last_reviewed_at')
           .eq('user_id', user.id)
           .in('term_id', termIds)
-      : { data: [] as { term_id: string; status: string | null }[] };
+      : { data: [] as { term_id: string; status: string | null; last_reviewed_at: string | null }[] };
 
-    const progressMap = new Map<string, string | null>();
-    (progressData || []).forEach((p) => {
-      progressMap.set(p.term_id, p.status);
-    });
+    const progressMap = buildLatestProgressMap(progressData || []);
 
     const termsByLesson = new Map<string, { id: string; lesson_id: string }[]>();
     (termsData || []).forEach((term) => {
@@ -73,17 +94,17 @@ export default function LibraryScreen() {
     const nextLessons: LessonSummary[] = lessonsData.map((lesson) => {
       const lessonTerms = termsByLesson.get(lesson.id) || [];
       const cards = lessonTerms.length;
-      let completed = 0;
+      let weightedScore = 0;
 
       lessonTerms.forEach((term) => {
-        const status = progressMap.get(term.id);
-        if (status === 'Strong' || status === 'Mastered') {
-          completed += 1;
-        }
+        const status = progressMap.get(term.id) as LearningStage | null | undefined;
+        weightedScore += getStatusWeight(status);
       });
 
-      const pct = cards > 0 ? Math.round((completed / cards) * 100) : 0;
-      const due = Math.max(cards - completed, 0);
+      // 与 lesson 详情页保持一致：使用加权进度，并用 round 后的 reviewed 计算 due
+      const pct = cards > 0 ? Math.round((weightedScore / cards) * 100) : 0;
+      const reviewedCount = Math.round(weightedScore);
+      const due = Math.max(cards - reviewedCount, 0);
 
       return {
         id: lesson.id,
@@ -96,6 +117,8 @@ export default function LibraryScreen() {
     });
 
     setLessons(nextLessons);
+    // 保存到本地，下次打开立即可见
+    void saveToCache('LESSONS', nextLessons, user.id);
   }, []);
 
   useEffect(() => {
@@ -115,7 +138,7 @@ export default function LibraryScreen() {
     return [
       { v: String(lessonsCount), l: 'lessons' },
       { v: String(cardsCount), l: 'cards' },
-      { v: String(dueCount), l: 'due' },
+      { v: String(dueCount), l: 'to review' },
     ];
   }, [lessons]);
 
@@ -127,13 +150,6 @@ export default function LibraryScreen() {
         <Pressable onPress={() => router.push('/create')}>
           <Text style={styles.linkAccent}>Add new</Text>
         </Pressable>
-      </View>
-
-      {/* Search */}
-      <View style={styles.searchWrap}>
-        <View style={styles.searchInput}>
-          <Text style={styles.searchPlaceholder}>Search lessons</Text>
-        </View>
       </View>
 
       {/* Stats summary */}
@@ -170,7 +186,7 @@ function LessonRow({ lesson: d }: { lesson: LessonSummary }) {
       <View style={styles.lessonTitleRow}>
         <Text style={styles.lessonTitle}>{d.title}</Text>
         <Text style={[styles.dueLabel, { color: d.due > 0 ? colors.accent : colors.muted }]}>
-          {d.due > 0 ? `${d.due} due` : 'caught up'}
+          {d.due > 0 ? 'review today' : 'caught up'}
         </Text>
       </View>
       <Text style={styles.lessonSub}>{d.sub}</Text>
@@ -196,18 +212,6 @@ const styles = StyleSheet.create({
     fontSize: 24, fontWeight: '400', letterSpacing: -0.5, color: colors.text,
   },
   linkAccent: { fontSize: 13, letterSpacing: -0.1, color: colors.accent, fontFamily: 'JetBrainsMono_700' },
-
-  searchWrap: {
-    paddingHorizontal: 20, paddingVertical: 14,
-    backgroundColor: colors.surf,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  searchInput: {
-    paddingHorizontal: 12, paddingVertical: 11,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 8,
-    backgroundColor: colors.bg,
-  },
-  searchPlaceholder: { fontSize: 14, lineHeight: 20, color: colors.muted, fontFamily: 'JetBrainsMono_400' },
 
   statsRow: {
     flexDirection: 'row',

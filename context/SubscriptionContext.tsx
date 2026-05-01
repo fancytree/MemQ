@@ -4,15 +4,87 @@ import {
   getRevenueCatIosApiKey,
 } from '@/lib/revenuecatKeys';
 import { supabase } from '@/lib/supabase';
-import Constants from 'expo-constants';
+import { router } from 'expo-router';
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { Alert, Platform } from 'react-native';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - react-native-purchases 需要先安装: npm install react-native-purchases
-import Purchases, { CustomerInfo, LOG_LEVEL } from 'react-native-purchases';
-// eslint-disable-next-line @typescript-eslint/ban-ts-comment
-// @ts-ignore - react-native-purchases-ui 需要先安装: npm install react-native-purchases-ui
-import RevenueCatUI from 'react-native-purchases-ui';
+
+type CustomerInfo = any;
+
+const LOG_LEVEL = {
+  VERBOSE: 'VERBOSE',
+  ERROR: 'ERROR',
+} as const;
+
+const noopPurchases = {
+  setLogLevel: (_level: unknown) => {},
+  configure: async (_args: unknown) => {},
+  getCustomerInfo: async (): Promise<CustomerInfo> => ({
+    entitlements: { active: {} },
+  }),
+  restorePurchases: async (): Promise<CustomerInfo> => ({
+    entitlements: { active: {} },
+  }),
+  logIn: async (_userId: string) => {},
+  logOut: async () => {},
+  addCustomerInfoUpdateListener: (_listener: (customerInfo: CustomerInfo) => void) => {},
+};
+
+const noopRevenueCatUI = {
+  presentCustomerCenter: async (_args?: unknown) => {},
+};
+
+let Purchases: typeof noopPurchases = noopPurchases;
+let RevenueCatUI: typeof noopRevenueCatUI = noopRevenueCatUI;
+let hasRevenueCatModule = false;
+let Constants: any = { executionEnvironment: undefined, expoConfig: undefined };
+
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const constantsModule = require('expo-constants');
+  Constants = constantsModule?.default ?? constantsModule;
+} catch {
+  Constants = { executionEnvironment: undefined, expoConfig: undefined };
+}
+
+// react-native-purchases（核心购买模块）和 react-native-purchases-ui（Customer Center UI）
+// 分开 try/catch：UI 模块加载失败不能影响核心购买功能。
+// 两个 require 放在同一个 try 里时，purchasesUI 的失败会让 Purchases 也变成 noop，
+// 导致所有用户被判定为未订阅、paywall 失效。
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const purchasesModule = require('react-native-purchases');
+  const resolvedPurchases = (purchasesModule?.default ?? purchasesModule) as Partial<typeof noopPurchases> | undefined;
+  // 仅当关键方法都可用时才启用原生模块；否则回退 no-op，避免运行时崩溃。
+  const hasRequiredPurchasesApi =
+    !!resolvedPurchases &&
+    typeof resolvedPurchases.setLogLevel === 'function' &&
+    typeof resolvedPurchases.configure === 'function' &&
+    typeof resolvedPurchases.getCustomerInfo === 'function' &&
+    typeof resolvedPurchases.restorePurchases === 'function' &&
+    typeof resolvedPurchases.logIn === 'function' &&
+    typeof resolvedPurchases.logOut === 'function' &&
+    typeof resolvedPurchases.addCustomerInfoUpdateListener === 'function';
+  if (hasRequiredPurchasesApi) {
+    Purchases = resolvedPurchases as typeof noopPurchases;
+    hasRevenueCatModule = true;
+  }
+} catch {
+  hasRevenueCatModule = false;
+  Purchases = noopPurchases;
+}
+
+// react-native-purchases-ui はオプション：Customer Center UI のみ担当。
+// 这个模块加载失败不影响核心购买/订阅检查功能。
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const purchasesUIModule = require('react-native-purchases-ui');
+  const resolvedRevenueCatUI = (purchasesUIModule?.default ?? purchasesUIModule) as Partial<typeof noopRevenueCatUI> | undefined;
+  if (resolvedRevenueCatUI && typeof resolvedRevenueCatUI.presentCustomerCenter === 'function') {
+    RevenueCatUI = resolvedRevenueCatUI as typeof noopRevenueCatUI;
+  }
+} catch {
+  RevenueCatUI = noopRevenueCatUI;
+}
 
 // RevenueCat API Key
 // 重要：只能使用 Public API Key（以 appl_ 或 goog_ 开头），不能使用 Secret API Key（以 sk_ 开头）
@@ -267,7 +339,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
         return;
       }
 
-      const { router } = await import('expo-router');
+      // 使用静态 import，避免动态 import 在 Metro asyncRequire 下抛错导致无法打开 paywall
       router.push('/unlock-pro');
     } catch (error: any) {
       if (__DEV__) console.error('Error showing paywall:', error);
@@ -333,6 +405,16 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
 
       setIsConfiguring(true);
       try {
+        if (!hasRevenueCatModule) {
+          if (__DEV__) {
+            console.warn('RevenueCat native module unavailable in current runtime, skipping initialization.');
+          }
+          setIsInitialized(true);
+          setIsConfiguring(false);
+          await checkSubscriptionStatus();
+          return;
+        }
+
         // 设置日志级别（开发环境使用 VERBOSE，生产环境使用 ERROR）
         const isDevelopment = __DEV__;
         Purchases.setLogLevel(isDevelopment ? LOG_LEVEL.VERBOSE : LOG_LEVEL.ERROR);
@@ -481,6 +563,7 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
   // 监听 RevenueCat 购买更新（实时同步）
   useEffect(() => {
     if (!isInitialized) return;
+    if (typeof Purchases.addCustomerInfoUpdateListener !== 'function') return;
 
     const customerInfoUpdateListener = Purchases.addCustomerInfoUpdateListener(async (customerInfo: CustomerInfo) => {
       if (__DEV__) {

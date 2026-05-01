@@ -1,22 +1,37 @@
-import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-// 配置通知行为
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+type NotificationsModule = any;
+let notificationsModule: NotificationsModule | null | undefined = undefined;
+
+const getNotifications = (): NotificationsModule | null => {
+  if (notificationsModule !== undefined) return notificationsModule;
+  try {
+    // 惰性加载，避免当前运行壳缺少 ExpoNotifications 原生模块时页面初始化崩溃
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const mod = require('expo-notifications');
+    notificationsModule = mod?.default ?? mod;
+    notificationsModule?.setNotificationHandler?.({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  } catch {
+    notificationsModule = null;
+  }
+  return notificationsModule;
+};
 
 /**
  * 请求通知权限
  */
 export async function requestNotificationPermissions(): Promise<boolean> {
   try {
+    const Notifications = getNotifications();
+    if (!Notifications) return false;
     const { status: existingStatus } = await Notifications.getPermissionsAsync();
     let finalStatus = existingStatus;
 
@@ -54,6 +69,8 @@ export async function requestNotificationPermissions(): Promise<boolean> {
  */
 export async function cancelAllScheduledNotifications(): Promise<void> {
   try {
+    const Notifications = getNotifications();
+    if (!Notifications) return;
     await Notifications.cancelAllScheduledNotificationsAsync();
     console.log('All scheduled notifications cancelled');
   } catch (error) {
@@ -64,8 +81,10 @@ export async function cancelAllScheduledNotifications(): Promise<void> {
 /**
  * 获取所有已计划的通知
  */
-export async function getAllScheduledNotifications(): Promise<Notifications.NotificationRequest[]> {
+export async function getAllScheduledNotifications(): Promise<any[]> {
   try {
+    const Notifications = getNotifications();
+    if (!Notifications) return [];
     return await Notifications.getAllScheduledNotificationsAsync();
   } catch (error) {
     console.error('Error getting scheduled notifications:', error);
@@ -79,6 +98,10 @@ export async function getAllScheduledNotifications(): Promise<Notifications.Noti
  */
 export async function scheduleDailyReminders(times: string[]): Promise<void> {
   try {
+    const Notifications = getNotifications();
+    if (!Notifications) {
+      throw new Error('Notifications module is unavailable in current build');
+    }
     // 先取消所有现有的通知
     await cancelAllScheduledNotifications();
 

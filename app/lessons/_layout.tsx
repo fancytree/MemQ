@@ -9,13 +9,6 @@ export default function LessonsLayout() {
       }}
     >
       <Stack.Screen 
-        name="index" 
-        options={{ 
-          headerShown: false,
-          header: () => null,
-        }} 
-      />
-      <Stack.Screen 
         name="[id]" 
         options={{ 
           headerShown: false,

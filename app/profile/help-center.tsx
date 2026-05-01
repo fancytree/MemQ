@@ -1,11 +1,11 @@
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { Image } from 'expo-image';
 import { safeBack } from '@/lib/safeBack';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { colors } from '@/theme';
 import React, { useEffect } from 'react';
 import {
+    Image,
     Linking,
     ScrollView,
     StyleSheet,

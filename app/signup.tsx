@@ -1,10 +1,10 @@
-import AppleIcon from '@/components/icons/AppleIcon';
-import GoogleIcon from '@/components/icons/GoogleIcon';
 import Logo from '@/components/icons/Logo';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { signInWithOAuth } from '@/lib/auth';
+import { signInWithOAuth, startGoogleOAuthInSafari } from '@/lib/auth';
+import { navigateAfterAuth } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
-import { Feather } from '@expo/vector-icons';
+import { colors } from '@/theme';
+import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useState } from 'react';
 import {
@@ -20,6 +20,8 @@ import {
     View,
 } from 'react-native';
 
+const SUBSCRIPTION_REFRESH_TIMEOUT_MS = 4000;
+
 export default function SignUpScreen() {
   const [identifier, setIdentifier] = useState(''); // 邮箱输入框
   const [password, setPassword] = useState('');
@@ -29,6 +31,19 @@ export default function SignUpScreen() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
   const { refreshSubscriptionStatus } = useSubscription();
+
+  const safeRefreshSubscription = async () => {
+    try {
+      await Promise.race([
+        refreshSubscriptionStatus(),
+        new Promise((resolve) => setTimeout(resolve, SUBSCRIPTION_REFRESH_TIMEOUT_MS)),
+      ]);
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Subscription refresh failed, continue signup flow:', error);
+      }
+    }
+  };
 
   // 验证邮箱格式（与 login.tsx 中的验证逻辑相同）
   const isValidEmail = (email: string) => {
@@ -137,8 +152,8 @@ export default function SignUpScreen() {
           {
             text: 'OK',
             onPress: () => {
-              refreshSubscriptionStatus();
-              router.replace('/(tabs)');
+              safeRefreshSubscription();
+              void navigateAfterAuth();
             },
           },
         ]);
@@ -159,20 +174,34 @@ export default function SignUpScreen() {
   const handleGoogleSignIn = async () => {
     setOauthLoading('google');
     try {
-      const { data, error } = await signInWithOAuth('google');
-      
-      if (error) {
-        Alert.alert('Error', error.message || 'Failed to sign in with Google');
+      if (Platform.OS === 'ios') {
+        // iOS：SFSafariViewController（应用内，无 Apple 确认框）
+        const { data, error } = await startGoogleOAuthInSafari();
+        if (error) {
+          Alert.alert('Error', error.message || 'Failed to sign in with Google');
+          return;
+        }
+        if (data) {
+          await safeRefreshSubscription();
+          router.replace('/(tabs)');
+        }
+        // data 和 error 都为 null：用户取消，不做任何操作
         return;
       }
 
+      // Android / Web
+      const { data, error } = await signInWithOAuth('google');
+      if (error) {
+        if (error.message === 'User cancelled authentication') return;
+        Alert.alert('Error', error.message || 'Failed to sign in with Google');
+        return;
+      }
       if (data) {
-        // 刷新订阅状态
-        await refreshSubscriptionStatus();
+        await safeRefreshSubscription();
         router.replace('/(tabs)');
       }
     } catch (error: any) {
-      console.error('Google sign in error:', error);
+      if (__DEV__) console.error('Google sign in error:', error);
       Alert.alert('Error', error.message || 'Failed to sign in with Google');
     } finally {
       setOauthLoading(null);
@@ -192,7 +221,7 @@ export default function SignUpScreen() {
 
       if (data) {
         // 刷新订阅状态
-        await refreshSubscriptionStatus();
+        await safeRefreshSubscription();
         router.replace('/(tabs)');
       }
     } catch (error: any) {
@@ -226,7 +255,7 @@ export default function SignUpScreen() {
             <TextInput
               style={styles.input}
               placeholder="Email"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.muted}
               value={identifier}
               onChangeText={setIdentifier}
               keyboardType="default"
@@ -242,7 +271,7 @@ export default function SignUpScreen() {
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Password"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.muted}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -258,7 +287,7 @@ export default function SignUpScreen() {
                 <Feather
                   name={showPassword ? 'eye-off' : 'eye'}
                   size={20}
-                  color="#6B7280"
+                  color={colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -270,7 +299,7 @@ export default function SignUpScreen() {
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Confirm Password"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.muted}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry={!showConfirmPassword}
@@ -286,7 +315,7 @@ export default function SignUpScreen() {
                 <Feather
                   name={showConfirmPassword ? 'eye-off' : 'eye'}
                   size={20}
-                  color="#6B7280"
+                  color={colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -320,7 +349,7 @@ export default function SignUpScreen() {
                   {oauthLoading === 'google' ? (
                     <ActivityIndicator size="small" color="#4285F4" />
                   ) : (
-                    <GoogleIcon size={24} />
+                    <FontAwesome5 name="google" size={20} color="#4285F4" />
                   )}
                 </View>
               </TouchableOpacity>
@@ -337,7 +366,7 @@ export default function SignUpScreen() {
                     {oauthLoading === 'apple' ? (
                       <ActivityIndicator size="small" color="#FFFFFF" />
                     ) : (
-                      <AppleIcon size={24} color="#FFFFFF" />
+                      <FontAwesome5 name="apple" size={22} color="#FFFFFF" />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -364,7 +393,7 @@ export default function SignUpScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -386,11 +415,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tagline: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: '#6B7280',
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: '400',
+    color: colors.muted,
     marginTop: 12,
     textAlign: 'center',
+    fontFamily: 'JetBrainsMono_400',
   },
   logo: {
     width: 100,
@@ -404,9 +435,11 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 18,
-    fontWeight: '600',
-    color: '#111827',
+    lineHeight: 24,
+    fontWeight: '400',
+    color: colors.text,
     textAlign: 'left',
+    fontFamily: 'JetBrainsMono_700',
   },
   inputContainer: {
     marginBottom: 16,
@@ -415,50 +448,57 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   input: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
+    backgroundColor: colors.surf,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
-    color: '#111827',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
   },
   passwordInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
+    backgroundColor: colors.surf,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   passwordInput: {
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
-    color: '#111827',
+    fontSize: 14,
+    lineHeight: 20,
+    color: colors.text,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
   },
   eyeButton: {
     padding: 14,
     paddingRight: 16,
   },
   button: {
-    borderRadius: 12,
+    borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
   },
   signUpButton: {
-    backgroundColor: '#4E49FC',
+    backgroundColor: colors.accent,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -468,13 +508,14 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
   },
   dividerText: {
     marginHorizontal: 16,
-    fontSize: 14,
-    color: '#9CA3AF',
-    fontWeight: '500',
+    fontSize: 12,
+    color: colors.muted,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_500',
   },
   socialLoginContainer: {
     marginTop: 8,
@@ -491,34 +532,36 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
-    gap: 16,
+    gap: 12,
   },
   socialIconButton: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   socialIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 52,
+    height: 52,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.accentShadow,
     shadowOffset: {
       width: 0,
-      height: 2,
+      height: 1,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
   googleIconContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   appleIconContainer: {
-    backgroundColor: '#000000',
+    backgroundColor: colors.text,
+    borderWidth: 1,
+    borderColor: colors.text,
   },
   signInLinkContainer: {
     flexDirection: 'row',
@@ -527,13 +570,15 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   signInLinkText: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: 12,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
   },
   signInLinkButton: {
-    fontSize: 14,
-    color: '#4E49FC',
-    fontWeight: '600',
+    fontSize: 12,
+    color: colors.accent,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
 });
 

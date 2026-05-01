@@ -1,3 +1,4 @@
+import { clearCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/safeBack';
@@ -116,6 +117,10 @@ export default function CreateLesson() {
         setLoading(false);
         return;
       }
+
+      // 新课程创建成功，让列表下次打开时重新从服务端拉取
+      void clearCache('DASHBOARD', insertData.user_id as string);
+      void clearCache('LESSONS', insertData.user_id as string);
 
       // 成功：跳转到添加词条页面，带上 fromCreate=true 标记
       setLoading(false);

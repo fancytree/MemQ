@@ -14,38 +14,16 @@ export const exploreCategories: ExploreCategory[] = [
   { id: 'arts', label: 'Arts' },
 ];
 
-export interface FeaturedDeck {
+export interface ExploreLesson {
   id: string;
   title: string;
-  sub: string;
-  author: string;
-  learners: string;
-  edition: string;
-}
-
-export const featuredDeck: FeaturedDeck = {
-  id: 'feat-stoic',
-  title: 'Stoic Philosophy',
-  sub: 'Marcus Aurelius, Epictetus, Seneca · 64 cards',
-  author: 'Curated by MemQ',
-  learners: '12.4k',
-  edition: '№ 04',
-};
-
-export interface TrendingDeck {
-  id: string;
-  title: string;
-  sub: string;
+  cards: number;
+  creator: string;
+  isOfficial?: boolean;
   cat: Exclude<ExploreCategoryId, 'all'>;
   isNew: boolean;
-  learners: string;
+  learners: number;
+  description: string;
+  isFeatured: boolean;
+  sortOrder: number;
 }
-
-export const trendingDecks: TrendingDeck[] = [
-  { id: 't1', title: 'Japanese · N5 Kanji',     sub: '103 cards · @hiro',        cat: 'lang', isNew: true,  learners: '8.2k' },
-  { id: 't2', title: 'Organic Chemistry I',     sub: 'Functional groups · @melb',cat: 'sci',  isNew: false, learners: '5.6k' },
-  { id: 't3', title: 'Roman Emperors',          sub: '49 emperors · @classics',  cat: 'hist', isNew: false, learners: '3.1k' },
-  { id: 't4', title: 'Big-O Complexity',        sub: 'Algorithms · @csprep',     cat: 'tech', isNew: true,  learners: '9.8k' },
-  { id: 't5', title: 'Renaissance Painters',    sub: '32 cards · @atlas',        cat: 'arts', isNew: false, learners: '2.4k' },
-  { id: 't6', title: 'French · A1 Verbs',       sub: '58 conjugations · @lou',   cat: 'lang', isNew: false, learners: '6.0k' },
-];

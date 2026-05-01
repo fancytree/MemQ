@@ -10,7 +10,11 @@ interface LoadingContextType {
   setLoading: (loading: boolean) => void;
 }
 
-const LoadingContext = createContext<LoadingContextType | undefined>(undefined);
+const noopSetLoading = (_loading: boolean) => {};
+const LoadingContext = createContext<LoadingContextType>({
+  isLoading: false,
+  setLoading: noopSetLoading,
+});
 
 export function LoadingProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
@@ -23,9 +27,5 @@ export function LoadingProvider({ children }: { children: React.ReactNode }) {
 }
 
 export function useLoading() {
-  const context = useContext(LoadingContext);
-  if (context === undefined) {
-    throw new Error('useLoading must be used within a LoadingProvider');
-  }
-  return context;
+  return useContext(LoadingContext);
 }

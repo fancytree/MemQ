@@ -2,6 +2,7 @@ import AnswerBackCard from '@/components/AnswerBackCard';
 import FlipCard from '@/components/FlipCard';
 import StudySettingsModal, { StudySettings } from '@/components/StudySettingsModal';
 import { supabase } from '@/lib/supabase';
+import { updateTermProgressSafe } from '@/lib/updateTermProgress';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -550,26 +551,7 @@ export default function StudySessionScreen() {
     setShowExplanation(false); // 重置解析展开状态
     setIsFlipped(false); // 重置翻转状态，让用户手动翻转
 
-    // 后台静默更新单词进度（Fire and Forget）
-    supabase.functions
-      .invoke('update-term-progress', {
-        body: {
-          term_id: currentQuestion.term_id,
-          is_correct: isCorrect,
-        },
-      })
-      .then((response) => {
-        if (response.error) {
-          console.error('Error updating term progress:', response.error);
-        } else {
-          console.log('Term progress updated successfully:', response.data);
-        }
-      })
-      .catch((error) => {
-        // 错误时在控制台打印，不影响用户体验
-        console.error('Error updating term progress:', error);
-        console.error('Error details:', JSON.stringify(error, null, 2));
-      });
+    void updateTermProgressSafe(currentQuestion.term_id, isCorrect);
 
     // 自动跳转逻辑
     if (isCorrect) {
@@ -600,17 +582,7 @@ export default function StudySessionScreen() {
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
 
     const currentQuestion = questions[currentIndex];
-    // 后台静默更新单词进度（Fire and Forget）
-    supabase.functions
-      .invoke('update-term-progress', {
-        body: {
-          term_id: currentQuestion.term_id,
-          is_correct: false,
-        },
-      })
-      .catch((error) => {
-        console.error('Error updating term progress:', error);
-      });
+    void updateTermProgressSafe(currentQuestion.term_id, false);
   };
 
   // 下一题

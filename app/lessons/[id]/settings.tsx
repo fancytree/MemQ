@@ -1,3 +1,4 @@
+import { clearCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -37,6 +38,8 @@ export default function LessonSettingsScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [publishedExploreId, setPublishedExploreId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const slideAnim = useRef(new Animated.Value(300)).current;
   const switchAnim = useRef(new Animated.Value(0)).current;
@@ -116,6 +119,13 @@ export default function LessonSettingsScreen() {
         if (lessonData.deadline) {
           setDeadline(new Date(lessonData.deadline));
         }
+
+        const { data: publishedLesson } = await supabase
+          .from('explore_lessons')
+          .select('id')
+          .eq('source_lesson_id', id)
+          .maybeSingle();
+        setPublishedExploreId(publishedLesson?.id ?? null);
       } catch (err) {
         console.error('Error:', err);
         setError('Something went wrong');
@@ -180,6 +190,11 @@ export default function LessonSettingsScreen() {
         return;
       }
 
+      // 清除本地缓存（名称/deadline 变了，列表和详情都需要刷新）
+      void clearCache('LESSON_DETAIL', id as string);
+      void clearCache('DASHBOARD', user.id);
+      void clearCache('LESSONS', user.id);
+
       // 成功：返回详情页
       Alert.alert('Success', 'Lesson updated successfully', [
         {
@@ -233,17 +248,185 @@ export default function LessonSettingsScreen() {
                 return;
               }
 
+              // 清除本地缓存
+              void clearCache('LESSON_DETAIL', id as string);
+              void clearCache('DASHBOARD', user.id);
+              void clearCache('LESSONS', user.id);
+
               // 成功：跳转到课程列表页
               Alert.alert('Success', 'Lesson deleted successfully', [
                 {
                   text: 'OK',
-                  onPress: () => router.replace('/lessons' as any),
+                  onPress: () => {
+                    const nav = router as any;
+                    if (typeof nav.dismissTo === 'function') {
+                      nav.dismissTo('/(tabs)/library');
+                      return;
+                    }
+                    router.replace('/(tabs)/library' as any);
+                  },
                 },
               ]);
             } catch (err) {
               console.error('Error:', err);
               Alert.alert('Error', 'Something went wrong');
               setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const normalizeSlug = (value: string) =>
+    value
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40);
+
+  const handlePublish = () => {
+    Alert.alert(
+      'Publish to Explore',
+      publishedExploreId
+        ? 'Republish this lesson to update Explore content?'
+        : 'Publish this lesson so other users can add it from Explore?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: publishedExploreId ? 'Republish' : 'Publish',
+          onPress: async () => {
+            if (!id) return;
+            setPublishing(true);
+            try {
+              const { data: { user } } = await supabase.auth.getUser();
+              if (!user) {
+                Alert.alert('Error', 'User not authenticated');
+                return;
+              }
+
+              const { data: ownedLesson, error: lessonError } = await supabase
+                .from('lessons')
+                .select('id, name, description, is_vocab_mode')
+                .eq('id', id)
+                .eq('user_id', user.id)
+                .single();
+              if (lessonError || !ownedLesson) {
+                Alert.alert('Error', lessonError?.message || 'Lesson not found');
+                return;
+              }
+
+              const { data: sourceTerms, error: sourceTermsError } = await supabase
+                .from('terms')
+                .select('id, term, definition, explanation')
+                .eq('lesson_id', id)
+                .order('created_at', { ascending: true });
+              if (sourceTermsError || !sourceTerms) {
+                Alert.alert('Error', sourceTermsError?.message || 'Failed to load terms');
+                return;
+              }
+              if (sourceTerms.length === 0) {
+                Alert.alert('Error', 'Please add terms before publishing.');
+                return;
+              }
+
+              const sourceTermIds = sourceTerms.map((t) => t.id);
+              const { data: sourceQuestions } = await supabase
+                .from('questions')
+                .select('id, term_id, question_text, question_type, options, correct_answer, explanation')
+                .in('term_id', sourceTermIds);
+
+              const fallbackExploreId = `u-${user.id.slice(0, 8)}-${normalizeSlug(ownedLesson.name) || id.slice(0, 8)}`;
+              const exploreId = publishedExploreId || fallbackExploreId;
+              const rawCreatorName =
+                (user.user_metadata?.full_name as string | undefined)?.trim() ||
+                user.email?.split('@')[0] ||
+                'creator';
+              const creatorHandle = rawCreatorName.startsWith('@')
+                ? rawCreatorName
+                : `@${rawCreatorName}`;
+
+              const { error: upsertLessonError } = await supabase
+                .from('explore_lessons')
+                .upsert({
+                  id: exploreId,
+                  title: ownedLesson.name,
+                  description: ownedLesson.description || '',
+                  category: ownedLesson.is_vocab_mode ? 'lang' : 'tech',
+                  creator_handle: creatorHandle,
+                  is_official: false,
+                  is_new: true,
+                  is_featured: false,
+                  cards_count: sourceTerms.length,
+                  learners_count: 0,
+                  sort_order: 999,
+                  source_lesson_id: id,
+                  published_by: user.id,
+                })
+                .select('id')
+                .single();
+              if (upsertLessonError) {
+                Alert.alert('Error', upsertLessonError.message || 'Failed to publish lesson');
+                return;
+              }
+
+              await supabase.from('explore_questions').delete().eq('lesson_id', exploreId);
+              await supabase.from('explore_terms').delete().eq('lesson_id', exploreId);
+
+              const { data: insertedTerms, error: insertTermsError } = await supabase
+                .from('explore_terms')
+                .insert(
+                  sourceTerms.map((term, index) => ({
+                    lesson_id: exploreId,
+                    source_term_id: term.id,
+                    term: term.term,
+                    definition: term.definition,
+                    explanation: term.explanation || '',
+                    sort_order: index + 1,
+                  }))
+                )
+                .select('id, source_term_id');
+              if (insertTermsError || !insertedTerms) {
+                Alert.alert('Error', insertTermsError?.message || 'Failed to publish terms');
+                return;
+              }
+
+              const exploreTermBySourceId = new Map(insertedTerms.map((t) => [t.source_term_id, t.id]));
+              const questionPayload = (sourceQuestions || [])
+                .map((question, index) => {
+                  const exploreTermId = exploreTermBySourceId.get(question.term_id);
+                  if (!exploreTermId) return null;
+                  return {
+                    lesson_id: exploreId,
+                    source_question_id: question.id,
+                    explore_term_id: exploreTermId,
+                    question_text: question.question_text,
+                    question_type: question.question_type,
+                    options: question.options,
+                    correct_answer: question.correct_answer,
+                    explanation: question.explanation,
+                    sort_order: index + 1,
+                  };
+                })
+                .filter(Boolean);
+
+              if (questionPayload.length > 0) {
+                const { error: insertQuestionsError } = await supabase
+                  .from('explore_questions')
+                  .insert(questionPayload as any);
+                if (insertQuestionsError) {
+                  Alert.alert('Error', insertQuestionsError.message || 'Failed to publish questions');
+                  return;
+                }
+              }
+
+              setPublishedExploreId(exploreId);
+              Alert.alert('Success', publishedExploreId ? 'Lesson republished.' : 'Lesson published to Explore.');
+            } catch (err) {
+              console.error('Publish error:', err);
+              Alert.alert('Error', 'Failed to publish lesson');
+            } finally {
+              setPublishing(false);
             }
           },
         },
@@ -306,12 +489,23 @@ export default function LessonSettingsScreen() {
             onPress={() => safeBack('/(tabs)/library')}
             style={styles.topbarSideBtn}
             activeOpacity={0.7}
-            disabled={saving || deleting}
+            disabled={saving || deleting || publishing}
           >
             <Text style={styles.cancel}>Cancel</Text>
           </TouchableOpacity>
-          <Text pointerEvents="none" style={styles.title}>Edit Lesson</Text>
-          <View style={styles.topbarSideBtn} />
+          <Text style={styles.title}>Edit Lesson</Text>
+          <TouchableOpacity
+            onPress={handleSave}
+            style={styles.topbarSideBtn}
+            activeOpacity={0.7}
+            disabled={saving || deleting || publishing}
+          >
+            {saving ? (
+              <ActivityIndicator size="small" color={colors.accent} />
+            ) : (
+              <Text style={[styles.tag, (deleting || publishing) && styles.tagDisabled]}>Save</Text>
+            )}
+          </TouchableOpacity>
         </View>
         <ScrollView
           style={styles.scrollView}
@@ -404,7 +598,7 @@ export default function LessonSettingsScreen() {
             </View>
 
             {/* Deadline */}
-            <View style={styles.inputGroup}>
+            <View style={[styles.inputGroup, styles.inputGroupLast]}>
               <View style={styles.labelRow}>
                 <Text style={[styles.label, styles.labelInRow]}>Deadline</Text>
                 {deadline && (
@@ -437,17 +631,22 @@ export default function LessonSettingsScreen() {
             </View>
           </View>
 
-          {/* Save Changes 按钮 */}
+          {/* Delete Lesson 按钮 */}
           <TouchableOpacity
-            style={[styles.saveButton, (saving || deleting) && styles.saveButtonDisabled]}
-            onPress={handleSave}
-            disabled={saving || deleting}
+            style={[styles.publishButton, (saving || deleting || publishing) && styles.saveButtonDisabled]}
+            onPress={handlePublish}
+            disabled={saving || deleting || publishing}
             activeOpacity={0.8}
           >
-            {saving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+            {publishing ? (
+              <ActivityIndicator size="small" color={colors.accent} />
             ) : (
-              <Text style={styles.saveButtonText}>Save Changes</Text>
+              <>
+                <Feather name="upload-cloud" size={20} color={colors.accent} />
+                <Text style={styles.publishButtonText}>
+                  {publishedExploreId ? 'Republish to Explore' : 'Publish to Explore'}
+                </Text>
+              </>
             )}
           </TouchableOpacity>
 
@@ -654,7 +853,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   errorBanner: {
-    backgroundColor: colors.redLight,
+    backgroundColor: '#FEF2F2',
     borderRadius: 8,
     padding: 12,
     marginBottom: 16,
@@ -677,6 +876,9 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 24,
+  },
+  inputGroupLast: {
+    marginBottom: 8,
   },
   labelRow: {
     flexDirection: 'row',
@@ -747,7 +949,7 @@ const styles = StyleSheet.create({
     fontFamily: 'JetBrainsMono_600',
   },
   deleteButton: {
-    backgroundColor: colors.redLight,
+    backgroundColor: '#FEF2F2',
     borderRadius: 8,
     paddingVertical: 16,
     flexDirection: 'row',
@@ -755,6 +957,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#FCA5A5',
+  },
+  publishButton: {
+    backgroundColor: colors.surf,
+    borderRadius: 8,
+    paddingVertical: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
+  },
+  publishButtonText: {
+    color: colors.accent,
+    fontSize: 14,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
+    marginLeft: 8,
   },
   deleteButtonDisabled: {
     opacity: 0.6,

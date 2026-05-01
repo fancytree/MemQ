@@ -1,7 +1,8 @@
-import BackIcon from '@/components/icons/BackIcon';
+import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
 import { MemQTheme } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/theme';
 import * as Linking from 'expo-linking';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -142,17 +143,7 @@ export default function ForgotPasswordScreen() {
           style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled">
-          {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => safeBack('/login')}
-              style={styles.backButton}
-              activeOpacity={0.7}
-            >
-              <BackIcon size={20} color="#0A0A0A" />
-            </TouchableOpacity>
-            <View style={styles.headerRight} />
-          </View>
+          <SecondaryPageNav onBack={() => safeBack('/login')} backLabel="← Back" />
 
           <View style={styles.content}>
 
@@ -165,7 +156,7 @@ export default function ForgotPasswordScreen() {
             <TextInput
               style={styles.input}
               placeholder="Email"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.muted}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -206,7 +197,7 @@ export default function ForgotPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: t.color.bg,
+    backgroundColor: colors.bg,
   },
   keyboardView: {
     flex: 1,
@@ -217,56 +208,41 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 40,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: t.color.accentLight,
-    borderRadius: t.radius.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerRight: {
-    width: 40,
-  },
   content: {
     paddingHorizontal: 24,
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: t.color.textHigh,
+    fontSize: 28,
+    fontWeight: '400',
+    color: colors.text,
     marginBottom: 12,
+    fontFamily: 'JetBrainsMono_800',
   },
   subtitle: {
-    fontSize: 16,
-    color: t.color.text,
+    fontSize: 13,
+    color: colors.muted,
     marginBottom: 32,
-    lineHeight: 24,
+    lineHeight: 19,
+    fontFamily: 'JetBrainsMono_400',
   },
   inputContainer: {
     marginBottom: 24,
   },
   input: {
-    backgroundColor: t.color.surface,
-    borderRadius: t.radius.lg,
+    backgroundColor: colors.surf,
+    borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
-    color: t.color.textHigh,
+    fontSize: 14,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: t.color.border,
+    borderColor: colors.border,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
   },
   button: {
-    backgroundColor: t.color.accent,
-    borderRadius: t.radius.md,
+    backgroundColor: colors.accent,
+    borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 16,
@@ -276,17 +252,19 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   backToLoginLink: {
     alignItems: 'center',
     marginTop: 8,
   },
   backToLoginText: {
-    fontSize: 14,
-    color: t.color.accent,
-    fontWeight: '500',
+    fontSize: 12,
+    color: colors.accent,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
 });
 

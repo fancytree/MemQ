@@ -3,7 +3,39 @@
  * 用于优化页面加载速度，实现"先显示缓存，后台更新"的策略
  */
 
-import AsyncStorage from '@react-native-async-storage/async-storage';
+type AsyncStorageModule = {
+  getItem: (key: string) => Promise<string | null>;
+  setItem: (key: string, value: string) => Promise<void>;
+  removeItem: (key: string) => Promise<void>;
+  multiRemove: (keys: string[]) => Promise<void>;
+  getAllKeys: () => Promise<string[]>;
+  multiGet: (keys: string[]) => Promise<Array<[string, string | null]>>;
+};
+
+const memoryStorage = new Map<string, string>();
+
+const inMemoryAsyncStorage: AsyncStorageModule = {
+  getItem: async (key) => memoryStorage.get(key) ?? null,
+  setItem: async (key, value) => {
+    memoryStorage.set(key, value);
+  },
+  removeItem: async (key) => {
+    memoryStorage.delete(key);
+  },
+  multiRemove: async (keys) => {
+    keys.forEach((key) => memoryStorage.delete(key));
+  },
+  getAllKeys: async () => Array.from(memoryStorage.keys()),
+  multiGet: async (keys) => keys.map((key) => [key, memoryStorage.get(key) ?? null]),
+};
+
+let AsyncStorage: AsyncStorageModule = inMemoryAsyncStorage;
+try {
+  const loaded = require('@react-native-async-storage/async-storage');
+  AsyncStorage = loaded?.default ?? loaded;
+} catch {
+  AsyncStorage = inMemoryAsyncStorage;
+}
 
 // 缓存配置
 const CACHE_CONFIG = {

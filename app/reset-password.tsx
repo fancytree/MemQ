@@ -1,6 +1,7 @@
-import BackIcon from '@/components/icons/BackIcon';
+import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { MemQTheme } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
+import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -165,17 +166,7 @@ export default function ResetPasswordScreen() {
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => router.replace('/login')}
-              style={styles.backButton}
-              activeOpacity={0.7}
-            >
-              <BackIcon size={20} color="#0A0A0A" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Reset Password</Text>
-            <View style={styles.headerRight} />
-          </View>
+          <SecondaryPageNav onBack={() => router.replace('/login')} backLabel="← Back" />
 
           <Text style={styles.title}>Set New Password</Text>
           <Text style={styles.subtitle}>
@@ -188,7 +179,7 @@ export default function ResetPasswordScreen() {
               <TextInput
                 style={styles.passwordInput}
                 placeholder="New Password"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.muted}
                 value={newPassword}
                 onChangeText={(text) => {
                   setNewPassword(text);
@@ -207,7 +198,7 @@ export default function ResetPasswordScreen() {
                 <Feather
                   name={showPassword ? 'eye-off' : 'eye'}
                   size={20}
-                  color="#6B7280"
+                  color={colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -219,7 +210,7 @@ export default function ResetPasswordScreen() {
               <TextInput
                 style={styles.passwordInput}
                 placeholder="Confirm New Password"
-                placeholderTextColor="#9CA3AF"
+                placeholderTextColor={colors.muted}
                 value={confirmPassword}
                 onChangeText={(text) => {
                   setConfirmPassword(text);
@@ -238,7 +229,7 @@ export default function ResetPasswordScreen() {
                 <Feather
                   name={showConfirmPassword ? 'eye-off' : 'eye'}
                   size={20}
-                  color="#6B7280"
+                  color={colors.muted}
                 />
               </TouchableOpacity>
             </View>
@@ -278,7 +269,7 @@ export default function ResetPasswordScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: t.color.bg,
+    backgroundColor: colors.bg,
   },
   scrollContent: {
     flexGrow: 1,
@@ -295,42 +286,23 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
-    color: t.color.muted,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 32,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: t.color.accentLight,
-    borderRadius: t.radius.xl,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: t.color.textHigh,
-  },
-  headerRight: {
-    width: 40,
+    fontSize: 13,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_400',
   },
   title: {
-    fontSize: 32,
-    fontWeight: '700',
-    color: t.color.textHigh,
+    fontSize: 28,
+    fontWeight: '400',
+    color: colors.text,
     marginBottom: 12,
+    fontFamily: 'JetBrainsMono_800',
   },
   subtitle: {
-    fontSize: 16,
-    color: t.color.text,
+    fontSize: 13,
+    color: colors.muted,
     marginBottom: 32,
-    lineHeight: 24,
+    lineHeight: 19,
+    fontFamily: 'JetBrainsMono_400',
   },
   inputContainer: {
     marginBottom: 16,
@@ -338,17 +310,20 @@ const styles = StyleSheet.create({
   passwordInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: t.color.surface,
-    borderRadius: t.radius.lg,
+    backgroundColor: colors.surf,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: t.color.border,
+    borderColor: colors.border,
   },
   passwordInput: {
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    fontSize: 16,
-    color: t.color.textHigh,
+    fontSize: 14,
+    color: colors.text,
+    lineHeight: 20,
+    fontFamily: 'JetBrainsMono_400',
+    fontWeight: '400',
   },
   eyeButton: {
     padding: 14,
@@ -357,18 +332,19 @@ const styles = StyleSheet.create({
   errorContainer: {
     marginBottom: 16,
     padding: 12,
-    backgroundColor: t.color.dangerBg,
-    borderRadius: t.radius.md,
+    backgroundColor: colors.redL,
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: t.color.dangerBorder,
+    borderColor: '#FCA5A5',
   },
   errorText: {
-    fontSize: 14,
-    color: t.color.danger,
+    fontSize: 12,
+    color: colors.red,
+    fontFamily: 'JetBrainsMono_500',
   },
   button: {
-    backgroundColor: t.color.accent,
-    borderRadius: t.radius.md,
+    backgroundColor: colors.accent,
+    borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 16,
@@ -378,17 +354,19 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
   backToLoginLink: {
     alignItems: 'center',
     marginTop: 8,
   },
   backToLoginText: {
-    fontSize: 14,
-    color: t.color.accent,
-    fontWeight: '500',
+    fontSize: 12,
+    color: colors.accent,
+    fontWeight: '400',
+    fontFamily: 'JetBrainsMono_700',
   },
 });
 

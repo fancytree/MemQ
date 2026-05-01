@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button';
 import { isCacheExpired, loadFromCache, saveToCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
+import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -34,6 +35,20 @@ interface Lesson {
 
 // 学习阶段类型
 type LearningStage = 'New' | 'Learning' | 'Familiar' | 'Good' | 'Strong' | 'Mastered';
+
+const LEARNING_STAGE_WEIGHTS: Record<LearningStage, number> = {
+  New: 0,
+  Learning: 0.2,
+  Familiar: 0.4,
+  Good: 0.6,
+  Strong: 0.8,
+  Mastered: 1.0,
+};
+
+const getStatusWeight = (status?: LearningStage | null): number => {
+  if (!status) return LEARNING_STAGE_WEIGHTS.New;
+  return LEARNING_STAGE_WEIGHTS[status] ?? LEARNING_STAGE_WEIGHTS.New;
+};
 
 // 词条类型定义
 interface Term {
@@ -164,17 +179,12 @@ export default function LessonDetailScreen() {
           const termIds = termsData.map((t) => t.id);
           const { data: progressData } = await supabase
             .from('user_term_progress')
-            .select('term_id, status')
+            .select('term_id, status, last_reviewed_at')
             .eq('user_id', user.id)
             .in('term_id', termIds);
           
-          // 创建进度映射
-          const progressMap = new Map();
-          if (progressData) {
-            progressData.forEach((p) => {
-              progressMap.set(p.term_id, p.status);
-            });
-          }
+          // 统一取每个 term 的最新状态，避免与列表页顺序不一致
+          const progressMap = buildLatestProgressMap(progressData || []);
           
           // 合并词条和进度数据
           const processedTerms = termsData.map((term) => ({
@@ -272,7 +282,7 @@ export default function LessonDetailScreen() {
   // 处理开始学习
   const handleStartStudy = () => {
     if (!id) return;
-    router.push(`/study/${id}` as any);
+    router.push(`/quiz?entry=lesson&lessonId=${id}`);
   };
 
   // 处理生成题目
@@ -439,11 +449,16 @@ export default function LessonDetailScreen() {
 
   const formattedDeadline = formatDate(lesson.deadline);
   const totalCards = terms.length;
+  const weightedScore = terms.reduce((sum, term) => {
+    const status = term.user_term_progress?.[0]?.status;
+    return sum + getStatusWeight(status);
+  }, 0);
+  const progressPct = totalCards > 0 ? Math.round((weightedScore / totalCards) * 100) : 0;
+  const reviewedCount = Math.round(weightedScore);
+  const dueCount = Math.max(totalCards - reviewedCount, 0);
   const masteredCount = terms.filter(
     (term) => term.user_term_progress?.[0]?.status === 'Mastered'
   ).length;
-  const dueCount = Math.max(totalCards - masteredCount, 0);
-  const progressPct = totalCards > 0 ? Math.round((masteredCount / totalCards) * 100) : 0;
 
   return (
     <View style={styles.container}>
@@ -494,7 +509,7 @@ export default function LessonDetailScreen() {
         <View style={styles.statsRow}>
           {[
             { v: totalCards, l: 'cards' },
-            { v: dueCount, l: 'due' },
+            { v: dueCount, l: 'to review' },
             { v: masteredCount, l: 'mastered' },
           ].map((s, i, arr) => (
             <View
@@ -517,7 +532,7 @@ export default function LessonDetailScreen() {
             onPress={handleStartStudy}
             activeOpacity={0.8}
           >
-            <Text style={styles.continueLearningButtonText}>Review {dueCount} due →</Text>
+            <Text style={styles.continueLearningButtonText}>Start review →</Text>
           </Button>
         </View>
 

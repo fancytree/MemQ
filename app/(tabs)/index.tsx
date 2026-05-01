@@ -3,6 +3,9 @@ import { EdBase } from '@/components/EdBase';
 import { Icon } from '@/components/Icon';
 import { SectionLabel } from '@/components/SectionLabel';
 import { Button } from '@/components/ui/Button';
+import { loadFromCache, saveToCache } from '@/lib/cache';
+import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
+import { buildLatestProgressMap } from '@/lib/termProgress';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
@@ -16,8 +19,24 @@ interface LessonSummary {
   sub: string;
   cards: number;
   due: number;
+  totalDue: number;
   pct: number;
+  deadline: string | null;
 }
+
+const LEARNING_STAGE_WEIGHTS: Record<string, number> = {
+  New: 0,
+  Learning: 0.2,
+  Familiar: 0.4,
+  Good: 0.6,
+  Strong: 0.8,
+  Mastered: 1.0,
+};
+
+const getStatusWeight = (status: string | null | undefined): number => {
+  if (!status || status === 'New') return LEARNING_STAGE_WEIGHTS.New;
+  return LEARNING_STAGE_WEIGHTS[status] ?? LEARNING_STAGE_WEIGHTS.New;
+};
 
 /**
  * Today / Home — daily-focus surface.
@@ -31,9 +50,15 @@ interface LessonSummary {
 export default function TodayScreen() {
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
   const [username, setUsername] = useState('User');
+  const [dailyGoalCards, setDailyGoalCards] = useState(20);
+  const [currentStreak, setCurrentStreak] = useState(0);
   const [showAIChat, setShowAIChat] = useState(false);
   const visibleLessons = lessons.slice(0, 5);
   const lessonsCount = lessons.length;
+  const totalCards = lessons.reduce((sum, lesson) => sum + lesson.cards, 0);
+  const totalDue = lessons.reduce((sum, lesson) => sum + lesson.due, 0);
+  const todayTargetCards = Math.min(totalDue, dailyGoalCards);
+  const goalFillPct = dailyGoalCards > 0 ? Math.round((todayTargetCards / dailyGoalCards) * 100) : 0;
 
   useEffect(() => {
     const loadUserName = async () => {
@@ -42,6 +67,12 @@ export default function TodayScreen() {
       const fromMeta = user.user_metadata?.full_name as string | undefined;
       const fromEmail = user.email?.split('@')[0];
       setUsername((fromMeta?.trim() || fromEmail || 'User').trim());
+      const goalFromMeta = user.user_metadata?.daily_goal_cards;
+      if (typeof goalFromMeta === 'number' && goalFromMeta > 0) {
+        setDailyGoalCards(goalFromMeta);
+      } else {
+        setDailyGoalCards(20);
+      }
     };
     loadUserName();
   }, []);
@@ -51,23 +82,32 @@ export default function TodayScreen() {
     const user = authData.user;
     if (!user) {
       setLessons([]);
+      setCurrentStreak(0);
       return;
+    }
+
+    // 先从本地缓存加载，立即显示（stale-while-revalidate）
+    const cached = await loadFromCache<LessonSummary[]>('DASHBOARD', user.id);
+    if (cached && cached.length > 0) {
+      setLessons(cached);
     }
 
     const { data: lessonsData, error: lessonsError } = await supabase
       .from('lessons')
-      .select('id, name, description, created_at')
+      .select('id, name, description, created_at, deadline')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false });
 
     if (lessonsError || !lessonsData) {
       setLessons([]);
+      setCurrentStreak(0);
       return;
     }
 
     const lessonIds = lessonsData.map((l) => l.id);
     if (lessonIds.length === 0) {
       setLessons([]);
+      setCurrentStreak(0);
       return;
     }
 
@@ -80,15 +120,14 @@ export default function TodayScreen() {
     const { data: progressData } = termIds.length
       ? await supabase
           .from('user_term_progress')
-          .select('term_id, status')
+          .select('term_id, status, last_reviewed_at')
           .eq('user_id', user.id)
           .in('term_id', termIds)
-      : { data: [] as { term_id: string; status: string | null }[] };
+      : { data: [] as { term_id: string; status: string | null; last_reviewed_at: string | null }[] };
 
-    const progressMap = new Map<string, string | null>();
-    (progressData || []).forEach((p) => {
-      progressMap.set(p.term_id, p.status);
-    });
+    const progressMap = buildLatestProgressMap(progressData || []);
+    const activityDays = activityDaysFromProgressUpdates(progressData || []);
+    setCurrentStreak(computeCurrentStreak(activityDays));
 
     const termsByLesson = new Map<string, { id: string; lesson_id: string }[]>();
     (termsData || []).forEach((term) => {
@@ -101,17 +140,37 @@ export default function TodayScreen() {
     const nextLessons: LessonSummary[] = lessonsData.map((lesson) => {
       const lessonTerms = termsByLesson.get(lesson.id) || [];
       const cards = lessonTerms.length;
-      let completed = 0;
+      let weightedScore = 0;
 
       lessonTerms.forEach((term) => {
         const status = progressMap.get(term.id);
-        if (status === 'Strong' || status === 'Mastered') {
-          completed += 1;
-        }
+        weightedScore += getStatusWeight(status);
       });
 
-      const pct = cards > 0 ? Math.round((completed / cards) * 100) : 0;
-      const due = Math.max(cards - completed, 0);
+      const reviewed = Math.round(weightedScore);
+      const pct = cards > 0 ? Math.round((weightedScore / cards) * 100) : 0;
+      const rawDue = Math.max(cards - reviewed, 0);
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayEnd = new Date();
+      todayEnd.setHours(23, 59, 59, 999);
+      const lessonDeadline = lesson.deadline ? new Date(lesson.deadline) : null;
+      const isFutureLesson =
+        lessonDeadline &&
+        !Number.isNaN(lessonDeadline.getTime()) &&
+        lessonDeadline > todayEnd;
+      let due = rawDue;
+      if (isFutureLesson && lessonDeadline) {
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const daysRemaining = Math.max(
+          1,
+          Math.floor((lessonDeadline.getTime() - todayStart.getTime()) / msPerDay) + 1
+        );
+        // 预留复习缓冲天数，避免学习计划卡到 deadline 当天
+        const reviewBufferDays = Math.max(1, Math.floor(daysRemaining * 0.2));
+        const effectiveStudyDays = Math.max(1, daysRemaining - reviewBufferDays);
+        due = Math.ceil(rawDue / effectiveStudyDays);
+      }
 
       return {
         id: lesson.id,
@@ -119,11 +178,15 @@ export default function TodayScreen() {
         sub: lesson.description || 'No description',
         cards,
         due,
+        totalDue: rawDue,
         pct,
+        deadline: lesson.deadline ?? null,
       };
     });
 
     setLessons(nextLessons);
+    // 保存到本地，下次打开立即可见
+    void saveToCache('DASHBOARD', nextLessons, user.id);
   }, []);
 
   useEffect(() => {
@@ -143,10 +206,10 @@ export default function TodayScreen() {
         <View style={[styles.row, styles.headerRow]}>
         <View style={{ flex: 1 }}>
           <SectionLabel size={11}>Tuesday · April 29</SectionLabel>
-          <Text style={styles.greet}>Good morning, {username}</Text>
+          <Text style={styles.greet} numberOfLines={1} ellipsizeMode="tail">Hi, {username}</Text>
         </View>
         <View style={styles.streakBlock}>
-          <Text style={styles.streakNum}>47</Text>
+          <Text style={styles.streakNum}>{currentStreak}</Text>
           <SectionLabel size={10} style={{ marginTop: 4 }}>Day Streak</SectionLabel>
         </View>
       </View>
@@ -155,21 +218,23 @@ export default function TodayScreen() {
       <View style={styles.hero}>
         <SectionLabel size={12} style={{ marginBottom: 8, fontFamily: 'JetBrainsMono_500', fontWeight: '400' }}>Focus Queue</SectionLabel>
         <View style={styles.heroLine}>
-          <Text style={styles.heroNum}>19</Text>
-          <Text style={[styles.heroSub, styles.heroSubMain]}>cards due today</Text>
+          <Text style={styles.heroNum}>{todayTargetCards}</Text>
+          <Text style={[styles.heroSub, styles.heroSubMain]}>cards to study today</Text>
           <Text style={[styles.heroSub, styles.heroSubRight]}>~12 min</Text>
         </View>
 
         {/* Goal bar */}
         <View style={styles.barTrack}>
-          <View style={[styles.barFill, { width: '32%' }]} />
+          <View style={[styles.barFill, { width: `${goalFillPct}%` }]} />
         </View>
         <View style={styles.barRow}>
-          <Text style={[styles.barLabel, styles.barLabelLeft]}>6 of 19 reviewed</Text>
-          <Text style={[styles.barLabel, styles.barLabelRight]}>Daily goal: 19</Text>
+          <Text style={[styles.barLabel, styles.barLabelLeft]}>
+            {todayTargetCards} planned today
+          </Text>
+          <Text style={[styles.barLabel, styles.barLabelRight]}>Daily goal: {dailyGoalCards}</Text>
         </View>
 
-        <Button onPress={() => router.push('/quiz')} style={styles.cta}>
+        <Button onPress={() => router.push('/quiz?entry=home')} style={styles.cta}>
           <Text style={styles.ctaText}>Start review →</Text>
         </Button>
       </View>
@@ -189,7 +254,7 @@ export default function TodayScreen() {
               <View style={styles.lessonTitleRow}>
                 <Text style={styles.lessonTitle} numberOfLines={1}>{d.title}</Text>
                 <Text style={[styles.dueLabel, { color: d.due > 0 ? colors.accent : colors.muted }]}>
-                  {d.due > 0 ? `${d.due} due` : 'caught up'}
+                  {d.due > 0 ? 'review today' : 'caught up'}
                 </Text>
               </View>
               <Text style={styles.lessonSub}>{d.sub}</Text>

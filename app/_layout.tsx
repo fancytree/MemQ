@@ -1,3 +1,4 @@
+import { SubscriptionPaywallHost } from '@/components/SubscriptionPaywallHost';
 import { LoadingProvider } from '@/context/LoadingContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { colors } from '@/theme';
@@ -40,6 +41,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <LoadingProvider>
         <SubscriptionProvider>
+          <SubscriptionPaywallHost />
           <StatusBar style="dark" />
           <Stack
             screenOptions={{

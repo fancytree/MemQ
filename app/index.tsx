@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, useRootNavigationState } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { supabase } from '../lib/supabase';
@@ -6,8 +6,13 @@ import { useLoading } from '@/context/LoadingContext';
 
 export default function AuthCheckScreen() {
   const { setLoading } = useLoading();
+  const rootNavigationState = useRootNavigationState();
+  const isRootNavigationReady = !!rootNavigationState?.key;
 
   useEffect(() => {
+    // 等待 Root Layout 挂载完成后再执行跳转，避免 "navigate before mounting"。
+    if (!isRootNavigationReady) return;
+
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -16,8 +21,14 @@ export default function AuthCheckScreen() {
         setLoading(false);
         
         if (session) {
-          // 如果有 session，重定向到主页面
-          router.replace('/(tabs)');
+          // Check if the user has completed onboarding
+          const meta = session.user?.user_metadata as Record<string, unknown> | undefined;
+          const onboardingComplete = meta?.onboarding_complete === true;
+          if (onboardingComplete) {
+            router.replace('/(tabs)');
+          } else {
+            router.replace('/onboarding');
+          }
         } else {
           // 如果没有 session，重定向到登录页面
           router.replace('/login');
@@ -31,7 +42,7 @@ export default function AuthCheckScreen() {
     };
 
     checkSession();
-  }, [setLoading]);
+  }, [isRootNavigationReady, setLoading]);
 
   return (
     <View style={styles.container}>

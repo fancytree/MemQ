@@ -1,31 +1,33 @@
 /**
- * Unlock MemQ Pro 全屏页面
- * 匹配 Figma 设计
+ * Unlock MemQ Pro — 与全局 editorial 设计语言一致（JetBrains Mono + teal accent）
  */
 
+import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { useSubscription } from '@/context/SubscriptionContext';
+import { MemQTheme } from '@/constants/theme';
+import { safeBack } from '@/lib/safeBack';
+import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { safeBack } from '@/lib/safeBack';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import {
-    Linking,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
+  Linking,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+const t = MemQTheme;
 const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
 export default function UnlockProScreen() {
-  const { showPaywallModal, setShowPaywallModal } = useSubscription();
+  const { setShowPaywallModal } = useSubscription();
 
   const handleStartFreeTrial = () => {
-    // 直接打开 Paywall Modal，不关闭当前页面
     setShowPaywallModal(true);
   };
 
@@ -36,83 +38,74 @@ export default function UnlockProScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
-        {/* Header with Close Button */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-            <Feather name="x" size={24} color="#787496" />
-          </TouchableOpacity>
-        </View>
+      <SafeAreaView style={styles.safeTop} edges={['top']}>
+        <SecondaryPageNav onBack={handleClose} backLabel="← Back" />
       </SafeAreaView>
 
-      <ScrollView 
+      <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Title Section */}
-        <View style={styles.titleSection}>
-          <View style={styles.titleRow}>
-            <View style={styles.iconContainer}>
-              <Feather name="star" size={24} color="#4E49FC" />
+        <View style={styles.hero}>
+          <View style={styles.badgeRow}>
+            <View style={styles.badgeIcon}>
+              <Feather name="zap" size={18} color={colors.accent} />
             </View>
-            <Text style={styles.title}>Unlock MemQ Pro</Text>
+            <Text style={styles.kicker}>MemQ Pro</Text>
           </View>
+          <Text style={styles.title}>Unlock the full stack</Text>
           <Text style={styles.subtitle}>
             Break the limits and study without boundaries.
           </Text>
         </View>
 
-        {/* Features */}
-        <View style={styles.featuresContainer}>
-          {/* Feature 1: Unlimited PDF Uploads */}
+        <View style={styles.features}>
           <View style={styles.featureItem}>
-            <View style={styles.featureIconContainer}>
-              <Feather name="check" size={16} color="#008236" />
+            <View style={styles.featureMark}>
+              <Feather name="check" size={14} color={colors.green} />
             </View>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Unlimited PDF Uploads</Text>
+            <View style={styles.featureBody}>
+              <Text style={styles.featureTitle}>Unlimited PDF uploads</Text>
               <Text style={styles.featureDescription}>
-                Break the 5-file lifetime limit. Upload every lecture slide, textbook, and note without worrying about quotas.
+                Break the 5-file lifetime limit. Upload every lecture slide, textbook, and note
+                without worrying about quotas.
               </Text>
             </View>
           </View>
 
-          {/* Feature 2: Unlimited AI Chat */}
           <View style={styles.featureItem}>
-            <View style={styles.featureIconContainer}>
-              <Feather name="check" size={16} color="#008236" />
+            <View style={styles.featureMark}>
+              <Feather name="check" size={14} color={colors.green} />
             </View>
-            <View style={styles.featureContent}>
-              <Text style={styles.featureTitle}>Unlimited AI Chat</Text>
+            <View style={styles.featureBody}>
+              <Text style={styles.featureTitle}>Unlimited AI chat</Text>
               <Text style={styles.featureDescription}>
-                Remove the 8-message daily cap. Ask follow-up questions freely until you fully understand the concept.
+                Remove the 8-message daily cap. Ask follow-up questions freely until you fully
+                understand the concept.
               </Text>
             </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Footer */}
-      <SafeAreaView style={styles.footerContainer} edges={['bottom']}>
+      <SafeAreaView style={styles.footerWrap} edges={['bottom']}>
         <View style={styles.footer}>
-          <Text style={styles.footerText}>
-            7-day free trial • Cancel anytime
-          </Text>
-          <TouchableOpacity 
-            style={styles.startTrialButton}
+          <Text style={styles.footerHint}>7-day free trial · Cancel anytime</Text>
+          <TouchableOpacity
+            style={styles.primaryButton}
             onPress={handleStartFreeTrial}
-            activeOpacity={0.8}
+            activeOpacity={0.85}
           >
-            <Text style={styles.startTrialButtonText}>Start Free Trial</Text>
+            <Text style={styles.primaryButtonText}>Start free trial</Text>
           </TouchableOpacity>
-          <View style={styles.legalLinks}>
+          <View style={styles.legalRow}>
             <TouchableOpacity onPress={() => Linking.openURL(APPLE_EULA_URL)}>
-              <Text style={styles.legalLinkText}>Terms of Use (EULA)</Text>
+              <Text style={styles.legalLink}>Terms of Use (EULA)</Text>
             </TouchableOpacity>
-            <Text style={styles.legalLinkSeparator}>|</Text>
+            <Text style={styles.legalSep}>|</Text>
             <TouchableOpacity onPress={() => router.push('/profile/privacy-policy')}>
-              <Text style={styles.legalLinkText}>Privacy Policy</Text>
+              <Text style={styles.legalLink}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -124,145 +117,154 @@ export default function UnlockProScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
-  safeArea: {
-    backgroundColor: '#FFFFFF',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F3F4F6',
-    alignItems: 'center',
-    justifyContent: 'center',
+  safeTop: {
+    backgroundColor: colors.bg,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
-    paddingTop: 24,
-    paddingBottom: 24,
+    paddingHorizontal: t.space.pageX,
+    paddingTop: t.space.sm,
+    paddingBottom: t.space.lg,
   },
-  titleSection: {
-    marginBottom: 24,
+  hero: {
+    marginBottom: t.space.xl,
   },
-  titleRow: {
+  badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginBottom: 8,
+    marginBottom: t.space.md,
   },
-  iconContainer: {
-    width: 30,
-    height: 30,
+  badgeIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: t.radius.md,
+    backgroundColor: colors.accentL,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  kicker: {
+    fontSize: 11,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '500',
+    letterSpacing: 0.45,
+    textTransform: 'uppercase',
+    color: colors.muted,
+  },
   title: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#4E49FC',
-    letterSpacing: 0.0703,
+    fontSize: 22,
+    lineHeight: 28,
+    fontFamily: 'JetBrainsMono_800',
+    fontWeight: '800',
+    letterSpacing: -0.6,
+    color: colors.text,
+    marginBottom: t.space.sm,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
+    lineHeight: 22,
+    fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
-    color: '#737373',
-    lineHeight: 25.6,
-    letterSpacing: -0.3125,
+    color: colors.sub,
   },
-  featuresContainer: {
-    gap: 16,
+  features: {
+    gap: t.space.lg,
   },
   featureItem: {
     flexDirection: 'row',
-    gap: 12,
+    gap: t.space.md,
     alignItems: 'flex-start',
   },
-  featureIconContainer: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#DCFCE7',
+  featureMark: {
+    width: 28,
+    height: 28,
+    borderRadius: t.radius.md,
+    backgroundColor: colors.greenL,
+    borderWidth: 1,
+    borderColor: colors.border,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
   },
-  featureContent: {
+  featureBody: {
     flex: 1,
   },
   featureTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#0A0A0A',
-    lineHeight: 25.6,
-    letterSpacing: -0.3125,
+    fontSize: 15,
+    lineHeight: 22,
+    fontFamily: 'JetBrainsMono_600',
+    fontWeight: '600',
+    letterSpacing: -0.35,
+    color: colors.text,
     marginBottom: 4,
   },
   featureDescription: {
-    fontSize: 16,
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
-    color: '#6A7282',
-    lineHeight: 25.6,
-    letterSpacing: -0.3125,
+    color: colors.sub,
   },
-  footerContainer: {
-    backgroundColor: '#FFFFFF',
+  footerWrap: {
+    backgroundColor: colors.bg,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   footer: {
-    paddingHorizontal: 18,
-    paddingTop: 8,
-    paddingBottom: 48,
-    gap: 8,
+    paddingHorizontal: t.space.pageX,
+    paddingTop: t.space.md,
+    // 底部仅依赖 SafeAreaView（Home Indicator），不再额外垫高
+    paddingBottom: 0,
+    gap: t.space.sm,
   },
-  footerText: {
-    fontSize: 16,
+  footerHint: {
+    fontSize: 13,
+    lineHeight: 20,
+    fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
-    color: '#6A7282',
+    color: colors.muted,
     textAlign: 'center',
-    lineHeight: 25.6,
-    letterSpacing: -0.3125,
-    marginBottom: 8,
+    marginBottom: 4,
   },
-  startTrialButton: {
-    backgroundColor: '#4E49FC',
-    borderRadius: 12,
+  primaryButton: {
+    backgroundColor: colors.accent,
+    borderRadius: t.radius.lg,
     paddingVertical: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: t.space.lg,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 52,
   },
-  startTrialButtonText: {
-    fontSize: 16,
-    fontWeight: '500',
+  primaryButtonText: {
+    fontSize: 14,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
     color: '#FFFFFF',
-    letterSpacing: -0.1504,
   },
-  legalLinks: {
+  legalRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
     gap: 8,
-    marginTop: 4,
+    marginTop: 8,
+    paddingBottom: 0,
   },
-  legalLinkText: {
+  legalLink: {
     fontSize: 11,
+    fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
-    color: '#9CA3AF',
+    color: colors.muted,
     textDecorationLine: 'underline',
   },
-  legalLinkSeparator: {
+  legalSep: {
     fontSize: 11,
-    color: '#D1D5DB',
+    color: colors.dim,
+    fontFamily: 'JetBrainsMono_400',
   },
 });
