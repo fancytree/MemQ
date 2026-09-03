@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router/react-navigation';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {

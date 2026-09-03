@@ -2,7 +2,7 @@ import { clearCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router/react-navigation';
 import { router, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/safeBack';
 import React, { useEffect, useRef, useState } from 'react';

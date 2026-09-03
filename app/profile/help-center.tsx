@@ -1,5 +1,5 @@
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router/react-navigation';
 import { safeBack } from '@/lib/safeBack';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { colors } from '@/theme';

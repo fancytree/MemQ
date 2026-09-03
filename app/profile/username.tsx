@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/safeBack';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router/react-navigation';
 import { colors } from '@/theme';
 import React, { useCallback, useEffect, useState } from 'react';
 import {

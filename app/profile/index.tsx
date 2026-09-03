@@ -7,7 +7,7 @@ import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router/react-navigation';
 import * as FileSystem from 'expo-file-system';
 import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
@@ -632,7 +632,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
       }
 
       // 将 base64 转换为二进制
-      const byteCharacters = global.atob ? global.atob(base64Data) : atob(base64Data);
+      const byteCharacters = globalThis.atob ? globalThis.atob(base64Data) : atob(base64Data);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteNumbers[i] = byteCharacters.charCodeAt(i);

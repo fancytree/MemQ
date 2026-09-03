@@ -3057,7 +3057,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
   },
   lessonDropdownPortalLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 999,
     elevation: 999,
   },

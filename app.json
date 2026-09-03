@@ -7,10 +7,6 @@
     "scheme": "memq",
     "userInterfaceStyle": "light",
     "icon": "./assets/images/icon.png",
-    "splash": {
-      "backgroundColor": "#FAFAF8",
-      "resizeMode": "contain"
-    },
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.river.memq",
@@ -31,6 +27,13 @@
       "output": "single"
     },
     "plugins": [
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#FAFAF8",
+          "resizeMode": "contain"
+        }
+      ],
       "expo-router",
       "expo-font",
       "@react-native-community/datetimepicker",

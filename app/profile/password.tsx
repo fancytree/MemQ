@@ -2,7 +2,7 @@ import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { safeBack } from '@/lib/safeBack';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router/react-navigation';
 import { colors } from '@/theme';
 import React, { useEffect, useState } from 'react';
 import {

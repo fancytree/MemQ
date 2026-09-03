@@ -1,7 +1,7 @@
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
 import { colors } from '@/theme';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation } from 'expo-router/react-navigation';
 import React, { useEffect } from 'react';
 import {
   ScrollView,
