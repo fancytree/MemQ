@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "memq",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "icon": "./assets/images/icon.png",
     "splash": {
       "backgroundColor": "#FAFAF8",

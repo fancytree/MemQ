@@ -3,7 +3,9 @@ const path = require('path');
 const dotenv = require('dotenv');
 
 // 明确指定 .env 文件路径；override: false 确保 EAS 构建已注入的 EXPO_PUBLIC_* 不被本地 .env 覆盖
-dotenv.config({ path: path.resolve(__dirname, '.env'), override: false });
+// quiet: true — dotenv 17 默认会往 stdout 打一行 banner，而 Expo 工具链以 JSON
+// 解析本文件的 stdout，banner 会导致 expo-doctor 等检查误报失败。
+dotenv.config({ path: path.resolve(__dirname, '.env'), override: false, quiet: true });
 
 // 从 app.json 读取配置
 const appJson = require('./app.json');
