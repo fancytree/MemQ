@@ -28,7 +28,9 @@ const revenueCatApiKey = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY;
 
 // 调试：检查环境变量是否被加载（仅在开发环境）
 if (process.env.NODE_ENV !== 'production') {
-  console.log('📝 app.config.js - Environment variables:', {
+  // 必须写 stderr：Expo 工具链（expo-doctor / expo config --json 等）会把
+  // 本文件的 stdout 当作 JSON 解析，写 stdout 会污染输出导致检查误报失败。
+  console.warn('📝 app.config.js - Environment variables:', {
     ios: revenueCatApiKeyIos ? `${revenueCatApiKeyIos.substring(0, 10)}...` : 'NOT SET',
     android: revenueCatApiKeyAndroid ? `${revenueCatApiKeyAndroid.substring(0, 10)}...` : 'NOT SET',
   });
