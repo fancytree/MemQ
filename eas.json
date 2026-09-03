@@ -21,7 +21,41 @@
       }
     }
   },
+  // eas build --profile production --auto-submit 会自动使用同名的 submit profile。
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "bundleIdentifier": "com.river.memq",
+
+        // ── 需要你填的两个非敏感 ID ────────────────────────────────────
+        // 填好后 --auto-submit 才能全程免交互；留空则提交时会逐项询问。
+        //
+        // ascAppId：App Store Connect 的应用 Apple ID（纯数字）。
+        //   获取：appstoreconnect.apple.com → 我的 App → 选中应用，
+        //   地址栏形如 /apps/1234567890/appstore，其中 1234567890 即是。
+        // "ascAppId": "1234567890",
+        //
+        // appleTeamId：开发者团队 ID（10 位字母数字）。
+        //   获取：developer.apple.com/account → Membership details。
+        // "appleTeamId": "ABCDE12345",
+
+        // ── 可选 ──────────────────────────────────────────────────────
+        // 提交后自动加入指定的 TestFlight 内部测试组。
+        // "groups": ["Internal"],
+        // App Store 主语言，默认 en-US。
+        // "language": "en-US"
+
+        // ── 凭据：不要写进本文件 ───────────────────────────────────────
+        // 推荐做法是把 App Store Connect API Key 一次性上传到 EAS 服务器保管：
+        //     eas credentials → iOS → App Store Connect API Key
+        // 之后本地和 CI 都无需再持有密钥。
+        //
+        // 若坚持自带密钥，用 ascApiKeyPath / ascApiKeyId / ascApiKeyIssuerId
+        // 指向本地 .p8 文件；.gitignore 已忽略 *.p8，切勿提交。
+        //
+        // 用 Apple ID + 专用密码的方式则设 appleId 字段，密码通过环境变量
+        // EXPO_APPLE_APP_SPECIFIC_PASSWORD 传入，同样不要写进本文件。
+      }
+    }
   }
 }
