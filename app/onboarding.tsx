@@ -2,7 +2,7 @@ import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/no
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme';
 import { router } from 'expo-router';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Animated,
@@ -20,8 +20,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
-const GOAL_OPTIONS = [5, 10, 15, 20, 30, 45, 60] as const;
-type GoalMinutes = (typeof GOAL_OPTIONS)[number];
+const GOAL_OPTIONS = [10, 20, 30, 50, 80] as const;
+type GoalCards = (typeof GOAL_OPTIONS)[number];
 
 const REMINDER_TIMES = [
   { label: '6:00 AM', value: '06:00' },
@@ -44,13 +44,13 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [username, setUsername] = useState('');
-  const [goalMinutes, setGoalMinutes] = useState<GoalMinutes | null>(null);
+  const [goalCards, setGoalCards] = useState<GoalCards | null>(null);
   const [reminderTime, setReminderTime] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const slideAnim = useRef(new Animated.Value(0)).current;
 
   // Pre-fill username from Supabase metadata on mount
-  useState(() => {
+  useEffect(() => {
     const loadUser = async () => {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
@@ -64,7 +64,7 @@ export default function OnboardingScreen() {
       setUsername(existingName);
     };
     void loadUser();
-  });
+  }, []);
 
   const animateTo = (nextStep: number) => {
     const dir = nextStep > step ? 1 : -1;
@@ -91,12 +91,15 @@ export default function OnboardingScreen() {
     try {
       const finalReminder = skip ? null : reminderTime;
 
-      // Save user preferences to Supabase metadata
+      // Save user preferences to Supabase metadata.
+      // Field names must match what profile/index.tsx reads:
+      //   notification_times (string[]), daily_study_minutes (number), notification_enabled (bool)
       await supabase.auth.updateUser({
         data: {
           full_name: username.trim() || undefined,
-          daily_goal_minutes: goalMinutes ?? 20,
-          reminder_time: finalReminder,
+          daily_goal_cards: goalCards ?? 20,
+          notification_enabled: !!finalReminder,
+          notification_times: finalReminder ? [finalReminder] : [],
           onboarding_complete: true,
         },
       });
@@ -134,8 +137,8 @@ export default function OnboardingScreen() {
     />,
     <GoalStep
       key="goal"
-      selected={goalMinutes}
-      onSelect={setGoalMinutes}
+      selected={goalCards}
+      onSelect={setGoalCards}
       onNext={goNext}
       onBack={goBack}
     />,
@@ -258,8 +261,8 @@ function GoalStep({
   onNext,
   onBack,
 }: {
-  selected: GoalMinutes | null;
-  onSelect: (v: GoalMinutes) => void;
+  selected: GoalCards | null;
+  onSelect: (v: GoalCards) => void;
   onNext: () => void;
   onBack: () => void;
 }) {
@@ -274,24 +277,24 @@ function GoalStep({
         <Text style={styles.stepLabel}>02 / 03</Text>
         <Text style={styles.stepTitle}>Daily study goal</Text>
         <Text style={styles.stepSub}>
-          How many minutes do you want to study each day?
+          How many cards do you want to review each day?
         </Text>
       </View>
 
       <View style={styles.chipGrid}>
-        {GOAL_OPTIONS.map((min) => {
-          const isSelected = selected === min;
+        {GOAL_OPTIONS.map((cards) => {
+          const isSelected = selected === cards;
           return (
             <Pressable
-              key={min}
+              key={cards}
               style={[styles.chip, isSelected && styles.chipSelected]}
-              onPress={() => onSelect(min)}
+              onPress={() => onSelect(cards)}
             >
               <Text style={[styles.chipNum, isSelected && styles.chipNumSelected]}>
-                {min}
+                {cards}
               </Text>
               <Text style={[styles.chipUnit, isSelected && styles.chipUnitSelected]}>
-                min
+                cards
               </Text>
             </Pressable>
           );

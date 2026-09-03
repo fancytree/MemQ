@@ -74,8 +74,6 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const [editingTimeIndex, setEditingTimeIndex] = useState<number | null>(null); // null 表示添加新时间，数字表示编辑索引
   const [tempTime, setTempTime] = useState<Date>(new Date()); // 临时时间，用于时间选择器
   const notificationInitialized = useRef(false); // 用于跟踪是否已初始化 notification 状态
-  const [soundEffectsEnabled, setSoundEffectsEnabled] = useState(true);
-  const [hapticEffectEnabled, setHapticEffectEnabled] = useState(true);
   const [dailyStudyMinutes, setDailyStudyMinutes] = useState(30);
   const [dailyGoalCards, setDailyGoalCards] = useState(20);
   const [showDailyStudyOptions, setShowDailyStudyOptions] = useState(false);
@@ -128,8 +126,6 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
         }
         setNotificationTimes(times);
         
-        setSoundEffectsEnabled(metadata.sound_effects_enabled !== false);
-        setHapticEffectEnabled(metadata.haptic_effect_enabled !== false);
         setDailyStudyMinutes(
           typeof metadata.daily_study_minutes === 'number' ? metadata.daily_study_minutes : 30
         );
@@ -905,6 +901,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               title="Daily goal"
               subtitle={`${dailyGoalCards} cards / day`}
               onPress={() => setShowDailyGoalOptions((prev) => !prev)}
+              showDivider={showDailyGoalOptions}
             />
             {showDailyGoalOptions && (
               <>
@@ -928,27 +925,6 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                 <View style={styles.divider} />
               </>
             )}
-            <MenuItem
-              icon="volume-2"
-              iconColor={t.color.muted}
-              iconBgColor={t.color.bg}
-              title="Sound Effects"
-              subtitle="Audio feedback"
-              type="toggle"
-              toggleValue={soundEffectsEnabled}
-              onToggle={setSoundEffectsEnabled}
-            />
-            <MenuItem
-              icon="smartphone"
-              iconColor={t.color.muted}
-              iconBgColor={t.color.bg}
-              title="Haptic effect"
-              subtitle="Vibration feedback"
-              type="toggle"
-              toggleValue={hapticEffectEnabled}
-              onToggle={setHapticEffectEnabled}
-              showDivider={false}
-            />
           </View>
         </View>
 

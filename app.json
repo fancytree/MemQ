@@ -2,20 +2,28 @@
   "expo": {
     "name": "MemQ",
     "slug": "memq",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "scheme": "memq",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "icon": "./assets/images/icon.png",
     "splash": {
       "backgroundColor": "#FAFAF8",
       "resizeMode": "contain"
     },
     "ios": {
-      "supportsTablet": false
+      "supportsTablet": false,
+      "bundleIdentifier": "com.river.memq",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
+      "buildNumber": "3"
     },
     "android": {
       "adaptiveIcon": {
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
         "backgroundColor": "#FAFAF8"
       }
     },
@@ -23,7 +31,10 @@
       "bundler": "metro",
       "output": "single"
     },
-    "plugins": ["expo-router", "expo-font"],
+    "plugins": [
+      "expo-router",
+      "expo-font"
+    ],
     "experiments": {
       "typedRoutes": true
     }

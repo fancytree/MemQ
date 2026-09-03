@@ -29,9 +29,9 @@ export default function HelpCenterScreen() {
     });
   }, [navigation]);
 
-  // WhatsApp 联系链接（你可以使用短链接或自定义链接来保护隐私）
-  // 例如：https://wa.me/your-number 的短链接，或者自定义域名的链接
-  const whatsappLink = 'https://wa.me/YOUR_NUMBER'; // 请替换为你的 WhatsApp 链接或短链接
+  // WhatsApp 联系链接。用 wa.me/qr 短链而非手机号，避免号码暴露在客户端代码里。
+  // 该短链与下方 assets/images/whatsapp-qr.png 二维码指向同一个账号。
+  const whatsappLink = 'https://wa.me/qr/3WSKP2BYWGFDF1';
 
   // 或者使用二维码图片（如果已添加到 assets）
   const qrCodeImage = require('@/assets/images/whatsapp-qr.png');
@@ -80,7 +80,7 @@ export default function HelpCenterScreen() {
             <Image
               source={qrCodeImage}
               style={styles.qrCodeImage}
-              contentFit="contain"
+              resizeMode="contain"
             />
           </View>
 

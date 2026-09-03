@@ -183,7 +183,7 @@ export default function SignUpScreen() {
         }
         if (data) {
           await safeRefreshSubscription();
-          router.replace('/(tabs)');
+          await navigateAfterAuth();
         }
         // data 和 error 都为 null：用户取消，不做任何操作
         return;
@@ -198,7 +198,7 @@ export default function SignUpScreen() {
       }
       if (data) {
         await safeRefreshSubscription();
-        router.replace('/(tabs)');
+        await navigateAfterAuth();
       }
     } catch (error: any) {
       if (__DEV__) console.error('Google sign in error:', error);
@@ -213,7 +213,7 @@ export default function SignUpScreen() {
     setOauthLoading('apple');
     try {
       const { data, error } = await signInWithOAuth('apple');
-      
+
       if (error) {
         Alert.alert('Error', error.message || 'Failed to sign in with Apple');
         return;
@@ -222,7 +222,7 @@ export default function SignUpScreen() {
       if (data) {
         // 刷新订阅状态
         await safeRefreshSubscription();
-        router.replace('/(tabs)');
+        await navigateAfterAuth();
       }
     } catch (error: any) {
       console.error('Apple sign in error:', error);

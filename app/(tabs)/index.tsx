@@ -5,13 +5,13 @@ import { SectionLabel } from '@/components/SectionLabel';
 import { Button } from '@/components/ui/Button';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
-import { buildLatestProgressMap } from '@/lib/termProgress';
 import { supabase } from '@/lib/supabase';
+import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors, fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface LessonSummary {
   id: string;
@@ -51,6 +51,7 @@ export default function TodayScreen() {
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
   const [username, setUsername] = useState('User');
   const [dailyGoalCards, setDailyGoalCards] = useState(20);
+  const [reviewedToday, setReviewedToday] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [showAIChat, setShowAIChat] = useState(false);
   const visibleLessons = lessons.slice(0, 5);
@@ -58,7 +59,7 @@ export default function TodayScreen() {
   const totalCards = lessons.reduce((sum, lesson) => sum + lesson.cards, 0);
   const totalDue = lessons.reduce((sum, lesson) => sum + lesson.due, 0);
   const todayTargetCards = Math.min(totalDue, dailyGoalCards);
-  const goalFillPct = dailyGoalCards > 0 ? Math.round((todayTargetCards / dailyGoalCards) * 100) : 0;
+  const goalFillPct = dailyGoalCards > 0 ? Math.min(100, Math.round((reviewedToday / dailyGoalCards) * 100)) : 0;
 
   useEffect(() => {
     const loadUserName = async () => {
@@ -128,6 +129,14 @@ export default function TodayScreen() {
     const progressMap = buildLatestProgressMap(progressData || []);
     const activityDays = activityDaysFromProgressUpdates(progressData || []);
     setCurrentStreak(computeCurrentStreak(activityDays));
+
+    // Count distinct terms reviewed today (last_reviewed_at >= today 00:00 local)
+    const todayMidnight = new Date();
+    todayMidnight.setHours(0, 0, 0, 0);
+    const reviewedTodayCount = (progressData || []).filter(
+      (p) => p.last_reviewed_at && new Date(p.last_reviewed_at) >= todayMidnight
+    ).length;
+    setReviewedToday(reviewedTodayCount);
 
     const termsByLesson = new Map<string, { id: string; lesson_id: string }[]>();
     (termsData || []).forEach((term) => {
@@ -201,19 +210,33 @@ export default function TodayScreen() {
 
   return (
     <View style={styles.screen}>
-      <EdBase>
-        {/* Header */}
-        <View style={[styles.row, styles.headerRow]}>
-        <View style={{ flex: 1 }}>
-          <SectionLabel size={11}>Tuesday · April 29</SectionLabel>
-          <Text style={styles.greet} numberOfLines={1} ellipsizeMode="tail">Hi, {username}</Text>
+      {/* 顶部栏固定；仅下方内容滚动（与 Explore 等页一致） */}
+      <EdBase scroll={false} bottomInset={0} style={{ flex: 1 }}>
+        {/* Header：左列日期+问候；右列 streak 数字与说明纵向收紧 */}
+        <View style={styles.headerRow}>
+          <View style={styles.headerMainRow}>
+            <View style={styles.headerLeftCol}>
+              <SectionLabel size={11} style={{ letterSpacing: -0.1 }}>
+                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+              </SectionLabel>
+              <Text style={styles.greet} numberOfLines={1} ellipsizeMode="tail">
+                Hi, {username}
+              </Text>
+            </View>
+            <View style={styles.headerRightCol}>
+              <Text style={styles.streakNum}>{currentStreak}</Text>
+              <SectionLabel size={10} style={styles.streakCaption}>
+                Day Streak
+              </SectionLabel>
+            </View>
+          </View>
         </View>
-        <View style={styles.streakBlock}>
-          <Text style={styles.streakNum}>{currentStreak}</Text>
-          <SectionLabel size={10} style={{ marginTop: 4 }}>Day Streak</SectionLabel>
-        </View>
-      </View>
 
+        <ScrollView
+          style={styles.mainScroll}
+          contentContainerStyle={styles.mainScrollContent}
+          showsVerticalScrollIndicator={false}
+        >
       {/* Hero — focus queue */}
       <View style={styles.hero}>
         <SectionLabel size={12} style={{ marginBottom: 8, fontFamily: 'JetBrainsMono_500', fontWeight: '400' }}>Focus Queue</SectionLabel>
@@ -229,9 +252,9 @@ export default function TodayScreen() {
         </View>
         <View style={styles.barRow}>
           <Text style={[styles.barLabel, styles.barLabelLeft]}>
-            {todayTargetCards} planned today
+            {reviewedToday} / {dailyGoalCards} reviewed today
           </Text>
-          <Text style={[styles.barLabel, styles.barLabelRight]}>Daily goal: {dailyGoalCards}</Text>
+          <Text style={[styles.barLabel, styles.barLabelRight]}>{goalFillPct}%</Text>
         </View>
 
         <Button onPress={() => router.push('/quiz?entry=home')} style={styles.cta}>
@@ -282,6 +305,7 @@ export default function TodayScreen() {
             </Button>
           </View>
         )}
+        </ScrollView>
       </EdBase>
       <TouchableOpacity
         style={styles.aiFloatingBtn}
@@ -300,19 +324,61 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
+  mainScroll: {
+    flex: 1,
+  },
+  // 与 EdBase 默认 scroll 时一致，为 TabBar / FAB 留白
+  mainScrollContent: {
+    paddingBottom: 70,
+  },
+
   headerRow: {
-    paddingHorizontal: 18, paddingTop: 20, paddingBottom: 14,
-    alignItems: 'flex-start', gap: 12,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingHorizontal: 18,
+    paddingTop: 20,
+    paddingBottom: 14,
+    backgroundColor: colors.bg,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  headerMainRow: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    // 左右两列底部对齐（问候语基线与 streak 说明同一视觉底线）
+    alignItems: 'flex-end',
+    gap: 12,
+  },
+  headerLeftCol: {
+    flex: 1,
+    minWidth: 0,
+    paddingRight: 8,
+  },
+  headerRightCol: {
+    alignItems: 'flex-end',
+    flexShrink: 0,
   },
   greet: {
     fontFamily: 'JetBrainsMono_800',
-    fontSize: 18, fontWeight: '400', letterSpacing: -0.3, marginTop: 2, color: colors.text,
+    fontSize: 18,
+    fontWeight: '400',
+    letterSpacing: -0.3,
+    color: colors.text,
+    marginTop: 2,
+    paddingRight: 8,
   },
-  streakBlock: { alignItems: 'flex-end' },
+  // streak 与说明紧贴，避免原先「两行网格」造成过大空隙
+  streakCaption: {
+    letterSpacing: -0.1,
+    marginTop: 1,
+  },
   streakNum: {
     fontFamily: 'JetBrainsMono_800',
-    fontSize: 24, fontWeight: '400', letterSpacing: -0.4, color: colors.accent, lineHeight: 30,
+    fontSize: 32,
+    fontWeight: '400',
+    letterSpacing: -0.55,
+    color: colors.accent,
+    lineHeight: 34,
+    flexShrink: 0,
   },
 
   hero: {

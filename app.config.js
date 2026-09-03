@@ -38,6 +38,10 @@ module.exports = {
   ...appJson.expo,
   extra: {
     ...appJson.expo.extra,
+    // EAS 动态配置需手写 projectId，否则无法关联云端项目
+    eas: {
+      projectId: 'd79756a6-1f34-4dc7-8c8f-f822aab4e372',
+    },
     // 将环境变量传递到 extra，确保在原生构建时可用
     revenueCatApiKeyIos,
     revenueCatApiKeyAndroid,

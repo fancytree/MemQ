@@ -533,25 +533,39 @@ export function SubscriptionProvider({ children }: { children: React.ReactNode }
     if (!isInitialized) return;
 
     // 监听 Supabase Auth 状态变化
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    // ⚠️ 回调本身必须是同步的，且不能 await 任何 supabase.auth.* 方法。
+    // auth-js 派发事件时仍持有 auth 锁，并会 await 每一个订阅者回调；
+    // checkSubscriptionStatus() 内部会调 supabase.auth.getUser()，直接 await 会造成循环等待、
+    // 永久卡死整个 SIGNED_IN 派发（登录后一直停在 "Signing you in..."）。
+    // 本 Provider 挂在根布局上，任何登录路径都会经过这里，所以这里的延后尤其关键。
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        try {
-          // 用户登录后，关联 RevenueCat 用户 ID
-          await Purchases.logIn(session.user.id);
-          // 重新检查订阅状态
-          await checkSubscriptionStatus();
-        } catch (error) {
-          console.error('Error linking user to RevenueCat:', error);
-        }
+        const userId = session.user.id;
+        setTimeout(() => {
+          void (async () => {
+            try {
+              // 用户登录后，关联 RevenueCat 用户 ID
+              await Purchases.logIn(userId);
+              // 重新检查订阅状态
+              await checkSubscriptionStatus();
+            } catch (error) {
+              console.error('Error linking user to RevenueCat:', error);
+            }
+          })();
+        }, 0);
       } else if (event === 'SIGNED_OUT') {
-        try {
-          // 用户登出后，断开 RevenueCat 关联
-          await Purchases.logOut();
-          setIsPro(false);
-          setPlanType(null);
-        } catch (error) {
-          console.error('Error logging out from RevenueCat:', error);
-        }
+        setTimeout(() => {
+          void (async () => {
+            try {
+              // 用户登出后，断开 RevenueCat 关联
+              await Purchases.logOut();
+              setIsPro(false);
+              setPlanType(null);
+            } catch (error) {
+              console.error('Error logging out from RevenueCat:', error);
+            }
+          })();
+        }, 0);
       }
     });
 

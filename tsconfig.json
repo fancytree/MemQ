@@ -2,6 +2,9 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // expo/tsconfig.base 未设置 module，target: ESNext 下 TS 默认回落到 ES2015，
+    // 导致动态 import() 报 TS1323。仅影响类型检查（noEmit），运行时由 Metro/Babel 处理。
+    "module": "esnext",
     "paths": {
       "@/*": ["./*"]
     }

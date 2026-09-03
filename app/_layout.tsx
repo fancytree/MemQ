@@ -51,7 +51,8 @@ export default function RootLayout() {
             }}
           >
             <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="create" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="create" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="create-name" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="quiz" options={{ animation: 'fade' }} />
             <Stack.Screen name="deck/[id]" />
           </Stack>

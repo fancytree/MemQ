@@ -1,5 +1,7 @@
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
+import { useSubscription } from '@/context/SubscriptionContext';
+import { AI_LIMITS, getAIUsageCount, recordAIUsage } from '@/lib/aiUsage';
 import { clearCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
@@ -52,7 +54,8 @@ const getDocumentPicker = (): DocumentPickerModule | null => {
   return cachedDocumentPicker;
 };
 
-export default function CreateScreen() {
+export default function AddTermsScreen() {
+  const { isPro, showPaywall } = useSubscription();
   const { id, termId } = useLocalSearchParams<{ id: string; termId?: string }>();
   const [prompt, setPrompt] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
@@ -67,21 +70,24 @@ export default function CreateScreen() {
   const [regeneratingCardId, setRegeneratingCardId] = useState<string | null>(null);
   const [generateDots, setGenerateDots] = useState('.');
   const [regenerateDots, setRegenerateDots] = useState('.');
+  const [genUsed, setGenUsed] = useState(0);
+  const GEN_LIMIT = AI_LIMITS.generate_terms.free; // 3
+  const genRemaining = Math.max(0, GEN_LIMIT - genUsed);
+  const genExhausted = !isPro && genRemaining === 0;
   const isSingleTermEdit = !!termId;
 
   const generate = () => {
     const run = async () => {
       if (!prompt.trim()) {
         Alert.alert('Tip', 'Please enter text or a topic first');
-      return;
-    }
+        return;
+      }
+      if (genExhausted) { void showPaywall(); return; }
       setPhase('generating');
       try {
+        const { data: authData } = await supabase.auth.getUser();
         const { data, error } = await supabase.functions.invoke('generate-terms', {
-          body: {
-            type: 'topic',
-            content: prompt.trim(),
-          },
+          body: { type: 'topic', content: prompt.trim() },
         });
 
         if (error) {
@@ -101,7 +107,11 @@ export default function CreateScreen() {
 
         setCards(nextCards);
         setPhase('done');
-    } catch (error) {
+        if (!isPro && authData.user) {
+          const ok = await recordAIUsage('generate_terms', authData.user.id);
+          if (ok) setGenUsed((prev) => prev + 1);
+        }
+      } catch (error) {
         const message = error instanceof Error ? error.message : 'Something went wrong';
         Alert.alert('Error', message);
         setPhase('idle');
@@ -123,6 +133,7 @@ export default function CreateScreen() {
   };
 
   const handlePickPdfAndGenerate = async () => {
+    if (genExhausted) { void showPaywall(); return; }
     try {
       const picker = getDocumentPicker();
       if (!picker) {
@@ -140,8 +151,8 @@ export default function CreateScreen() {
       const asset = picked.assets[0];
       if (!asset.uri) {
         Alert.alert('Error', 'Invalid file');
-          return;
-        }
+        return;
+      }
 
       setPhase('generating');
       const { data: authData } = await supabase.auth.getUser();
@@ -160,9 +171,7 @@ export default function CreateScreen() {
 
       const { data: urlData } = supabase.storage.from('pdfs').getPublicUrl(fileName);
       const { data, error } = await supabase.functions.invoke('process-file', {
-        body: {
-          pdf_url: urlData.publicUrl,
-        },
+        body: { pdf_url: urlData.publicUrl },
       });
       if (error) {
         throw new Error(error.message || 'Failed to process file');
@@ -171,6 +180,10 @@ export default function CreateScreen() {
       const results: Array<{ term: string; definition: string; explanation?: string }> =
         Array.isArray(data?.results) ? data.results : [];
       applyGeneratedResults(results);
+      if (!isPro && authData.user) {
+        const ok = await recordAIUsage('generate_terms', authData.user.id);
+        if (ok) setGenUsed((prev) => prev + 1);
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to process PDF';
       Alert.alert('Error', message);
@@ -202,6 +215,17 @@ export default function CreateScreen() {
     }, 350);
     return () => clearInterval(timer);
   }, [regeneratingCardId, generatingManualId]);
+
+  // Load this month's generate_terms usage count
+  useEffect(() => {
+    if (isPro) return;
+    void (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const count = await getAIUsageCount('generate_terms', user.id);
+      setGenUsed(count);
+    })();
+  }, [isPro]);
 
   useEffect(() => {
     const loadEditingTerm = async () => {
@@ -562,7 +586,7 @@ export default function CreateScreen() {
           ))}
           <Pressable
             disabled={isGenerating}
-            onPress={generate}
+            onPress={genExhausted ? () => void showPaywall() : generate}
             style={[styles.actionBtn, { marginLeft: 'auto' }]}
           >
             <View style={styles.generateActionWrap}>
@@ -572,14 +596,33 @@ export default function CreateScreen() {
                   <Text style={[styles.generateLabel, styles.generateDots, { color: colors.muted }]}>
                     {generateDots}
                   </Text>
-                    </>
-                  ) : (
+                </>
+              ) : genExhausted ? (
+                <Text style={[styles.generateLabel, { color: colors.muted }]}>🔒 Upgrade →</Text>
+              ) : (
                 <Text style={[styles.generateLabel, { color: colors.accent }]}>Generate →</Text>
-                  )}
-              </View>
-          </Pressable>
+              )}
             </View>
+          </Pressable>
+        </View>
+        {/* Quota hint — only shown to free users */}
+        {!isPro && (
+          <View style={styles.quotaBar}>
+            {genExhausted ? (
+              <>
+                <Text style={styles.quotaBarText}>Monthly AI limit reached.</Text>
+                <Pressable onPress={() => void showPaywall()} style={styles.quotaUpgradeBtn}>
+                  <Text style={styles.quotaUpgradeBtnText}>Upgrade to Pro →</Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={styles.quotaBarText}>
+                {genRemaining} AI generation{genRemaining !== 1 ? 's' : ''} left this month
+              </Text>
+            )}
           </View>
+        )}
+        </View>
 
       {/* Generated header */}
       <View style={styles.genHead}>
@@ -1179,6 +1222,21 @@ const styles = StyleSheet.create({
   actionDisabled: { opacity: 0.5 },
   generateActionWrap: { flexDirection: 'row', alignItems: 'center' },
   generateDots: { width: 32, textAlign: 'left', flexShrink: 0 },
+  quotaBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 14, paddingVertical: 8,
+    borderTopWidth: 1, borderTopColor: colors.border,
+    backgroundColor: colors.bg,
+  },
+  quotaBarText: {
+    fontSize: 11, lineHeight: 15, color: colors.muted,
+    fontFamily: 'JetBrainsMono_400', fontWeight: '400',
+  },
+  quotaUpgradeBtn: { paddingVertical: 2, paddingHorizontal: 4 },
+  quotaUpgradeBtnText: {
+    fontSize: 11, lineHeight: 15, color: colors.accent,
+    fontFamily: 'JetBrainsMono_700', fontWeight: '400',
+  },
   actionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionLabel: {
     fontSize: 12,

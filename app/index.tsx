@@ -3,6 +3,7 @@ import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { supabase } from '../lib/supabase';
 import { useLoading } from '@/context/LoadingContext';
+import { colors } from '@/theme';
 
 export default function AuthCheckScreen() {
   const { setLoading } = useLoading();
@@ -46,7 +47,7 @@ export default function AuthCheckScreen() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color="#0a7ea4" />
+      <ActivityIndicator size="large" color={colors.accent} />
     </View>
   );
 }
@@ -56,7 +57,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.bg,
   },
 });
 

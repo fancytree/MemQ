@@ -1,12 +1,12 @@
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
 import { loadFromCache, saveToCache } from '@/lib/cache';
-import { buildLatestProgressMap } from '@/lib/termProgress';
 import { supabase } from '@/lib/supabase';
+import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors, fonts } from '@/theme';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface LessonSummary {
   id: string;
@@ -143,7 +143,7 @@ export default function LibraryScreen() {
   }, [lessons]);
 
   return (
-    <EdBase>
+    <EdBase bottomInset={0} scroll={false}>
       {/* Top bar */}
       <View style={styles.topbar}>
         <Text style={styles.title}>Library</Text>
@@ -152,30 +152,36 @@ export default function LibraryScreen() {
         </Pressable>
       </View>
 
-      {/* Stats summary */}
-      <View style={styles.statsRow}>
-        {summaryStats.map((s, i) => (
-          <View
-            key={s.l}
-            style={[styles.statCell, i < summaryStats.length - 1 && styles.statCellBorder]}
-          >
-            <Text style={styles.statVal}>{s.v}</Text>
-            <SectionLabel size={11} style={styles.statLabel}>{s.l}</SectionLabel>
-          </View>
-        ))}
-      </View>
-
-      {/* Lesson rows */}
-      <View style={styles.section}>
-        <View style={{ paddingHorizontal: 4, paddingBottom: 10 }}>
-          <SectionLabel size={12} style={{ fontFamily: 'JetBrainsMono_500', fontWeight: '400' }}>All Lessons</SectionLabel>
-        </View>
-        <View style={{ gap: 8 }}>
-          {lessons.map((d) => (
-            <LessonRow key={d.id} lesson={d} />
+      <ScrollView
+        style={styles.contentScroll}
+        contentContainerStyle={styles.contentScrollBody}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Stats summary */}
+        <View style={styles.statsRow}>
+          {summaryStats.map((s, i) => (
+            <View
+              key={s.l}
+              style={[styles.statCell, i < summaryStats.length - 1 && styles.statCellBorder]}
+            >
+              <Text style={styles.statVal}>{s.v}</Text>
+              <SectionLabel size={11} style={styles.statLabel}>{s.l}</SectionLabel>
+            </View>
           ))}
         </View>
-      </View>
+
+        {/* Lesson rows */}
+        <View style={styles.section}>
+          <View style={{ paddingHorizontal: 4, paddingBottom: 10 }}>
+            <SectionLabel size={12} style={{ fontFamily: 'JetBrainsMono_500', fontWeight: '400' }}>All Lessons</SectionLabel>
+          </View>
+          <View style={{ gap: 8 }}>
+            {lessons.map((d) => (
+              <LessonRow key={d.id} lesson={d} />
+            ))}
+          </View>
+        </View>
+      </ScrollView>
     </EdBase>
   );
 }
@@ -231,6 +237,9 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     lineHeight: 15,
   },
+
+  contentScroll: { flex: 1 },
+  contentScrollBody: { paddingBottom: 70 },
 
   section: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 24 },
 

@@ -10,16 +10,16 @@ import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const REMEMBER_EMAIL_KEY = 'remembered_email';
@@ -290,9 +290,12 @@ export default function LoginScreen() {
       // INITIAL_SESSION は除外する：in-memory に残った古いセッションで
       // 自動的に /(tabs) へリダイレクトされるのを防ぐ。
       // 画面マウント時の既存セッション確認は index.tsx が担う。
+      //
+      // ⚠️ 回调内不能直接调 supabase.auth.*（会与 auth 锁循环等待而死锁）。
+      // 传入 session.user 并 setTimeout(…, 0) 延后，详见 auth/callback.tsx 注释。
       if (event === 'SIGNED_IN' && session) {
         setOauthLoading(null);
-        void navigateAfterAuth();
+        setTimeout(() => { void navigateAfterAuth(session.user); }, 0);
       }
     });
     return () => {
@@ -452,8 +455,8 @@ export default function LoginScreen() {
 
       // 登录成功，保存或删除凭据
       await saveCredentials(trimmedIdentifier, password);
-      // 刷新订阅状态
-      await safeRefreshSubscription();
+      // 订阅刷新后台进行，不阻塞跳转（首次登录可能较慢）
+      void safeRefreshSubscription();
       // 注意：登录成功后跳转到首页，启动页会在首页数据加载完成后隐藏
       // 这里不隐藏启动页，让首页的 LoadingContext 来控制
       shouldHideAppLoading = false;
@@ -491,10 +494,22 @@ export default function LoginScreen() {
           return;
         }
         if (data) {
-          await safeRefreshSubscription();
-          await navigateAfterAuth();
+          // 立即跳转，订阅刷新后台进行，不阻塞导航
+          void safeRefreshSubscription();
+          // 传 user：resolveFinal 可能在 auth 锁仍被持有时同步触发，
+          // 此处再调 supabase.auth.* 会死锁。
+          await navigateAfterAuth(data.user ?? data.session?.user);
+          return;
         }
-        // data 和 error 都为 null：用户取消，不做任何操作
+        // data 和 error 都为 null：可能是用户取消，也可能是
+        // openBrowserAsync.finally() 在 Linking 事件之前触发的竞态。
+        // 兜底：检查是否已建立 session（由 auth/callback.tsx 或 onAuthStateChange 完成）。
+        const { data: sessionCheck } = await supabase.auth.getSession();
+        if (sessionCheck?.session) {
+          void safeRefreshSubscription();
+          await navigateAfterAuth(sessionCheck.session.user);
+        }
+        // 确实是用户取消：sessionCheck 也为空，什么都不做
         return;
       }
 
@@ -506,8 +521,8 @@ export default function LoginScreen() {
         return;
       }
       if (data) {
-        await safeRefreshSubscription();
-        await navigateAfterAuth();
+        void safeRefreshSubscription();
+        await navigateAfterAuth(data.user ?? data.session?.user);
       }
     } catch (error: any) {
       if (__DEV__) console.error('Google sign in error:', error);
@@ -533,10 +548,8 @@ export default function LoginScreen() {
       }
 
       if (data) {
-        // 刷新订阅状态
-        await safeRefreshSubscription();
-        // 注意：登录成功后跳转到首页，启动页会在首页数据加载完成后隐藏
-        // 这里不隐藏启动页，让首页的 LoadingContext 来控制
+        // 订阅刷新后台进行，不阻塞跳转
+        void safeRefreshSubscription();
         await navigateAfterAuth();
       } else {
         // data 和 error 都为 null：用户取消或 OAuth 流程未完成

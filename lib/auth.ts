@@ -1,7 +1,7 @@
-import { supabase } from './supabase';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import * as Linking from 'expo-linking';
 import { Platform } from 'react-native';
-import * as AppleAuthentication from 'expo-apple-authentication';
+import { supabase } from './supabase';
 
 type AuthSessionResult = {
   type: 'success' | 'cancel' | 'dismiss' | 'opened' | 'locked';
@@ -95,87 +95,95 @@ export const startGoogleOAuthInSafari = async (): Promise<{ data: any; error: an
     return { data: null, error: null };
   }
 
-  // callbackPromise 等待两种事件中的先发生者：
-  //   A. Linking 收到 memq://auth/callback → resolve(callbackUrl)
-  //   B. openBrowserAsync 结束（用户手动关闭或 dismiss）→ resolve(null)
-  let resolveCallback!: (url: string | null) => void;
-  const callbackPromise = new Promise<string | null>((resolve) => {
-    resolveCallback = resolve;
+  // 统一结果 Promise：多条路径（Linking / onAuthStateChange / 超时）竞争，
+  // 第一个到达者 win，后续的调用被忽略。
+  let resolveFinal!: (r: { data: any; error: any }) => void;
+  let finalResolved = false;
+  const finalPromise = new Promise<{ data: any; error: any }>((resolve) => {
+    resolveFinal = (r) => {
+      if (!finalResolved) {
+        finalResolved = true;
+        resolve(r);
+      }
+    };
   });
 
-  // 记录监听器注册时刻，用于过滤 Expo 重放的旧 URL 事件。
-  // Expo Linking 会把上次收到的深链接 URL 立刻重发给新注册的监听器；
-  // 真实的 OAuth 回调至少需要用户在浏览器里完成操作（> 1 秒），
-  // 而重放事件几乎在同一 JS tick 内到达（< 50ms）。
   const listenerRegisteredAt = Date.now();
 
+  // ── 路径 A：Linking 监听器收到深链接 → 自己交换 code ──
+  // 适用于 Expo Router 未拦截深链接的场景。
+  // 若 Expo Router 已拦截并由 auth/callback.tsx 处理，路径 B（onAuthStateChange）兜底。
   let linkingSub: ReturnType<typeof Linking.addEventListener> | null = null;
   linkingSub = Linking.addEventListener('url', ({ url }) => {
     const elapsed = Date.now() - listenerRegisteredAt;
-    if (__DEV__) {
-      console.log(`[OAuth] Linking url event (+${elapsed}ms):`, url);
-    }
-    // 忽略注册后 1 秒内到达的事件——几乎可以确定是 Expo 重放的旧回调。
-    if (elapsed < 1000) return;
+    if (__DEV__) console.log(`[OAuth] Linking url event (+${elapsed}ms):`, url);
+    // 过滤 Expo 重放的旧 URL（重放发生在监听器注册后极短时间内）
+    if (elapsed < 500) return;
     if (!url.includes('auth/callback')) return;
-    resolveCallback(url);        // 先通知等待方
+
     linkingSub?.remove();
     linkingSub = null;
-    // 关闭浏览器（触发 openBrowserAsync resolve 以释放资源）
     Promise.resolve(WebBrowser.dismissBrowser()).catch(() => {});
+
+    // 若 auth/callback.tsx 已抢先 resolve（路径 B），则跳过，避免重复交换同一 code
+    if (finalResolved) return;
+
+    (async () => {
+      try {
+        const urlObj = new URL(url);
+        const hashStr = urlObj.hash?.startsWith('#') ? urlObj.hash.slice(1) : '';
+        const hashParams = new URLSearchParams(hashStr);
+
+        const errorDesc =
+          urlObj.searchParams.get('error_description') || hashParams.get('error_description') ||
+          urlObj.searchParams.get('error') || hashParams.get('error');
+        if (errorDesc) { resolveFinal({ data: null, error: new Error(errorDesc) }); return; }
+
+        const code = urlObj.searchParams.get('code') || hashParams.get('code');
+        const accessToken = urlObj.searchParams.get('access_token') || hashParams.get('access_token');
+        const refreshToken = urlObj.searchParams.get('refresh_token') || hashParams.get('refresh_token');
+
+        if (code) {
+          const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+          // 若 error（code 已被 auth/callback.tsx 使用），由路径 B 兜底，不 reject
+          if (!error && data) resolveFinal({ data, error: null });
+        } else if (accessToken && refreshToken) {
+          const { data, error } = await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+          if (!error && data) resolveFinal({ data, error: null });
+        }
+      } catch {
+        // code 交换失败（已被对方使用），路径 B 会兜底，此处静默忽略
+      }
+    })();
   });
 
-  // 并行运行：浏览器 + 等待回调
+  // ── 路径 B：onAuthStateChange 监听器 ──
+  // 无论是路径 A（自己交换）还是 auth/callback.tsx 交换，
+  // 只要 session 建立成功，SIGNED_IN 一定触发，此处捕获并 resolve。
+  const { data: { subscription: authStateSub } } = supabase.auth.onAuthStateChange((event, session) => {
+    if (event === 'SIGNED_IN' && session) {
+      resolveFinal({ data: { session, user: session.user }, error: null });
+    }
+  });
+
+  // ── 打开浏览器，关闭后给路径 A/B 最多 3s 完成处理 ──
   WebBrowser.openBrowserAsync(oauthData.url)
     .catch(() => {})
     .finally(() => {
-      linkingSub?.remove();
-      linkingSub = null;
-      resolveCallback(null); // 浏览器已关闭（正常或用户取消），若已 resolve 则无效
+      setTimeout(() => {
+        // 3s 后仍无结果：用户取消或超时
+        resolveFinal({ data: null, error: null });
+      }, 3000);
     });
 
-  const callbackUrl = await callbackPromise;
+  const result = await finalPromise;
 
-  if (!callbackUrl) {
-    // 用户手动关闭了浏览器，未完成登录
-    return { data: null, error: null };
-  }
+  // 清理所有监听器
+  linkingSub?.remove();
+  linkingSub = null;
+  authStateSub.unsubscribe();
 
-  // 解析回调 URL，交换 token
-  try {
-    const urlObj = new URL(callbackUrl);
-    const hashStr = urlObj.hash?.startsWith('#') ? urlObj.hash.slice(1) : '';
-    const hashParams = new URLSearchParams(hashStr);
-
-    const errorDesc =
-      urlObj.searchParams.get('error_description') ||
-      hashParams.get('error_description') ||
-      urlObj.searchParams.get('error') ||
-      hashParams.get('error');
-    if (errorDesc) return { data: null, error: new Error(errorDesc) };
-
-    const code = urlObj.searchParams.get('code') || hashParams.get('code');
-    if (code) {
-      const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-      return { data: data ?? null, error: error ?? null };
-    }
-
-    const accessToken =
-      urlObj.searchParams.get('access_token') || hashParams.get('access_token');
-    const refreshToken =
-      urlObj.searchParams.get('refresh_token') || hashParams.get('refresh_token');
-    if (accessToken && refreshToken) {
-      const { data, error } = await supabase.auth.setSession({
-        access_token: accessToken,
-        refresh_token: refreshToken,
-      });
-      return { data: data ?? null, error: error ?? null };
-    }
-
-    return { data: null, error: new Error('No auth code or tokens in callback URL') };
-  } catch (err: any) {
-    return { data: null, error: err };
-  }
+  return result;
 };
 
 // ─────────────────────────────────────────────────────────────────────────────

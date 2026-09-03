@@ -4,6 +4,7 @@ import FloatingAIButtonIcon from '@/components/icons/FloatingAIButtonIcon';
 import SendIcon from '@/components/icons/SendIcon';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { clearCache } from '@/lib/cache';
+import { AI_LIMITS, getAIUsageCount, recordAIUsage } from '@/lib/aiUsage';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
@@ -127,6 +128,8 @@ const CIB_SEND_SIZE   = 32;
 const CIB_H_PAD       = 16;
 const CIB_V_PAD       = 10;
 const CIB_BTN_GAP     = 8;
+/** 发送按钮距右缘略小，视觉上更靠右 */
+const CIB_SEND_RIGHT  = 10;
 const CIB_MIN_H       = CIB_LINE_HEIGHT;       // 1 行
 const CIB_MAX_H       = CIB_LINE_HEIGHT * 3;   // 3 行，约 66px
 
@@ -199,7 +202,7 @@ const cibStyles = StyleSheet.create({
     borderRadius: 24,
     paddingLeft: CIB_H_PAD,
     // 右侧留出按钮宽度 + 间距，文字不会被遮住
-    paddingRight: CIB_H_PAD + CIB_SEND_SIZE + CIB_BTN_GAP,
+    paddingRight: CIB_SEND_RIGHT + CIB_SEND_SIZE + CIB_BTN_GAP,
     paddingTop: CIB_V_PAD,
     paddingBottom: CIB_V_PAD,
   },
@@ -219,7 +222,7 @@ const cibStyles = StyleSheet.create({
   },
   sendBtn: {
     position: 'absolute',
-    right: CIB_H_PAD,
+    right: CIB_SEND_RIGHT,
     // (V_PAD*2 + MIN_H - SEND_SIZE) / 2 = (10+10+22-32)/2 = 5
     // 单行时按钮垂直居中；多行时贴向底部
     bottom: (CIB_V_PAD * 2 + CIB_MIN_H - CIB_SEND_SIZE) / 2,
@@ -267,8 +270,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const prevMessagesLengthRef = useRef<number>(0);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   
-  // 对话次数限制（未订阅用户每天可以使用8次）
-  const FREE_TIER_MESSAGE_LIMIT = 8;
+  // 与 lib/aiUsage.ts 中 ai_chat 日限额一致
+  const FREE_TIER_MESSAGE_LIMIT = AI_LIMITS.ai_chat.free;
   const [messageCount, setMessageCount] = useState(0);
   
   // 两个入口的对话会话（本地状态）
@@ -416,47 +419,31 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   };
 
   // 加载对话次数（未订阅用户，每日重置）
+  // 从 Supabase 加载今日 ai_chat 使用次数
   const loadMessageCount = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
-      const today = getTodayDateString();
-      const countKey = `@ai_chat_message_count_${user.id}_${today}`;
-      const lastDateKey = `@ai_chat_message_last_date_${user.id}`;
-      
-      // 检查是否是新的日期，如果是则重置计数
-      const lastDate = await getAIStorage().getItem(lastDateKey);
-      if (lastDate !== today) {
-        // 新的一天，重置计数
-        await getAIStorage().setItem(countKey, '0');
-        await getAIStorage().setItem(lastDateKey, today);
-        setMessageCount(0);
-      } else {
-        // 同一天，加载现有计数
-      const count = await getAIStorage().getItem(countKey);
-      setMessageCount(count ? parseInt(count, 10) : 0);
-      }
+      const count = await getAIUsageCount('ai_chat', user.id);
+      setMessageCount(count);
     } catch (error) {
       console.error('Error loading message count:', error);
     }
   };
 
-  // 保存对话次数（未订阅用户，每日重置）
-  const saveMessageCount = async (count: number) => {
+  // 记录一次 ai_chat 使用（写入 Supabase，在成功响应后调用）
+  // 成功拿到 AI 回复后再持久化；本地计数已在发送时乐观 +1，此处不再 +1；写入失败则回滚 -1
+  const recordChatUsage = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      
-      const today = getTodayDateString();
-      const countKey = `@ai_chat_message_count_${user.id}_${today}`;
-      const lastDateKey = `@ai_chat_message_last_date_${user.id}`;
-      
-      await getAIStorage().setItem(countKey, count.toString());
-      await getAIStorage().setItem(lastDateKey, today);
-      setMessageCount(count);
+      const ok = await recordAIUsage('ai_chat', user.id);
+      if (!ok) {
+        setMessageCount((prev) => Math.max(0, prev - 1));
+      }
     } catch (error) {
-      console.error('Error saving message count:', error);
+      console.error('Error recording chat usage:', error);
+      setMessageCount((prev) => Math.max(0, prev - 1));
     }
   };
 
@@ -775,10 +762,9 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       setAiStatus('generating');
     }, 450);
 
-    // 如果不是 Pro 用户，增加对话次数
+    // 如果不是 Pro 用户，乐观更新本地计数（成功后写入 Supabase）
     if (!isPro) {
-      const newCount = messageCount + 1;
-      await saveMessageCount(newCount);
+      setMessageCount((prev) => prev + 1);
     }
 
     try {
@@ -1079,14 +1065,17 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       } else {
         setAiStatus(null);
       }
+      // 成功响应后写入 Supabase（非 Pro 用户）
+      if (!isPro) {
+        void recordChatUsage();
+      }
     } catch (error) {
       console.error('Error sending message:', error);
       const errorMessage = error instanceof Error ? error.message : 'Something went wrong';
-      
-      // 如果发送失败，回退对话次数（未订阅用户）
-      if (!isPro && messageCount > 0) {
-        const newCount = messageCount - 1;
-        await saveMessageCount(newCount);
+
+      // 发送失败，回退本地乐观计数
+      if (!isPro) {
+        setMessageCount((prev) => Math.max(0, prev - 1));
       }
       
       // 检查是否是 API Key 错误
@@ -1681,7 +1670,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           ) : (
             <View style={styles.aiInlineRow}>
               <View style={styles.aiInlineIcon}>
-                <FloatingAIButtonIcon size={22} />
+                <FloatingAIButtonIcon size={14} />
               </View>
               <Pressable onLongPress={() => handleCopyMessage(item.text)} delayLongPress={500} style={styles.aiInlineTextWrap}>
                 <Text style={styles.aiInlineText} selectable={true}>
@@ -1798,7 +1787,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                   <View style={styles.assistantHeader}>
                     <View style={styles.assistantHeaderLeft}>
                       <View style={styles.assistantBadge}>
-                        <FloatingAIButtonIcon size={28} />
+                        <FloatingAIButtonIcon size={20} />
                       </View>
                       <View style={styles.assistantHeaderTextWrap}>
                         <View style={styles.assistantTitleRow}>
@@ -1809,7 +1798,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       </View>
                     </View>
                     <TouchableOpacity style={styles.assistantRefreshBtn} onPress={onClose} activeOpacity={0.7}>
-                      <Feather name="x" size={20} color="#9B9790" />
+                      <Feather name="x" size={16} color="#9B9790" />
                     </TouchableOpacity>
                   </View>
 
@@ -1857,6 +1846,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                   />
                 </TouchableOpacity>
 
+                <View style={styles.initialMessageArea}>
                 <ScrollView
                   ref={initialScrollRef}
                   style={styles.initialScroll}
@@ -1867,7 +1857,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                   <View style={styles.initialBody}>
                     <View style={styles.initialPromptRow}>
                       <View style={styles.initialPromptIcon}>
-                        <FloatingAIButtonIcon size={24} />
+                        <FloatingAIButtonIcon size={16} />
                       </View>
                       <Text style={styles.initialPromptText}>
                         {initialTab === 'qa' &&
@@ -2017,7 +2007,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                                 <View style={styles.aiInlineBlock}>
                                   <View style={styles.aiInlineRow}>
                                     <View style={styles.aiInlineIcon}>
-                                      <FloatingAIButtonIcon size={22} />
+                                      <FloatingAIButtonIcon size={14} />
                                     </View>
                                     <View style={styles.aiInlineTextWrap}>
                                       <Text style={styles.aiInlineText}>{item.text}</Text>
@@ -2038,17 +2028,17 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                     )}
                   </View>
                 </ScrollView>
-
                 {aiStatus && (
-                  <View style={styles.aiStatusFloating}>
-                    <View style={styles.aiStatusWrap}>
-                      <View style={styles.aiStatusDot} />
-                      <Text style={styles.aiStatusText}>
-                        {getAiStatusText()}
-                      </Text>
+                  <View style={styles.aiStatusContentFloat} pointerEvents="none">
+                    <View style={styles.aiStatusFloatInner}>
+                      <View style={styles.aiStatusWrap}>
+                        <View style={styles.aiStatusDot} />
+                        <Text style={styles.aiStatusText}>{getAiStatusText()}</Text>
+                      </View>
                     </View>
                   </View>
                 )}
+                </View>
 
                 <View
                   style={[
@@ -2056,6 +2046,28 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                     { paddingBottom: 14 },
                   ]}
                 >
+                  {!isPro && (
+                    <View style={[styles.messageLimitBar, styles.messageLimitBarInComposer]}>
+                      <Feather name="info" size={12} color={colors.muted} />
+                      <Text style={styles.messageLimitBarText}>
+                        {messageCount >= FREE_TIER_MESSAGE_LIMIT
+                          ? 'Daily limit reached. Upgrade to Pro!'
+                          : `${FREE_TIER_MESSAGE_LIMIT - messageCount} messages left today`}
+                      </Text>
+                      {messageCount >= FREE_TIER_MESSAGE_LIMIT && (
+                        <TouchableOpacity
+                          style={styles.upgradeButtonSmall}
+                          onPress={async () => {
+                            onClose();
+                            await showPaywall();
+                          }}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={styles.upgradeButtonSmallText}>Upgrade</Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
                   <View style={styles.initialComposer}>
                     <TextInput
                       style={styles.initialComposerInput}
@@ -2089,8 +2101,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                 </View>
               </View>
             ) : (
-              <>
-                {/* Message List */}
+              <View style={styles.chatMessageArea}>
                 <FlatList
                   ref={flatListRef}
                   data={[...messages].reverse()}
@@ -2102,14 +2113,17 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                   inverted={true}
                   removeClippedSubviews={false}
                 />
-
-                {/* Loading Indicator */}
-                {isLoading && (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="small" color="#6366F1" />
+                {isLoading && aiStatus && (
+                  <View style={styles.aiStatusContentFloat} pointerEvents="none">
+                    <View style={styles.aiStatusFloatInner}>
+                      <View style={styles.aiStatusWrap}>
+                        <View style={styles.aiStatusDot} />
+                        <Text style={styles.aiStatusText}>{getAiStatusText()}</Text>
+                      </View>
+                    </View>
                   </View>
                 )}
-              </>
+              </View>
             )}
 
             {/* Input Area - 只在对话模式下显示 */}
@@ -2117,8 +2131,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             <>
               {/* 对话次数提示（未订阅用户） */}
               {!isPro && (
-                <View style={styles.messageLimitBar}>
-                  <Feather name="info" size={14} color="#6366F1" />
+                <View style={[styles.messageLimitBar, styles.messageLimitBarChat]}>
+                  <Feather name="info" size={12} color={colors.muted} />
                   <Text style={styles.messageLimitBarText}>
                     {messageCount >= FREE_TIER_MESSAGE_LIMIT 
                       ? 'Daily limit reached. Upgrade to Pro!'
@@ -2355,8 +2369,8 @@ const styles = StyleSheet.create({
   },
   assistantHeader: {
     paddingHorizontal: 18,
-    paddingTop: 10,
-    paddingBottom: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -2367,13 +2381,13 @@ const styles = StyleSheet.create({
   assistantHeaderLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
   },
   assistantBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#111111',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2388,32 +2402,31 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   assistantTitle: {
-    fontSize: 18,
-    lineHeight: 24,
+    fontSize: 15,
+    lineHeight: 20,
     color: '#1A1916',
     fontFamily: 'JetBrainsMono_700',
     fontWeight: '400',
     letterSpacing: -0.2,
   },
   assistantOnlineDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
     backgroundColor: '#1A8A72',
   },
   assistantSubtitle: {
-    marginTop: 2,
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 11,
+    lineHeight: 15,
     color: '#9B9790',
     fontFamily: 'JetBrainsMono_500',
     fontWeight: '400',
     letterSpacing: -0.1,
   },
   assistantRefreshBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E5E3DE',
     backgroundColor: '#F7F7F5',
@@ -2428,17 +2441,17 @@ const styles = StyleSheet.create({
   },
   modeTab: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 8,
     alignItems: 'center',
-    borderBottomWidth: 3,
+    borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
   modeTabActive: {
     borderBottomColor: '#1A1916',
   },
   modeTabTitle: {
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 17,
     color: '#9B9790',
     fontFamily: 'JetBrainsMono_700',
     fontWeight: '400',
@@ -2447,9 +2460,8 @@ const styles = StyleSheet.create({
     color: '#1A1916',
   },
   modeTabSub: {
-    marginTop: 2,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 10,
+    lineHeight: 14,
     color: '#9B9790',
     fontFamily: 'JetBrainsMono_500',
     fontWeight: '400',
@@ -2458,7 +2470,7 @@ const styles = StyleSheet.create({
   clearFloatingBtn: {
     position: 'absolute',
     right: 14,
-    top: 150,
+    top: 118,
     width: 28,
     height: 28,
     borderRadius: 8,
@@ -2471,14 +2483,24 @@ const styles = StyleSheet.create({
     elevation: 25,
   },
   initialBody: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
+    paddingHorizontal: 16,
+    paddingTop: 14,
+  },
+  // 对话内容区（不含底部输入条）：用于左下角悬浮 AI 状态
+  initialMessageArea: {
+    flex: 1,
+    minHeight: 0,
+    position: 'relative',
+    zIndex: 15,
+  },
+  chatMessageArea: {
+    flex: 1,
+    minHeight: 0,
+    position: 'relative',
   },
   initialScroll: {
     flex: 1,
-    position: 'relative',
-    zIndex: 20,
-    elevation: 20,
+    zIndex: 1,
   },
   initialScrollContent: {
     paddingBottom: 20,
@@ -2486,22 +2508,22 @@ const styles = StyleSheet.create({
   initialPromptRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 10,
   },
   initialPromptIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#111111',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    marginTop: 2,
+    marginTop: 1,
   },
   initialPromptText: {
     flex: 1,
-    fontSize: 14,
-    lineHeight: 22,
+    fontSize: 13,
+    lineHeight: 20,
     color: '#1A1916',
     fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
@@ -2519,13 +2541,13 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   quickPrompts: {
-    gap: 10,
-    marginLeft: 44,
-    marginTop: 14,
+    gap: 6,
+    marginLeft: 38,
+    marginTop: 10,
   },
   initialChatPreview: {
-    marginTop: 14,
-    gap: 10,
+    marginTop: 10,
+    gap: 6,
   },
   quizScopeWrap: {
     marginTop: 14,
@@ -2633,23 +2655,23 @@ const styles = StyleSheet.create({
   quickPromptBtn: {
     borderWidth: 1,
     borderColor: '#E5E3DE',
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
-    paddingVertical: 9,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   quickPromptText: {
-    fontSize: 13,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 17,
     color: '#1A1916',
     fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
     letterSpacing: -0.1,
   },
   initialComposerWrap: {
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 14,
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 10,
     borderTopWidth: 1,
     borderTopColor: '#E5E3DE',
     backgroundColor: '#F7F7F5',
@@ -2663,14 +2685,26 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingLeft: 2,
   },
-  aiStatusFloating: {
+  // 内容区左下角悬浮（非输入模块）
+  aiStatusContentFloat: {
     position: 'absolute',
-    left: 20,
-    bottom: 112,
-    zIndex: 50,
-    elevation: 50,
-    backgroundColor: '#F7F7F5',
-    paddingRight: 6,
+    left: 14,
+    bottom: 10,
+    zIndex: 40,
+    elevation: 8,
+    maxWidth: '88%',
+  },
+  aiStatusFloatInner: {
+    backgroundColor: 'rgba(255,255,255,0.94)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#E5E3DE',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
   },
   aiStatusDot: {
     width: 6,
@@ -2691,9 +2725,9 @@ const styles = StyleSheet.create({
     borderColor: '#E5E3DE',
     borderRadius: 12,
     backgroundColor: '#FFFFFF',
-    // 左侧正常 padding，右侧为按钮留出空间（16 padding + 32 按钮 + 8 间距）
+    // 左侧正常 padding；右侧与 ChatInputBar 一致：10 + 32 + 8
     paddingLeft: 16,
-    paddingRight: 56,
+    paddingRight: 50,
     paddingTop: 10,
     paddingBottom: 10,
   },
@@ -2712,7 +2746,7 @@ const styles = StyleSheet.create({
   },
   initialComposerSend: {
     position: 'absolute',
-    right: 16,
+    right: 10,
     // (paddingTop 10 + minHeight 22 + paddingBottom 10 - buttonHeight 32) / 2 = 5
     // 单行时按钮垂直居中；多行时随 bar 增高自然贴向底部
     bottom: 5,
@@ -2768,13 +2802,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   messageListContent: {
-    paddingHorizontal: 0,
-    paddingTop: 16,
+    paddingHorizontal: 16,
+    paddingTop: 10,
     paddingBottom: 0,
   },
   messageContainer: {
     flexDirection: 'row',
-    marginBottom: 16,
+    marginBottom: 8,
     alignItems: 'flex-end',
     width: '100%',
   },
@@ -2800,15 +2834,15 @@ const styles = StyleSheet.create({
   aiInlineRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    gap: 8,
   },
   aiInlineBlock: {
     flex: 1,
   },
   aiInlineIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#111111',
     alignItems: 'center',
     justifyContent: 'center',
@@ -2818,34 +2852,34 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   aiInlineText: {
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
+    fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
     color: colors.text,
   },
   messageBubble: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
   userBubble: {
     backgroundColor: '#111111',
     borderColor: '#111111',
-    borderBottomRightRadius: 24,
+    borderBottomRightRadius: 4,
   },
   aiBubble: {
     backgroundColor: colors.surf,
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: 4,
   },
   messageText: {
-    fontSize: 15,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 19,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
+    fontFamily: 'JetBrainsMono_400',
     fontWeight: '400',
   },
   userMessageText: {
@@ -2853,11 +2887,6 @@ const styles = StyleSheet.create({
   },
   aiMessageText: {
     color: colors.text,
-  },
-  loadingContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    alignItems: 'flex-start',
   },
   messageLimitBanner: {
     flexDirection: 'row',
@@ -2889,29 +2918,50 @@ const styles = StyleSheet.create({
   messageLimitBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F3FF',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    marginHorizontal: -12,   // 抵消 content 的 paddingHorizontal:12，撑满宽度
+    marginBottom: 0,
     gap: 6,
+    backgroundColor: colors.surf,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+    zIndex: 2,
+    elevation: 2,
+  },
+  // initial 底部输入容器内：与左右 padding 对齐拉满
+  messageLimitBarInComposer: {
+    marginHorizontal: -16,
+    marginTop: 0,
+    marginBottom: 8,
+    paddingHorizontal: 16,
+    borderTopWidth: 0,
+  },
+  // chat 底部：保证浮在列表之上、边界清晰
+  messageLimitBarChat: {
+    marginBottom: 0,
   },
   messageLimitBarText: {
     flex: 1,
-    fontSize: 12,
-    color: '#6366F1',
-    fontWeight: '500',
+    fontSize: 11,
+    color: colors.muted,
+    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '400',
   },
   upgradeButtonSmall: {
-    backgroundColor: '#6366F1',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 5,
+    borderWidth: 1,
+    borderColor: colors.accent,
   },
   upgradeButtonSmallText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: '600',
+    color: colors.accent,
+    fontSize: 11,
+    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '400',
   },
   termSuggestionContainer: {
     marginTop: 12,

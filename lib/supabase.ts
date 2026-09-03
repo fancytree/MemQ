@@ -19,11 +19,28 @@ const inMemoryAsyncStorage: AsyncStorageModule = {
   },
 };
 
+/** 优先使用 AsyncStorage 持久化 Supabase session，杀进程后仍保持登录；不可用时降级内存。 */
+function createAsyncStorageAdapter(): AsyncStorageModule {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    if (AsyncStorage?.getItem && AsyncStorage?.setItem && AsyncStorage?.removeItem) {
+      return {
+        getItem: (key: string) => AsyncStorage.getItem(key),
+        setItem: (key: string, value: string) => AsyncStorage.setItem(key, value),
+        removeItem: (key: string) => AsyncStorage.removeItem(key),
+      };
+    }
+  } catch {
+    // 无原生模块时兜底
+  }
+  return inMemoryAsyncStorage;
+}
+
 let asyncStorage: AsyncStorageModule | undefined = undefined;
 const getAsyncStorage = (): AsyncStorageModule => {
-  // 当前 iOS 运行壳缺少 AsyncStorage 原生模块，直接使用内存存储兜底，避免触发原生模块崩溃。
   if (!asyncStorage) {
-    asyncStorage = inMemoryAsyncStorage;
+    asyncStorage = createAsyncStorageAdapter();
   }
   return asyncStorage;
 };

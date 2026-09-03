@@ -187,9 +187,8 @@ Deno.serve(async (req: Request) => {
       nextReviewAt = new Date(now);
       nextReviewAt.setDate(nextReviewAt.getDate() + Math.ceil(finalIntervalDays));
     } else {
-      // 答错了：降级到 'Learning' (index 1)
-      newIndex = 1;
-      // 立即复习（设置为当前时间）
+      // 中文：答错降一级（最低 New）；Mastered(5) 答错 → Strong(4)，避免一步跌回 Learning
+      newIndex = Math.max(0, currentIndex - 1);
       nextReviewAt = now;
     }
 

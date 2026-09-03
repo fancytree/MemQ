@@ -40,7 +40,8 @@ export async function updateTermProgressSafe(termId: string, isCorrect: boolean)
     const currentIndex = typeof current?.step_index === 'number' ? current.step_index : 0;
     const now = new Date();
 
-    let newIndex = isCorrect ? Math.min(currentIndex + 1, 5) : 1;
+    // 中文：答错降一级（最低 New），与 Edge Function 一致；Mastered 答错 → Strong
+    let newIndex = isCorrect ? Math.min(currentIndex + 1, 5) : Math.max(0, currentIndex - 1);
     let intervalDays = isCorrect ? getReviewIntervalDays(newIndex) : 0;
 
     const { data: termData } = await supabase

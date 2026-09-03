@@ -11,7 +11,7 @@ import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors, fonts } from '@/theme';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
 
@@ -34,6 +34,14 @@ const getStatusWeight = (status: string | null | undefined): number => {
   if (!status || status === 'New') return LEARNING_STAGE_WEIGHTS.New;
   return LEARNING_STAGE_WEIGHTS[status] ?? LEARNING_STAGE_WEIGHTS.New;
 };
+
+/** 本地日期键 YYYY-MM-DD，与 activityDaysFromProgressUpdates 保持一致 */
+function toLocalDateKey(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
 
 export default function ProfileScreen() {
   const { isPro, showPaywall } = useSubscription();
@@ -69,22 +77,13 @@ export default function ProfileScreen() {
       }
 
       const [{ data: lessonsData }, { count: lessonsCount }] = await Promise.all([
-        supabase
-          .from('lessons')
-          .select('id')
-          .eq('user_id', user.id),
-        supabase
-          .from('lessons')
-          .select('id', { count: 'exact', head: true })
-          .eq('user_id', user.id),
+        supabase.from('lessons').select('id').eq('user_id', user.id),
+        supabase.from('lessons').select('id', { count: 'exact', head: true }).eq('user_id', user.id),
       ]);
 
       const lessonIds = (lessonsData || []).map((lesson) => lesson.id);
       const { data: termsData } = lessonIds.length
-        ? await supabase
-            .from('terms')
-            .select('id')
-            .in('lesson_id', lessonIds)
+        ? await supabase.from('terms').select('id').in('lesson_id', lessonIds)
         : { data: [] as { id: string }[] };
 
       const termIds = (termsData || []).map((term) => term.id);
@@ -112,7 +111,7 @@ export default function ProfileScreen() {
       const dueToday = Math.max(totalTerms - Math.round(weightedScore), 0);
       const weightedPct = totalTerms > 0 ? Math.round((weightedScore / totalTerms) * 100) : 0;
 
-      // 最近 7 天（今天在最后一格）
+      // 最近 7 天（今天在最后一格），用本地日期键比对（避免 UTC 跨天误差）
       const recent7Days = Array.from({ length: 7 }, (_, idx) => {
         const d = new Date();
         d.setHours(0, 0, 0, 0);
@@ -120,7 +119,7 @@ export default function ProfileScreen() {
         return d;
       });
       setDayLabels(recent7Days.map((d) => WEEKDAY_LABELS[d.getDay()]));
-      setDayActive(recent7Days.map((d) => activityDays.has(d.toISOString().slice(0, 10))));
+      setDayActive(recent7Days.map((d) => activityDays.has(toLocalDateKey(d))));
 
       setCurrentStreak(computeCurrentStreak(activityDays));
       setBestStreak(computeBestStreak(activityDays));
@@ -136,8 +135,9 @@ export default function ProfileScreen() {
   }, []);
 
   const avatarInitial = useMemo(() => displayName.charAt(0).toUpperCase() || 'U', [displayName]);
+
   return (
-    <EdBase>
+    <EdBase bottomInset={0} scroll={false}>
       {/* Avatar row */}
       <View style={styles.avatarRow}>
         {avatarUrl ? (
@@ -166,71 +166,65 @@ export default function ProfileScreen() {
         </Pressable>
       </View>
 
-      {/* Streak */}
-      <View style={styles.streakBlock}>
-        <SectionLabel size={11} style={{ marginBottom: 12, fontFamily: 'JetBrainsMono_500', fontWeight: '400', lineHeight: 15 }}>
-          Current Streak
-        </SectionLabel>
-        <View style={styles.streakLine}>
-          <Text style={styles.streakNum}>{currentStreak}</Text>
-          <Text style={styles.streakUnit}>days</Text>
-          <Text style={[styles.streakUnit, { marginLeft: 'auto' }]}>Best: {bestStreak}</Text>
-        </View>
+      <ScrollView
+        style={styles.contentScroll}
+        contentContainerStyle={styles.contentScrollBody}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Streak */}
+        <View style={styles.streakBlock}>
+          <SectionLabel size={11} style={{ marginBottom: 12, fontFamily: 'JetBrainsMono_500', fontWeight: '400', lineHeight: 15 }}>
+            Current Streak
+          </SectionLabel>
+          <View style={styles.streakLine}>
+            <Text style={styles.streakNum}>{currentStreak}</Text>
+            <Text style={styles.streakUnit}>days</Text>
+            <Text style={[styles.streakUnit, { marginLeft: 'auto' }]}>Best: {bestStreak}</Text>
+          </View>
 
-        {/* Day cells */}
-        <View style={styles.daysRow}>
-          {dayLabels.map((d, i) => {
-            const active = dayActive[i];
-            const isToday = i === dayLabels.length - 1;
-            return (
-              <View key={i} style={styles.dayCell}>
-                <View
-                  style={[
-                    styles.daySquare,
-                    active ? styles.daySquareActive : styles.daySquareIdle,
-                    isToday && styles.daySquareToday,
-                  ]}
-                >
-                  <View style={[styles.dayMarker, active ? styles.dayMarkerActive : styles.dayMarkerIdle]} />
+          {/* Day cells — 最近 7 天，有学习的天无论 streak 是否连续都高亮 */}
+          <View style={styles.daysRow}>
+            {dayLabels.map((d, i) => {
+              const active = dayActive[i];
+              const isToday = i === dayLabels.length - 1;
+              return (
+                <View key={i} style={styles.dayCell}>
+                  <View
+                    style={[
+                      styles.daySquare,
+                      active ? styles.daySquareActive : styles.daySquareIdle,
+                      isToday && !active && styles.daySquareToday,
+                    ]}
+                  />
+                  <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{d}</Text>
                 </View>
-                <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{d}</Text>
-              </View>
-            );
-          })}
+              );
+            })}
+          </View>
         </View>
 
-      </View>
-
-      {/* Stats grid */}
-      <View style={styles.gridBlock}>
-        <View style={[styles.gridRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
-          {stats.slice(0, 2).map((item, i) => (
-            <StatCell key={item.label} item={item} hasBorder={i === 0} />
-          ))}
+        {/* Stats grid */}
+        <View style={styles.gridBlock}>
+          <View style={[styles.gridRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+            {stats.slice(0, 2).map((item, i) => (
+              <StatCell key={item.label} item={item} hasBorder={i === 0} />
+            ))}
+          </View>
+          <View style={styles.gridRow}>
+            {stats.slice(2, 4).map((item, i) => (
+              <StatCell key={item.label} item={item} hasBorder={i === 0} />
+            ))}
+          </View>
         </View>
-        <View style={styles.gridRow}>
-          {stats.slice(2, 4).map((item, i) => (
-            <StatCell key={item.label} item={item} hasBorder={i === 0} />
-          ))}
-        </View>
-      </View>
-
+      </ScrollView>
     </EdBase>
   );
 }
 
 function StatCell({ item, hasBorder }: { item: QuadStat; hasBorder: boolean }) {
   return (
-    <View
-      style={[
-        styles.statCell,
-        hasBorder && { borderRightWidth: 1, borderRightColor: colors.border },
-      ]}
-    >
-      <SectionLabel
-        size={11}
-        style={{ marginBottom: 6, fontFamily: 'JetBrainsMono_500', fontWeight: '400', lineHeight: 15 }}
-      >
+    <View style={[styles.statCell, hasBorder && { borderRightWidth: 1, borderRightColor: colors.border }]}>
+      <SectionLabel size={11} style={{ marginBottom: 6, fontFamily: 'JetBrainsMono_500', fontWeight: '400', lineHeight: 15 }}>
         {item.label}
       </SectionLabel>
       <Text style={styles.statVal}>{item.val}</Text>
@@ -250,65 +244,36 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-  },
+  avatarImage: { width: 44, height: 44, borderRadius: 22 },
   avatarChar: { color: '#fff', fontSize: 18, fontWeight: '700', fontFamily: fonts.grotesk },
   avName: {
-    fontSize: 20,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
-    lineHeight: 28,
-    letterSpacing: -0.1,
-    color: colors.text,
+    fontSize: 20, fontFamily: 'JetBrainsMono_700', fontWeight: '400',
+    lineHeight: 28, letterSpacing: -0.1, color: colors.text,
   },
-  memberRow: {
-    marginTop: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  memberRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 8 },
   proBadge: {
-    borderWidth: 1,
-    borderColor: colors.accent,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: colors.accentL,
+    borderWidth: 1, borderColor: colors.accent, borderRadius: 999,
+    paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.accentL,
   },
   proBadgeText: {
-    fontSize: 10,
-    lineHeight: 14,
-    letterSpacing: 0.4,
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontSize: 10, lineHeight: 14, letterSpacing: 0.4, color: colors.accent,
+    fontFamily: 'JetBrainsMono_700', fontWeight: '400',
   },
   upgradeEntry: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 999,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    backgroundColor: colors.bg,
+    borderWidth: 1, borderColor: colors.border, borderRadius: 999,
+    paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.bg,
   },
   upgradeEntryText: {
-    fontSize: 10,
-    lineHeight: 14,
-    letterSpacing: 0.2,
-    color: colors.muted,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontSize: 10, lineHeight: 14, letterSpacing: 0.2, color: colors.muted,
+    fontFamily: 'JetBrainsMono_500', fontWeight: '400',
   },
   editLink: {
-    fontSize: 13,
-    letterSpacing: -0.1,
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontSize: 13, letterSpacing: -0.1, color: colors.accent,
+    fontFamily: 'JetBrainsMono_700', fontWeight: '400',
   },
+
+  contentScroll: { flex: 1 },
+  contentScrollBody: { paddingBottom: 70 },
 
   streakBlock: {
     paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20,
@@ -317,78 +282,31 @@ const styles = StyleSheet.create({
   },
   streakLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   streakNum: {
-    fontSize: 56,
-    fontFamily: 'JetBrainsMono_800',
-    fontWeight: '400',
-    letterSpacing: -0.16,
-    lineHeight: 60,
-    paddingTop: 2,
-    color: colors.text,
+    fontSize: 56, fontFamily: 'JetBrainsMono_800', fontWeight: '400',
+    letterSpacing: -0.16, lineHeight: 60, paddingTop: 2, color: colors.text,
   },
   streakUnit: { fontSize: 14, color: colors.muted, fontFamily: fonts.grotesk },
 
   daysRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
   dayCell: { flex: 1, alignItems: 'center', gap: 4 },
   daySquare: {
-    width: '100%', aspectRatio: 1,
-    borderRadius: 6, borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: '100%', aspectRatio: 1, borderRadius: 6, borderWidth: 1.5,
   },
-  daySquareActive: {
-    backgroundColor: colors.accentL,
-    borderColor: colors.accent,
-  },
-  daySquareIdle: {
-    backgroundColor: colors.bg,
-    borderColor: colors.border,
-  },
-  daySquareToday: {
-    borderColor: colors.accent,
-    borderWidth: 2,
-  },
-  dayMarker: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  dayMarkerActive: {
-    backgroundColor: colors.accent,
-  },
-  dayMarkerIdle: {
-    backgroundColor: colors.dim,
-  },
-  dayLabel: {
-    fontSize: 9,
-    color: colors.muted,
-    fontWeight: '500',
-    fontFamily: fonts.grotesk,
-  },
-  dayLabelToday: {
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
-  },
+  daySquareActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  daySquareIdle: { backgroundColor: colors.bg, borderColor: colors.border },
+  daySquareToday: { backgroundColor: 'transparent', borderWidth: 2, borderColor: colors.accent },
+  dayLabel: { fontSize: 9, color: colors.muted, fontWeight: '500', fontFamily: fonts.grotesk },
+  dayLabelToday: { color: colors.accent, fontFamily: 'JetBrainsMono_700', fontWeight: '400' },
 
   gridBlock: { backgroundColor: colors.surf, borderBottomWidth: 1, borderBottomColor: colors.border },
-  gridRow:   { flexDirection: 'row' },
-  statCell:  { flex: 1, paddingHorizontal: 18, paddingVertical: 16 },
+  gridRow: { flexDirection: 'row' },
+  statCell: { flex: 1, paddingHorizontal: 18, paddingVertical: 16 },
   statVal: {
-    fontFamily: 'JetBrainsMono_800',
-    fontSize: 32,
-    fontWeight: '400',
-    letterSpacing: -0.1,
-    lineHeight: 36,
-    paddingTop: 2,
-    color: colors.text,
+    fontFamily: 'JetBrainsMono_800', fontSize: 32, fontWeight: '400',
+    letterSpacing: -0.1, lineHeight: 36, paddingTop: 2, color: colors.text,
   },
   statSub: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.muted,
-    marginTop: 4,
-    fontFamily: 'JetBrainsMono_400',
-    fontWeight: '400',
+    fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 4,
+    fontFamily: 'JetBrainsMono_400', fontWeight: '400',
   },
-
 });
