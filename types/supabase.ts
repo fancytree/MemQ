@@ -47,7 +47,7 @@ export interface Database {
           name: string;
           description: string | null;
           deadline: string | null;
-          is_vocab_mode: boolean | null;
+          learning_mode: 'language' | 'knowledge';
           created_at: string;
         };
         Insert: {
@@ -56,7 +56,7 @@ export interface Database {
           name: string;
           description?: string | null;
           deadline?: string | null;
-          is_vocab_mode?: boolean | null;
+          learning_mode?: 'language' | 'knowledge';
           created_at?: string;
         };
         Update: {
@@ -65,7 +65,7 @@ export interface Database {
           name?: string;
           description?: string | null;
           deadline?: string | null;
-          is_vocab_mode?: boolean | null;
+          learning_mode?: 'language' | 'knowledge';
           created_at?: string;
         };
       };
@@ -76,6 +76,7 @@ export interface Database {
           term: string;
           definition: string;
           explanation: string | null;
+          language_data: Json | null;
           created_at: string;
         };
         Insert: {
@@ -84,6 +85,7 @@ export interface Database {
           term: string;
           definition: string;
           explanation?: string | null;
+          language_data?: Json | null;
           created_at?: string;
         };
         Update: {
@@ -92,6 +94,7 @@ export interface Database {
           term?: string;
           definition?: string;
           explanation?: string | null;
+          language_data?: Json | null;
           created_at?: string;
         };
       };
