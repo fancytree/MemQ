@@ -99,6 +99,10 @@ const SHADOW_FALLOFF = 9;
  * clear the silhouette. It is still scaled back: the arm meets a modelled shoulder and
  * a large rotation walks the join off the body. */
 const ARM_GAIN = 0.45;
+/** The joined torso, rendered at each leg angle. Degrees between frames must match
+ * the STEPS in scripts/render-mascot-leg-poses.py. */
+const LEG_FRAMES: MascotPartName[] = ['body_feet_s0', 'body_feet_s1', 'body_feet_s2', 'body_feet_s3'];
+const LEG_FRAME_DEG = 7;
 
 interface Spring { x: number; v: number; t: number }
 function spring(x: number): Spring { return { x, v: 0, t: x }; }
@@ -130,7 +134,8 @@ interface Motion {
 interface Rendered {
   tx: number; ty: number; roll: number; sx: number; sy: number;
   armL: number; armR: number; ear: number; tail: number;
-  legL: number; legR: number;
+  /** Degrees the legs are swung out; the torso frames are chosen from it. */
+  splay: number;
   gx: number; gy: number;
   esx: number; esy: number;
   morph: number;
@@ -165,7 +170,7 @@ function Hinged({ name, box, out, angle }: {
   /** Names the field to read rather than being a function that reads it: a plain
    * callback cannot be called from the UI runtime, and passing one throws on the
    * first frame with "Tried to synchronously call a Remote Function". */
-  angle: 'armL' | 'armR' | 'ear' | 'tail' | 'legL' | 'legR';
+  angle: 'armL' | 'armR' | 'ear' | 'tail';
 }) {
   const part = MASCOT_PARTS[name];
   const { dx, dy } = pivotOffset(part, box);
@@ -218,7 +223,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, splay: 0, lift: 0 },
   });
   const out = useSharedValue<Rendered>({
-    tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, armL: 0, armR: 0, ear: 0, tail: 0, legL: 0, legR: 0,
+    tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, armL: 0, armR: 0, ear: 0, tail: 0, splay: 0,
     gx: 0, gy: 0, esx: 1, esy: 1, morph: 1, lid: 1, lidRest: 1, lift: 0, pop: 1, drift: 0,
   });
 
@@ -329,8 +334,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       tail: rest ? 0 : (m.roll.x - m.tail.x) * tailLag.value * TAIL_SWING,
       // The legs follow the trajectory, not a spring: they are weightless in the air
       // and the moment they are under the body again they have to be straight.
-      legL: rest ? 0 : -p.splay,
-      legR: rest ? 0 : p.splay,
+      splay: rest ? 0 : p.splay,
       gx: (m.gazeX.x * GAZE_REACH.x + driftX) * box,
       gy: (m.gazeY.x * GAZE_REACH.y + driftY) * box,
       esx: m.eyeScale.x, esy: m.eyeScale.x,
@@ -527,9 +531,12 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   const torso: MascotPartName = reach === 'L' ? MASCOT_ARM_VARIANTS.thinking.bodyLeft
     : reach === 'R' ? MASCOT_ARM_VARIANTS.thinking.bodyRight
       : 'body_feet';
-  // A hop needs the legs apart from the torso so they can swing out at the apex; the
-  // joined layer has them modelled standing, which is right for everything else.
-  const freeLegs = !!state.hop && !reach;
+  // A hop swings the legs out, and the torso is re-rendered joined at each angle
+  // rather than having its legs cut off and rotated as layers. The legs only read as
+  // part of the character because of the contact shading where they meet the body:
+  // separated, the silhouettes still match to an IoU of 0.998 and the whole visible
+  // difference is that join. So the frames are picked, not posed.
+  const posedLegs = !!state.hop && !reach;
 
   return (
     <View accessible={false} pointerEvents="none" style={[{ width: box, height: box }, style]}>
@@ -538,9 +545,11 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
         <Hinged name="tail" box={box} out={out} angle="tail" />
         <Hinged name="ear_L" box={box} out={out} angle="ear" />
         <Hinged name="ear_R" box={box} out={out} angle="ear" />
-        {freeLegs && <Hinged name="foot_L" box={box} out={out} angle="legL" />}
-        {freeLegs && <Hinged name="foot_R" box={box} out={out} angle="legR" />}
-        <Part name={freeLegs ? 'body' : torso} box={box} />
+        {posedLegs
+          ? LEG_FRAMES.map((name, i) => (
+            <LegFrame key={name} name={name} index={i} box={box} out={out} />
+          ))
+          : <Part name={torso} box={box} />}
         {reach !== 'L' && <Hinged name="arm_L" box={box} out={out} angle="armL" />}
         {reach !== 'R' && <Hinged name="arm_R" box={box} out={out} angle="armR" />}
 
@@ -573,6 +582,19 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
 }
 
 /** One eye: its own shape, and its own pupil if that shape is an open one. */
+/** The joined torso at one leg angle. All of them are mounted and the one that
+ * matches the current swing is the only one drawn, so the choice stays on the UI
+ * thread — the same way the blink frames are chosen. */
+function LegFrame({ name, index, box, out }: {
+  name: MascotPartName; index: number; box: number; out: SharedValue<Rendered>;
+}) {
+  const style = useAnimatedStyle(() => ({
+    opacity: Math.min(LEG_FRAMES.length - 1,
+      Math.round(out.value.splay / LEG_FRAME_DEG)) === index ? 1 : 0,
+  }));
+  return <Part name={name} box={box} style={style} />;
+}
+
 function Eye({ art, side, box, pupil }: {
   art: EyeArtName; side: 'L' | 'R'; box: number; pupil: PartStyle;
 }) {

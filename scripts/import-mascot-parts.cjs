@@ -13,13 +13,13 @@
  * that is half transparent pulls in whatever colour the renderer happened to leave
  * in the invisible half, which draws a dark fringe around every part.
  *
- *   node scripts/import-mascot-parts.cjs <pack-dir> [--scale 0.5625] [--eyes <dir>]
+ *   node scripts/import-mascot-parts.cjs <pack-dir> [--scale 0.5625] [--extra <dir>]...
  *
  * <pack-dir> is the unpacked "MemQ Mascot Static Assets" folder: manifest.json, and
- * parts/ beside it. --eyes points at the per-eye lid renders that
- * scripts/render-mascot-eye-splits.py produces from the same .blend through the same
- * camera; they are not in the pack's manifest because the pack ships each expression
- * as one piece spanning both eyes, which cannot express a wink.
+ * parts/ beside it. Each --extra points at a directory of renders made from the same
+ * .blend through the same camera by the scripts beside this one - the per-eye lids
+ * and the posed torsos - which are not in the pack's manifest because the pack ships
+ * one piece per expression and one torso.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -35,8 +35,7 @@ const args = process.argv.slice(2);
 const packDir = args.find((a) => !a.startsWith('--'));
 const scaleArg = args.indexOf('--scale');
 const SCALE = scaleArg >= 0 ? Number(args[scaleArg + 1]) : DEFAULT_SCALE;
-const eyesArg = args.indexOf('--eyes');
-const EYES_DIR = eyesArg >= 0 ? args[eyesArg + 1] : null;
+const EXTRA_DIRS = args.flatMap((a, i) => (a === '--extra' || a === '--eyes') ? [args[i + 1]] : []);
 if (!packDir) {
   console.error('usage: node scripts/import-mascot-parts.cjs <pack-dir> [--scale 0.5625]');
   process.exit(1);
@@ -128,15 +127,14 @@ const scenes = fs.existsSync(sceneDir)
     .map((f) => [`scene_${path.basename(f, '.png')}`, { file: `scenes/${f}` }]))
   : {};
 
-const eyes = EYES_DIR
-  ? Object.fromEntries(fs.readdirSync(EYES_DIR).filter((f) => f.endsWith('.png'))
-    .map((f) => [path.basename(f, '.png'), { file: path.join(EYES_DIR, f), absolute: true }]))
-  : {};
+const extra = Object.fromEntries(EXTRA_DIRS.flatMap((dir) =>
+  fs.readdirSync(dir).filter((f) => f.endsWith('.png'))
+    .map((f) => [path.basename(f, '.png'), { file: path.join(dir, f), absolute: true }])));
 
 const records = [];
 const sceneNames = new Set(Object.keys(scenes));
 let srcBytes = 0, outBytes = 0;
-for (const [name, info] of Object.entries({ ...manifest.parts, ...scenes, ...eyes })) {
+for (const [name, info] of Object.entries({ ...manifest.parts, ...scenes, ...extra })) {
   const file = info.absolute ? info.file : path.join(packDir, info.file);
   srcBytes += fs.statSync(file).size;
   const png = readPNG(file);
