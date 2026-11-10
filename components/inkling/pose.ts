@@ -6,6 +6,8 @@
  * that study is reproduced here; it is under a study-only licence.
  */
 
+import type { EyeName } from './eye';
+
 export type InklingMood =
   // Lifecycle
   | 'sleeping' | 'waking' | 'idle' | 'listening' | 'thinking' | 'searching' | 'working'
@@ -19,36 +21,7 @@ export const MOOD_GROUPS: { label: string; moods: InklingMood[] }[] = [
 ];
 export const ALL_MOODS: InklingMood[] = MOOD_GROUPS.flatMap((g) => g.moods);
 
-/** An eye is a rounded bar; a shape scales and tilts it. Tilt is mirrored between the
- * two eyes, which is what turns a tilt into a brow: inward reads angry, outward sad.
- */
-export interface EyeShape {
-  /** Multipliers on the base 5 x 11 bar. */
-  w: number;
-  h: number;
-  /** Corner radius multiplier; below 1 squares the bar off. */
-  r: number;
-  /** Degrees, mirrored per eye. */
-  tilt: number;
-  /** Vertical offset in viewBox units, positive is lower. */
-  dy: number;
-}
-export const EYES: Record<string, EyeShape> = {
-  neutral: { w: 1, h: 1, r: 1, tilt: 0, dy: 0 },
-  wide: { w: 1.14, h: 1.18, r: 1, tilt: 0, dy: 0 },
-  huge: { w: 1.3, h: 1.34, r: 1, tilt: 0, dy: -0.3 },
-  tall: { w: 0.88, h: 1.26, r: 1, tilt: 0, dy: 0 },
-  focused: { w: 0.86, h: 0.92, r: 1, tilt: 0, dy: 0 },
-  dot: { w: 0.78, h: 0.78, r: 1, tilt: 0, dy: 0 },
-  squint: { w: 1.02, h: 0.52, r: 1, tilt: 0, dy: 0 },
-  arc: { w: 1.08, h: 0.46, r: 1, tilt: 0, dy: -0.7 },
-  slit: { w: 1.12, h: 0.2, r: 1, tilt: 0, dy: 0.8 },
-  sly: { w: 1.02, h: 0.42, r: 1, tilt: 13, dy: 0 },
-  cross: { w: 1, h: 0.66, r: 0.75, tilt: 24, dy: 0.2 },
-  downcast: { w: 1, h: 0.72, r: 1, tilt: -17, dy: 0.7 },
-  glance: { w: 0.94, h: 1.06, r: 1, tilt: 0, dy: -0.5 },
-};
-export type EyeName = keyof typeof EYES;
+/** Eye outlines live in ./eye, which owns their geometry; this file only names them. */
 
 /** A state is a posture plus a rhythm. Translations are in viewBox units, rotations
  * in degrees. Each term is [base, amplitude, rate]; the oscillators are detuned
@@ -61,8 +34,8 @@ export interface StatePose {
   tx: [number, number, number];
   ty: [number, number, number];
   squash: [number, number, number];
-  /** Hops: ty -= abs(sin(rate * t)) * amplitude. */
-  bounce?: [number, number];
+  /** A hop, if this state hops. See HopSpec. */
+  hop?: HopSpec;
   /** Jitter driven at a fixed rate, for fear and anger. */
   shake?: [number, number];
   lid: number;
@@ -72,6 +45,88 @@ export interface StatePose {
   /** Arms: resting droop, swing either side of it, and their own rate multiplier. */
   arm: [number, number, number];
 }
+
+/** A hop, as a trajectory rather than an oscillation.
+ *
+ * What this replaces was `ty -= abs(sin(rate * t)) * amplitude`, which never leaves
+ * the ground, never lands, and spends equal time everywhere: it reads as a wobble. A
+ * jump is five segments, each its own parabola, and much of what sells it is the two
+ * that are not the arc — the crouch that anticipates the launch, and the pause on the
+ * ground afterwards, which is what gives a hop a rhythm rather than a frequency.
+ *
+ * The arc is split at the apex into a rise and a fall with durations of their own, so
+ * the character can hang at the top. Both halves have zero slope where they meet, so
+ * the apex stays smooth however the two are weighted against each other.
+ */
+export interface HopSpec {
+  /** Peak height above the resting line, in viewBox units. */
+  height: number;
+  /** Hops per second, counting the whole cycle including the pause. */
+  rate: number;
+  /** How far the body sinks before it launches. */
+  crouch: number;
+  /** Depth of the squash at the bottom of the crouch and on landing. */
+  squash: number;
+  /** Relative durations of crouch, rise, fall, land and ground. */
+  beats?: readonly [number, number, number, number, number];
+}
+const HOP_BEATS: readonly [number, number, number, number, number] = [0.15, 0.24, 0.28, 0.13, 0.2];
+
+/** Writes this frame's lift into `out` and returns the squash multiplier.
+ *
+ * The split matters. The lift is applied straight to the rendered position, because a
+ * spring chasing it would round off the launch and swallow the apex; the squash is
+ * handed to the squash spring, whose overshoot is what makes the landing wobble.
+ */
+function hopAt(h: HopSpec, clock: number, out: PoseOut): number {
+  'worklet';
+  const b = h.beats ?? HOP_BEATS;
+  const total = b[0] + b[1] + b[2] + b[3] + b[4];
+  let u = ((clock * h.rate) % 1) * total;
+  if (u < 0) u += total;
+
+  if (u < b[0]) {
+    // Crouch: sinking and compressing, accelerating into the launch.
+    const s = u / b[0];
+    out.lift = -h.crouch * s * s;
+    return 1 - h.squash * s * s;
+  }
+  u -= b[0];
+  if (u < b[1]) {
+    // Rise: from the bottom of the crouch to the apex, stretched on the way up.
+    const s = u / b[1];
+    out.lift = -h.crouch + (h.height + h.crouch) * (1 - (1 - s) * (1 - s));
+    return 1 + h.squash * 1.3 * (1 - s) * (1 - s);
+  }
+  u -= b[1];
+  if (u < b[2]) {
+    // Fall: the apex's other half, accelerating back down.
+    const s = u / b[2];
+    out.lift = h.height * (1 - s * s);
+    return 1 + h.squash * 0.35 * s * s;
+  }
+  u -= b[2];
+  if (u < b[3]) {
+    // Land: back on the ground, taking the impact and recovering out of it.
+    const s = u / b[3];
+    const k = 1 - s;
+    out.lift = 0;
+    return 1 - h.squash * 1.5 * k * k;
+  }
+  // Ground: still. Without this the hop has a frequency but no rhythm.
+  out.lift = 0;
+  return 1;
+}
+
+/** Per-state hops, in viewBox units against a 176-unit-tall frame. */
+const HOPS: Record<string, HopSpec> = {
+  excited: { height: 5.6, rate: 1.25, crouch: 1.5, squash: 0.075 },
+  happy: { height: 3.6, rate: 1.05, crouch: 1.1, squash: 0.06 },
+  // Laughing is a chatter, not a jump: low, quick, barely off the ground.
+  laughing: { height: 2, rate: 2.1, crouch: 0.7, squash: 0.045, beats: [0.16, 0.26, 0.3, 0.14, 0.14] },
+  playful: { height: 4.2, rate: 0.95, crouch: 1.35, squash: 0.07 },
+  celebrate: { height: 6.4, rate: 0.85, crouch: 1.9, squash: 0.085 },
+};
 
 /** The resting eye bar is 11 units tall, so a lid of 0.2 is almost shut. */
 export const POSES: Record<InklingMood, StatePose> = {
@@ -83,22 +138,22 @@ export const POSES: Record<InklingMood, StatePose> = {
   searching: { roll: [0, 13, 1.3],   tx: [0, 3.5, 1.3],   ty: [0, 1.5, 1.7],  squash: [1, 0.008, 1.7],  lid: 1,    eyeScale: 1.04, arm: [-2, 16, 1.7] },
   working:   { roll: [4, 2.5, 10],   tx: [1.5, 0.4, 0.9], ty: [1, 1.2, 10],   squash: [0.995, 0.01, 10], lid: 0.95, eyeScale: 1,   arm: [2, 9, 2.2] },
 
-  excited:   { roll: [0, 7, 6.9],    tx: [0, 2, 1.1],     ty: [1, 0, 0],      squash: [1.01, 0.03, 2.2], bounce: [5, 2.2], lid: 1, eyeScale: 1.06, arm: [4, 22, 2.3] },
+  excited:   { roll: [0, 7, 6.9],    tx: [0, 2, 1.1],     ty: [1, 0, 0],      squash: [1.01, 0.03, 2.2], hop: HOPS.excited, lid: 1, eyeScale: 1.06, arm: [4, 22, 2.3] },
   surprised: { roll: [0, 1.5, 11],   tx: [0, 0.4, 0.9],   ty: [-2, 0.4, 0.9], squash: [1.03, 0.01, 1.4], lid: 1,    eyeScale: 1.16, arm: [-6, 5, 1.5] },
   suspicious:{ roll: [-6, 3, 0.3],   tx: [-2, 2, 0.25],   ty: [0.5, 0.6, 0.45], squash: [1, 0.005, 0.45], lid: 0.85, eyeScale: 1,  arm: [6, 4, 0.5] },
   angry:     { roll: [0, 0, 0],      tx: [0, 0, 0],       ty: [1.8, 0, 0],    squash: [0.975, 0.004, 3], shake: [4, 18], lid: 0.8, eyeScale: 0.98, arm: [9, 7, 1.8] },
   drowsy:    { roll: [0, 2.5, 0.32], tx: [0, 1.5, 0.2],   ty: [3, 1.1, 0.36], squash: [1, 0.022, 0.36], lid: 0.34, lidWave: [0.07, 0.8], eyeScale: 1, arm: [13, 3, 0.35] },
-  happy:     { roll: [0, 3, 1.2],    tx: [0, 1.5, 1.1],   ty: [0, 0, 0],      squash: [1, 0.02, 2.4],  bounce: [3, 2.4], lid: 1, eyeScale: 1.05, arm: [11, 20, 2] },
+  happy:     { roll: [0, 3, 1.2],    tx: [0, 1.5, 1.1],   ty: [0, 0, 0],      squash: [1, 0.02, 2.4],  hop: HOPS.happy, lid: 1, eyeScale: 1.05, arm: [11, 20, 2] },
   curious:   { roll: [10, 6, 0.7],   tx: [0, 2.5, 0.6],   ty: [-1, 0.8, 0.9], squash: [1.01, 0.006, 0.9], lid: 1,  eyeScale: 1.1,  arm: [-4, 10, 1.6] },
   confused:  { roll: [0, 12, 0.8],   tx: [0, 1.5, 0.8],   ty: [0, 1, 0.5],    squash: [1, 0.005, 0.5],  lid: 0.9,  eyeScale: 1,    arm: [4, 9, 0.8] },
   bored:     { roll: [-3, 4, 0.25],  tx: [0, 2, 0.2],     ty: [2.5, 0.8, 0.35], squash: [0.99, 0.006, 0.35], lid: 0.6, eyeScale: 0.98, arm: [12, 3, 0.4] },
   proud:     { roll: [0, 2.5, 0.4],  tx: [0, 1, 0.35],    ty: [-2, 0.5, 0.6], squash: [1.03, 0.005, 0.6], lid: 0.9, eyeScale: 1.02, arm: [-7, 5, 0.7] },
   shy:       { roll: [-8, 3, 0.5],   tx: [-1.5, 1, 0.4],  ty: [1.5, 0.3, 0.6], squash: [0.98, 0.005, 0.6], lid: 0.85, eyeScale: 0.95, arm: [10, 3, 0.6] },
   sad:       { roll: [3, 2, 0.3],    tx: [0, 0.8, 0.25],  ty: [3.5, 0.5, 0.4], squash: [0.97, 0.006, 0.4], lid: 0.7, eyeScale: 0.97, arm: [14, 2, 0.4] },
-  laughing:  { roll: [0, 4, 20],     tx: [0, 1, 2],       ty: [0, 0, 0],      squash: [1, 0.03, 20],   bounce: [2.5, 3.2], lid: 0.7, eyeScale: 1, arm: [8, 16, 2.6] },
+  laughing:  { roll: [0, 4, 20],     tx: [0, 1, 2],       ty: [0, 0, 0],      squash: [1, 0.03, 20],   hop: HOPS.laughing, lid: 0.7, eyeScale: 1, arm: [8, 16, 2.6] },
   scared:    { roll: [0, 2, 24],     tx: [-1, 1, 30],     ty: [1, 0.6, 1.5],  squash: [0.97, 0.004, 1.5], shake: [1.6, 26], lid: 1.05, eyeScale: 1.12, arm: [-8, 6, 2.4] },
-  playful:   { roll: [0, 8, 1.4],    tx: [0, 2, 1.1],     ty: [0, 0, 0],      squash: [1, 0.015, 2.2], bounce: [1.5, 2.2], lid: 1, eyeScale: 1.06, arm: [2, 18, 1.9] },
-  celebrate: { roll: [0, 1, 1.6],    tx: [0, 0.5, 1.2],   ty: [0, 0, 0],      squash: [1, 0.012, 1.6], bounce: [1.25, 1.6], lid: 1.1, eyeScale: 1.1, arm: [-2, 20, 2.1] },
+  playful:   { roll: [0, 8, 1.4],    tx: [0, 2, 1.1],     ty: [0, 0, 0],      squash: [1, 0.015, 2.2], hop: HOPS.playful, lid: 1, eyeScale: 1.06, arm: [2, 18, 1.9] },
+  celebrate: { roll: [0, 1, 1.6],    tx: [0, 0.5, 1.2],   ty: [0, 0, 0],      squash: [1, 0.012, 1.6], hop: HOPS.celebrate, lid: 1.1, eyeScale: 1.1, arm: [-2, 20, 2.1] },
 };
 
 /** Where the eyes rest, how far they wander from there, and how long a look is held. */
@@ -195,6 +250,8 @@ export const BEAT: Record<InklingMood, BeatSpec | null> = {
 export interface PoseOut {
   roll: number; tx: number; ty: number; sx: number; sy: number;
   lid: number; eyeScale: number; arm: number; armSwing: number; armRate: number;
+  /** Upward displacement from the hop, applied kinematically, not as a spring target. */
+  lift: number;
 }
 
 /** Offsetting by the value at t=0 keeps the first frame in the authored rest pose. */
@@ -211,12 +268,13 @@ export function poseFor(mood: InklingMood, clock: number, sinceEnter: number, ou
   if (p.rollSlow) roll += wave(clock, p.rollSlow[1], 0) * p.rollSlow[0];
   let tx = p.tx[0] + wave(clock, p.tx[2], 0) * p.tx[1];
   let ty = p.ty[0] + wave(clock, p.ty[2], 0) * p.ty[1];
-  if (p.bounce) ty -= Math.abs(Math.sin(clock * p.bounce[1])) * p.bounce[0];
   if (p.shake) {
     roll += Math.sin(clock * p.shake[1]) * p.shake[0];
     tx += Math.cos(clock * p.shake[1] * 1.3) * p.shake[0] * 0.3;
   }
-  const squash = p.squash[0] + wave(clock, p.squash[2], 0) * p.squash[1];
+  let squash = p.squash[0] + wave(clock, p.squash[2], 0) * p.squash[1];
+  out.lift = 0;
+  if (p.hop) squash *= hopAt(p.hop, clock, out);
   let lid = p.lid;
   if (p.lidWave) lid += Math.sin(clock * p.lidWave[1]) * p.lidWave[0];
 

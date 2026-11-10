@@ -221,9 +221,33 @@ Twenty-three states in two groups, browsable in the Motion lab. A state sets a p
 
 Today uses five of them: `thinking` while the first lesson fetch is out, `curious` when the account has no courses, `happy` when the daily goal is met, `drowsy` when nothing is due, `idle` otherwise.
 
-### Eyes
+### The hop, as a trajectory
 
-Each eye is a rounded bar, 6.5 by 14.3 units at rest. A shape scales it, squares its corners, tilts it and offsets it; the tilt is **mirrored** between the two eyes, which is what turns a tilt into a brow — inward reads angry, outward reads sad. Thirteen shapes cover the vocabulary: neutral, wide, huge, tall, focused, dot, squint, arc, slit, sly, cross, downcast, glance. The bar is deliberately large for its face: at the authored size the difference between squint, cross and sly was too small to read.
+Five states hop: excited, happy, laughing, playful, celebrate. What they used to do was `ty -= abs(sin(rate * t)) * amplitude`, which never leaves the ground, never lands, and spends equal time everywhere — it reads as a wobble, not a jump.
+
+A hop is now five segments, each its own parabola: **crouch, rise, fall, land, ground**. Much of what sells it is the two that are not the arc — the crouch that anticipates the launch, and the pause on the ground afterwards, which is what gives a hop a rhythm rather than a frequency. At the default weights a hop is about half airborne and a third grounded. The arc is split at the apex into a rise and a fall with durations of their own, so the character can hang at the top; both halves have zero slope where they meet, so the apex stays smooth however the two are weighted.
+
+The split between what springs and what does not is deliberate. The **lift is kinematic** — applied straight to the rendered position, because a spring chasing it would round off the launch and swallow the apex. The **squash is a spring target**, because its overshoot is exactly what makes the landing wobble. Trajectory exact, deformation springy.
+
+Four numbers per state: `height`, `rate` in hops per second, `crouch` depth and `squash` depth, plus optional segment weights (laughing overrides them — it is a chatter, not a jump).
+
+**Verified**: every state's apex and crouch hit their specified values exactly, the cycle is continuous across the wrap, and `poseFor` leaves lift at zero for the eighteen states that do not hop. On device, the silhouette's height correlates with its position at **r = −0.80** — stretched in the air, squashed on the ground.
+
+### Eyes, as polygons
+
+Each eye is a **closed polygon of 32 vertices**, not a rounded rectangle. The distinction is the whole point: a rounded rectangle has width, height and a corner radius, so every expression it can reach is a squashed bar. A crescent, a chevron and a lowered wedge are not squashed bars, and they are what actually carry an expression. Geometry lives in `components/inkling/eye.ts`; `pose.ts` only names the shapes.
+
+Shapes are authored as parametric outlines in view units — not in a unit square, because normalising to a square would have the 6.5 x 14.3 aspect ratio turn every round cap into an ellipse on the way back out. Six builders cover the thirteen shapes: a capsule (neutral, wide, huge, tall, focused, glance — these six share one outline, so morphing between them is a pure scale change, which is what those shapes are), an ellipse (dot, a true circle rather than a shrunken bar), a lens with pointed corners (squint, slit), a crescent (arc), a chevron (cross) and a sloped wedge (sly, downcast).
+
+**What makes any two of them interpolable** is a single normalisation applied to all: one winding direction, one starting vertex — the rightmost, which every shape here has exactly one of — and equal spacing by arc length. Vertex *k* is then the same fraction of the way around in both shapes, so a lerp moves each vertex a short distance to its counterpart instead of sliding points along the outline or twisting it inside out. Without this, two outlines built in different directions turn the eye inside out halfway through the morph.
+
+The morph is driven by the existing morph spring, with one refinement: when a shape change lands mid-morph, the **origin is the outline on screen that frame**, not the shape it was heading for, so a change never snaps to something the viewer never saw. Buffers are reused — a worklet that allocates two arrays a frame will stutter.
+
+Tilt is still **mirrored** between the two eyes, which is what turns a tilt into a brow: inward reads angry, outward reads sad. The eye is deliberately large for its face — at the authored size the difference between squint, cross and sly was too small to read.
+
+Because the outline changes every frame, an eye is an SVG `Path` driven by `animatedProps`, inside the same `<Svg>` as the body, rather than a `View` driven by a style. That also makes it resolution-independent: the path is in viewBox units, so nothing has to be multiplied by the render scale.
+
+**Verified**: all 13 outlines bake to 32 vertices with consistent winding and a rightmost start vertex; all 156 ordered shape pairs were interpolated at nine midpoints each — 1404 outlines — with no inversion, no self-intersection and a well-formed path every time.
 
 ### The body in three dimensions
 
@@ -282,6 +306,6 @@ Arm swing is an angle, and an arm is only 13 units long, so the angles have to b
 
 ### Provenance
 
-The design was studied from a public replica of the Grok app's icon, whose own licence limits it to study and forbids commercial use and redistribution. What was taken is the shape of the technique: springs chasing per-state targets rather than keyframes, velocity impulses for discrete beats, posture-first states, gaze as its own spring with per-state targets and hold times, an eye-shape playlist per state, detuned oscillators, and an integrated clock. **No geometry, palette, timing table or code from it is reproduced here.** Its character has no limbs, so the arm design is MemQ's own, as are the eye-shape vocabulary and every value in `pose.ts`.
+The design was studied from a public replica of the Grok app's icon, whose own licence limits it to study and forbids commercial use and redistribution. What was taken is the shape of the technique: springs chasing per-state targets rather than keyframes, velocity impulses for discrete beats, posture-first states, gaze as its own spring with per-state targets and hold times, an eye-shape playlist per state, detuned oscillators, and an integrated clock. **No geometry, palette, timing table or code from it is reproduced here.** Its character has no limbs, so the arm design is MemQ's own, as are the eye-shape vocabulary, every outline in `eye.ts`, the hop segmentation and every value in `pose.ts`. The two techniques reimplemented most recently — vertex-wise polygon morphing for the eyes and a segmented trajectory for the hop — were taken as descriptions of a method, with all geometry and timing re-derived here.
 
 The whole animation is skipped when the system reduce-motion setting is on, and the character renders in its rest pose.

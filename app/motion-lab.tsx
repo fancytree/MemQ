@@ -89,7 +89,7 @@ export default function MotionLabScreen() {
           <Row label="Lean" value={`${signed(pose.roll[0], '°')} ± ${pose.roll[1]}°`} />
           <Row label="Height" value={pose.ty[0] === 0 ? 'level' : pose.ty[0] < 0 ? `lifted ${-pose.ty[0]}` : `sunk ${pose.ty[0]}`} />
           <Row label="Squash" value={`${pose.squash[0]} ± ${pose.squash[1]}`} />
-          {pose.bounce && <Row label="Bounce" value={`${pose.bounce[0]} units at ${pose.bounce[1]} Hz`} />}
+          {pose.hop && <Row label="Hop" value={`${pose.hop.height} units ${pose.hop.rate}/s · crouch ${pose.hop.crouch} · squash ${pose.hop.squash}`} />}
           {pose.shake && <Row label="Shake" value={`${pose.shake[0]}° at ${pose.shake[1]} Hz`} />}
           <Row label="Arms" value={`droop ${signed(pose.arm[0], '°')} · swing ± ${pose.arm[1]}° · ${pose.arm[2]}×`} />
           <Row label="Lid" value={pose.lid >= 1 ? 'open' : `${Math.round(pose.lid * 100)}% open`} />

@@ -2,6 +2,7 @@ import { colors } from '@/theme';
 import { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
+  useAnimatedProps,
   useAnimatedStyle,
   useFrameCallback,
   useReducedMotion,
@@ -10,9 +11,16 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { Path } from 'react-native-svg';
 import {
-  ALL_MOODS, BEAT, BLINK_EVERY, EYES, EYE_HOLD, EYE_PLAYLIST, GAZE, MOOD_GROUPS, POSES,
-  poseFor, type EyeShape, type InklingMood, type PoseOut,
+  EYES, EYE_BOX, eyePath, lerpPoly, type EyeShape,
+} from './inkling/eye';
+import {
+  ALL_MOODS, BEAT, BLINK_EVERY, EYE_HOLD, EYE_PLAYLIST, GAZE, MOOD_GROUPS, POSES,
+  poseFor, type InklingMood, type PoseOut,
 } from './inkling/pose';
+
+/** An eye's outline changes every frame, so it is a Path driven by animatedProps
+ * rather than a View driven by a style. */
+const AnimatedPath = Animated.createAnimatedComponent(Path);
 
 export { ALL_MOODS, BEAT, BLINK_EVERY, EYE_HOLD, EYE_PLAYLIST, GAZE, MOOD_GROUPS, POSES };
 export type { InklingMood };
@@ -266,13 +274,15 @@ const EYE_POS = [
   // the head is turned. Taking it off the turned outline would count the turn twice.
   const i = Math.round(((e.y - PROFILE.top) / PROFILE.height) * BODY_ROWS - 0.5);
   const row = Math.min(BODY_ROWS - 1, Math.max(0, i));
-  return { y: e.y, mirror: e.mirror, restDX: e.authoredX - PROFILE.c[row] };
+  return { y: e.y, mirror: e.mirror, authoredX: e.authoredX, restDX: e.authoredX - PROFILE.c[row] };
 });
 
-/** The authored dot is replaced by a rounded vertical bar: a circle barely changes
- * shape as the lid closes, while a capsule reads as a real blink, and a bar can be
- * scaled and tilted into a whole vocabulary of expressions. */
-const EYE = { width: 6.5, height: 14.3, radius: 3.25 } as const;
+/** The authored dot is replaced by a polygon outline. The shapes themselves, and the
+ * normalisation that lets any two of them interpolate, live in ./inkling/eye; what is
+ * needed here is only the half-extents, for keeping the eye inside the silhouette. */
+const EYE_HALF = { w: EYE_BOX.width / 2, h: EYE_BOX.height / 2 } as const;
+/** The outline each eye holds until the first frame callback has run. */
+const EYE_REST_D = EYE_POS.map((e) => eyePath(EYES.neutral.poly, e.authoredX, e.y, 1, 1, 0));
 const BODY_PIVOT = { x: 102, y: 145 } as const;
 
 /** [frequency, damping] per quantity. Under-damped squash is what makes the body read
@@ -315,8 +325,11 @@ interface Spring { x: number; v: number; t: number }
 interface Motion {
   roll: Spring; tx: Spring; ty: Spring; sx: Spring; sy: Spring;
   lid: Spring; eyeScale: Spring; gazeX: Spring; gazeY: Spring;
-  ew: Spring; eh: Spring; er: Spring; et: Spring; edy: Spring;
+  ew: Spring; eh: Spring; et: Spring; edy: Spring;
   arm: Spring[]; morph: Spring;
+  /** The morph: the outline it came from, the one it is heading for, and the one it is
+   * on now. Reused buffers — a worklet that allocates arrays every frame will stutter. */
+  polyFrom: number[]; polyTo: number[]; polyNow: number[];
   clock: number; armClock: number; enteredAt: number;
   winkSeen: number; winkEye: number; winkT: number; morphSeen: number;
   kickTx: number; kickTy: number; kickRoll: number;
@@ -325,9 +338,8 @@ interface Motion {
 interface Rendered {
   tx: number; ty: number; roll: number; sx: number; sy: number;
   arm: number[];
-  /** Resolved per eye, in view units: centre, scale and how visible it still is. */
-  eyeX: number[]; eyeY: number[]; eyeW: number[]; eyeH: number[]; eyeOn: number[];
-  er: number; et: number;
+  /** One finished outline per eye, in viewBox units, and how visible it still is. */
+  eyeD: string[]; eyeOn: number[];
 }
 
 function smoothstep(t: number) {
@@ -417,31 +429,12 @@ function Arm({ limb, index, scale, size, out }: {
   );
 }
 
-function Eye({ eye, index, scale, out }: {
-  eye: typeof EYE_POS[number];
-  index: number;
-  scale: number;
-  out: SharedValue<Rendered>;
-}) {
-  const style = useAnimatedStyle(() => {
-    const r = out.value;
-    return {
-      opacity: r.eyeOn[index],
-      borderRadius: EYE.radius * r.er * scale,
-      transform: [
-        { translateX: (r.eyeX[index] - EYE.width / 2) * scale },
-        { translateY: (r.eyeY[index] - EYE.height / 2) * scale },
-        { rotate: `${r.et * eye.mirror}deg` },
-        { scaleX: r.eyeW[index] },
-        { scaleY: r.eyeH[index] },
-      ],
-    };
-  });
-  return (
-    <Animated.View
-      style={[styles.eye, { width: EYE.width * scale, height: EYE.height * scale }, style]}
-    />
-  );
+function Eye({ index, out }: { index: number; out: SharedValue<Rendered> }) {
+  const props = useAnimatedProps(() => ({
+    d: out.value.eyeD[index],
+    fillOpacity: out.value.eyeOn[index],
+  }));
+  return <AnimatedPath animatedProps={props} fill={colors.bg} />;
 }
 
 export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, style }: {
@@ -471,18 +464,20 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
   const motion = useSharedValue<Motion>({
     roll: spring(0), tx: spring(0), ty: spring(0), sx: spring(1), sy: spring(1),
     lid: spring(1), eyeScale: spring(1), gazeX: spring(0), gazeY: spring(0),
-    ew: spring(1), eh: spring(1), er: spring(1), et: spring(0), edy: spring(0),
+    ew: spring(1), eh: spring(1), et: spring(0), edy: spring(0),
     arm: LIMBS.map(() => spring(0)), morph: spring(1),
+    polyFrom: [...EYES.neutral.poly],
+    polyTo: [...EYES.neutral.poly],
+    polyNow: [...EYES.neutral.poly],
     clock: 0, armClock: 0, enteredAt: 0,
     winkSeen: 0, winkEye: -1, winkT: 0, morphSeen: 0,
     kickTx: 0, kickTy: 0, kickRoll: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, armRate: 1 },
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, armRate: 1, lift: 0 },
   });
   /** Reassigned every frame; this is what the styles read. */
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, arm: LIMBS.map(() => 0),
-    eyeX: EYE_POS.map((e) => e.restDX), eyeY: EYE_POS.map((e) => e.y),
-    eyeW: [1, 1], eyeH: [1, 1], eyeOn: [1, 1], er: 1, et: 0,
+    eyeD: EYE_REST_D, eyeOn: EYE_POS.map(() => 1),
   });
 
   useEffect(() => {
@@ -513,10 +508,14 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
     m.eyeScale.t = rest ? 1 : p.eyeScale;
     m.gazeX.t = rest ? 0 : gazeAim.value.x;
     m.gazeY.t = rest ? 0 : gazeAim.value.y;
-    // A shape change swells the eye on its way over, so a change of expression has a
-    // moment of its own instead of sliding between two states.
+    // A shape change hands the morph a new destination. The origin is the outline on
+    // screen this frame, not the shape it was heading for, so a change that arrives
+    // mid-morph still starts from what the viewer can actually see.
+    const shape = eyeShape.value;
     if (morphSignal.value !== m.morphSeen) {
       m.morphSeen = morphSignal.value;
+      for (let i = 0; i < m.polyFrom.length; i++) m.polyFrom[i] = m.polyNow[i];
+      for (let i = 0; i < m.polyTo.length; i++) m.polyTo[i] = shape.poly[i];
       m.morph.x = 0;
       m.morph.v = 0;
     }
@@ -532,10 +531,8 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
       if (m.winkT * 1000 > WINK_MS) m.winkEye = -1;
     }
 
-    const shape = eyeShape.value;
     m.ew.t = rest ? 1 : shape.w;
     m.eh.t = rest ? 1 : shape.h;
-    m.er.t = rest ? 1 : shape.r;
     m.et.t = rest ? 0 : shape.tilt;
     m.edy.t = rest ? 0 : shape.dy;
     for (let i = 0; i < ARMS.length; i++) {
@@ -562,20 +559,20 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
       step(m.gazeY, SPRING.gaze[0], SPRING.gaze[1], h);
       step(m.ew, SPRING.eye[0], SPRING.eye[1], h);
       step(m.eh, SPRING.eye[0], SPRING.eye[1], h);
-      step(m.er, SPRING.eye[0], SPRING.eye[1], h);
       step(m.et, SPRING.eye[0], SPRING.eye[1], h);
       step(m.edy, SPRING.eye[0], SPRING.eye[1], h);
       for (let k = 0; k < m.arm.length; k++) step(m.arm[k], SPRING.arm[0], SPRING.arm[1], h);
       step(m.morph, SPRING.eye[0], SPRING.eye[1], h);
     }
 
-    const pulse = 1 + MORPH_PULSE * Math.sin(Math.min(1, Math.max(0, m.morph.x)) * Math.PI);
+    // The morph spring runs the outline itself; the pulse swells it on the way over so
+    // a change of expression has a moment of its own instead of a slide.
+    const mt = Math.min(1, Math.max(0, m.morph.x));
+    lerpPoly(m.polyFrom, m.polyTo, mt, m.polyNow);
+    const pulse = 1 + MORPH_PULSE * Math.sin(mt * Math.PI);
     const baseW = m.ew.x * m.eyeScale.x * pulse;
     const baseH = m.eh.x * m.eyeScale.x * pulse;
-    const eyeX: number[] = [];
-    const eyeY: number[] = [];
-    const eyeW: number[] = [];
-    const eyeH: number[] = [];
+    const eyeD: string[] = [];
     const eyeOn: number[] = [];
     for (let i = 0; i < EYE_POS.length; i++) {
       const ph = i * EYE_DRIFT.phase;
@@ -591,24 +588,22 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
       }
       const h = baseH * m.lid.x * lidMul;
       const cy = EYE_POS[i].y + m.gazeY.x + m.edy.x + driftY;
-      const placed = placeEye(i, cy, (EYE.width / 2) * baseW, (EYE.height / 2) * h);
-      eyeX.push(placed.x + (m.gazeX.x + driftX) * Math.max(placed.squeeze, 0.2));
-      eyeY.push(cy);
-      eyeW.push(baseW * placed.squeeze);
-      eyeH.push(h);
+      const placed = placeEye(i, cy, EYE_HALF.w * baseW, EYE_HALF.h * h);
+      const cx = placed.x + (m.gazeX.x + driftX) * Math.max(placed.squeeze, 0.2);
+      eyeD.push(eyePath(m.polyNow, cx, cy, baseW * placed.squeeze, h, m.et.x * EYE_POS[i].mirror));
       eyeOn.push(placed.on);
     }
 
     out.value = {
       tx: m.tx.x * scale,
-      ty: m.ty.x * scale,
+      // The hop's lift lands here rather than on the ty spring: a spring chasing it
+      // would round off the launch and swallow the apex.
+      ty: (m.ty.x - (rest ? 0 : m.pose.lift)) * scale,
       roll: m.roll.x,
       sx: m.sx.x,
       sy: m.sy.x,
       arm: [m.arm[0].x, m.arm[1].x],
-      eyeX, eyeY, eyeW, eyeH, eyeOn,
-      er: m.er.x,
-      et: m.et.x,
+      eyeD, eyeOn,
     };
   }, true);
 
@@ -750,16 +745,13 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
           ]}>
           <Svg width={size.width} height={size.height} viewBox={VIEW_BOX}>
             <Path d={BODY_TURNED} fill={colors.text} />
+            {EYE_POS.map((_, index) => (
+              <Eye key={index} index={index} out={out} />
+            ))}
           </Svg>
-          {EYE_POS.map((eye, index) => (
-            <Eye key={index} eye={eye} index={index} scale={scale} out={out} />
-          ))}
         </Animated.View>
       </Animated.View>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  eye: { position: 'absolute', left: 0, top: 0, backgroundColor: colors.bg },
-});
