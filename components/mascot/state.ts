@@ -50,8 +50,9 @@ export interface HopSpec {
    * tilt is what makes it read as thrown. It is fed to the roll spring rather than
    * applied directly, so the body keeps leaning for a moment after it lands. */
   tilt?: number;
-  /** Degrees the legs swing apart at the apex. They hang under a standing body and
-   * splay once there is nothing to stand on. */
+  /** Degrees the legs swing apart at the apex. The torso is re-rendered with the legs
+   * bone-deformed at each angle, so the hip stays with the body and the swing can be
+   * seen without the leg coming away from it. */
   splay?: number;
   beats?: readonly [number, number, number, number, number];
 }
@@ -115,7 +116,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   /** Pleased. The hop is small and lands softly — this is contentment, not a party. */
   happy: {
     roll: [0, 2.4, 1.05], tx: [0, 0.005, 1], ty: [0, 0, 0],
-    squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.010, squash: 0.06, tilt: 7, splay: 13 },
+    squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.010, squash: 0.06, tilt: 7, splay: 12 },
     lid: 1, eyeScale: 1.04, arm: [11, 17, 1.8],
     eyes: ['arc', 'squeezed'], eyeHold: [2200, 4200], mouth: 'mouth_open',
     blink: [2600, 5200], wink: [4200, 9000], earLag: 0.72, tailLag: 1.1,
@@ -126,7 +127,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
    * which is what separates excitement from cheerfulness: it punctuates. */
   excited: {
     roll: [0, 4.5, 5.2], tx: [0, 0.008, 1.1], ty: [0, 0, 0],
-    squash: [1.008, 0.026, 2.3], hop: { height: 0.046, rate: 1.28, crouch: 0.013, squash: 0.075, tilt: 16, splay: 22 },
+    squash: [1.008, 0.026, 2.3], hop: { height: 0.046, rate: 1.28, crouch: 0.013, squash: 0.075, tilt: 16, splay: 18 },
     lid: 1, eyeScale: 1.06, arm: [5, 21, 2.3],
     eyes: 'squeezed', mouth: 'mouth_open',
     prop: 'gold_accents', propMotion: 'pop',

@@ -100,9 +100,9 @@ const SHADOW_FALLOFF = 9;
  * a large rotation walks the join off the body. */
 const ARM_GAIN = 0.45;
 /** The joined torso, rendered at each leg angle. Degrees between frames must match
- * the STEPS in scripts/render-mascot-leg-poses.py. */
+ * the STEPS in scripts/rig-mascot-legs.py. */
 const LEG_FRAMES: MascotPartName[] = ['body_feet_s0', 'body_feet_s1', 'body_feet_s2', 'body_feet_s3'];
-const LEG_FRAME_DEG = 7;
+const LEG_FRAME_DEG = 6;
 
 interface Spring { x: number; v: number; t: number }
 function spring(x: number): Spring { return { x, v: 0, t: x }; }
@@ -532,10 +532,12 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     : reach === 'R' ? MASCOT_ARM_VARIANTS.thinking.bodyRight
       : 'body_feet';
   // A hop swings the legs out, and the torso is re-rendered joined at each angle
-  // rather than having its legs cut off and rotated as layers. The legs only read as
-  // part of the character because of the contact shading where they meet the body:
-  // separated, the silhouettes still match to an IoU of 0.998 and the whole visible
-  // difference is that join. So the frames are picked, not posed.
+  // rather than having its legs cut off and rotated as layers. Two reasons. The legs
+  // only read as part of the character because of the contact shading where they meet
+  // the body - separated, the silhouettes still match to an IoU of 0.998 and the whole
+  // visible difference is that join. And they are bone-deformed, so the hip stays with
+  // the body and only the lower part swings; rotating a cut-out leg rigidly pivots the
+  // whole stump clear of the outline and it stops reading as a leg.
   const posedLegs = !!state.hop && !reach;
 
   return (

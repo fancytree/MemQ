@@ -44,9 +44,17 @@ every = [o for o in bpy.data.objects if o.type in DRAWN]
 # which showed up as the lid breaking into a wavy line with two dots under it.
 # Applied in memory for the render only; the .blend keeps its own proportions.
 #   name -> (group scale, extra stroke, extra vertical scale)
+#
+# No extra stroke. The lids are modelled at the right weight already: measured against
+# the reference art, stroke over width is 0.155 there and 0.155 in the source, and a
+# uniform scale keeps that. An earlier pass added 25% on top and made them 18% heavier
+# than the reference. The vertical scales below are set from measured proportions -
+# the reference arcs run 2.10 wide-to-tall for the pleased lid and 2.58 for the
+# sleepy one.
 ADJUST = {
-    'arc': (1.44, 1.25, 1.0),
-    'closed': (1.44, 1.25, 1.0),
+    'arc': (1.44, 1.0, 1.26),
+    'sleepy': (1.44, 1.0, 1.20),
+    'closed': (1.44, 1.0, 1.0),
 }
 
 # The sleepy lids modelled in the file curve the wrong way: their ends turn up, so the
@@ -54,9 +62,7 @@ ADJUST = {
 # shape — flattened, it becomes a relaxed one — so the sleepy art is derived from it
 # instead, and the file's own sleepy curves go unused.
 #   group -> (name, scale, stroke, vertical scale)
-DERIVED = [
-    ('Eyes | Celebrate', 'sleepy', (1.44, 1.3, 0.55)),
-]
+DERIVED = []
 
 # Group in the .blend -> the name this project knows that expression by.
 GROUPS = {
@@ -68,9 +74,13 @@ GROUPS = {
     'Eyes | Blink closed': 'closed',
     'Eyes | Thinking': 'glance',
     'Eyes | Happy': 'smile',
-    # The upward crescent: eyes closed in a smile, which is what the reference art
-    # uses for the pleased states rather than an open eye.
+    # Two closed-lid crescents that bow upward, for the pleased states. The reference
+    # art wants a deep one, so both are rendered and the deeper wins.
     'Eyes | Celebrate': 'arc',
+    # Bows downward, ends turning up: a lowered, relaxed lid. This is what the
+    # reference sleepy actually is. An earlier pass read it as curving the wrong way
+    # and derived sleepy from the pleased crescent instead, which inverted it.
+    'Eyes | Sleepy': 'sleepy',
 }
 # The confused group is not a symmetric pair - it is one open eye beside one winking
 # one - so it is handled on its own below rather than split like the others.
