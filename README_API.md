@@ -8,8 +8,8 @@
 # OpenAI API Key
 OPENAI_API_KEY=your_openai_api_key_here
 
-# OpenAI Model (可选，默认为 gpt-4o-mini)
-OPENAI_MODEL=gpt-4o-mini
+# OpenAI Model (可选，默认为 gpt-6-luna)
+OPENAI_MODEL=gpt-6-luna
 
 # Supabase 配置
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url

@@ -11,7 +11,7 @@ supabase link --project-ref your-project-ref
 ### 步骤 2: 设置 Secrets
 ```bash
 supabase secrets set OPENAI_API_KEY=your_openai_api_key_here
-supabase secrets set OPENAI_MODEL=gpt-4o-mini  # 可选
+supabase secrets set OPENAI_MODEL=gpt-6-luna  # 可选
 ```
 
 ## 方法 2: 使用 Supabase Dashboard（更简单）
@@ -21,7 +21,7 @@ supabase secrets set OPENAI_MODEL=gpt-4o-mini  # 可选
 3. 进入 **Settings** → **Edge Functions** → **Secrets**
 4. 添加以下 secrets：
    - `OPENAI_API_KEY`: 你的 OpenAI API Key
-   - `OPENAI_MODEL`: `gpt-4o-mini` (可选，默认为 gpt-4o-mini)
+   - `OPENAI_MODEL`: `gpt-6-luna` (可选，默认为 gpt-6-luna)
 
 ## 重要安全提示
 

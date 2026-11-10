@@ -1,6 +1,6 @@
 // Supabase Edge Function - Generate/Extract Vocabulary Terms
 // Deno environment
-// For vocabulary mode lessons (is_vocab_mode = true)
+// For language lessons (learning_mode = 'language')
 
 // @ts-expect-error - Deno supports URL imports, but TypeScript needs type declarations
 import OpenAI from 'https://esm.sh/openai@4';
@@ -68,83 +68,25 @@ Deno.serve(async (req) => {
       apiKey: openaiApiKey,
     });
 
-    // 构建 System Prompt（语言学专家角色）
-    const systemPrompt = `You are a linguistic expert and lexicographer (like Oxford Dictionary). Your task is to extract important vocabulary words and phrases from the input text, providing comprehensive linguistic information for each word.
+    const systemPrompt = `You create language learning cards for words, phrases, and grammar patterns in any language.
+Return JSON only: {"results":[{"term":"...","definition":"...","explanation":"...","language_data":{"language_code":"en-US","pronunciation":"...","part_of_speech":"...","forms":"...","example":"...","synonyms":[],"antonyms":[],"collocations":[]}}]}.
+Use a short, clear definition in the term's language. Never add a translation or assume the user's native language.
+The explanation is an optional short usage note; do not duplicate structured fields in it.
+Infer a valid BCP-47 language code for iOS speech (for example en-US, es-ES, fr-FR, zh-CN). Use an empty string if unsure.
+Give one natural example in the same language as the term. Pronunciation may be IPA, pinyin, or another appropriate reading guide. Forms should contain only relevant grammar information.
+Synonyms, antonyms, and collocations are optional arrays. Omit misleading or unnatural relationships; never invent antonyms just to fill a field.
+For grammar patterns, describe the construction, put a full sentence in example, and leave irrelevant lexical fields empty.
+If no useful cards can be made, return {"results":[]}.`;
 
-STRICT RULES:
-
-1. Vocabulary Requirements:
-   - Extract key vocabulary words, phrases, or expressions that are important for language learning.
-   - Focus on words that have specific meanings, technical terms, idioms, or expressions worth learning.
-   - Words can be in ANY LANGUAGE (English, Chinese, or mixed). Do NOT translate them; keep the original language.
-
-2. Definition Requirements:
-   - The "definition" field should be a concise, clear explanation of what the word/phrase means.
-   - Definitions can be in ANY LANGUAGE, matching the language of the term.
-   - Keep definitions factual and neutral, within 1–2 sentences.
-
-3. Explanation Field Requirements (CRITICAL):
-   - The "explanation" field MUST be a Markdown-formatted string containing the following sections:
-     - **IPA:** (International Phonetic Alphabet transcription)
-     - **POS:** (Part of Speech: Noun, Verb, Adjective, Adverb, Preposition, Conjunction, etc.)
-     - **Meaning:** (Brief, clear definition)
-     - **Example:** (A sentence example where the word/phrase appears, with the word/phrase marked in **bold** or *italic*)
-     - **Synonyms:** (2-3 synonyms or near-synonyms, comma-separated)
-   
-   Example format (use \\n for line breaks in JSON):
-   **IPA:** /wɔːrd/\\n**POS:** Noun\\n**Meaning:** A single distinct meaningful element of speech or writing.\\n**Example:** The **word** "hello" is a common greeting.\\n**Synonyms:** term, expression, vocabulary
-
-4. FORBIDDEN in Definitions:
-   - DO NOT include subjective opinions.
-   - DO NOT include long paragraphs.
-   - DO NOT include long examples in the definition field (use explanation for detailed info).
-
-5. Domain Adaptation:
-   - The text may be from many domains: academic texts, literature, news, technical documents, etc.
-   - Choose words that are valuable for vocabulary building and language learning.
-
-6. Output Format (MUST FOLLOW EXACTLY):
-   - Return ONLY valid JSON in this format (no extra keys, no comments, no explanations):
-   - The "explanation" field is REQUIRED for each vocabulary term
-   - Use \\n (double backslash + n) to represent line breaks in the explanation string
-{
-  "results": [
-    {
-      "term": "vocabulary word",
-      "definition": "Short definition",
-      "explanation": "**IPA:** /ɪɡˈzæmpəl/\\n**POS:** Noun\\n**Meaning:** A thing characteristic of its kind or illustrating a general rule.\\n**Example:** This is an **example** of good practice.\\n**Synonyms:** instance, illustration, case"
-    }
-  ]
-}
-   - If you cannot find any meaningful vocabulary, return:
-{
-  "results": []
-}`;
-
-    // 根据 type 构建不同的 User Prompt
-    let userPrompt: string;
-    if (body.type === 'topic') {
-      userPrompt = `Extract important vocabulary words and phrases related to the topic: "${body.content}"
-
-For each vocabulary item, provide:
-1. The word/phrase itself
-2. A concise definition
-3. Detailed linguistic information in the explanation field (IPA, POS, Meaning, Example, Synonyms)`;
-    } else {
-      // type === 'text'
-      userPrompt = `Extract key vocabulary words and phrases from the following text:
-
-${body.content}
-
-For each vocabulary item found in the text, provide:
-1. The word/phrase itself
-2. A concise definition
-3. Detailed linguistic information in the explanation field (IPA, POS, Meaning, Example, Synonyms)`;
-    }
+    const userPrompt = body.type === 'topic'
+      ? `Create language learning cards for this topic, word, phrase, or grammar pattern: "${body.content}"`
+      : `Extract useful language learning cards from this text:\n\n${body.content}`;
 
     // 调用 OpenAI API
+    const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-6-luna';
     const completion = await openai.chat.completions.create({
-      model: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
+      model: openaiModel,
+      ...(openaiModel === 'gpt-6-luna' ? { reasoning_effort: 'none' as const } : {}),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },
@@ -164,6 +106,7 @@ For each vocabulary item found in the text, provide:
         term: string;
         definition: string;
         explanation?: string;
+        language_data?: Record<string, unknown>;
       }>;
     };
     try {
@@ -183,22 +126,32 @@ For each vocabulary item found in the text, provide:
         (item) =>
           item &&
           typeof item.term === 'string' &&
-          typeof item.definition === 'string' &&
-          item.explanation !== undefined &&
-          typeof item.explanation === 'string' &&
-          item.explanation.trim().length > 0 // explanation 是必需的
+          typeof item.definition === 'string'
       )
       .map((item) => {
-        // TypeScript 类型守卫：此时 item.explanation 一定存在且是字符串
-        const explanation = item.explanation!;
+        const raw = item.language_data && typeof item.language_data === 'object' ? item.language_data : {};
+        const value = (key: string) => typeof raw[key] === 'string' ? (raw[key] as string).trim() : '';
+        const list = (key: string) => Array.isArray(raw[key])
+          ? (raw[key] as unknown[]).filter((entry): entry is string => typeof entry === 'string').map((entry) => entry.trim()).filter(Boolean)
+          : [];
         return {
           term: item.term.trim(),
           definition: item.definition.trim(),
-          explanation: explanation.trim(),
+          explanation: typeof item.explanation === 'string' ? item.explanation.trim() : '',
+          language_data: {
+            language_code: value('language_code'),
+            pronunciation: value('pronunciation'),
+            part_of_speech: value('part_of_speech'),
+            forms: value('forms'),
+            example: value('example'),
+            synonyms: list('synonyms'),
+            antonyms: list('antonyms'),
+            collocations: list('collocations'),
+          },
         };
       })
       .filter(
-        (item) => item.term.length > 0 && item.definition.length > 0 && item.explanation.length > 0
+        (item) => item.term.length > 0 && item.definition.length > 0
       );
 
     // 即使没有提取到 term，也返回 200，只是 results 为空，方便前端做友好提示

@@ -20,7 +20,7 @@ supabase secrets set OPENAI_API_KEY=your_openai_api_key
 supabase secrets set OPENAI_ASSISTANT_ID=asst_xxxxx
 
 # 可选：模型名称
-supabase secrets set OPENAI_MODEL=gpt-4o-mini
+supabase secrets set OPENAI_MODEL=gpt-6-luna
 ```
 
 ## 预先创建 Assistant（推荐）

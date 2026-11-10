@@ -25,7 +25,7 @@ supabase functions deploy generate-terms
 需要在 Supabase Dashboard 的 Edge Functions 设置中配置：
 
 - `OPENAI_API_KEY`: OpenAI API 密钥（必需）
-- `OPENAI_MODEL`: OpenAI 模型名称（可选，默认为 `gpt-4o-mini`）
+- `OPENAI_MODEL`: OpenAI 模型名称（可选，默认为 `gpt-6-luna`）
 
 ## API 使用
 

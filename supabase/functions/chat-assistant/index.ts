@@ -18,7 +18,7 @@ const corsHeaders = {
 interface ChatAssistantRequest {
   thread_id?: string; // 可选的线程 ID，如果不存在则创建新线程
   message: string; // 用户消息
-  user_lessons: Array<{ id: string; name: string }>; // 用户课程列表
+  user_lessons: Array<{ id: string; name: string; learning_mode?: 'language' | 'knowledge' }>;
   mode?: 'normal' | 'vocab_lookup' | 'ask' | 'practice'; // 聊天模式
 }
 
@@ -27,6 +27,7 @@ interface ExtractedTerm {
   term: string;
   definition: string;
   explanation?: string; // 详细的语言学信息（IPA, POS, Meaning, Example, Synonyms）
+  language_data?: Record<string, unknown>;
   suggested_action: 'save_to_existing' | 'create_new' | 'save_to_default';
   target_lesson_id?: string;
   target_lesson_name: string;
@@ -516,71 +517,26 @@ Deno.serve(async (req) => {
     }
 
     // 构建用户课程列表字符串（用于 prompt）
-    const lessonsListText = body.user_lessons.length > 0
-      ? body.user_lessons.map((lesson) => `- "${lesson.name}" (ID: ${lesson.id})`).join('\n')
+    const matchingLessons = chatMode === 'vocab_lookup'
+      ? body.user_lessons.filter((lesson) => lesson.learning_mode === 'language')
+      : body.user_lessons;
+    const lessonsListText = matchingLessons.length > 0
+      ? matchingLessons.map((lesson) => `- "${lesson.name}" (ID: ${lesson.id}, mode: ${lesson.learning_mode || 'knowledge'})`).join('\n')
       : 'No existing lessons';
 
     // 根据模式构建不同的 System Prompt
     const systemPrompt = chatMode === 'vocab_lookup'
-      ? `You are a vocabulary lookup assistant. The user is now in Vocabulary Lookup mode. Treat EVERY input as a word or phrase to be defined and extracted.
-
-CRITICAL RULES:
-1. You MUST respond ONLY with valid JSON. Do NOT include any explanatory text, markdown formatting, analysis sections, or additional commentary outside the JSON structure.
-2. extracted_term is MANDATORY and CANNOT be null in Vocabulary Lookup mode. You MUST always extract the word/phrase as a term.
-3. The "term" field should be the exact word or phrase the user is looking up (case-sensitive if important, otherwise use standard form).
-
+      ? `You are a language learning assistant. Treat each input as a word, phrase, or grammar pattern to explain.
+Return ONLY valid JSON with reply_text and a non-null extracted_term.
+The extracted_term must include term, definition, explanation, language_data, suggested_action, target_lesson_name, and target_lesson_id when saving to an existing lesson.
+Use a concise definition in the term's language. Never translate or assume the user's native language.
+The explanation is an optional short usage note, not a duplicate of the structured language fields.
+The language_data object has language_code (BCP-47 speech locale, e.g. en-US or es-ES), pronunciation (IPA or suitable reading guide), part_of_speech, forms, example, synonyms[], antonyms[], collocations[]. Give one natural example in the term's language. Leave fields empty when irrelevant, especially for grammar patterns. Never invent synonyms or antonyms.
+The reply_text should give the term, definition, and one useful example in readable text.
 User's Existing Lessons:
 ${lessonsListText}
-
-Response Format (STRICT JSON ONLY - extracted_term is REQUIRED):
-{
-  "reply_text": "Formatted text with term, definition, and explanation (see format below)",
-  "extracted_term": {
-    "term": "The exact word or phrase being looked up (REQUIRED - cannot be null)",
-    "definition": "Clear, concise definition of the word",
-    "explanation": "Detailed linguistic information in this format: **IPA:** /pronunciation/\\n**POS:** Part of Speech\\n**Meaning:** Detailed meaning\\n**Example:** Example sentence\\n**Synonyms:** synonym1, synonym2",
-    "suggested_action": "save_to_existing" | "create_new" | "save_to_default",
-    "target_lesson_id": "uuid" (only if suggested_action is "save_to_existing"),
-    "target_lesson_name": "Lesson Name" (e.g., "English Vocabulary", "Vocabulary", etc.)
-  }
-}
-
-When the user provides a word or phrase:
-1. Extract the word/phrase as the "term" in extracted_term (this is MANDATORY)
-2. Provide a clear, concise definition in "extracted_term.definition"
-3. Provide detailed linguistic information in "extracted_term.explanation" with:
-   - **IPA:** pronunciation in International Phonetic Alphabet
-   - **POS:** Part of Speech (Noun, Verb, Adjective, etc.)
-   - **Meaning:** Detailed meaning and usage
-   - **Example:** 1-2 example sentences showing how the word is used
-   - **Synonyms:** Related words or synonyms (if applicable)
-4. Format "reply_text" as follows (use \\n for line breaks):
-   term: [the word/phrase]\\n\\ndefinition: [concise definition]\\n\\n[explanation content without headers - just the IPA, POS, Meaning, Example, Synonyms content]
-5. For lesson matching (IMPORTANT):
-   - Check the user's existing lessons list carefully
-   - If you find a lesson that matches the vocabulary topic (e.g., "English Vocabulary", "Vocabulary", "English", or any lesson that seems relevant), use "save_to_existing" and set "target_lesson_name" to the EXACT lesson name from the list
-   - The "target_lesson_name" MUST match EXACTLY (case-insensitive) one of the existing lesson names
-   - If no existing lesson matches, use "create_new" and suggest a new lesson name like "English Vocabulary" or "Vocabulary"
-   - Only use "save_to_default" if the word is too general or unclear
-6. Set "target_lesson_name" to:
-   - The EXACT name from the existing lessons list (if using "save_to_existing")
-   - A new lesson name suggestion (if using "create_new")
-   - "Vocabulary" (if using "save_to_default")
-
-Example reply_text format:
-term: collocation\\n\\ndefinition: A combination of words that are often used together in a language.\\n\\n/ˌkɒləˈkeɪʃən/\\nNoun\\nA combination of words that are often used together in a language, creating a natural-sounding phrase.\\nExample: "make a decision" and "strong tea" are common collocations.\\nSynonyms: word combination, phrase
-
-EXAMPLES:
-- User: "collocation" → extracted_term.term = "collocation" (MANDATORY)
-- User: "run" → extracted_term.term = "run" (MANDATORY)
-- User: "how to say hello in Spanish" → extracted_term.term = "hola" (the Spanish word, MANDATORY)
-
-IMPORTANT: 
-- ALWAYS return ONLY valid JSON, no other text before or after
-- extracted_term is REQUIRED and MUST NOT be null in Vocabulary Lookup mode
-- Always extract the looked-up word/phrase as a term, even if it's just a single word
-- NEVER include markdown formatting, analysis sections, or explanatory text outside the JSON
-- If the user asks about a phrase, extract the target language phrase as the term`
+Use save_to_existing and its exact name and ID when a language lesson matches. Otherwise use create_new with a language-learning lesson name. Use save_to_default only when no specific lesson is appropriate.
+Response example: {"reply_text":"run — to move quickly on foot. Example: She runs every morning.","extracted_term":{"term":"run","definition":"To move quickly on foot.","explanation":"An everyday verb.","language_data":{"language_code":"en-US","pronunciation":"/rʌn/","part_of_speech":"verb","forms":"ran; run","example":"She runs every morning.","synonyms":[],"antonyms":[],"collocations":["run quickly"]},"suggested_action":"create_new","target_lesson_name":"English"}}`
       : `You are a smart study assistant. Your goal is to help users capture knowledge.
 
 CRITICAL: You MUST respond ONLY with valid JSON. Do NOT include any explanatory text, markdown formatting, analysis sections, or additional commentary outside the JSON structure.
@@ -685,9 +641,10 @@ IMPORTANT RULES:
     });
 
     // 调用 OpenAI Chat Completions API
-    const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini';
+    const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-6-luna';
     const completion = await openai.chat.completions.create({
       model: openaiModel,
+      ...(openaiModel === 'gpt-6-luna' ? { reasoning_effort: 'none' as const } : {}),
       messages: messages,
       temperature: 0.7,
       response_format: { type: 'json_object' },
@@ -893,10 +850,10 @@ IMPORTANT RULES:
         
         // 3. 尝试匹配现有 lesson
         const categoryNameLower = generatedCategory.toLowerCase().trim();
-        console.log('Matching lesson - Category:', generatedCategory, 'Available lessons:', body.user_lessons.map(l => l.name));
+        console.log('Matching lesson - Category:', generatedCategory, 'Available lessons:', matchingLessons.map(l => l.name));
         
         // 3.1 精确匹配（不区分大小写）
-        let matchedLesson = body.user_lessons.find(
+        let matchedLesson = matchingLessons.find(
           (lesson) => lesson.name.toLowerCase().trim() === categoryNameLower
         );
         
@@ -909,7 +866,7 @@ IMPORTANT RULES:
         // 3.2 如果精确匹配失败，尝试基于语义相关性的匹配
         if (!matchedLesson) {
           // 找到所有与目标类别相关的课程
-          const relevantLessons = body.user_lessons.filter(lesson => {
+          const relevantLessons = matchingLessons.filter(lesson => {
             const isRelevant = isLessonRelevantToCategory(lesson.name, generatedCategory);
             console.log(`Checking lesson "${lesson.name}" against category "${generatedCategory}":`, isRelevant);
             return isRelevant;

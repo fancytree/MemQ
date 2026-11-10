@@ -62,7 +62,7 @@ IMPORTANT RULES:
 - Always return valid JSON
 ```
 
-- **Model**: 选择 `gpt-4o-mini`（或你偏好的模型）
+- **Model**: 选择 `gpt-6-luna`（或你偏好的模型）
 - **Tools**: 可以留空，或根据需要添加
 
 ### 2.3 保存并获取 Assistant ID
@@ -107,8 +107,8 @@ supabase secrets set OPENAI_API_KEY=sk-your-api-key-here
 # 设置 Assistant ID（推荐，使用步骤 2.3 中复制的 ID）
 supabase secrets set OPENAI_ASSISTANT_ID=asst_xxxxx
 
-# 设置模型名称（可选，默认为 gpt-4o-mini）
-supabase secrets set OPENAI_MODEL=gpt-4o-mini
+# 设置模型名称（可选，默认为 gpt-6-luna）
+supabase secrets set OPENAI_MODEL=gpt-6-luna
 ```
 
 **注意**：

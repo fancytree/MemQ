@@ -36,7 +36,7 @@ supabase link --project-ref your-project-ref
 4. 设置环境变量：
 ```bash
 supabase secrets set OPENAI_API_KEY=your_openai_api_key
-supabase secrets set OPENAI_MODEL=gpt-4o-mini  # 可选，默认为 gpt-4o-mini
+supabase secrets set OPENAI_MODEL=gpt-6-luna  # 可选，默认为 gpt-6-luna
 ```
 
 5. 部署函数：
@@ -49,7 +49,7 @@ supabase functions deploy generate-questions
 需要在 Supabase Dashboard 的 Edge Functions 设置中配置：
 
 - `OPENAI_API_KEY`: OpenAI API 密钥（必需）
-- `OPENAI_MODEL`: OpenAI 模型名称（可选，默认为 `gpt-4o-mini`）
+- `OPENAI_MODEL`: OpenAI 模型名称（可选，默认为 `gpt-6-luna`）
 - `SUPABASE_URL`: 自动提供
 - `SUPABASE_SERVICE_ROLE_KEY`: 自动提供
 

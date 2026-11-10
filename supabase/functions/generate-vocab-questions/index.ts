@@ -1,6 +1,6 @@
 // Supabase Edge Function - Generate Vocabulary Questions
 // Deno environment
-// For vocabulary mode lessons (is_vocab_mode = true)
+// For language lessons (learning_mode = 'language')
 
 // @ts-expect-error - Deno supports URL imports, but TypeScript needs type declarations
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -21,6 +21,7 @@ interface GenerateRequest {
     term: string;
     definition: string;
     explanation?: string; // May contain IPA, POS, Meaning, Example, Synonyms
+    language_data?: Record<string, unknown> | null;
   }>;
 }
 
@@ -80,144 +81,22 @@ Deno.serve(async (req) => {
       },
     });
 
-    // 构建 System Prompt（语言教师角色）
-    const systemPrompt = `You are a language teacher specializing in vocabulary acquisition. Your task is to create effective vocabulary test questions that assess spelling, collocation, synonym/antonym knowledge, and correct usage - not just simple definition matching.
+    const systemPrompt = `You are a language teacher creating practice for words, phrases, and grammar patterns in any language.
+Use the term's language in questions and examples. Never assume the user's native language or add translations.
+Use the supplied definition, example, forms, collocations, synonyms, and antonyms. Test usage in context, spelling, forms, and suitable relationships. Never ask a synonym/antonym question when the source data has no reliable relationship.
+For grammar patterns, test applying the construction in a natural sentence. Avoid questions that only repeat the definition.
+Return only JSON: {"questions":[{"term_id":"uuid","question_text":"...","question_type":"mcq","options":["A","B","C","D"],"correct_answer":"A","explanation":"..."}]}.
+Use mcq with exactly four options, true_false with ["True","False"], or fill_blank with null options and a short exact answer. Generate 1-3 questions per term. Every term_id must be one of the supplied IDs.`;
 
-CRITICAL RULE: Focus on Vocabulary Skills, Not Definition Recall
-
-Instead of asking "What does this word mean?", create questions that test:
-1. Collocation (word combinations and context)
-2. Synonym/Antonym knowledge
-3. Correct usage in context
-4. Spelling and word forms
-
-Question Type Requirements:
-
-1. Fill Blank (fill_blank):
-   - This type can test TWO different skills:
-   
-   a) Collocation (语境搭配) - Test how words combine with other words in natural contexts
-      Example: "The meeting was _____ (delayed) due to rain." 
-     Correct Answer: "postponed"
-      - The blank should appear in a natural sentence context that tests word collocation
-   
-   b) Spelling (单词拼写) - Test the spelling of the target word itself, with grammatical variations allowed
-      Example: "She showed great _____ (resilience) in facing challenges."
-      Correct Answer: "resilience" (exact spelling of the target word)
-      
-      Example with grammatical variation: "He _____ (resilient) overcame all obstacles."
-      Correct Answer: "resiliently" (adverb form, grammatically correct variation)
-      
-      Example with tense variation: "Yesterday, she _____ (study) for the exam."
-      Correct Answer: "studied" (past tense form of the target word "study")
-      
-      - For spelling questions, the correct_answer should be the target word itself or a grammatically correct variation (e.g., different tenses, forms, parts of speech)
-      - The word in parentheses should hint at the target word (can be in base form)
-      - Accept variations like: verb tenses (study/studied/studying), word forms (resilient/resilience/resiliently), plural forms, etc.
-      - The answer must be spelled correctly and grammatically appropriate for the context
-   
-   - correct_answer must be concise (1-2 words, usually the target word or its grammatical variation)
-   - options field must be null (frontend will render an input box for typing)
-   - Mix both collocation and spelling questions for comprehensive vocabulary assessment
-
-2. MCQ (mcq):
-   - Focus: Synonym/Antonym discrimination (近义词/反义词辨析)
-   - Example (Synonym): "Which word is a SYNONYM for 'Happy'?"
-     Options: ["Joyful", "Sad", "Angry", "Tired"]
-     Correct Answer: "Joyful"
-   - Example (Antonym): "Which word is an ANTONYM for 'Happy'?"
-     Options: ["Joyful", "Sad", "Content", "Pleased"]
-     Correct Answer: "Sad"
-   - Can also test subtle differences between similar words
-   - Must have exactly 4 options
-
-3. True/False (true_false):
-   - Focus: Correct usage in context (用法是否正确)
-   - Example: "The word 'delicious' is used correctly in this sentence: 'The weather is delicious today.'"
-     Options: ["True", "False"]
-     Correct Answer: "False"
-   - Test whether the word is used appropriately in the given sentence
-   - Must have exactly 2 options: ["True", "False"]
-
-Rules for Question Generation:
-
-1. Dynamic Quantity:
-   - Complex/polysemous words -> generate 2-4 questions (mix different question types)
-   - Simple words -> generate 1-2 questions
-   - Analyze each term's complexity, usage patterns, and relationships with other words
-
-2. Utilize Explanation Field:
-   - If the term has an "explanation" field with IPA, POS, Example, and Synonyms, use this information to create better questions
-   - Use the provided examples to create context-based questions
-   - Use synonyms to create synonym/antonym discrimination questions
-   - Use POS (Part of Speech) to create collocation questions
-
-3. Avoid Simple Definition Matching:
-   - DO NOT ask: "What is the definition of X?" or "What does X mean?"
-   - DO NOT create questions that simply match term to definition
-   - Focus on practical vocabulary skills: usage, collocation, synonyms, context, spelling
-
-4. Spelling Questions (fill_blank type):
-   - Include spelling questions that test the correct spelling of the target word
-   - Allow grammatical variations (tenses, word forms, parts of speech) when contextually appropriate
-   - Example: For verb "study", accept "studied", "studying", "studies" based on sentence context
-   - Example: For noun "resilience", accept "resilient" (adjective) or "resiliently" (adverb) if the sentence requires it
-   - The word in parentheses should provide a hint (can be in base form)
-   - Ensure the answer is spelled correctly and fits grammatically in the sentence
-
-5. Question Format Requirements:
-   - mcq: Must have exactly 4 options
-   - true_false: options must be ["True", "False"]
-   - fill_blank: 
-     * correct_answer must be concise (1-2 words, usually the target word)
-     * options field must be null
-     * question_text should include context showing the blank position
-
-6. Each question must include:
-   - term_id: The UUID of the term
-   - question_text: The question content
-   - question_type: One of "mcq", "true_false", or "fill_blank"
-   - options: Array of strings for mcq/true_false, null for fill_blank
-   - correct_answer: The correct answer
-   - explanation: A brief explanation (optional but recommended)
-
-Return ONLY valid JSON in this format:
-{
-  "questions": [
-    {
-      "term_id": "uuid-here",
-      "question_text": "...",
-      "question_type": "mcq",
-      "options": ["A", "B", "C", "D"],
-      "correct_answer": "A",
-      "explanation": "..."
-    }
-  ]
-}`;
-
-    // 构建用户提示词
-    const userPrompt = `Analyze each vocabulary term below. Generate effective vocabulary test questions that assess collocation, synonym/antonym knowledge, spelling, and correct usage in context.
-
-For each term, generate 1-4 questions focusing on vocabulary skills rather than simple definition recall. Use different question types (mcq, true_false, fill_blank) to test various aspects of vocabulary knowledge.
-
-IMPORTANT: Include spelling questions (fill_blank type) that test the correct spelling of the target word. You may use grammatical variations (different tenses, word forms, parts of speech) when the sentence context requires it. For example, if the target word is "study" (verb), you can create a question requiring "studied" (past tense) or "studying" (present participle) based on the sentence context.
-
-If an explanation field is provided (containing IPA, POS, Meaning, Example, Synonyms), use this information to create contextually rich questions.
-
-Terms to analyze:
-
-${body.terms
-  .map(
-    (term) => `Term ID: ${term.id}
-Term: ${term.term}
-Definition: ${term.definition}
-${term.explanation ? `Explanation: ${term.explanation}` : ''}`
-  )
-  .join('\n\n')}`;
+    const userPrompt = `Create language practice from these cards:\n\n${body.terms.map((term) =>
+      `Term ID: ${term.id}\nTerm: ${term.term}\nDefinition: ${term.definition}\nUsage note: ${term.explanation || ''}\nLanguage details: ${JSON.stringify(term.language_data || {})}`
+    ).join('\n\n')}`;
 
     // 调用 OpenAI API
+    const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-6-luna';
     const completion = await openai.chat.completions.create({
-      model: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
+      model: openaiModel,
+      ...(openaiModel === 'gpt-6-luna' ? { reasoning_effort: 'none' as const } : {}),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

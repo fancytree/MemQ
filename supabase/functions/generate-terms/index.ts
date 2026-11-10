@@ -120,8 +120,10 @@ Identify all important concepts, terminology, and definitions mentioned in the t
     }
 
     // 调用 OpenAI API
+    const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-6-luna';
     const completion = await openai.chat.completions.create({
-      model: Deno.env.get('OPENAI_MODEL') || 'gpt-4o-mini',
+      model: openaiModel,
+      ...(openaiModel === 'gpt-6-luna' ? { reasoning_effort: 'none' as const } : {}),
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt },

@@ -19,7 +19,7 @@ supabase link --project-ref your-project-ref
 ```bash
 supabase secrets set OPENAI_API_KEY=your_openai_api_key
 supabase secrets set MINERU_API_TOKEN=your_mineru_api_token
-supabase secrets set OPENAI_MODEL=gpt-4o-mini  # 可选，默认为 gpt-4o-mini
+supabase secrets set OPENAI_MODEL=gpt-6-luna  # 可选，默认为 gpt-6-luna
 ```
 
 4. 部署函数：
@@ -33,7 +33,7 @@ supabase functions deploy process-file
 
 - `OPENAI_API_KEY`: OpenAI API 密钥（必需）
 - `MINERU_API_TOKEN`: MinerU API Token（必需）- 在 [MinerU API 管理页面](https://mineru.net/apiManage/docs) 申请
-- `OPENAI_MODEL`: OpenAI 模型名称（可选，默认为 `gpt-4o-mini`）
+- `OPENAI_MODEL`: OpenAI 模型名称（可选，默认为 `gpt-6-luna`）
 
 ## 前置条件
 
