@@ -331,8 +331,10 @@ interface Motion {
    * on now. Reused buffers — a worklet that allocates arrays every frame will stutter. */
   polyFrom: number[]; polyTo: number[]; polyNow: number[];
   clock: number; armClock: number; enteredAt: number;
+  /** Last values this worklet acted on. Everything crossing from JS arrives as a
+   * counter it compares against, never as a field JS writes into this object. */
+  moodSeen: InklingMood; kickSeen: number;
   winkSeen: number; winkEye: number; winkT: number; morphSeen: number;
-  kickTx: number; kickTy: number; kickRoll: number;
   pose: PoseOut;
 }
 interface Rendered {
@@ -458,6 +460,10 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
   /** Bumped by JS; the frame callback reads the counters, never the other way round. */
   const winkSignal = useSharedValue({ n: 0, eye: 0 });
   const morphSignal = useSharedValue(0);
+  /** Bumped by JS to fire a beat. A counter rather than an impulse written into
+   * `motion`: that object has been handed to a worklet, and writing into it from JS
+   * is unsupported — reanimated warns, and the write is not guaranteed to land. */
+  const kickSignal = useSharedValue(0);
   const eyeIndex = useRef(0);
 
   /** Mutated in place every frame; no style reads it, so it needs no notification. */
@@ -470,8 +476,8 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
     polyTo: [...EYES.neutral.poly],
     polyNow: [...EYES.neutral.poly],
     clock: 0, armClock: 0, enteredAt: 0,
+    moodSeen: mood, kickSeen: 0,
     winkSeen: 0, winkEye: -1, winkT: 0, morphSeen: 0,
-    kickTx: 0, kickTy: 0, kickRoll: 0,
     pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, armRate: 1, lift: 0 },
   });
   /** Reassigned every frame; this is what the styles read. */
@@ -482,9 +488,8 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
 
   useEffect(() => {
     moodRef.value = mood;
-    motion.value.enteredAt = 0;
     eyeIndex.current = 0;
-  }, [mood, moodRef, motion]);
+  }, [mood, moodRef]);
 
   useFrameCallback((frame) => {
     'worklet';
@@ -492,6 +497,12 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
     const dt = Math.min(frame.timeSincePreviousFrame / 1000, 0.1);
     const m = motion.value;
     const rest = reduceMotion;
+    // The state's entry clock restarts here rather than being zeroed from JS, for the
+    // same reason as the beat: this object belongs to the worklet.
+    if (moodRef.value !== m.moodSeen) {
+      m.moodSeen = moodRef.value;
+      m.enteredAt = 0;
+    }
     m.enteredAt += dt;
     m.clock += rest ? 0 : dt;
 
@@ -541,9 +552,19 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
         : (p.arm + wave(m.armClock, limb.rate, limb.phase) * p.armSwing) * limb.sign);
     }
 
-    // A beat is a velocity impulse, so it kicks and settles instead of tweening.
-    m.tx.v += m.kickTx; m.ty.v += m.kickTy; m.roll.v += m.kickRoll;
-    m.kickTx = 0; m.kickTy = 0; m.kickRoll = 0;
+    // A beat is a velocity impulse, so it kicks and settles instead of tweening. The
+    // count is the number of beats fired since the last frame, so two that land in the
+    // same frame still deliver two beats' worth rather than one.
+    if (kickSignal.value !== m.kickSeen) {
+      const beats = kickSignal.value - m.kickSeen;
+      m.kickSeen = kickSignal.value;
+      const beat = BEAT[moodRef.value];
+      if (beat && !rest) {
+        m.tx.v += beat.tx * beats;
+        m.ty.v += beat.ty * beats;
+        m.roll.v += beat.roll * beats;
+      }
+    }
 
     const steps = Math.max(1, Math.ceil(dt / SUBSTEP));
     const h = dt / steps;
@@ -696,13 +717,8 @@ export function InklingCharacter({ width, mood = 'idle', blinkSignal = 0, beatSi
 
   // Beat: nod, lunge, hop, flinch, sigh. Injected as velocity on a random interval.
   const kick = useCallback(() => {
-    const beat = BEAT[mood];
-    if (!beat) return;
-    const state = motion.value;
-    state.kickTx += beat.tx;
-    state.kickTy += beat.ty;
-    state.kickRoll += beat.roll;
-  }, [motion, mood]);
+    kickSignal.value = kickSignal.value + 1;
+  }, [kickSignal]);
 
   useEffect(() => {
     const beat = BEAT[mood];
