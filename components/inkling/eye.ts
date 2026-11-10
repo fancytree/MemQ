@@ -122,7 +122,9 @@ function crescent(hw: number, hh: number, thick: number): Pt[] {
   return pts;
 }
 
-/** A band between two chevrons: a brow pulled into a peak. */
+/** A band between two chevrons: a brow pulled into a peak. On its own this is a
+ * symmetric mountain, which reads as concern rather than anger; the direction comes
+ * from the tilt, which is mirrored between the eyes. See the note on `cross`. */
 function chevron(hw: number, hh: number, thick: number): Pt[] {
   const pts: Pt[] = [[hw, 0]];
   lineTo(pts, hw, thick);
@@ -233,7 +235,11 @@ export const EYES: Record<string, EyeShape> = {
   // The crescent is authored entirely above the eye centre (its own span is -4.6..0),
   // so unlike the others its offset has to push it back down rather than lift it.
   arc:      { poly: bake(crescent(3.9, 4.6, 1.9)), w: 1, h: 1, tilt: 0, dy: 1.4 },
-  cross:    { poly: bake(chevron(3.5, 3.4, 2)), w: 1, h: 1, tilt: 0, dy: 0.2 },
+  // Anger is a direction, not a shape. An untilted chevron is symmetric, so its two
+  // ends sit at the same height and the pair reads as a worried mountain; tilting it
+  // drops the end nearest the nose by about 1.9 units and lifts the outer one, which
+  // is the brow. Flatter than it was for the same reason an angry eye is a narrow one.
+  cross:    { poly: bake(chevron(3.7, 2.3, 1.7)), w: 1, h: 1, tilt: 22, dy: 0.4 },
   sly:      { poly: bake(wedge(3.35, 2.3, 1.15, 0.8)), w: 1, h: 1, tilt: 6, dy: 0 },
   downcast: { poly: bake(wedge(3.3, 2.9, -1.3, 0.9)), w: 1, h: 1, tilt: -8, dy: 0.7 },
 };

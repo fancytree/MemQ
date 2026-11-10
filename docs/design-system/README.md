@@ -243,11 +243,13 @@ Shapes are authored as parametric outlines in view units — not in a unit squar
 
 The morph is driven by the existing morph spring, with one refinement: when a shape change lands mid-morph, the **origin is the outline on screen that frame**, not the shape it was heading for, so a change never snaps to something the viewer never saw. Buffers are reused — a worklet that allocates two arrays a frame will stutter.
 
-Tilt is still **mirrored** between the two eyes, which is what turns a tilt into a brow: inward reads angry, outward reads sad. The eye is deliberately large for its face — at the authored size the difference between squint, cross and sly was too small to read.
+Tilt is **mirrored** between the two eyes, which is what turns a tilt into a brow: inward reads angry, outward reads sad. The eye is deliberately large for its face — at the authored size the difference between squint, cross and sly was too small to read.
+
+`cross` is where that mechanism earns its keep. It was first authored as an untilted chevron, and an untilted chevron is symmetric: both ends sit at the same height, so the pair read as two worried mountains rather than a scowl. Measuring the height of each end of the band against the other puts a number on it — the end nearest the nose sat **0.05 units** below the outer one, which is nothing. It is now a flatter chevron carrying a 22° tilt, which drops the inner end **1.93 units**; flatter for the same reason an angry eye is a narrow one. Anger is a direction, not a shape, and the shape alone could not express one.
 
 Because the outline changes every frame, an eye is an SVG `Path` driven by `animatedProps`, inside the same `<Svg>` as the body, rather than a `View` driven by a style. That also makes it resolution-independent: the path is in viewBox units, so nothing has to be multiplied by the render scale.
 
-**Verified**: all 13 outlines bake to 32 vertices with consistent winding and a rightmost start vertex; all 156 ordered shape pairs were interpolated at nine midpoints each — 1404 outlines — with no inversion, no self-intersection and a well-formed path every time.
+**Verified**: all 13 outlines bake to 32 vertices with consistent winding and a rightmost start vertex; all 156 ordered shape pairs were interpolated at nine midpoints each — 1404 outlines — with no inversion, no self-intersection and a well-formed path every time. The `cross` tilt was then read back off the device rather than trusted: across a 15-second sample of the angry state, every frame holding `cross` put the near eye's inner end **4.1–4.8 screen pixels** below its outer end — 1.9 units at that render scale, matching the geometry — while the far eye agreed in direction and the `squint` frames it alternates with measured level, within 0.3px of zero.
 
 ### The body in three dimensions
 
