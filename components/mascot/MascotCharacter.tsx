@@ -30,23 +30,33 @@ import {
   MASCOT_STATES, armRate, mascotPose,
   type EyeArtName, type MascotMood, type MascotPose,
 } from './state';
-import { MASCOT_PARTS, type MascotPart, type MascotPartName } from './parts';
+import {
+  MASCOT_ARM_VARIANTS, MASCOT_PARTS, MASCOT_REFERENCE_GAZE, MASCOT_THINKING_GAZE,
+  type MascotPart, type MascotPartName,
+} from './parts';
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
 /** Whatever the animated image accepts: a plain image style, or the handle a
  * `useAnimatedStyle` returns. Spelling it this way avoids casting at each call. */
 type PartStyle = ComponentProps<typeof AnimatedImage>['style'];
 
-/** Which rendered art each eye name is cut from. `pair` is the two neutral whites. */
-const EYE_WHITES: Record<EyeArtName, 'pair' | MascotPartName> = {
-  open: 'pair', wide: 'eyes_wide', focused: 'eyes_focused',
-  squeezed: 'eyes_squeezed', sleepy: 'eyes_sleepy', closed: 'eyes_blink_closed',
+/** Every eye shape exists as its own render per eye, so the two eyes are independent:
+ * a wink is simply one side closed while the other stays open, which a piece of art
+ * spanning both eyes cannot express at all. Pupils are never baked into these - gaze
+ * moves a pupil inside its white every frame. */
+const EYE_ART_PREFIX: Record<EyeArtName, string> = {
+  open: 'eye_open', wide: 'eye_wide', focused: 'eye_focused', squeezed: 'eye_squeezed',
+  sleepy: 'eye_sleepy', closed: 'eye_closed', glance: 'eye_glance', smile: 'eye_smile',
+  half: 'eye_half', wink: 'eye_wink',
 };
-/** Whether pupils are drawn over it. The narrowed and squeezed pieces have whatever
- * they need baked in, so a pupil on top would double it. */
+/** The shapes that are an open eye, and so want a pupil drawn in them. */
 const EYE_PUPILS: Record<EyeArtName, boolean> = {
-  open: true, wide: true, focused: true, squeezed: false, sleepy: false, closed: false,
+  open: true, wide: true, focused: true, glance: true, smile: true, half: true,
+  squeezed: false, sleepy: false, closed: false, wink: false,
 };
+function eyePart(art: EyeArtName, side: 'L' | 'R'): MascotPartName {
+  return `${EYE_ART_PREFIX[art]}_${side}` as MascotPartName;
+}
 
 /** [frequency, damping] per quantity. Under-damped squash is what makes a clay body
  * read as soft; a stiff lid makes a blink snap; a loose ear trails and wobbles. */
@@ -61,6 +71,9 @@ const BLINK_KEYS = [
   { at: 0, lid: 0.05 }, { at: 85, lid: 0.05 }, { at: 170, lid: 1.08 }, { at: 320, lid: null },
 ] as const;
 const DOUBLE_BLINK_CHANCE = 0.14;
+/** How long one eye stays shut in a wink. Longer than a blink, which is the whole
+ * difference: a blink is involuntary and a wink is addressed to someone. */
+const WINK_MS = 420;
 
 /** Idle drift of the pupils, in canvas fractions. */
 const EYE_DRIFT = { ax: 0.0022, rx: 0.47, bx: 0.0008, rx2: 1.13, ay: 0.0014, ry: 0.63 } as const;
@@ -74,18 +87,18 @@ const GROUND = { x: 0.5, y: 0.9 } as const;
  * half-blink frame merely for resting below an absolute number. */
 const LID_CLOSED = 0.42;
 const LID_HALF = 0.78;
-/** How far the trailing ear angle is amplified before it is drawn. */
+/** How far the trailing ear and tail angles are amplified before they are drawn. */
 const EAR_SWING = 2.4;
+const TAIL_SWING = 3.2;
 /** One rise of a drifting prop: how long it takes and how far it travels. */
 const DRIFT_MS = 2600;
 const DRIFT_RISE = 0.05;
 /** How much the shadow shrinks and fades per unit of lift. */
 const SHADOW_FALLOFF = 9;
-/** The resting arm is modelled in place and reads as part of the silhouette, so any
- * rotation lifts it out of its socket and opens a seam. It takes a fraction of the
- * state's angle; the reaching art is drawn in front and meant to be clear of the
- * body, so it takes the angle in full. */
-const ARM_GAIN = { rest: 0.3, reach: 1 } as const;
+/** The arms render in front of the torso now, so a swing is visible without having to
+ * clear the silhouette. It is still scaled back: the arm meets a modelled shoulder and
+ * a large rotation walks the join off the body. */
+const ARM_GAIN = 0.45;
 
 interface Spring { x: number; v: number; t: number }
 function spring(x: number): Spring { return { x, v: 0, t: x }; }
@@ -106,7 +119,7 @@ function randomMs([min, max]: readonly [number, number]) {
 interface Motion {
   roll: Spring; tx: Spring; ty: Spring; sx: Spring; sy: Spring;
   lid: Spring; eyeScale: Spring; gazeX: Spring; gazeY: Spring;
-  morph: Spring; armL: Spring; armR: Spring; ear: Spring; pop: Spring;
+  morph: Spring; armL: Spring; armR: Spring; ear: Spring; tail: Spring; pop: Spring;
   clock: number; armClock: number; driftClock: number;
   /** Everything crossing from JS arrives as a counter this worklet compares against,
    * never as a field JS writes into this object: writing into an object already handed
@@ -116,7 +129,8 @@ interface Motion {
 }
 interface Rendered {
   tx: number; ty: number; roll: number; sx: number; sy: number;
-  armL: number; armR: number; ear: number;
+  armL: number; armR: number; ear: number; tail: number;
+  legL: number; legR: number;
   gx: number; gy: number;
   esx: number; esy: number;
   morph: number;
@@ -151,7 +165,7 @@ function Hinged({ name, box, out, angle }: {
   /** Names the field to read rather than being a function that reads it: a plain
    * callback cannot be called from the UI runtime, and passing one throws on the
    * first frame with "Tried to synchronously call a Remote Function". */
-  angle: 'armL' | 'armR' | 'ear';
+  angle: 'armL' | 'armR' | 'ear' | 'tail' | 'legL' | 'legR';
 }) {
   const part = MASCOT_PARTS[name];
   const { dx, dy } = pivotOffset(part, box);
@@ -183,34 +197,37 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   const gazeAim = useSharedValue({ x: state.gaze.x, y: state.gaze.y });
   const kickSignal = useSharedValue(0);
   const morphSignal = useSharedValue(0);
-  const armGain = useSharedValue<number>(ARM_GAIN.rest);
   const earLag = useSharedValue(state.earLag);
+  const tailLag = useSharedValue(state.tailLag);
 
   const first = Array.isArray(state.eyes) ? state.eyes[0] : state.eyes;
   const [eyePair, setEyePair] = useState<{ from: EyeArtName; to: EyeArtName }>(
     () => ({ from: first, to: first }),
   );
   const eyeIndex = useRef(0);
+  /** Which eye, if either, is closed on its own right now. */
+  const [winkSide, setWinkSide] = useState<'L' | 'R' | null>(null);
 
   const motion = useSharedValue<Motion>({
     roll: spring(0), tx: spring(0), ty: spring(0), sx: spring(1), sy: spring(1),
     lid: spring(1), eyeScale: spring(1), gazeX: spring(0), gazeY: spring(0),
-    morph: spring(1), armL: spring(0), armR: spring(0), ear: spring(0), pop: spring(1),
+    morph: spring(1), armL: spring(0), armR: spring(0),
+    ear: spring(0), tail: spring(0), pop: spring(1),
     clock: 0, armClock: 0, driftClock: 0,
     moodSeen: mood, kickSeen: 0, morphSeen: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, lift: 0 },
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, splay: 0, lift: 0 },
   });
   const out = useSharedValue<Rendered>({
-    tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, armL: 0, armR: 0, ear: 0,
+    tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, armL: 0, armR: 0, ear: 0, tail: 0, legL: 0, legR: 0,
     gx: 0, gy: 0, esx: 1, esy: 1, morph: 1, lid: 1, lidRest: 1, lift: 0, pop: 1, drift: 0,
   });
 
   useEffect(() => {
     moodRef.value = mood;
     eyeIndex.current = 0;
-    armGain.value = MASCOT_STATES[mood].reach ? ARM_GAIN.reach : ARM_GAIN.rest;
     earLag.value = MASCOT_STATES[mood].earLag;
-  }, [armGain, earLag, mood, moodRef]);
+    tailLag.value = MASCOT_STATES[mood].tailLag;
+  }, [earLag, mood, moodRef, tailLag]);
 
   useEffect(() => { morphSignal.value += 1; }, [eyePair.to, morphSignal]);
 
@@ -247,6 +264,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     // The ear chases the body's lean on a looser, wobblier spring; what is drawn is
     // the gap between them, so an ear trails on the way out and overshoots coming back.
     m.ear.t = m.roll.x;
+    m.tail.t = m.roll.x;
     m.pop.t = 1;
     m.morph.t = 1;
     if (morphSignal.value !== m.morphSeen) {
@@ -255,9 +273,8 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     }
 
     const swing = rest ? 0 : wave(m.armClock, 1, 0) * p.armSwing;
-    const gain = armGain.value;
-    m.armL.t = rest ? 0 : -(p.arm + swing) * gain;
-    m.armR.t = rest ? 0 : (p.arm - swing) * gain;
+    m.armL.t = rest ? 0 : -(p.arm + swing) * ARM_GAIN;
+    m.armR.t = rest ? 0 : (p.arm - swing) * ARM_GAIN;
 
     // A beat is a velocity impulse, so it kicks and settles instead of tweening. The
     // count is the number fired since the last frame, so two landing in one frame
@@ -291,6 +308,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       step(m.armL, SPRING.arm[0], SPRING.arm[1], h);
       step(m.armR, SPRING.arm[0], SPRING.arm[1], h);
       step(m.ear, SPRING.ear[0], SPRING.ear[1], h);
+      step(m.tail, SPRING.ear[0], SPRING.ear[1], h);
       step(m.pop, SPRING.pop[0], SPRING.pop[1], h);
     }
 
@@ -308,6 +326,11 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       sx: m.sx.x, sy: m.sy.x,
       armL: m.armL.x, armR: m.armR.x,
       ear: rest ? 0 : (m.roll.x - m.ear.x) * earLag.value * EAR_SWING,
+      tail: rest ? 0 : (m.roll.x - m.tail.x) * tailLag.value * TAIL_SWING,
+      // The legs follow the trajectory, not a spring: they are weightless in the air
+      // and the moment they are under the body again they have to be straight.
+      legL: rest ? 0 : -p.splay,
+      legR: rest ? 0 : p.splay,
       gx: (m.gazeX.x * GAZE_REACH.x + driftX) * box,
       gy: (m.gazeY.x * GAZE_REACH.y + driftY) * box,
       esx: m.eyeScale.x, esy: m.eyeScale.x,
@@ -367,6 +390,24 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     return () => clearTimeout(timer);
   }, [mood, reduceMotion]);
 
+  // A wink: one eye shut on its own interval, and never while the pair is blinking —
+  // two overlapping closures read as a glitch, not as a wink.
+  useEffect(() => {
+    const cadence = MASCOT_STATES[mood].wink;
+    setWinkSide(null);
+    if (reduceMotion || !cadence) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const schedule = () => {
+      timers.push(setTimeout(() => {
+        setWinkSide(Math.random() < 0.5 ? 'L' : 'R');
+        timers.push(setTimeout(() => setWinkSide(null), WINK_MS));
+        schedule();
+      }, randomMs(cadence)));
+    };
+    schedule();
+    return () => { timers.forEach(clearTimeout); setWinkSide(null); };
+  }, [mood, reduceMotion]);
+
   // Gaze: pick a place to look, hold it, pick another. The spring does the move.
   useEffect(() => {
     const aim = MASCOT_STATES[mood].gaze;
@@ -423,8 +464,18 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     const narrow = Math.min(1.15, Math.max(0.45, out.value.lid));
     return { transform: [{ scaleX: out.value.esx }, { scaleY: out.value.esy * narrow }] };
   });
-  const pupil = useAnimatedStyle(() => ({
-    transform: [{ translateX: out.value.gx }, { translateY: out.value.gy }],
+  const baseGaze = mood === 'thinking' ? MASCOT_THINKING_GAZE : MASCOT_REFERENCE_GAZE;
+  const baseL = { x: baseGaze.pupil_L[0] * box, y: baseGaze.pupil_L[1] * box };
+  const baseR = { x: baseGaze.pupil_R[0] * box, y: baseGaze.pupil_R[1] * box };
+  const pupilL = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: baseL.x + out.value.gx }, { translateY: baseL.y + out.value.gy },
+    ],
+  }));
+  const pupilR = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: baseR.x + out.value.gx }, { translateY: baseR.y + out.value.gy },
+    ],
   }));
   const openEyes = useAnimatedStyle(() => ({
     opacity: out.value.lid >= out.value.lidRest * LID_HALF ? 1 : 0,
@@ -470,35 +521,48 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     );
   }
 
-  const reach = state.reach ?? false;
+  // Reaching swaps the torso layer for the composite that has the palm joined to it,
+  // and the neutral arm on that side is dropped so the two do not overlap.
+  const reach = state.reach;
+  const torso: MascotPartName = reach === 'L' ? MASCOT_ARM_VARIANTS.thinking.bodyLeft
+    : reach === 'R' ? MASCOT_ARM_VARIANTS.thinking.bodyRight
+      : 'body_feet';
+  // A hop needs the legs apart from the torso so they can swing out at the apex; the
+  // joined layer has them modelled standing, which is right for everything else.
+  const freeLegs = !!state.hop && !reach;
 
   return (
     <View accessible={false} pointerEvents="none" style={[{ width: box, height: box }, style]}>
       <Part name="shadow" box={box} style={shadow} />
       <Animated.View style={[StyleSheet.absoluteFill, stage]}>
-        <Part name="foot_L" box={box} />
-        <Part name="foot_R" box={box} />
+        <Hinged name="tail" box={box} out={out} angle="tail" />
         <Hinged name="ear_L" box={box} out={out} angle="ear" />
         <Hinged name="ear_R" box={box} out={out} angle="ear" />
-        {!reach && <Hinged name="arm_L" box={box} out={out} angle="armL" />}
-        {!reach && <Hinged name="arm_R" box={box} out={out} angle="armR" />}
-        <Part name="body" box={box} />
-        {reach && <Hinged name="arm_L_reach" box={box} out={out} angle="armL" />}
-        {reach && <Hinged name="arm_R_reach" box={box} out={out} angle="armR" />}
+        {freeLegs && <Hinged name="foot_L" box={box} out={out} angle="legL" />}
+        {freeLegs && <Hinged name="foot_R" box={box} out={out} angle="legR" />}
+        <Part name={freeLegs ? 'body' : torso} box={box} />
+        {reach !== 'L' && <Hinged name="arm_L" box={box} out={out} angle="armL" />}
+        {reach !== 'R' && <Hinged name="arm_R" box={box} out={out} angle="armR" />}
 
         <Animated.View style={[StyleSheet.absoluteFill, eyeGroup]}>
           <Animated.View style={[StyleSheet.absoluteFill, openEyes]}>
             <Animated.View style={[StyleSheet.absoluteFill, fromArt]}>
-              <Whites art={eyePair.from} box={box} />
-              <Pupils show={EYE_PUPILS[eyePair.from]} box={box} style={pupil} />
+              <Eye art={winkSide === 'L' ? 'wink' : eyePair.from} side="L" box={box} pupil={pupilL} />
+              <Eye art={winkSide === 'R' ? 'wink' : eyePair.from} side="R" box={box} pupil={pupilR} />
             </Animated.View>
             <Animated.View style={[StyleSheet.absoluteFill, toArt]}>
-              <Whites art={eyePair.to} box={box} />
-              <Pupils show={EYE_PUPILS[eyePair.to]} box={box} style={pupil} />
+              <Eye art={winkSide === 'L' ? 'wink' : eyePair.to} side="L" box={box} pupil={pupilL} />
+              <Eye art={winkSide === 'R' ? 'wink' : eyePair.to} side="R" box={box} pupil={pupilR} />
             </Animated.View>
           </Animated.View>
-          <Part name="eyes_blink_half" box={box} style={halfEyes} />
-          <Part name="eyes_blink_closed" box={box} style={shutEyes} />
+          <Animated.View style={[StyleSheet.absoluteFill, halfEyes]}>
+            <Eye art="half" side="L" box={box} pupil={pupilL} />
+            <Eye art="half" side="R" box={box} pupil={pupilR} />
+          </Animated.View>
+          <Animated.View style={[StyleSheet.absoluteFill, shutEyes]}>
+            <Part name="eye_closed_L" box={box} />
+            <Part name="eye_closed_R" box={box} />
+          </Animated.View>
         </Animated.View>
 
         <Part name={state.mouth} box={box} />
@@ -508,25 +572,14 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   );
 }
 
-function Whites({ art, box }: { art: EyeArtName; box: number }) {
-  const whites = EYE_WHITES[art];
-  if (whites === 'pair') {
-    return (
-      <>
-        <Part name="eye_white_L" box={box} />
-        <Part name="eye_white_R" box={box} />
-      </>
-    );
-  }
-  return <Part name={whites} box={box} />;
-}
-
-function Pupils({ show, box, style }: { show: boolean; box: number; style: PartStyle }) {
-  if (!show) return null;
+/** One eye: its own shape, and its own pupil if that shape is an open one. */
+function Eye({ art, side, box, pupil }: {
+  art: EyeArtName; side: 'L' | 'R'; box: number; pupil: PartStyle;
+}) {
   return (
     <>
-      <Part name="pupil_L" box={box} style={style} />
-      <Part name="pupil_R" box={box} style={style} />
+      <Part name={eyePart(art, side)} box={box} />
+      {EYE_PUPILS[art] && <Part name={side === 'L' ? 'pupil_L' : 'pupil_R'} box={box} style={pupil} />}
     </>
   );
 }

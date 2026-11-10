@@ -3,7 +3,7 @@
  * orthographic camera, then cropped to its own alpha bounds. `rect` is that crop as
  * [x, y, w, h] fractions of the canvas, so drawing each part at its rect inside a
  * square box reassembles the original render at any size. */
-export type MascotPartName = "body" | "shadow" | "ear_L" | "arm_L" | "foot_L" | "ear_R" | "arm_R" | "foot_R" | "eye_white_L" | "pupil_L" | "eye_white_R" | "pupil_R" | "eyes_blink_half" | "eyes_blink_closed" | "eyes_squeezed" | "eyes_focused" | "eyes_wide" | "eyes_sleepy" | "mouth_smile" | "mouth_open" | "mouth_round" | "mouth_sleepy" | "gold_accents" | "zzz" | "laptop" | "book" | "card_check" | "confetti" | "arm_L_reach" | "arm_R_reach" | "scene_learning_complete" | "scene_onboarding" | "scene_streak_reward" | "scene_study_review";
+export type MascotPartName = "body" | "shadow" | "tail" | "ear_L" | "arm_L" | "foot_L" | "ear_R" | "arm_R" | "foot_R" | "eye_white_L" | "pupil_L" | "eye_white_R" | "pupil_R" | "eyes_blink_half" | "eyes_blink_closed" | "eyes_squeezed" | "eyes_focused" | "eyes_wide" | "eyes_sleepy" | "mouth_smile" | "mouth_open" | "mouth_round" | "mouth_sleepy" | "gold_accents" | "zzz" | "laptop" | "book" | "card_check" | "confetti" | "arm_L_reach" | "body_thinking_L" | "arm_R_reach" | "body_thinking_R" | "body_feet" | "scene_learning_complete" | "scene_onboarding" | "scene_streak_reward" | "scene_study_review" | "eye_closed_L" | "eye_closed_R" | "eye_focused_L" | "eye_focused_R" | "eye_glance_L" | "eye_glance_R" | "eye_half_L" | "eye_half_R" | "eye_open_L" | "eye_open_R" | "eye_sleepy_L" | "eye_sleepy_R" | "eye_smile_L" | "eye_smile_R" | "eye_squeezed_L" | "eye_squeezed_R" | "eye_wide_L" | "eye_wide_R" | "eye_wink_L" | "eye_wink_R";
 
 export interface MascotPart {
   /** [x, y, w, h], fractions of the square canvas. */
@@ -14,25 +14,26 @@ export interface MascotPart {
 }
 
 export const MASCOT_PARTS: Record<MascotPartName, MascotPart> = {
-  "body": { rect: [0.203125, 0.259766, 0.59375, 0.573242], pivot: [0.5, 0.55191], src: require('../../assets/mascot/body.png') },
+  "body": { rect: [0.201172, 0.259766, 0.597656, 0.573242], pivot: [0.5, 0.55191], src: require('../../assets/mascot/body.png') },
   "shadow": { rect: [0.142578, 0.835938, 0.714844, 0.104492], pivot: [0.5, 0.887904], src: require('../../assets/mascot/shadow.png') },
-  "ear_L": { rect: [0.267578, 0.197266, 0.146484, 0.179688], pivot: [0.342896, 0.330446], src: require('../../assets/mascot/ear_L.png') },
-  "arm_L": { rect: [0.147461, 0.529297, 0.144531, 0.197266], pivot: [0.263388, 0.568193], src: require('../../assets/mascot/arm_L.png') },
-  "foot_L": { rect: [0.297852, 0.75293, 0.168945, 0.138672], pivot: [0.381967, 0.823768], src: require('../../assets/mascot/foot_L.png') },
-  "ear_R": { rect: [0.585938, 0.197266, 0.147461, 0.179688], pivot: [0.657104, 0.330446], src: require('../../assets/mascot/ear_R.png') },
-  "arm_R": { rect: [0.708008, 0.529297, 0.144531, 0.197266], pivot: [0.736612, 0.568193], src: require('../../assets/mascot/arm_R.png') },
-  "foot_R": { rect: [0.533203, 0.75293, 0.168945, 0.138672], pivot: [0.618033, 0.823768], src: require('../../assets/mascot/foot_R.png') },
-  "eye_white_L": { rect: [0.329102, 0.387695, 0.151367, 0.155273], pivot: [0.404372, 0.465359], src: require('../../assets/mascot/eye_white_L.png') },
-  "pupil_L": { rect: [0.376953, 0.429688, 0.054688, 0.071289], pivot: [0.404372, 0.465506], src: require('../../assets/mascot/pupil_L.png') },
-  "eye_white_R": { rect: [0.519531, 0.387695, 0.152344, 0.155273], pivot: [0.595628, 0.465359], src: require('../../assets/mascot/eye_white_R.png') },
-  "pupil_R": { rect: [0.568359, 0.429688, 0.054688, 0.071289], pivot: [0.595628, 0.465506], src: require('../../assets/mascot/pupil_R.png') },
-  "eyes_blink_half": { rect: [0.329102, 0.427734, 0.342773, 0.075195], src: require('../../assets/mascot/eyes_blink_half.png') },
-  "eyes_blink_closed": { rect: [0.348633, 0.457031, 0.302734, 0.02832], src: require('../../assets/mascot/eyes_blink_closed.png') },
-  "eyes_squeezed": { rect: [0.358398, 0.430664, 0.283203, 0.069336], src: require('../../assets/mascot/eyes_squeezed.png') },
-  "eyes_focused": { rect: [0.329102, 0.40918, 0.342773, 0.130859], src: require('../../assets/mascot/eyes_focused.png') },
-  "eyes_wide": { rect: [0.325195, 0.380859, 0.349609, 0.168945], src: require('../../assets/mascot/eyes_wide.png') },
-  "eyes_sleepy": { rect: [0.348633, 0.526367, 0.302734, 0.042969], src: require('../../assets/mascot/eyes_sleepy.png') },
-  "mouth_smile": { rect: [0.463867, 0.517578, 0.073242, 0.03125], src: require('../../assets/mascot/mouth_smile.png') },
+  "tail": { rect: [0.513672, 0.702148, 0.364258, 0.134766], pivot: [0.53224, 0.761585], src: require('../../assets/mascot/tail.png') },
+  "ear_L": { rect: [0.233398, 0.19043, 0.177734, 0.24707], pivot: [0.324044, 0.33464], src: require('../../assets/mascot/ear_L.png') },
+  "arm_L": { rect: [0.132813, 0.551758, 0.132813, 0.179688], pivot: [0.25765, 0.568193], src: require('../../assets/mascot/arm_L.png') },
+  "foot_L": { rect: [0.287109, 0.736328, 0.182617, 0.154297], pivot: [0.384973, 0.829506], src: require('../../assets/mascot/foot_L.png') },
+  "ear_R": { rect: [0.588867, 0.19043, 0.177734, 0.246094], pivot: [0.675956, 0.33464], src: require('../../assets/mascot/ear_R.png') },
+  "arm_R": { rect: [0.734375, 0.551758, 0.131836, 0.179688], pivot: [0.74235, 0.568193], src: require('../../assets/mascot/arm_R.png') },
+  "foot_R": { rect: [0.530273, 0.736328, 0.182617, 0.154297], pivot: [0.615027, 0.829506], src: require('../../assets/mascot/foot_R.png') },
+  "eye_white_L": { rect: [0.317383, 0.394531, 0.161133, 0.164063], pivot: [0.397814, 0.476539], src: require('../../assets/mascot/eye_white_L.png') },
+  "pupil_L": { rect: [0.367188, 0.438477, 0.060547, 0.076172], pivot: [0.397814, 0.476707], src: require('../../assets/mascot/pupil_L.png') },
+  "eye_white_R": { rect: [0.521484, 0.395508, 0.161133, 0.162109], pivot: [0.602186, 0.476539], src: require('../../assets/mascot/eye_white_R.png') },
+  "pupil_R": { rect: [0.572266, 0.438477, 0.060547, 0.076172], pivot: [0.602186, 0.476707], src: require('../../assets/mascot/pupil_R.png') },
+  "eyes_blink_half": { rect: [0.317383, 0.438477, 0.365234, 0.077148], src: require('../../assets/mascot/eyes_blink_half.png') },
+  "eyes_blink_closed": { rect: [0.341797, 0.467773, 0.316406, 0.02832], src: require('../../assets/mascot/eyes_blink_closed.png') },
+  "eyes_squeezed": { rect: [0.351563, 0.441406, 0.296875, 0.069336], src: require('../../assets/mascot/eyes_squeezed.png') },
+  "eyes_focused": { rect: [0.322266, 0.420898, 0.356445, 0.130859], src: require('../../assets/mascot/eyes_focused.png') },
+  "eyes_wide": { rect: [0.313477, 0.388672, 0.37207, 0.175781], src: require('../../assets/mascot/eyes_wide.png') },
+  "eyes_sleepy": { rect: [0.341797, 0.525391, 0.316406, 0.043945], src: require('../../assets/mascot/eyes_sleepy.png') },
+  "mouth_smile": { rect: [0.459961, 0.526367, 0.080078, 0.033203], src: require('../../assets/mascot/mouth_smile.png') },
   "mouth_open": { rect: [0.458984, 0.506836, 0.082031, 0.046875], src: require('../../assets/mascot/mouth_open.png') },
   "mouth_round": { rect: [0.479492, 0.532227, 0.041016, 0.044922], src: require('../../assets/mascot/mouth_round.png') },
   "mouth_sleepy": { rect: [0.466797, 0.557617, 0.066406, 0.029297], src: require('../../assets/mascot/mouth_sleepy.png') },
@@ -42,24 +43,46 @@ export const MASCOT_PARTS: Record<MascotPartName, MascotPart> = {
   "book": { rect: [0.283203, 0.578125, 0.433594, 0.308594], src: require('../../assets/mascot/book.png') },
   "card_check": { rect: [0.355469, 0.517578, 0.410156, 0.275391], src: require('../../assets/mascot/card_check.png') },
   "confetti": { rect: [0.076172, 0.172852, 0.867188, 0.537109], src: require('../../assets/mascot/confetti.png') },
-  "arm_L_reach": { rect: [0.185547, 0.545898, 0.138672, 0.142578], pivot: [0.289618, 0.586359], src: require('../../assets/mascot/arm_L_reach.png') },
-  "arm_R_reach": { rect: [0.675781, 0.545898, 0.138672, 0.142578], pivot: [0.710383, 0.586359], src: require('../../assets/mascot/arm_R_reach.png') },
-  "scene_learning_complete": { rect: [0.204102, 0.123047, 0.703125, 0.769531], src: require('../../assets/mascot/scene_learning_complete.png') },
-  "scene_onboarding": { rect: [0.160156, 0.230469, 0.679688, 0.419922], src: require('../../assets/mascot/scene_onboarding.png') },
-  "scene_streak_reward": { rect: [0.021484, 0.057617, 0.874023, 0.731445], src: require('../../assets/mascot/scene_streak_reward.png') },
-  "scene_study_review": { rect: [0.202148, 0.296875, 0.600586, 0.597656], src: require('../../assets/mascot/scene_study_review.png') },
+  "arm_L_reach": { rect: [0.182617, 0.558594, 0.195313, 0.154297], pivot: [0.260929, 0.57945], src: require('../../assets/mascot/arm_L_reach.png') },
+  "body_thinking_L": { rect: [0.182617, 0.259766, 0.616211, 0.630859], pivot: [0.5, 0.55191], src: require('../../assets/mascot/body_thinking_L.png') },
+  "arm_R_reach": { rect: [0.62207, 0.558594, 0.194336, 0.154297], pivot: [0.739071, 0.57945], src: require('../../assets/mascot/arm_R_reach.png') },
+  "body_thinking_R": { rect: [0.201172, 0.259766, 0.615234, 0.630859], pivot: [0.5, 0.55191], src: require('../../assets/mascot/body_thinking_R.png') },
+  "body_feet": { rect: [0.201172, 0.259766, 0.597656, 0.630859], pivot: [0.5, 0.55191], src: require('../../assets/mascot/body_feet.png') },
+  "scene_learning_complete": { rect: [0.202148, 0.123047, 0.705078, 0.767578], src: require('../../assets/mascot/scene_learning_complete.png') },
+  "scene_onboarding": { rect: [0.160156, 0.222656, 0.679688, 0.427734], src: require('../../assets/mascot/scene_onboarding.png') },
+  "scene_streak_reward": { rect: [0.021484, 0.047852, 0.874023, 0.736328], src: require('../../assets/mascot/scene_streak_reward.png') },
+  "scene_study_review": { rect: [0.201172, 0.290039, 0.679688, 0.602539], src: require('../../assets/mascot/scene_study_review.png') },
+  "eye_closed_L": { rect: [0.341797, 0.467773, 0.112305, 0.029297], src: require('../../assets/mascot/eye_closed_L.png') },
+  "eye_closed_R": { rect: [0.545898, 0.467773, 0.112305, 0.029297], src: require('../../assets/mascot/eye_closed_R.png') },
+  "eye_focused_L": { rect: [0.321289, 0.420898, 0.151367, 0.130859], src: require('../../assets/mascot/eye_focused_L.png') },
+  "eye_focused_R": { rect: [0.527344, 0.420898, 0.151367, 0.130859], src: require('../../assets/mascot/eye_focused_R.png') },
+  "eye_glance_L": { rect: [0.317383, 0.385742, 0.161133, 0.163086], src: require('../../assets/mascot/eye_glance_L.png') },
+  "eye_glance_R": { rect: [0.521484, 0.373047, 0.161133, 0.163086], src: require('../../assets/mascot/eye_glance_R.png') },
+  "eye_half_L": { rect: [0.317383, 0.438477, 0.161133, 0.077148], src: require('../../assets/mascot/eye_half_L.png') },
+  "eye_half_R": { rect: [0.521484, 0.4375, 0.161133, 0.078125], src: require('../../assets/mascot/eye_half_R.png') },
+  "eye_open_L": { rect: [0.317383, 0.394531, 0.161133, 0.164063], src: require('../../assets/mascot/eye_open_L.png') },
+  "eye_open_R": { rect: [0.521484, 0.394531, 0.161133, 0.164063], src: require('../../assets/mascot/eye_open_R.png') },
+  "eye_sleepy_L": { rect: [0.341797, 0.530273, 0.112305, 0.039063], src: require('../../assets/mascot/eye_sleepy_L.png') },
+  "eye_sleepy_R": { rect: [0.545898, 0.525391, 0.112305, 0.040039], src: require('../../assets/mascot/eye_sleepy_R.png') },
+  "eye_smile_L": { rect: [0.317383, 0.394531, 0.161133, 0.164063], src: require('../../assets/mascot/eye_smile_L.png') },
+  "eye_smile_R": { rect: [0.521484, 0.394531, 0.161133, 0.164063], src: require('../../assets/mascot/eye_smile_R.png') },
+  "eye_squeezed_L": { rect: [0.351563, 0.441406, 0.089844, 0.070313], src: require('../../assets/mascot/eye_squeezed_L.png') },
+  "eye_squeezed_R": { rect: [0.558594, 0.441406, 0.089844, 0.070313], src: require('../../assets/mascot/eye_squeezed_R.png') },
+  "eye_wide_L": { rect: [0.313477, 0.388672, 0.168945, 0.175781], src: require('../../assets/mascot/eye_wide_L.png') },
+  "eye_wide_R": { rect: [0.518555, 0.388672, 0.167969, 0.175781], src: require('../../assets/mascot/eye_wide_R.png') },
+  "eye_wink_L": { rect: [0.345703, 0.430664, 0.092773, 0.079102], src: require('../../assets/mascot/eye_wink_L.png') },
+  "eye_wink_R": { rect: [0.561523, 0.430664, 0.092773, 0.079102], src: require('../../assets/mascot/eye_wink_R.png') },
 };
 
-/** Back to front, the resting stack. */
-export const MASCOT_NEUTRAL_ORDER: MascotPartName[] = [
+/** Back to front, the standing stack. */
+export const MASCOT_STANDING_ORDER: MascotPartName[] = [
   "shadow",
-  "foot_L",
-  "foot_R",
+  "tail",
   "ear_L",
   "ear_R",
+  "body_feet",
   "arm_L",
   "arm_R",
-  "body",
   "eye_white_L",
   "eye_white_R",
   "pupil_L",
@@ -75,3 +98,39 @@ export const MASCOT_SCENES = [
   "scene_study_review",
 ] as const;
 export type MascotSceneName = (typeof MASCOT_SCENES)[number];
+
+/** Reaching replaces the whole torso layer rather than swapping an arm on top: the
+ * palm is modelled joined to the body, so a separate arm over a standing torso would
+ * show the join. The matching neutral arm is omitted when its side reaches. */
+export const MASCOT_ARM_VARIANTS = {
+  "thinking": {
+    "left": "arm_L_reach",
+    "right": "arm_R_reach",
+    "bodyLeft": "body_thinking_L",
+    "bodyRight": "body_thinking_R",
+    "note": "Use the torso and feet plus palm composite in place of body and both feet. Omit the matching neutral arm and standalone palm."
+  }
+} as const;
+
+/** Where the pupils sit in the reference art, per eye and mirrored — they converge
+ * slightly rather than both looking straight out. Runtime gaze is added to this. */
+export const MASCOT_REFERENCE_GAZE = {
+  "pupil_L": [
+    0.039071,
+    0.005738
+  ],
+  "pupil_R": [
+    -0.039071,
+    0.005738
+  ]
+} as const;
+export const MASCOT_THINKING_GAZE = {
+  "pupil_L": [
+    0.022404,
+    -0.028415
+  ],
+  "pupil_R": [
+    -0.022404,
+    -0.028415
+  ]
+} as const;

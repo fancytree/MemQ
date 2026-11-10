@@ -13,10 +13,13 @@
  * that is half transparent pulls in whatever colour the renderer happened to leave
  * in the invisible half, which draws a dark fringe around every part.
  *
- *   node scripts/import-mascot-parts.cjs <pack-dir> [--scale 0.5625]
+ *   node scripts/import-mascot-parts.cjs <pack-dir> [--scale 0.5625] [--eyes <dir>]
  *
  * <pack-dir> is the unpacked "MemQ Mascot Static Assets" folder: manifest.json, and
- * parts/ beside it.
+ * parts/ beside it. --eyes points at the per-eye lid renders that
+ * scripts/render-mascot-eye-splits.py produces from the same .blend through the same
+ * camera; they are not in the pack's manifest because the pack ships each expression
+ * as one piece spanning both eyes, which cannot express a wink.
  */
 const fs = require('node:fs');
 const path = require('node:path');
@@ -32,6 +35,8 @@ const args = process.argv.slice(2);
 const packDir = args.find((a) => !a.startsWith('--'));
 const scaleArg = args.indexOf('--scale');
 const SCALE = scaleArg >= 0 ? Number(args[scaleArg + 1]) : DEFAULT_SCALE;
+const eyesArg = args.indexOf('--eyes');
+const EYES_DIR = eyesArg >= 0 ? args[eyesArg + 1] : null;
 if (!packDir) {
   console.error('usage: node scripts/import-mascot-parts.cjs <pack-dir> [--scale 0.5625]');
   process.exit(1);
@@ -123,11 +128,16 @@ const scenes = fs.existsSync(sceneDir)
     .map((f) => [`scene_${path.basename(f, '.png')}`, { file: `scenes/${f}` }]))
   : {};
 
+const eyes = EYES_DIR
+  ? Object.fromEntries(fs.readdirSync(EYES_DIR).filter((f) => f.endsWith('.png'))
+    .map((f) => [path.basename(f, '.png'), { file: path.join(EYES_DIR, f), absolute: true }]))
+  : {};
+
 const records = [];
 const sceneNames = new Set(Object.keys(scenes));
 let srcBytes = 0, outBytes = 0;
-for (const [name, info] of Object.entries({ ...manifest.parts, ...scenes })) {
-  const file = path.join(packDir, info.file);
+for (const [name, info] of Object.entries({ ...manifest.parts, ...scenes, ...eyes })) {
+  const file = info.absolute ? info.file : path.join(packDir, info.file);
   srcBytes += fs.statSync(file).size;
   const png = readPNG(file);
   const box = alphaBounds(png);
@@ -148,9 +158,17 @@ for (const [name, info] of Object.entries({ ...manifest.parts, ...scenes })) {
     + ` ${(buf.length / 1024).toFixed(0).padStart(4)} KB`);
 }
 
-const order = manifest.neutralBackToFront;
+/** The standing stack supersedes the neutral one: the torso and both legs now render
+ * as a single `body_feet` layer, and the arms sit in front of it rather than behind. */
+const order = manifest.standingBackToFront ?? manifest.neutralBackToFront;
 const missing = order.filter((n) => !records.some((r) => r.name === n));
 if (missing.length) throw new Error(`layer order names parts that were not imported: ${missing}`);
+for (const [k, v] of Object.entries(manifest.armVariants ?? {})) {
+  for (const key of ['left', 'right', 'bodyLeft', 'bodyRight']) {
+    const n = v[key];
+    if (n && !records.some((r) => r.name === n)) throw new Error(`armVariants.${k}.${key} names a missing part: ${n}`);
+  }
+}
 
 const num = (v) => Number(v.toFixed(6));
 const body = records.map((r) =>
@@ -177,8 +195,8 @@ export const MASCOT_PARTS: Record<MascotPartName, MascotPart> = {
 ${body}
 };
 
-/** Back to front, the resting stack. */
-export const MASCOT_NEUTRAL_ORDER: MascotPartName[] = [
+/** Back to front, the standing stack. */
+export const MASCOT_STANDING_ORDER: MascotPartName[] = [
 ${order.map((n) => `  ${JSON.stringify(n)},`).join('\n')}
 ];
 
@@ -187,6 +205,16 @@ export const MASCOT_SCENES = [
 ${records.filter((r) => sceneNames.has(r.name)).map((r) => `  ${JSON.stringify(r.name)},`).join('\n')}
 ] as const;
 export type MascotSceneName = (typeof MASCOT_SCENES)[number];
+
+/** Reaching replaces the whole torso layer rather than swapping an arm on top: the
+ * palm is modelled joined to the body, so a separate arm over a standing torso would
+ * show the join. The matching neutral arm is omitted when its side reaches. */
+export const MASCOT_ARM_VARIANTS = ${JSON.stringify(manifest.armVariants ?? {}, null, 2)} as const;
+
+/** Where the pupils sit in the reference art, per eye and mirrored — they converge
+ * slightly rather than both looking straight out. Runtime gaze is added to this. */
+export const MASCOT_REFERENCE_GAZE = ${JSON.stringify(manifest.referenceGaze ?? {}, null, 2)} as const;
+export const MASCOT_THINKING_GAZE = ${JSON.stringify(manifest.thinkingGaze ?? {}, null, 2)} as const;
 `);
 
 console.log(`\n${records.length} parts`);
