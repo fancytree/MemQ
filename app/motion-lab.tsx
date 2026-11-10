@@ -1,9 +1,7 @@
 import { EdBase } from '@/components/EdBase';
 import {
-  ALL_MOODS, BEAT, BLINK_EVERY, EYE_HOLD, EYE_PLAYLIST, GAZE, InklingCharacter, MOOD_GROUPS,
-  POSES, type InklingMood,
-} from '@/components/InklingCharacter';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+  ALL_MASCOT_MOODS, MASCOT_GROUPS, MASCOT_STATES, MascotCharacter, type MascotMood,
+} from '@/components/mascot/MascotCharacter';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
 import { colors, componentTokens, layout, radius, type } from '@/theme';
@@ -11,15 +9,18 @@ import { useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-/** Preview screen for the Inkling. Every number shown is read back from the motion
- * tables, so this page cannot drift out of step with the real behaviour.
+/** Preview screen for the mascot. Every number shown is read back from the state
+ * table, so this page cannot drift out of step with the real behaviour.
  */
-const USED_BY: Partial<Record<InklingMood, string>> = {
+const USED_BY: Partial<Record<MascotMood, string>> = {
   idle: 'Today · cards are due and the goal is not met',
-  curious: 'Today · the account has no courses yet',
   thinking: 'Today · the first lesson fetch has not returned',
   happy: 'Today · the daily goal is met',
-  drowsy: 'Today · courses exist but nothing is due',
+  sleepy: 'Today · courses exist but nothing is due',
+  onboarding: 'First run · the account has no courses yet',
+  learningComplete: 'End of a session · the set is finished',
+  studyReview: 'A review session in progress',
+  streakReward: 'A streak milestone was reached',
 };
 
 const PREVIEW_WIDTH = 190;
@@ -29,6 +30,11 @@ function secs([min, max]: readonly [number, number]) {
 }
 function signed(n: number, unit = '') {
   return `${n > 0 ? '+' : ''}${n}${unit}`;
+}
+/** Translations are fractions of the square canvas; showing them as a percentage of
+ * the character's own box is the only form that means anything on screen. */
+function pct(n: number) {
+  return `${(Math.abs(n) * 100).toFixed(1)}%`;
 }
 
 function Row({ label, value }: { label: string; value: string }) {
@@ -47,17 +53,18 @@ export default function MotionLabScreen() {
   // route with a different parameter reuses the mounted screen, so an initialiser
   // runs once and every later link silently does nothing.
   const params = useLocalSearchParams<{ mood?: string }>();
-  const [mood, setMood] = useState<InklingMood>('idle');
+  const [mood, setMood] = useState<MascotMood>('idle');
   useEffect(() => {
-    const found = ALL_MOODS.find((m) => m === params.mood);
+    const found = ALL_MASCOT_MOODS.find((m) => m === params.mood);
     if (found) setMood(found);
   }, [params.mood]);
   const [blinkSignal, setBlinkSignal] = useState(0);
   const [beatSignal, setBeatSignal] = useState(0);
-  const pose = POSES[mood];
-  const gaze = GAZE[mood];
-  const beat = BEAT[mood];
-  const blinkEvery = BLINK_EVERY[mood];
+  const pose = MASCOT_STATES[mood];
+  const gaze = pose.gaze;
+  const beat = pose.beat;
+  const blinkEvery = pose.blink;
+  const eyes = Array.isArray(pose.eyes) ? pose.eyes : [pose.eyes];
 
   return (
     <EdBase scroll={false} bottomInset={0}>
@@ -65,21 +72,20 @@ export default function MotionLabScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>Motion lab</Text>
         <Text style={styles.lede}>
-          Every state the character can hold. Posture, rhythm and arm carriage come from the
-          state; the blink, the gaze, the eye shape and the beat each run on their own random
-          interval, so no two viewings look alike.
+          Six expressions and four product moments. Posture, rhythm and arm carriage come from
+          the state; the blink, the gaze, the eye art and the beat each run on their own random
+          interval, so no two viewings look alike. A product moment is one illustration and
+          drifts as a unit.
         </Text>
 
         <View style={styles.stage}>
           <MascotCharacter width={PREVIEW_WIDTH} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} />
         </View>
-        {/* The outgoing polygon character, kept alongside while the mascot is wired in
-            so every state can be compared against the motion it is replacing. */}
         <View style={styles.stageWhite}>
-          <InklingCharacter width={PREVIEW_WIDTH * 0.6} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} />
+          <MascotCharacter width={PREVIEW_WIDTH * 0.6} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} />
         </View>
 
-        {MOOD_GROUPS.map((group) => (
+        {MASCOT_GROUPS.map((group) => (
           <View key={group.label}>
             <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
             <View style={styles.chips}>
@@ -101,17 +107,21 @@ export default function MotionLabScreen() {
 
         <View style={styles.readout}>
           <Row label="Lean" value={`${signed(pose.roll[0], '°')} ± ${pose.roll[1]}°`} />
-          <Row label="Height" value={pose.ty[0] === 0 ? 'level' : pose.ty[0] < 0 ? `lifted ${-pose.ty[0]}` : `sunk ${pose.ty[0]}`} />
+          <Row label="Height" value={pose.ty[0] === 0 ? 'level' : `${pose.ty[0] < 0 ? 'lifted' : 'sunk'} ${pct(Math.abs(pose.ty[0]))}`} />
           <Row label="Squash" value={`${pose.squash[0]} ± ${pose.squash[1]}`} />
-          {pose.hop && <Row label="Hop" value={`${pose.hop.height} units ${pose.hop.rate}/s · crouch ${pose.hop.crouch} · squash ${pose.hop.squash}`} />}
-          {pose.shake && <Row label="Shake" value={`${pose.shake[0]}° at ${pose.shake[1]} Hz`} />}
-          <Row label="Arms" value={`droop ${signed(pose.arm[0], '°')} · swing ± ${pose.arm[1]}° · ${pose.arm[2]}×`} />
+          {pose.hop && <Row label="Hop" value={`${pct(pose.hop.height)} at ${pose.hop.rate}/s · crouch ${pct(pose.hop.crouch)} · squash ${pose.hop.squash}`} />}
+          {pose.shake && <Row label="Shake" value={`${pct(pose.shake[0])} at ${pose.shake[1]} Hz`} />}
+          {pose.scene
+            ? <Row label="Form" value="one illustration, drifting as a unit" />
+            : <Row label="Arms" value={`droop ${signed(pose.arm[0], '°')} · swing ± ${pose.arm[1]}° · ${pose.arm[2]}× · ${pose.reach ? 'reaching' : 'at rest'}`} />}
           <Row label="Lid" value={pose.lid >= 1 ? 'open' : `${Math.round(pose.lid * 100)}% open`} />
           <Row label="Eye size" value={pose.eyeScale === 1 ? 'normal' : `${pose.eyeScale}×`} />
-          <Row label="Eye shapes" value={`${EYE_PLAYLIST[mood].join(', ')} · held ${secs(EYE_HOLD[mood])}`} />
+          <Row label="Eye art" value={eyes.join(', ') + (pose.eyeHold ? ` · held ${secs(pose.eyeHold)}` : '')} />
+          {pose.prop && <Row label="Accent" value={`${pose.prop}, ${pose.propMotion ?? 'static'}`} />}
+          {!pose.scene && <Row label="Ear lag" value={pose.earLag === 0 ? 'rigid' : `${Math.round(pose.earLag * 100)}%`} />}
           <Row label="Looks" value={`${gaze.x === 0 ? '' : gaze.x > 0 ? 'right ' : 'left '}${gaze.y === 0 ? (gaze.x === 0 ? 'straight out' : '') : gaze.y < 0 ? 'and up' : 'and down'} · held ${secs(gaze.hold)}`} />
           <Row label="Blink" value={blinkEvery ? `every ${secs(blinkEvery)}` : 'held, never blinks'} />
-          <Row label="Beat" value={beat ? `${signed(beat.tx)} / ${signed(beat.ty)} / ${signed(beat.roll, '°')} every ${secs(beat.every)}` : 'none'} />
+          <Row label="Beat" value={beat ? `${pct(beat.ty)} lift · ${signed(beat.roll, '°')} every ${secs(beat.every)}` : 'none'} />
         </View>
 
         <View style={styles.actions}>

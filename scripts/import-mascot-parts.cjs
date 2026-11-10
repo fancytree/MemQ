@@ -114,9 +114,19 @@ for (const f of fs.readdirSync(OUT_ASSETS)) {
   if (f.endsWith('.png')) fs.unlinkSync(path.join(OUT_ASSETS, f));
 }
 
+/** The four product moments are whole illustrations with their own set dressing, not
+ * poses that can be built from parts. They import by the same route so they share the
+ * canvas and can be placed with the same arithmetic. */
+const sceneDir = path.join(packDir, 'scenes');
+const scenes = fs.existsSync(sceneDir)
+  ? Object.fromEntries(fs.readdirSync(sceneDir).filter((f) => f.endsWith('.png'))
+    .map((f) => [`scene_${path.basename(f, '.png')}`, { file: `scenes/${f}` }]))
+  : {};
+
 const records = [];
+const sceneNames = new Set(Object.keys(scenes));
 let srcBytes = 0, outBytes = 0;
-for (const [name, info] of Object.entries(manifest.parts)) {
+for (const [name, info] of Object.entries({ ...manifest.parts, ...scenes })) {
   const file = path.join(packDir, info.file);
   srcBytes += fs.statSync(file).size;
   const png = readPNG(file);
@@ -171,6 +181,12 @@ ${body}
 export const MASCOT_NEUTRAL_ORDER: MascotPartName[] = [
 ${order.map((n) => `  ${JSON.stringify(n)},`).join('\n')}
 ];
+
+/** Whole illustrations, placed by the same rectangles but never stacked with parts. */
+export const MASCOT_SCENES = [
+${records.filter((r) => sceneNames.has(r.name)).map((r) => `  ${JSON.stringify(r.name)},`).join('\n')}
+] as const;
+export type MascotSceneName = (typeof MASCOT_SCENES)[number];
 `);
 
 console.log(`\n${records.length} parts`);

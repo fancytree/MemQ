@@ -3,7 +3,7 @@
  * orthographic camera, then cropped to its own alpha bounds. `rect` is that crop as
  * [x, y, w, h] fractions of the canvas, so drawing each part at its rect inside a
  * square box reassembles the original render at any size. */
-export type MascotPartName = "body" | "shadow" | "ear_L" | "arm_L" | "foot_L" | "ear_R" | "arm_R" | "foot_R" | "eye_white_L" | "pupil_L" | "eye_white_R" | "pupil_R" | "eyes_blink_half" | "eyes_blink_closed" | "eyes_squeezed" | "eyes_focused" | "eyes_wide" | "eyes_sleepy" | "mouth_smile" | "mouth_open" | "mouth_round" | "mouth_sleepy" | "gold_accents" | "zzz" | "laptop" | "book" | "card_check" | "confetti" | "arm_L_reach" | "arm_R_reach";
+export type MascotPartName = "body" | "shadow" | "ear_L" | "arm_L" | "foot_L" | "ear_R" | "arm_R" | "foot_R" | "eye_white_L" | "pupil_L" | "eye_white_R" | "pupil_R" | "eyes_blink_half" | "eyes_blink_closed" | "eyes_squeezed" | "eyes_focused" | "eyes_wide" | "eyes_sleepy" | "mouth_smile" | "mouth_open" | "mouth_round" | "mouth_sleepy" | "gold_accents" | "zzz" | "laptop" | "book" | "card_check" | "confetti" | "arm_L_reach" | "arm_R_reach" | "scene_learning_complete" | "scene_onboarding" | "scene_streak_reward" | "scene_study_review";
 
 export interface MascotPart {
   /** [x, y, w, h], fractions of the square canvas. */
@@ -44,6 +44,10 @@ export const MASCOT_PARTS: Record<MascotPartName, MascotPart> = {
   "confetti": { rect: [0.076172, 0.172852, 0.867188, 0.537109], src: require('../../assets/mascot/confetti.png') },
   "arm_L_reach": { rect: [0.185547, 0.545898, 0.138672, 0.142578], pivot: [0.289618, 0.586359], src: require('../../assets/mascot/arm_L_reach.png') },
   "arm_R_reach": { rect: [0.675781, 0.545898, 0.138672, 0.142578], pivot: [0.710383, 0.586359], src: require('../../assets/mascot/arm_R_reach.png') },
+  "scene_learning_complete": { rect: [0.204102, 0.123047, 0.703125, 0.769531], src: require('../../assets/mascot/scene_learning_complete.png') },
+  "scene_onboarding": { rect: [0.160156, 0.230469, 0.679688, 0.419922], src: require('../../assets/mascot/scene_onboarding.png') },
+  "scene_streak_reward": { rect: [0.021484, 0.057617, 0.874023, 0.731445], src: require('../../assets/mascot/scene_streak_reward.png') },
+  "scene_study_review": { rect: [0.202148, 0.296875, 0.600586, 0.597656], src: require('../../assets/mascot/scene_study_review.png') },
 };
 
 /** Back to front, the resting stack. */
@@ -62,3 +66,12 @@ export const MASCOT_NEUTRAL_ORDER: MascotPartName[] = [
   "pupil_R",
   "mouth_smile",
 ];
+
+/** Whole illustrations, placed by the same rectangles but never stacked with parts. */
+export const MASCOT_SCENES = [
+  "scene_learning_complete",
+  "scene_onboarding",
+  "scene_streak_reward",
+  "scene_study_review",
+] as const;
+export type MascotSceneName = (typeof MASCOT_SCENES)[number];
