@@ -1,3 +1,4 @@
+import { layout } from '@/theme/spacing';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import CloseIcon from '@/components/icons/CloseIcon';
@@ -12,6 +13,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/theme/colors';
 
 // 设置数据类型定义
 export type StudySettings = {
@@ -78,18 +80,20 @@ export default function StudySettingsModal({
       presentationStyle={Platform.OS === 'ios' ? 'pageSheet' : 'fullScreen'}
       onRequestClose={onClose}
     >
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
             {/* Toolbar */}
             <View style={styles.toolbar}>
               {/* Title and Controls */}
               <View style={styles.titleAndControls}>
                 <TouchableOpacity
+                  accessibilityRole="button"
+                  accessibilityLabel="Close study settings"
                   style={styles.closeButton}
                   onPress={onClose}
                   activeOpacity={0.7}
                 >
-                  <CloseIcon size={24} color="#0A0A0A" />
+                  <CloseIcon size={24} color={colors.text} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Setting</Text>
                 <View style={styles.headerSpacer} />
@@ -108,21 +112,23 @@ export default function StudySettingsModal({
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Term</Text>
                 <Switch
+                  accessibilityLabel="Answer with term"
                   value={settings.answerWith.term}
                   onValueChange={(value) => handleUpdateAnswerWith('term', value)}
-                  trackColor={{ false: '#E5E7EB', true: '#4E49FC' }}
-                  thumbColor="#FFFFFF"
-                  ios_backgroundColor="#E5E7EB"
+                  trackColor={{ false: colors.switchTrack, true: colors.action }}
+                  thumbColor={colors.surf}
+                  ios_backgroundColor={colors.switchTrack}
                 />
               </View>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Definition</Text>
                 <Switch
+                  accessibilityLabel="Answer with definition"
                   value={settings.answerWith.definition}
                   onValueChange={(value) => handleUpdateAnswerWith('definition', value)}
-                  trackColor={{ false: '#E5E7EB', true: '#4E49FC' }}
-                  thumbColor="#FFFFFF"
-                  ios_backgroundColor="#E5E7EB"
+                  trackColor={{ false: colors.switchTrack, true: colors.action }}
+                  thumbColor={colors.surf}
+                  ios_backgroundColor={colors.switchTrack}
                 />
               </View>
             </View>
@@ -133,31 +139,34 @@ export default function StudySettingsModal({
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>True/False</Text>
                 <Switch
+                  accessibilityLabel="True or false questions"
                   value={settings.questionTypes.trueFalse}
                   onValueChange={(value) => handleUpdateQuestionTypes('trueFalse', value)}
-                  trackColor={{ false: '#E5E7EB', true: '#4E49FC' }}
-                  thumbColor="#FFFFFF"
-                  ios_backgroundColor="#E5E7EB"
+                  trackColor={{ false: colors.switchTrack, true: colors.action }}
+                  thumbColor={colors.surf}
+                  ios_backgroundColor={colors.switchTrack}
                 />
               </View>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Multiple choice</Text>
                 <Switch
+                  accessibilityLabel="Multiple choice questions"
                   value={settings.questionTypes.mcq}
                   onValueChange={(value) => handleUpdateQuestionTypes('mcq', value)}
-                  trackColor={{ false: '#E5E7EB', true: '#4E49FC' }}
-                  thumbColor="#FFFFFF"
-                  ios_backgroundColor="#E5E7EB"
+                  trackColor={{ false: colors.switchTrack, true: colors.action }}
+                  thumbColor={colors.surf}
+                  ios_backgroundColor={colors.switchTrack}
                 />
               </View>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Written</Text>
                 <Switch
+                  accessibilityLabel="Written questions"
                   value={settings.questionTypes.written}
                   onValueChange={(value) => handleUpdateQuestionTypes('written', value)}
-                  trackColor={{ false: '#E5E7EB', true: '#4E49FC' }}
-                  thumbColor="#FFFFFF"
-                  ios_backgroundColor="#E5E7EB"
+                  trackColor={{ false: colors.switchTrack, true: colors.action }}
+                  thumbColor={colors.surf}
+                  ios_backgroundColor={colors.switchTrack}
                 />
               </View>
             </View>
@@ -170,6 +179,8 @@ export default function StudySettingsModal({
               <View style={styles.radioGroup}>
                 <TouchableOpacity
                   style={styles.radioRow}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: settings.grading === 'relaxed' }}
                   onPress={() => handleUpdateGrading('relaxed')}
                   activeOpacity={0.7}
                 >
@@ -190,6 +201,8 @@ export default function StudySettingsModal({
               <View style={styles.radioGroup}>
                 <TouchableOpacity
                   style={styles.radioRow}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: settings.grading === 'moderate' }}
                   onPress={() => handleUpdateGrading('moderate')}
                   activeOpacity={0.7}
                 >
@@ -210,6 +223,8 @@ export default function StudySettingsModal({
               <View style={styles.radioGroup}>
                 <TouchableOpacity
                   style={styles.radioRow}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: settings.grading === 'strict' }}
                   onPress={() => handleUpdateGrading('strict')}
                   activeOpacity={0.7}
                 >
@@ -235,7 +250,7 @@ export default function StudySettingsModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
@@ -249,42 +264,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 0,
     width: '100%',
     position: 'relative',
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    backgroundColor: 'rgba(120, 116, 150, 0.08)',
+    width: 44,
+    minHeight: 44,
+    backgroundColor: colors.surfaceSubtle,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
+    flex: 1,
     fontSize: 20,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: -0.43,
-    position: 'absolute',
-    left: 0,
-    right: 0,
     textAlign: 'center',
   },
   headerSpacer: {
-    width: 36,
+    width: 44,
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenInline,
     paddingBottom: 24,
     gap: 24,
   },
   section: {
-    backgroundColor: 'rgba(120, 116, 150, 0.08)',
+    backgroundColor: colors.surfaceSubtle,
     borderRadius: 16,
     padding: 18,
     gap: 24,
@@ -292,10 +305,11 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: 0.4063,
   },
   toggleRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -303,13 +317,14 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontSize: 18,
     fontWeight: '500',
-    color: '#6A7282',
+    color: colors.muted,
     letterSpacing: 0.4063,
   },
   radioGroup: {
     gap: 12,
   },
   radioRow: {
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -317,28 +332,28 @@ const styles = StyleSheet.create({
   radioLabel: {
     fontSize: 18,
     fontWeight: '500',
-    color: '#6A7282',
+    color: colors.muted,
     letterSpacing: 0.4063,
   },
   radioButton: {
-    width: 24,
-    height: 24,
+    width: 44,
+    minHeight: 44,
     borderRadius: 12,
     borderWidth: 1.5,
-    borderColor: '#6A7282',
+    borderColor: colors.muted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   radioButtonInner: {
     width: 12,
     height: 12,
-    borderRadius: 6,
-    backgroundColor: '#4E49FC',
+    borderRadius: 100,
+    backgroundColor: colors.action,
   },
   radioDescription: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#6A7282',
+    color: colors.muted,
     letterSpacing: 0.4063,
     lineHeight: 20,
   },

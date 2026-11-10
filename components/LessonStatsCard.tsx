@@ -1,5 +1,6 @@
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { colors } from '@/theme';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -78,7 +79,7 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
     });
 
     const total = terms.length;
-    
+
     // 计算加权进度（与列表页面保持一致）
     let weightedScore = 0;
     terms.forEach((term) => {
@@ -89,12 +90,12 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
       const weight = getStatusWeight(status);
       weightedScore += weight;
     });
-    
+
     // 加权进度百分比
-    const progressPercent = total > 0 
-      ? Math.round((weightedScore / total) * 100) 
+    const progressPercent = total > 0
+      ? Math.round((weightedScore / total) * 100)
       : 0;
-    
+
     // 完成数量：Strong 和 Mastered 状态的数量（用于显示）
     const completed = stageCounts.Mastered + stageCounts.Strong;
 
@@ -143,14 +144,14 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
     <View style={styles.container}>
       {/* 标题区 - 带渐变背景 */}
       <LinearGradient
-        colors={['rgba(250,245,255,1)', 'rgba(243,232,255,1)']}
+        colors={[colors.studyGradientStart, colors.learningBg]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.headerGradient}
       >
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Feather name="trending-up" size={20} color="#0A0A0A" />
+            <Feather name="trending-up" size={20} color={colors.text} />
             <Text style={styles.title}>Overall Progress</Text>
           </View>
 
@@ -158,7 +159,7 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
           {lesson.deadline && (
             <View style={styles.deadlineRow}>
               <View style={styles.deadlineBadge}>
-                <Feather name="calendar" size={14} color="#A65F00" />
+                <Feather name="calendar" size={14} color={colors.accentText} />
                 <Text style={styles.deadlineText}>Due: {deadlineFormatted}</Text>
               </View>
               {daysLeft !== null && (
@@ -243,12 +244,12 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
 
 const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: colors.surf,
+    borderRadius: 20,
     padding: 0.615,
     marginBottom: 12,
     borderWidth: 0.615,
-    borderColor: '#E5E5E5',
+    borderColor: colors.border,
     overflow: 'hidden',
   },
   headerGradient: {
@@ -268,7 +269,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: -0.45,
   },
   deadlineRow: {
@@ -280,20 +281,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: '#FEF9C2',
+    backgroundColor: colors.accentL,
     paddingHorizontal: 10,
     paddingVertical: 5,
-    borderRadius: 20642200,
+    borderRadius: 999,
     height: 24,
   },
   deadlineText: {
     fontSize: 12,
     fontWeight: '500',
-    color: '#A65F00',
+    color: colors.accentText,
   },
   daysLeftText: {
     fontSize: 12,
-    color: '#0A0A0A',
+    color: colors.text,
     fontWeight: '400',
   },
   progressSection: {
@@ -310,25 +311,25 @@ const styles = StyleSheet.create({
   progressLabel: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: -0.15,
   },
   progressText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#4A5565',
+    color: colors.sub,
     letterSpacing: -0.15,
   },
   progressBarBackground: {
     height: 12,
-    backgroundColor: 'rgba(120,116,150,0.08)',
-    borderRadius: 24,
+    backgroundColor: colors.borderS,
+    borderRadius: 999,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#0A0A0A',
-    borderRadius: 24,
+    backgroundColor: colors.accent,
+    borderRadius: 999,
     minWidth: 1,
   },
   statsGrid: {
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
   statCard: {
     width: '31%',
     height: 67,
-    borderRadius: 4,
+    borderRadius: 14,
     paddingTop: 8,
     paddingHorizontal: 8,
     justifyContent: 'flex-start',
@@ -364,63 +365,63 @@ const styles = StyleSheet.create({
   },
   // New 样式
   statCardNew: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surfaceSubtle,
   },
   statNumberNew: {
-    color: '#4A5565',
+    color: colors.sub,
   },
   statLabelNew: {
-    color: '#6A7282',
+    color: colors.muted,
   },
   // Learning 样式
   statCardLearning: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.accentL,
   },
   statNumberLearning: {
-    color: '#E7000B',
+    color: colors.accentText,
   },
   statLabelLearning: {
-    color: '#6A7282',
+    color: colors.muted,
   },
   // Familiar 样式
   statCardFamiliar: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.learningBg,
   },
   statNumberFamiliar: {
-    color: '#FF6900',
+    color: colors.accentText,
   },
   statLabelFamiliar: {
-    color: '#6A7282',
+    color: colors.muted,
   },
   // Good 样式
   statCardGood: {
-    backgroundColor: '#FEFCE8',
+    backgroundColor: colors.familiarBg,
   },
   statNumberGood: {
-    color: '#D08700',
+    color: colors.accentText,
   },
   statLabelGood: {
-    color: '#6A7282',
+    color: colors.muted,
   },
   // Strong 样式
   statCardStrong: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: colors.proficientBg,
   },
   statNumberStrong: {
-    color: '#4E49FC',
+    color: colors.proficientText,
   },
   statLabelStrong: {
-    color: '#6A7282',
+    color: colors.proficientText,
   },
   // Mastered 样式
   statCardMastered: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.greenL,
   },
   statNumberMastered: {
-    color: '#00A63E',
+    color: colors.green,
   },
   statLabelMastered: {
-    color: '#6A7282',
+    color: colors.muted,
   },
 });
 

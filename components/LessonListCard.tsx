@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import { Feather } from '@expo/vector-icons';
 import React, { useMemo } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -70,7 +71,7 @@ export default function LessonListCard({
   const deadlineFormatted = formatDeadline(lesson.deadline);
 
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       style={styles.container}
       onPress={onPress}
       activeOpacity={0.8}
@@ -121,7 +122,7 @@ export default function LessonListCard({
       </View>
 
       {/* 底部按钮 */}
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={styles.studyButton}
         onPress={(e) => {
           e.stopPropagation(); // 阻止事件冒泡到卡片
@@ -159,7 +160,7 @@ const styles = StyleSheet.create({
     borderColor: t.color.border,
   },
   dueDateText: {
-    fontSize: 10,
+    fontSize: 12,
     fontWeight: '600',
     color: t.color.muted,
     textTransform: 'uppercase',
@@ -193,7 +194,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   progressLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '600',
     color: t.color.muted,
     textTransform: 'uppercase',
@@ -202,7 +203,7 @@ const styles = StyleSheet.create({
   progressPercentage: {
     fontSize: 14,
     fontWeight: '700',
-    color: t.color.accent,
+    color: colors.accentText,
   },
   progressBarContainer: {
     height: 6,
@@ -216,11 +217,11 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   progressText: {
-    fontSize: 11,
+    fontSize: 12,
     color: t.color.muted,
     marginTop: 8,
   },
-  studyButton: {
+  studyButton: { minHeight: 44,
     backgroundColor: t.color.accentLight,
     borderRadius: t.radius.md,
     paddingVertical: 10,
@@ -228,10 +229,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginTop: 4,
     borderWidth: 1,
-    borderColor: t.color.border,
+    borderColor: colors.controlBorder,
   },
   studyButtonText: {
-    color: t.color.accent,
+    color: colors.action,
     fontSize: 14,
     fontWeight: '600',
     textTransform: 'uppercase',

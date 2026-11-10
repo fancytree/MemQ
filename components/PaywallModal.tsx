@@ -1,3 +1,4 @@
+import { fonts } from '@/theme/typography';
 /**
  * PaywallModal — 套餐选择与购买（与全局 editorial + JetBrains Mono 一致）
  */
@@ -154,7 +155,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
     try {
       setPurchasing(selectedPackage.identifier);
-      
+
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
         Alert.alert(
@@ -164,12 +165,12 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
         setPurchasing(null);
         return;
       }
-      
+
       const { customerInfo: updatedInfo } = await Purchases.purchasePackage(selectedPackage);
-      
+
       setCustomerInfo(updatedInfo);
       await refreshSubscriptionStatus();
-      
+
       Alert.alert(
         'Success!',
         'Your subscription is now active. Thank you for subscribing!',
@@ -177,17 +178,17 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
       );
     } catch (error: any) {
       // 用户取消购买 - 静默处理
-      const isUserCancelled = 
-        error.userCancelled || 
+      const isUserCancelled =
+        error.userCancelled ||
         error.code === '1' ||
         error.message?.includes('cancelled') ||
         error.message?.includes('Purchase was cancelled');
-      
+
       if (isUserCancelled) {
         setPurchasing(null);
         return;
       }
-      
+
       if (__DEV__) {
         console.error('Purchase error:', error);
       }
@@ -256,7 +257,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
             <View style={styles.grabber} />
 
             <View style={styles.toolbarContent}>
-              <TouchableOpacity onPress={onClose} style={styles.closeButton} accessibilityRole="button">
+              <TouchableOpacity accessibilityLabel="Close" onPress={onClose} style={styles.closeButton} accessibilityRole="button">
                 <Feather name="x" size={22} color={colors.muted} />
               </TouchableOpacity>
 
@@ -268,7 +269,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.accent} />
+              <ActivityIndicator size="large" color={colors.accentText} />
               <Text style={styles.loadingText}>Loading subscription options…</Text>
             </View>
           ) : offering ? (
@@ -283,7 +284,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
               <View style={styles.plansContainer}>
                 {/* Yearly Option */}
                 {yearlyPackage && (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[
                       styles.planCard,
                       styles.planCardYearly,
@@ -309,14 +310,14 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                           <Text style={styles.planCardPriceUnit}>/year</Text>
                         </View>
                       </View>
-                      
+
                       {/* 选中图标 */}
                       <View style={[
                         styles.planCardCheckbox,
                         selectedPlan === 'yearly' ? styles.planCardCheckboxSelected : styles.planCardCheckboxUnselected,
                       ]}>
                         {selectedPlan === 'yearly' && (
-                          <Feather name="check" size={12} color="#FFFFFF" />
+                          <Feather name="check" size={12} color={colors.surf} />
                         )}
                       </View>
                     </View>
@@ -325,7 +326,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
                 {/* Monthly Option */}
                 {monthlyPackage && (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={[
                       styles.planCard,
                       styles.planCardMonthly,
@@ -346,14 +347,14 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                           <Text style={styles.planCardPriceUnit}>/month</Text>
                         </View>
                       </View>
-                      
+
                       {/* 选中图标 */}
                       <View style={[
                         styles.planCardCheckbox,
                         selectedPlan === 'monthly' ? styles.planCardCheckboxSelected : styles.planCardCheckboxUnselected,
                       ]}>
                         {selectedPlan === 'monthly' && (
-                          <Feather name="check" size={12} color="#FFFFFF" />
+                          <Feather name="check" size={12} color={colors.surf} />
                         )}
                       </View>
                     </View>
@@ -374,7 +375,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   </Text>
                 </View>
 
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[
                     styles.subscribeButton,
                     (!selectedPlan || purchasing) && styles.subscribeButtonDisabled,
@@ -385,7 +386,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                 >
                   {purchasing ? (
                     <View style={styles.subscribeButtonContent}>
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={colors.surf} />
                       <Text style={styles.subscribeButtonText}>Processing…</Text>
                     </View>
                   ) : (
@@ -393,7 +394,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   )}
                 </TouchableOpacity>
 
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   onPress={async () => {
                     try {
                       await Purchases.restorePurchases();
@@ -411,11 +412,11 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
               {/* 法律链接贴底：仅保留 SafeAreaView 的 Home Indicator 间距，不再额外垫高 */}
               <View style={styles.legalLinks}>
-                <TouchableOpacity onPress={() => Linking.openURL(APPLE_EULA_URL)}>
+                <TouchableOpacity accessibilityRole="button" onPress={() => Linking.openURL(APPLE_EULA_URL)}>
                   <Text style={styles.legalLinkText}>Terms of Use (EULA)</Text>
                 </TouchableOpacity>
                 <Text style={styles.legalLinkSeparator}>|</Text>
-                <TouchableOpacity onPress={() => { onClose(); router.push('/profile/privacy-policy'); }}>
+                <TouchableOpacity accessibilityRole="button" onPress={() => { onClose(); router.push('/profile/privacy-policy'); }}>
                   <Text style={styles.legalLinkText}>Privacy Policy</Text>
                 </TouchableOpacity>
               </View>
@@ -424,10 +425,10 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
           ) : (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{loadError || 'No subscription options available.'}</Text>
-              <TouchableOpacity onPress={loadOfferings} style={styles.errorButton}>
+              <TouchableOpacity accessibilityRole="button" onPress={loadOfferings} style={styles.errorButton}>
                 <Text style={styles.errorButtonText}>Retry</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onClose} style={styles.restoreButton}>
+              <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.restoreButton}>
                 <Text style={styles.restoreButtonText}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -455,9 +456,9 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     shadowColor: colors.accentShadow,
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0,
     shadowRadius: 24,
-    elevation: 8,
+    elevation: 0,
   },
   toolbar: {
     paddingTop: t.space.xs,
@@ -481,12 +482,12 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   closeButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    minHeight: 44,
     borderRadius: t.radius.lg,
     backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -499,8 +500,8 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: 17,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
     letterSpacing: -0.4,
     color: colors.text,
   },
@@ -513,7 +514,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: t.space.lg,
     fontSize: 14,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     color: colors.muted,
     textAlign: 'center',
   },
@@ -547,15 +548,15 @@ const styles = StyleSheet.create({
   },
   planCardSelected: {
     backgroundColor: colors.accentL,
-    borderColor: colors.accent,
+    borderColor: colors.action,
   },
   planCardUnselected: {
     backgroundColor: colors.surf,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
   },
   planCardSelectedMonthly: {
     backgroundColor: colors.surf,
-    borderColor: colors.accent,
+    borderColor: colors.action,
   },
   planCardContent: {
     flexDirection: 'row',
@@ -574,8 +575,8 @@ const styles = StyleSheet.create({
   },
   planCardTitle: {
     fontSize: 15,
-    fontFamily: 'JetBrainsMono_600',
-    fontWeight: '400',
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
     letterSpacing: -0.35,
     color: colors.text,
   },
@@ -588,8 +589,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   savingsBadgeText: {
-    fontSize: 11,
-    fontFamily: 'JetBrainsMono_500',
+    fontSize: 12,
+    fontFamily: fonts.medium,
     color: colors.green,
     lineHeight: 14,
   },
@@ -600,15 +601,15 @@ const styles = StyleSheet.create({
   },
   planCardPrice: {
     fontSize: 16,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
     letterSpacing: -0.35,
-    color: colors.accent,
+    color: colors.accentText,
   },
   planCardPriceUnit: {
     fontSize: 13,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     color: colors.muted,
     letterSpacing: -0.2,
   },
@@ -617,18 +618,18 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 1,
-    borderColor: colors.accent,
-    backgroundColor: colors.accent,
+    borderColor: colors.action,
+    backgroundColor: colors.action,
     alignItems: 'center',
     justifyContent: 'center',
   },
   planCardCheckboxUnselected: {
-    backgroundColor: 'transparent',
-    borderColor: colors.border,
+    backgroundColor: colors.transparent,
+    borderColor: colors.controlBorder,
   },
   planCardCheckboxSelected: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
+    backgroundColor: colors.action,
+    borderColor: colors.action,
   },
   footer: {
     paddingTop: t.space.md,
@@ -642,24 +643,24 @@ const styles = StyleSheet.create({
   },
   footerLead: {
     fontSize: 15,
-    fontFamily: 'JetBrainsMono_600',
-    fontWeight: '400',
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
     letterSpacing: -0.35,
     color: colors.text,
     textAlign: 'center',
     lineHeight: 20,
   },
   autoRenewText: {
-    fontSize: 11,
-    fontFamily: 'JetBrainsMono_400',
+    fontSize: 12,
+    fontFamily: fonts.regular,
     color: colors.muted,
     textAlign: 'center',
     lineHeight: 14,
     paddingHorizontal: t.space.xs,
   },
-  subscribeButton: {
-    backgroundColor: colors.accent,
-    borderRadius: t.radius.lg,
+  subscribeButton: { minHeight: 44,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 16,
     paddingHorizontal: t.space.lg,
     alignItems: 'center',
@@ -676,12 +677,12 @@ const styles = StyleSheet.create({
   },
   subscribeButtonText: {
     fontSize: 14,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
-    color: '#FFFFFF',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    color: colors.onAction,
     letterSpacing: -0.15,
   },
-  restoreButton: {
+  restoreButton: { minHeight: 44,
     paddingVertical: 4,
     alignItems: 'center',
     marginTop: 2,
@@ -689,8 +690,8 @@ const styles = StyleSheet.create({
   },
   restoreButtonText: {
     fontSize: 12,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     color: colors.muted,
     letterSpacing: -0.15,
   },
@@ -703,15 +704,15 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   legalLinkText: {
-    fontSize: 11,
-    fontFamily: 'JetBrainsMono_400',
+    fontSize: 12,
+    fontFamily: fonts.regular,
     color: colors.muted,
     textDecorationLine: 'underline',
   },
   legalLinkSeparator: {
-    fontSize: 11,
-    color: colors.dim,
-    fontFamily: 'JetBrainsMono_400',
+    fontSize: 12,
+    color: colors.muted,
+    fontFamily: fonts.regular,
   },
   errorContainer: {
     flex: 1,
@@ -722,22 +723,22 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 14,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     color: colors.sub,
     marginBottom: 24,
     textAlign: 'center',
     lineHeight: 22,
   },
-  errorButton: {
-    backgroundColor: colors.accent,
-    borderRadius: t.radius.lg,
+  errorButton: { minHeight: 44,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingHorizontal: 24,
     paddingVertical: 14,
   },
   errorButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
 });

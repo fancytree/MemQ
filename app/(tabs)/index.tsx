@@ -1,17 +1,18 @@
 import AIChatModal from '@/components/AIChatModal';
 import { EdBase } from '@/components/EdBase';
-import { Icon } from '@/components/Icon';
-import { SectionLabel } from '@/components/SectionLabel';
-import { Button } from '@/components/ui/Button';
+import { DesignAsset } from '@/components/DesignAsset';
+import { CourseRow } from '@/components/ui/CourseRow';
+import { DailyGoal } from '@/components/ui/DailyGoal';
+import { TodayHero } from '@/components/ui/TodayHero';
+import type { InklingMood } from '@/components/InklingCharacter';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
-import { colors, fonts } from '@/theme';
-import { Feather } from '@expo/vector-icons';
+import { colors, componentTokens, layout, type } from '@/theme';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 interface LessonSummary {
   id: string;
@@ -38,15 +39,17 @@ const getStatusWeight = (status: string | null | undefined): number => {
   return LEARNING_STAGE_WEIGHTS[status] ?? LEARNING_STAGE_WEIGHTS.New;
 };
 
-/**
- * Today / Home — daily-focus surface.
- *
- * Editorial vocabulary:
- *  - Big numeric in the hero ("19" cards due) — type before chrome.
- *  - 32% goal bar — hairline, 2px tall.
- *  - "Up Next" queue rendered as standalone cards (not divider list).
- *  - Empty CTA at the bottom uses a dashed border to feel quiet.
- */
+/** Implementation extension: the reference frame only shows the morning greeting. */
+function greetingForHour(hour: number): string {
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
+/** Implementation extension: the reference frame reads 23min for 37 due cards. */
+const SECONDS_PER_CARD = 37;
+
+/** Today: live learning data in the Figma home composition; course artwork is deferred. */
 export default function TodayScreen() {
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
   const [username, setUsername] = useState('User');
@@ -54,12 +57,23 @@ export default function TodayScreen() {
   const [reviewedToday, setReviewedToday] = useState(0);
   const [currentStreak, setCurrentStreak] = useState(0);
   const [showAIChat, setShowAIChat] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const visibleLessons = lessons.slice(0, 5);
   const lessonsCount = lessons.length;
   const totalCards = lessons.reduce((sum, lesson) => sum + lesson.cards, 0);
   const totalDue = lessons.reduce((sum, lesson) => sum + lesson.due, 0);
-  const todayTargetCards = Math.min(totalDue, dailyGoalCards);
-  const goalFillPct = dailyGoalCards > 0 ? Math.min(100, Math.round((reviewedToday / dailyGoalCards) * 100)) : 0;
+  const hasCourses = totalCards > 0;
+  const estimateMinutes = Math.max(1, Math.round((totalDue * SECONDS_PER_CARD) / 60));
+  const greeting = greetingForHour(new Date().getHours());
+  const initial = Array.from(username)[0]?.toUpperCase() || 'U';
+
+  // The character reacts to where the learner actually stands today.
+  const goalMet = dailyGoalCards > 0 && reviewedToday >= dailyGoalCards;
+  const mood: InklingMood = !loaded ? 'thinking'
+    : totalCards === 0 ? 'curious'
+    : goalMet ? 'happy'
+    : totalDue === 0 ? 'drowsy'
+    : 'idle';
 
   useEffect(() => {
     const loadUserName = async () => {
@@ -199,7 +213,7 @@ export default function TodayScreen() {
   }, []);
 
   useEffect(() => {
-    fetchLessons();
+    fetchLessons().finally(() => setLoaded(true));
   }, [fetchLessons]);
 
   useFocusEffect(
@@ -209,276 +223,94 @@ export default function TodayScreen() {
   );
 
   return (
-    <View style={styles.screen}>
-      {/* 顶部栏固定；仅下方内容滚动（与 Explore 等页一致） */}
-      <EdBase scroll={false} bottomInset={0} style={{ flex: 1 }}>
-        {/* Header：左列日期+问候；右列 streak 数字与说明纵向收紧 */}
-        <View style={styles.headerRow}>
-          <View style={styles.headerMainRow}>
-            <View style={styles.headerLeftCol}>
-              <SectionLabel size={11} style={{ letterSpacing: -0.1 }}>
-                {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-              </SectionLabel>
-              <Text style={styles.greet} numberOfLines={1} ellipsizeMode="tail">
-                Hi, {username}
-              </Text>
+    <EdBase scroll={false} bottomInset={0}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <View style={styles.signature}>
+            <View style={styles.greetingRow}>
+              <Text accessibilityRole="header" style={styles.greeting}>{greeting}</Text>
+              <View accessible={false} pointerEvents="none"><DesignAsset name="rays" /></View>
             </View>
-            <View style={styles.headerRightCol}>
-              <Text style={styles.streakNum}>{currentStreak}</Text>
-              <SectionLabel size={10} style={styles.streakCaption}>
-                Day Streak
-              </SectionLabel>
-            </View>
+            <Text style={styles.invitation}>A little learning, every day.</Text>
+          </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`}
+            onPress={() => router.push('/you')} style={styles.profile}>
+            <Text style={styles.initial}>{initial}</Text>
+          </Pressable>
+        </View>
+
+        <View style={styles.hero}>
+          <TodayHero dueCount={totalDue} mood={mood}
+            estimateMinutes={totalDue > 0 ? estimateMinutes : null}
+            actionLabel={hasCourses ? 'Start' : 'Create your first course'}
+            showPlayIcon={hasCourses}
+            onPress={() => router.push(hasCourses ? '/quiz?entry=home' : '/create')} />
+        </View>
+
+        <View style={styles.progress}>
+          <View style={styles.goal}><DailyGoal completed={reviewedToday} total={dailyGoalCards} /></View>
+          <View style={styles.separator} />
+          <View accessible accessibilityLabel={`${currentStreak}-day streak`} style={styles.streak}>
+            <DesignAsset name="flame" />
+            <Text style={styles.streakText}>{currentStreak}-day streak</Text>
           </View>
         </View>
 
-        <ScrollView
-          style={styles.mainScroll}
-          contentContainerStyle={styles.mainScrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-      {/* Hero — focus queue */}
-      <View style={styles.hero}>
-        <SectionLabel size={12} style={{ marginBottom: 8, fontFamily: 'JetBrainsMono_500', fontWeight: '400' }}>Focus Queue</SectionLabel>
-        <View style={styles.heroLine}>
-          <Text style={styles.heroNum}>{todayTargetCards}</Text>
-          <Text style={[styles.heroSub, styles.heroSubMain]}>cards to study today</Text>
-          <Text style={[styles.heroSub, styles.heroSubRight]}>~12 min</Text>
-        </View>
-
-        {/* Goal bar */}
-        <View style={styles.barTrack}>
-          <View style={[styles.barFill, { width: `${goalFillPct}%` }]} />
-        </View>
-        <View style={styles.barRow}>
-          <Text style={[styles.barLabel, styles.barLabelLeft]}>
-            {reviewedToday} / {dailyGoalCards} reviewed today
-          </Text>
-          <Text style={[styles.barLabel, styles.barLabelRight]}>{goalFillPct}%</Text>
-        </View>
-
-        <Button onPress={() => router.push('/quiz?entry=home')} style={styles.cta}>
-          <Text style={styles.ctaText}>Start review →</Text>
-        </Button>
-      </View>
-
-      {/* All lessons — card stream */}
-      <View style={styles.section}>
-        <View style={[styles.sectionHead, styles.row]}>
-          <SectionLabel size={11}>All lessons</SectionLabel>
-          <Button style={styles.lessonsLink} onPress={() => router.push('/(tabs)/library')}>
-            <Text style={styles.sectionMeta}>{lessonsCount} lessons</Text>
-            <Icon name="chevronRight" color={colors.muted} size={12} />
-          </Button>
-        </View>
-        <View style={{ gap: 8 }}>
-          {visibleLessons.map((d) => (
-            <Button key={d.id} onPress={() => router.push(`/lessons/${d.id}`)} style={styles.queueCard}>
-              <View style={styles.lessonTitleRow}>
-                <Text style={styles.lessonTitle} numberOfLines={1}>{d.title}</Text>
-                <Text style={[styles.dueLabel, { color: d.due > 0 ? colors.accent : colors.muted }]}>
-                  {d.due > 0 ? 'review today' : 'caught up'}
-                </Text>
-              </View>
-              <Text style={styles.lessonSub}>{d.sub}</Text>
-              <View style={styles.progressRow}>
-                <View style={styles.progressTrack}>
-                  <View style={[styles.progressFill, { width: `${d.pct}%` }]} />
-                </View>
-                <Text style={styles.cardsLabel}>{d.cards} cards</Text>
-                <Text style={styles.pctLabel}>{d.pct}%</Text>
-              </View>
-            </Button>
+        <View style={styles.courses}>
+          <View style={styles.sectionHeading}>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>Your courses</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel={`View all ${lessonsCount} courses`}
+              onPress={() => router.push('/(tabs)/library')} style={styles.courseCountButton}>
+              <Text style={styles.meta}>{lessonsCount} {lessonsCount === 1 ? 'course' : 'courses'}</Text>
+            </Pressable>
+          </View>
+          {visibleLessons.map((lesson) => (
+            <CourseRow key={lesson.id} title={lesson.title}
+              metadata={`${lesson.due} due · ${lesson.cards} ${lesson.cards === 1 ? 'card' : 'cards'}`}
+              onPress={() => router.push(`/lessons/${lesson.id}`)} />
           ))}
+          {lessonsCount === 0 && <View style={styles.empty}>
+            <Text style={styles.emptyTitle}>Your first course is waiting.</Text>
+            <Text style={styles.emptyCopy}>Turn a topic, a note, or a PDF into learning cards.</Text>
+          </View>}
+          {lessonsCount > visibleLessons.length && <Pressable accessibilityRole="button"
+            onPress={() => router.push('/(tabs)/library')} style={styles.secondaryAction}>
+            <Text style={styles.secondaryText}>View all courses</Text>
+          </Pressable>}
+          <Pressable accessibilityRole="button" accessibilityLabel="Open AI study assistant"
+            onPress={() => setShowAIChat(true)} style={styles.secondaryAction}>
+            <Text style={styles.secondaryText}>Ask your study assistant</Text>
+          </Pressable>
         </View>
-      </View>
-
-        {/* Empty CTA: 仅当 lessons 少于 5 个时显示 */}
-        {lessonsCount < 5 && (
-          <View style={{ padding: 16, paddingTop: 16, paddingBottom: 24 }}>
-            <Button onPress={() => router.push('/create')} style={styles.makeNew}>
-              <View>
-                <Text style={styles.makeNewTitle}>Make a new lesson</Text>
-                <Text style={styles.makeNewSub}>Generate cards from a question or doc</Text>
-              </View>
-              <Text style={styles.makeNewPlus}>+</Text>
-            </Button>
-          </View>
-        )}
-        </ScrollView>
-      </EdBase>
-      <TouchableOpacity
-        style={styles.aiFloatingBtn}
-        onPress={() => setShowAIChat(true)}
-        activeOpacity={0.85}
-      >
-        <Feather name="message-circle" size={20} color="#FFFFFF" />
-        <Text style={styles.aiFloatingText}>AI</Text>
-      </TouchableOpacity>
+      </ScrollView>
       <AIChatModal visible={showAIChat} onClose={() => setShowAIChat(false)} />
-    </View>
+    </EdBase>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 },
-  row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-
-  mainScroll: {
-    flex: 1,
-  },
-  // 与 EdBase 默认 scroll 时一致，为 TabBar / FAB 留白
-  mainScrollContent: {
-    paddingBottom: 70,
-  },
-
-  headerRow: {
-    paddingHorizontal: 18,
-    paddingTop: 20,
-    paddingBottom: 14,
-    backgroundColor: colors.bg,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  headerMainRow: {
-    width: '100%',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    // 左右两列底部对齐（问候语基线与 streak 说明同一视觉底线）
-    alignItems: 'flex-end',
-    gap: 12,
-  },
-  headerLeftCol: {
-    flex: 1,
-    minWidth: 0,
-    paddingRight: 8,
-  },
-  headerRightCol: {
-    alignItems: 'flex-end',
-    flexShrink: 0,
-  },
-  greet: {
-    fontFamily: 'JetBrainsMono_800',
-    fontSize: 18,
-    fontWeight: '400',
-    letterSpacing: -0.3,
-    color: colors.text,
-    marginTop: 2,
-    paddingRight: 8,
-  },
-  // streak 与说明紧贴，避免原先「两行网格」造成过大空隙
-  streakCaption: {
-    letterSpacing: -0.1,
-    marginTop: 1,
-  },
-  streakNum: {
-    fontFamily: 'JetBrainsMono_800',
-    fontSize: 32,
-    fontWeight: '400',
-    letterSpacing: -0.55,
-    color: colors.accent,
-    lineHeight: 34,
-    flexShrink: 0,
-  },
-
-  hero: {
-    paddingHorizontal: 20, paddingTop: 22, paddingBottom: 18,
-    backgroundColor: colors.surf,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  heroLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
-  heroNum: {
-    fontFamily: 'JetBrainsMono_800',
-    fontSize: 52, fontWeight: '400', letterSpacing: -1.5, color: colors.text, lineHeight: 62,
-    paddingTop: 2,
-  },
-  heroSub: { fontFamily: 'JetBrainsMono_400', fontSize: 14, fontWeight: '400', color: colors.muted },
-  heroSubMain: { marginLeft: 4, flexShrink: 1 },
-  heroSubRight: { marginLeft: 'auto', flexShrink: 0, textAlign: 'right' },
-
-  barTrack: { height: 2, borderRadius: 1, backgroundColor: colors.dim, marginTop: 14, overflow: 'hidden' },
-  barFill:  { height: '100%', backgroundColor: colors.accent },
-  barRow:   { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, gap: 8 },
-  barLabel: { fontSize: 12, lineHeight: 17, color: colors.muted, fontFamily: 'JetBrainsMono_500' },
-  barLabelLeft: { flexShrink: 1 },
-  barLabelRight: { flexShrink: 0, textAlign: 'right' },
-
-  cta: {
-    marginTop: 16, paddingVertical: 15, borderRadius: 8,
-    backgroundColor: colors.accent, alignItems: 'center',
-  },
-  ctaText: { color: '#fff', fontSize: 16, lineHeight: 22, fontWeight: '400', fontFamily: 'JetBrainsMono_700' },
-
-  section: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 4 },
-  sectionHead: { paddingHorizontal: 4, paddingBottom: 10, alignItems: 'center' },
-  sectionMeta: { fontSize: 12, color: colors.muted, fontFamily: 'JetBrainsMono_500' },
-  lessonsLink: { flexDirection: 'row', alignItems: 'center', gap: 2 },
-
-  queueCard: {
-    backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 14,
-    position: 'relative',
-  },
-  lessonTitleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
-  lessonTitle: {
-    flex: 1,
-    fontFamily: 'JetBrainsMono_700',
-    fontSize: 16,
-    lineHeight: 22,
-    fontWeight: '400',
-    letterSpacing: -0.1,
-    color: colors.text,
-  },
-  dueLabel: { fontSize: 12, fontWeight: '400', fontFamily: 'JetBrainsMono_600', textAlign: 'right', flexShrink: 0 },
-  lessonSub:  {
-    fontSize: 12,
-    lineHeight: 17,
-    letterSpacing: -0.1,
-    color: colors.muted,
-    marginTop: 3,
-    fontFamily: 'JetBrainsMono_400',
-    fontWeight: '400',
-  },
-  progressRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
-  progressTrack: { flex: 1, height: 2, borderRadius: 1, backgroundColor: colors.dim, overflow: 'hidden' },
-  progressFill: { height: '100%', backgroundColor: colors.accent },
-  cardsLabel: { fontSize: 11, color: colors.muted, width: 60, textAlign: 'right', fontFamily: fonts.grotesk },
-  pctLabel: { fontSize: 11, color: colors.text, fontWeight: '700', width: 34, textAlign: 'right', fontFamily: fonts.grotesk },
-
-  makeNew: {
-    paddingHorizontal: 16, paddingVertical: 14,
-    borderWidth: 1, borderStyle: 'dashed', borderColor: colors.dim, borderRadius: 10,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  makeNewTitle: { fontSize: 13, fontWeight: '400', color: colors.text, fontFamily: 'JetBrainsMono_600' },
-  makeNewSub:   { fontSize: 11, color: colors.muted, marginTop: 2, fontFamily: 'JetBrainsMono_400' },
-  makeNewPlus:  { fontSize: 20, color: colors.muted, fontFamily: 'JetBrainsMono_400' },
-  aiFloatingBtn: {
-    position: 'absolute',
-    right: 20,
-    bottom: 24,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: colors.accent,
-    borderWidth: 1,
-    borderColor: '#16715D',
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    shadowColor: colors.accent,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.24,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  aiFloatingText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
-  },
+  content: { paddingBottom: layout.sectionBottom },
+  header: { paddingHorizontal: layout.heroInline, flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
+  signature: { flexShrink: 1 },
+  greetingRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 3 },
+  greeting: { ...type.dailyGreeting, color: colors.text },
+  invitation: { ...type.dailyInvitation, color: colors.supporting },
+  profile: { width: componentTokens.profile.size, height: componentTokens.profile.size, borderRadius: componentTokens.profile.borderRadius, backgroundColor: componentTokens.profile.backgroundColor, alignItems: 'center', justifyContent: 'center' },
+  initial: { ...componentTokens.profile.label, color: colors.text },
+  hero: { paddingHorizontal: layout.heroInline, paddingTop: layout.heroTop, paddingBottom: 12 },
+  progress: { paddingHorizontal: layout.listInline, paddingTop: 2, paddingBottom: layout.goalBottom, flexDirection: 'row', alignItems: 'flex-end', gap: layout.goalInline },
+  goal: { flex: 1, minWidth: 0 },
+  separator: { width: 1, height: 42, backgroundColor: colors.border },
+  streak: { alignItems: 'center', gap: 5 },
+  streakText: { ...type.streak, color: colors.text },
+  courses: { paddingHorizontal: layout.listInline },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, minHeight: 44, paddingBottom: 10 },
+  sectionTitle: { ...type.section, color: colors.text },
+  courseCountButton: { minHeight: 44, justifyContent: 'center' },
+  meta: { ...type.meta, color: colors.muted },
+  empty: { paddingVertical: 20, gap: 8 },
+  emptyTitle: { ...type.courseTitle, color: colors.text },
+  emptyCopy: { ...type.meta, color: colors.muted },
+  secondaryAction: { minHeight: 44, justifyContent: 'center', alignSelf: 'flex-start', paddingVertical: 12 },
+  secondaryText: { ...type.meta, color: colors.sub },
 });

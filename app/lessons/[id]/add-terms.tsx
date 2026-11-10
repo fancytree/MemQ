@@ -1,10 +1,13 @@
+import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
+import { LanguageCardDetails, LanguageCardEditor } from '@/components/LanguageCardFields';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { AI_LIMITS, getAIUsageCount, recordAIUsage } from '@/lib/aiUsage';
 import { clearCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
+import { LanguageCardData, hasLanguageData, languageDataFromLegacyExplanation, normalizeLanguageData } from '@/lib/languageCard';
 import { colors, fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -19,6 +22,7 @@ interface GeneratedCard {
   title: string;
   body?: string;
   ex?: string;
+  languageData?: LanguageCardData;
 }
 
 interface ManualTermRow {
@@ -26,6 +30,7 @@ interface ManualTermRow {
   term: string;
   definition: string;
   explanation: string;
+  languageData: LanguageCardData;
   saved: boolean;
   editing: boolean;
 }
@@ -62,8 +67,11 @@ export default function AddTermsScreen() {
   const [cards, setCards] = useState<GeneratedCard[]>([]);
   const [saving, setSaving] = useState(false);
   const [loadingTerm, setLoadingTerm] = useState(false);
+  const [learningMode, setLearningMode] = useState<'language' | 'knowledge'>('knowledge');
+  const [loadingMode, setLoadingMode] = useState(true);
+  const [modeLoadFailed, setModeLoadFailed] = useState(false);
   const [manualTerms, setManualTerms] = useState<ManualTermRow[]>([
-    { id: '1', term: '', definition: '', explanation: '', saved: false, editing: true },
+    { id: '1', term: '', definition: '', explanation: '', languageData: {}, saved: false, editing: true },
   ]);
   const [nextManualId, setNextManualId] = useState(2);
   const [generatingManualId, setGeneratingManualId] = useState<string | null>(null);
@@ -76,8 +84,22 @@ export default function AddTermsScreen() {
   const genExhausted = !isPro && genRemaining === 0;
   const isSingleTermEdit = !!termId;
 
+  useEffect(() => {
+    if (!id) return;
+    void supabase.from('lessons').select('learning_mode').eq('id', id).single()
+      .then(({ data, error }) => {
+        if (error) {
+          setModeLoadFailed(true);
+          Alert.alert('Error', 'Failed to load lesson mode. Please reopen this page.');
+        }
+        else setLearningMode(data?.learning_mode === 'language' ? 'language' : 'knowledge');
+        setLoadingMode(false);
+      });
+  }, [id]);
+
   const generate = () => {
     const run = async () => {
+      if (loadingMode || modeLoadFailed) return;
       if (!prompt.trim()) {
         Alert.alert('Tip', 'Please enter text or a topic first');
         return;
@@ -86,7 +108,7 @@ export default function AddTermsScreen() {
       setPhase('generating');
       try {
         const { data: authData } = await supabase.auth.getUser();
-        const { data, error } = await supabase.functions.invoke('generate-terms', {
+        const { data, error } = await supabase.functions.invoke(learningMode === 'language' ? 'generate-vocab-terms' : 'generate-terms', {
           body: { type: 'topic', content: prompt.trim() },
         });
 
@@ -94,7 +116,7 @@ export default function AddTermsScreen() {
           throw new Error(error.message || 'Failed to generate terms');
         }
 
-        const results: Array<{ term: string; definition: string; explanation?: string }> =
+        const results: Array<{ term: string; definition: string; explanation?: string; language_data?: LanguageCardData }> =
           Array.isArray(data?.results) ? data.results : [];
 
         const nextCards: GeneratedCard[] = results.map((item, index) => ({
@@ -103,6 +125,7 @@ export default function AddTermsScreen() {
           title: item.term,
           body: item.definition,
           ex: item.explanation,
+          languageData: normalizeLanguageData(item.language_data),
         }));
 
         setCards(nextCards);
@@ -120,19 +143,21 @@ export default function AddTermsScreen() {
     run();
   };
 
-  const applyGeneratedResults = (results: Array<{ term: string; definition: string; explanation?: string }>) => {
+  const applyGeneratedResults = (results: Array<{ term: string; definition: string; explanation?: string; language_data?: LanguageCardData }>) => {
     const nextCards: GeneratedCard[] = results.map((item, index) => ({
       n: String(index + 1).padStart(2, '0'),
       tag: 'AI Generated',
       title: item.term,
       body: item.definition,
       ex: item.explanation,
+      languageData: normalizeLanguageData(item.language_data),
     }));
     setCards(nextCards);
     setPhase('done');
   };
 
   const handlePickPdfAndGenerate = async () => {
+    if (loadingMode || modeLoadFailed) return;
     if (genExhausted) { void showPaywall(); return; }
     try {
       const picker = getDocumentPicker();
@@ -234,19 +259,21 @@ export default function AddTermsScreen() {
       try {
         const { data, error } = await supabase
           .from('terms')
-          .select('id, term, definition, explanation')
+          .select('id, term, definition, explanation, language_data')
           .eq('id', termId)
           .single();
         if (error || !data) {
           Alert.alert('Error', 'Failed to load term');
           return;
         }
+        const legacyLanguageData = languageDataFromLegacyExplanation(data.explanation);
         setManualTerms([
           {
             id: data.id,
             term: data.term || '',
             definition: data.definition || '',
-            explanation: data.explanation || '',
+            explanation: hasLanguageData(legacyLanguageData) ? '' : data.explanation || '',
+            languageData: data.language_data ? normalizeLanguageData(data.language_data) : legacyLanguageData,
             saved: true,
             editing: true,
             },
@@ -260,8 +287,8 @@ export default function AddTermsScreen() {
 
   const updateManualTerm = (
     id: string,
-    field: 'term' | 'definition' | 'explanation',
-    value: string
+    field: 'term' | 'definition' | 'explanation' | 'languageData',
+    value: string | LanguageCardData
   ) => {
     setManualTerms((prev) =>
       prev.map((row) => (row.id === id ? { ...row, [field]: value } : row))
@@ -277,7 +304,7 @@ export default function AddTermsScreen() {
 
   const handleSaveManualRow = (
     rowId: string,
-    next: Pick<ManualTermRow, 'term' | 'definition' | 'explanation'>
+    next: Pick<ManualTermRow, 'term' | 'definition' | 'explanation' | 'languageData'>
   ) => {
     setManualTerms((prev) => {
       const updated = prev.map((row) => (row.id === rowId ? { ...row, ...next } : row));
@@ -296,6 +323,7 @@ export default function AddTermsScreen() {
           term: '',
           definition: '',
           explanation: '',
+          languageData: {},
           saved: false,
           editing: true,
         },
@@ -328,6 +356,7 @@ export default function AddTermsScreen() {
           term: '',
           definition: '',
           explanation: '',
+          languageData: {},
           saved: false,
           editing: true,
         },
@@ -352,6 +381,7 @@ export default function AddTermsScreen() {
                 ...item,
                 definition: generated.definition,
                 explanation: generated.explanation,
+                languageData: generated.languageData,
                 saved: true,
                 editing: false,
               }
@@ -386,6 +416,7 @@ export default function AddTermsScreen() {
                 ...item,
                 body: generated.definition,
                 ex: generated.explanation,
+                languageData: generated.languageData,
               }
             : item
         )
@@ -400,8 +431,9 @@ export default function AddTermsScreen() {
 
   const generateManualFromTerm = async (
     term: string
-  ): Promise<{ definition: string; explanation: string }> => {
-    const { data, error } = await supabase.functions.invoke('generate-terms', {
+  ): Promise<{ definition: string; explanation: string; languageData: LanguageCardData }> => {
+    if (loadingMode || modeLoadFailed) throw new Error('Lesson mode is unavailable');
+    const { data, error } = await supabase.functions.invoke(learningMode === 'language' ? 'generate-vocab-terms' : 'generate-terms', {
         body: {
           type: 'topic',
         content: term,
@@ -420,10 +452,12 @@ export default function AddTermsScreen() {
           return {
       definition: first.definition || '',
       explanation: first.explanation || '',
+      languageData: normalizeLanguageData(first.language_data),
     };
   };
 
   const handleSave = async () => {
+    if (loadingMode || modeLoadFailed) return;
     if (!id) {
       Alert.alert('Error', 'Lesson ID is required');
       return;
@@ -444,12 +478,14 @@ export default function AddTermsScreen() {
             term: target.term.trim(),
             definition: target.definition.trim(),
             explanation: target.explanation.trim() || null,
+            language_data: learningMode === 'language' && hasLanguageData(target.languageData) ? target.languageData : null,
           })
           .eq('id', termId);
         if (error) {
           Alert.alert('Error', `Failed to update term: ${error.message}`);
         return;
       }
+        void clearCache('LESSON_DETAIL', id as string);
         router.replace(`/lessons/${id}` as any);
         return;
       }
@@ -463,6 +499,7 @@ export default function AddTermsScreen() {
           term: card.title.trim(),
           definition: (card.body || '').trim(),
           explanation: (card.ex || '').trim() || null,
+          language_data: learningMode === 'language' && card.languageData && hasLanguageData(card.languageData) ? card.languageData : null,
         }));
 
       const allTerms = [
@@ -471,6 +508,7 @@ export default function AddTermsScreen() {
           term: row.term.trim(),
           definition: row.definition.trim(),
           explanation: row.explanation.trim() || null,
+          language_data: learningMode === 'language' && hasLanguageData(row.languageData) ? row.languageData : null,
         })),
       ];
 
@@ -484,6 +522,7 @@ export default function AddTermsScreen() {
         term: row.term,
         definition: row.definition,
         explanation: row.explanation,
+        language_data: row.language_data,
       }));
 
       const { error } = await supabase.from('terms').insert(insertData);
@@ -516,12 +555,12 @@ export default function AddTermsScreen() {
     <EdBase bottomInset={0} scroll={false}>
       {/* Top bar */}
       <View style={styles.topbar}>
-        <Pressable onPress={handleCancel} style={styles.topbarSideBtn}>
+        <Pressable accessibilityRole="button" onPress={handleCancel} style={styles.topbarSideBtn}>
           <Text style={styles.cancel}>Cancel</Text>
         </Pressable>
         <Text style={styles.title}>{isSingleTermEdit ? 'Edit Term' : 'Add Terms'}</Text>
-        <Pressable onPress={handleSave} disabled={saving} style={styles.topbarSideBtn}>
-          <Text style={[styles.tag, saving && styles.tagDisabled]}>{saving ? 'Saving...' : 'Save'}</Text>
+        <Pressable accessibilityRole="button" onPress={handleSave} disabled={saving || loadingMode || modeLoadFailed} style={styles.topbarSideBtn}>
+          <Text style={[styles.tag, (saving || loadingMode || modeLoadFailed) && styles.tagDisabled]}>{saving ? 'Saving...' : 'Save'}</Text>
         </Pressable>
         </View>
 
@@ -537,16 +576,16 @@ export default function AddTermsScreen() {
           <SectionLabel
             style={{
               marginBottom: 10,
-              fontSize: 11,
+              fontSize: 12,
               lineHeight: 15.4,
               letterSpacing: -0.1,
-              fontFamily: 'JetBrainsMono_500',
-              fontWeight: '400',
+              fontFamily: fonts.medium,
+              fontWeight: '500',
             }}
           >
             What do you want to learn?
           </SectionLabel>
-          <TextInput
+          <TextInput accessibilityLabel="Type what you want to learn, paste text, or enter a topic."
             value={prompt}
             onChangeText={setPrompt}
             placeholder="Type what you want to learn, paste text, or enter a topic."
@@ -557,7 +596,7 @@ export default function AddTermsScreen() {
         </View>
         <View style={styles.promptActions}>
           {(['Attach', 'Voice', 'Doc'] as const).map((label, i, arr) => (
-            <Pressable
+            <Pressable accessibilityRole="button"
               key={label}
               onPress={() => {
                 if (isGenerating) return;
@@ -584,8 +623,8 @@ export default function AddTermsScreen() {
               )}
             </Pressable>
           ))}
-          <Pressable
-            disabled={isGenerating}
+          <Pressable accessibilityRole="button"
+            disabled={isGenerating || loadingMode || modeLoadFailed}
             onPress={genExhausted ? () => void showPaywall() : generate}
             style={[styles.actionBtn, { marginLeft: 'auto' }]}
           >
@@ -600,7 +639,7 @@ export default function AddTermsScreen() {
               ) : genExhausted ? (
                 <Text style={[styles.generateLabel, { color: colors.muted }]}>🔒 Upgrade →</Text>
               ) : (
-                <Text style={[styles.generateLabel, { color: colors.accent }]}>Generate →</Text>
+                <Text style={[styles.generateLabel, { color: colors.accentText }]}>Generate →</Text>
               )}
             </View>
           </Pressable>
@@ -611,7 +650,7 @@ export default function AddTermsScreen() {
             {genExhausted ? (
               <>
                 <Text style={styles.quotaBarText}>Monthly AI limit reached.</Text>
-                <Pressable onPress={() => void showPaywall()} style={styles.quotaUpgradeBtn}>
+                <Pressable accessibilityRole="button" onPress={() => void showPaywall()} style={styles.quotaUpgradeBtn}>
                   <Text style={styles.quotaUpgradeBtnText}>Upgrade to Pro →</Text>
                 </Pressable>
               </>
@@ -646,6 +685,7 @@ export default function AddTermsScreen() {
         <FullCard
           key={c.n}
           card={c}
+          isLanguage={learningMode === 'language'}
           isRegenerating={regeneratingCardId === c.n}
           regenerateDots={regenerateDots}
           onDiscard={() => handleDiscardGeneratedCard(c.n)}
@@ -664,6 +704,7 @@ export default function AddTermsScreen() {
               key={row.id}
               index={index}
               row={row}
+              isLanguage={learningMode === 'language'}
               disableDelete={manualTerms.length === 1}
               onDelete={() => removeManualRow(row.id)}
               onEdit={() => handleEditManualRow(row.id)}
@@ -710,7 +751,7 @@ export default function AddTermsScreen() {
                 )}
 
       {isSingleTermEdit && !loadingTerm && (
-        <View style={styles.singleEditWrap}>
+        <ScrollView style={styles.singleEditWrap} contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
           <View style={styles.manualSection}>
             <View style={styles.manualList}>
               {manualTerms.map((row, index) => (
@@ -718,6 +759,7 @@ export default function AddTermsScreen() {
                   key={row.id}
                   index={index}
                   row={row}
+                  isLanguage={learningMode === 'language'}
                   disableDelete={true}
                   onDelete={() => {}}
                   onEdit={() => handleEditManualRow(row.id)}
@@ -752,14 +794,15 @@ export default function AddTermsScreen() {
               ))}
             </View>
           </View>
-                        </View>
-                        )}
+        </ScrollView>
+      )}
     </EdBase>
   );
 }
 
 function FullCard({
   card: c,
+  isLanguage,
   isRegenerating,
   regenerateDots,
   onDiscard,
@@ -767,6 +810,7 @@ function FullCard({
   onUpdate,
 }: {
   card: GeneratedCard;
+  isLanguage: boolean;
   isRegenerating: boolean;
   regenerateDots: string;
   onDiscard: () => void;
@@ -777,11 +821,13 @@ function FullCard({
   const [editTitle, setEditTitle] = useState(c.title);
   const [editBody, setEditBody] = useState(c.body || '');
   const [editEx, setEditEx] = useState(c.ex || '');
+  const [editLanguage, setEditLanguage] = useState<LanguageCardData>(c.languageData || {});
 
   const startEdit = () => {
     setEditTitle(c.title);
     setEditBody(c.body || '');
     setEditEx(c.ex || '');
+    setEditLanguage(c.languageData || {});
     setIsEditing(true);
   };
 
@@ -790,6 +836,7 @@ function FullCard({
     setEditTitle(c.title);
     setEditBody(c.body || '');
     setEditEx(c.ex || '');
+    setEditLanguage(c.languageData || {});
   };
 
   const saveEdit = () => {
@@ -798,6 +845,7 @@ function FullCard({
       title: editTitle.trim() || c.title,
       body: editBody.trim() || undefined,
       ex: editEx.trim() || undefined,
+      languageData: editLanguage,
     };
     onUpdate(nextCard);
     setIsEditing(false);
@@ -813,7 +861,7 @@ function FullCard({
           {!isEditing && <Text style={styles.fullCardTitle}>{c.title}</Text>}
         </View>
           {!isEditing && (
-          <Pressable onPress={startEdit}>
+          <Pressable accessibilityRole="button" onPress={startEdit}>
             <Text style={styles.editLink}>Edit</Text>
           </Pressable>
         )}
@@ -823,7 +871,7 @@ function FullCard({
               <View>
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Term</Text>
-                          <TextInput
+                          <TextInput accessibilityLabel="e.g. Renaissance"
                 style={styles.manualInput}
                 value={editTitle}
                 onChangeText={setEditTitle}
@@ -834,7 +882,7 @@ function FullCard({
 
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Definition</Text>
-                          <TextInput
+                          <TextInput accessibilityLabel="e.g. Period of cultural revival in Europe"
                 style={[styles.manualInput, styles.manualTextarea]}
                 value={editBody}
                 onChangeText={setEditBody}
@@ -846,8 +894,8 @@ function FullCard({
                         </View>
 
             <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>Explanation (Optional)</Text>
-                          <TextInput
+              <Text style={styles.manualInputLabel}>{isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}</Text>
+                          <TextInput accessibilityLabel="Add context, examples, or usage notes"
                 style={[styles.manualInput, styles.manualTextarea]}
                 value={editEx}
                 onChangeText={setEditEx}
@@ -857,23 +905,25 @@ function FullCard({
                             textAlignVertical="top"
                           />
                         </View>
+            {isLanguage && <LanguageCardEditor value={editLanguage} onChange={setEditLanguage} term={editTitle} />}
                       </View>
         ) : (
           c.body && <Text style={styles.fullCardBody}>{c.body}</Text>
         )}
         {!isEditing && c.ex && (
           <View style={styles.exBlock}>
-            <SectionLabel style={{ marginBottom: 5 }}>Example</SectionLabel>
+            <SectionLabel style={{ marginBottom: 5 }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
             <Text style={styles.exText}>{c.ex}</Text>
               </View>
                     )}
+        {!isEditing && isLanguage && <LanguageCardDetails data={c.languageData || {}} term={c.title} />}
                   </View>
       <View style={isEditing ? styles.manualCardActions : styles.fullCardActions}>
         {isEditing
           ? (['cancel', 'save'] as const).map((key, j, arr) => {
               const isSave = key === 'save';
               return (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={key}
                   onPress={isSave ? saveEdit : cancelEdit}
                   style={[
@@ -885,7 +935,7 @@ function FullCard({
                     style={[
                       styles.manualCardActionLabel,
                       isSave
-                        ? { color: colors.accent, fontFamily: 'JetBrainsMono_700' }
+                        ? { color: colors.accentText, fontFamily: fonts.bold }
                         : { color: colors.muted },
                     ]}
                   >
@@ -898,7 +948,7 @@ function FullCard({
               const isRegen = key === 'regen';
               const label = key === 'discard' ? 'Discard' : isRegenerating ? `Regenerating${regenerateDots}` : 'Regenerate';
               return (
-                <Pressable
+                <Pressable accessibilityRole="button"
                   key={key}
                   onPress={key === 'discard' ? onDiscard : onRegenerate}
                   disabled={isRegenerating}
@@ -911,7 +961,7 @@ function FullCard({
                   <Text
                     style={[
                       styles.fullCardActionLabel,
-                      { color: isRegen ? colors.accent : colors.muted, fontWeight: isRegen ? '700' : '400' },
+                      { color: isRegen ? colors.accentText : colors.muted, fontWeight: isRegen ? '700' : '400' },
                     ]}
                   >
                     {label}
@@ -927,6 +977,7 @@ function FullCard({
 function ManualCard({
   index,
   row,
+  isLanguage,
   disableDelete,
   onDelete,
   onEdit,
@@ -944,6 +995,7 @@ function ManualCard({
 }: {
   index: number;
   row: ManualTermRow;
+  isLanguage: boolean;
   disableDelete: boolean;
   onDelete: () => void;
   onEdit: () => void;
@@ -956,11 +1008,11 @@ function ManualCard({
   hideDeleteButton?: boolean;
   hideManualMeta?: boolean;
   onDraftChange: (
-    field: 'term' | 'definition' | 'explanation',
-    value: string
+    field: 'term' | 'definition' | 'explanation' | 'languageData',
+    value: string | LanguageCardData
   ) => void;
-  onGenerate: (term: string) => Promise<{ definition: string; explanation: string } | null>;
-  onSave: (next: Pick<ManualTermRow, 'term' | 'definition' | 'explanation'>) => void;
+  onGenerate: (term: string) => Promise<{ definition: string; explanation: string; languageData: LanguageCardData } | null>;
+  onSave: (next: Pick<ManualTermRow, 'term' | 'definition' | 'explanation' | 'languageData'>) => void;
 }) {
   const shouldRenderHeader =
     !hideManualMeta || !hideDeleteButton || (row.saved && !row.editing);
@@ -968,17 +1020,20 @@ function ManualCard({
   const [termDraft, setTermDraft] = useState(row.term);
   const [definitionDraft, setDefinitionDraft] = useState(row.definition);
   const [explanationDraft, setExplanationDraft] = useState(row.explanation);
+  const [languageDraft, setLanguageDraft] = useState<LanguageCardData>(row.languageData);
 
   useEffect(() => {
     setTermDraft(row.term);
     setDefinitionDraft(row.definition);
     setExplanationDraft(row.explanation);
-  }, [row.term, row.definition, row.explanation]);
+    setLanguageDraft(row.languageData);
+  }, [row.term, row.definition, row.explanation, row.languageData]);
 
   const handleCancelEdit = () => {
     setTermDraft(row.term);
     setDefinitionDraft(row.definition);
     setExplanationDraft(row.explanation);
+    setLanguageDraft(row.languageData);
     onCancelEdit();
   };
 
@@ -987,6 +1042,7 @@ function ManualCard({
       term: termDraft,
       definition: definitionDraft,
       explanation: explanationDraft,
+      languageData: languageDraft,
     });
   };
 
@@ -995,8 +1051,10 @@ function ManualCard({
     if (!generated) return;
     setDefinitionDraft(generated.definition);
     setExplanationDraft(generated.explanation);
+    setLanguageDraft(generated.languageData);
     onDraftChange('definition', generated.definition);
     onDraftChange('explanation', generated.explanation);
+    onDraftChange('languageData', generated.languageData);
   };
 
     return (
@@ -1010,11 +1068,11 @@ function ManualCard({
             {row.saved && !row.editing && <Text style={styles.manualSavedTitle}>{row.term}</Text>}
                   </View>
           {row.saved && !row.editing ? (
-            <Pressable onPress={onEdit}>
+            <Pressable accessibilityRole="button" onPress={onEdit}>
               <Text style={styles.editLink}>Edit</Text>
             </Pressable>
           ) : !hideDeleteButton ? (
-            <Pressable
+            <Pressable accessibilityRole="button" accessibilityLabel="Remove draft card"
               onPress={onDelete}
               disabled={disableDelete}
               style={[styles.manualRemoveBtn, disableDelete && styles.manualRemoveBtnDisabled]}
@@ -1031,10 +1089,11 @@ function ManualCard({
             <Text style={styles.fullCardBody}>{row.definition}</Text>
             {!!row.explanation && (
               <View style={styles.exBlock}>
-                <SectionLabel style={{ marginBottom: 5 }}>Example</SectionLabel>
+                <SectionLabel style={{ marginBottom: 5 }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
                 <Text style={styles.exText}>{row.explanation}</Text>
           </View>
           )}
+            {isLanguage && <LanguageCardDetails data={row.languageData} term={row.term} />}
                       </>
                     ) : (
                       <>
@@ -1042,7 +1101,7 @@ function ManualCard({
               <View style={styles.manualInputLabelRow}>
                 <Text style={styles.manualInputLabel}>Term</Text>
                 {termDraft.trim().length > 0 && (
-                  <Pressable
+                  <Pressable accessibilityRole="button"
                     onPress={handleGenerate}
                     disabled={isGenerating}
                     style={isGenerating ? styles.manualGenerateButtonDisabled : undefined}
@@ -1053,7 +1112,7 @@ function ManualCard({
                   </Pressable>
                   )}
                 </View>
-                          <TextInput
+                          <TextInput accessibilityLabel="e.g. Renaissance"
                 style={styles.manualInput}
                 placeholder="e.g. Renaissance"
                 placeholderTextColor={colors.muted}
@@ -1067,7 +1126,7 @@ function ManualCard({
 
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Definition</Text>
-                          <TextInput
+                          <TextInput accessibilityLabel="e.g. Period of cultural revival in Europe"
                 style={[styles.manualInput, styles.manualTextarea]}
                 placeholder="e.g. Period of cultural revival in Europe"
                 placeholderTextColor={colors.muted}
@@ -1081,8 +1140,8 @@ function ManualCard({
           </View>
 
             <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>Explanation (Optional)</Text>
-                  <TextInput
+              <Text style={styles.manualInputLabel}>{isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}</Text>
+                  <TextInput accessibilityLabel="Add context, examples, or usage notes"
                 style={[styles.manualInput, styles.manualTextarea]}
                 placeholder="Add context, examples, or usage notes"
                 placeholderTextColor={colors.muted}
@@ -1094,16 +1153,26 @@ function ManualCard({
                 }}
                   />
                   </View>
+            {isLanguage && (
+              <LanguageCardEditor
+                value={languageDraft}
+                term={termDraft}
+                onChange={(next) => {
+                  setLanguageDraft(next);
+                  onDraftChange('languageData', next);
+                }}
+              />
+            )}
                     </>
                   )}
               </View>
       {!hideInlineEditActions && (!row.saved || row.editing) ? (
         <View style={styles.manualCardActions}>
-          <Pressable style={styles.manualCardAction} onPress={handleCancelEdit}>
+          <Pressable accessibilityRole="button" style={styles.manualCardAction} onPress={handleCancelEdit}>
             <Text style={[styles.manualCardActionLabel, { color: colors.muted }]}>Cancel</Text>
           </Pressable>
-          <Pressable style={[styles.manualCardAction, styles.manualCardActionBorder]} onPress={handleSaveEdit}>
-            <Text style={[styles.manualCardActionLabel, { color: colors.accent, fontFamily: 'JetBrainsMono_700' }]}>
+          <Pressable accessibilityRole="button" style={[styles.manualCardAction, styles.manualCardActionBorder]} onPress={handleSaveEdit}>
+            <Text style={[styles.manualCardActionLabel, { color: colors.accentText, fontFamily: fonts.bold }]}>
               Save
                     </Text>
           </Pressable>
@@ -1114,7 +1183,7 @@ function ManualCard({
             const isRegen = key === 'regen';
             const label = key === 'discard' ? 'Discard' : isGenerating ? `Regenerating${regenerateDots}` : 'Regenerate';
             return (
-              <Pressable
+              <Pressable accessibilityRole="button"
                 key={key}
                 onPress={key === 'discard' ? onDiscard : onRegenerate}
                 disabled={isGenerating}
@@ -1127,7 +1196,7 @@ function ManualCard({
                 <Text
                   style={[
                     styles.fullCardActionLabel,
-                    { color: isRegen ? colors.accent : colors.muted, fontWeight: isRegen ? '700' : '400' },
+                    { color: isRegen ? colors.accentText : colors.muted, fontWeight: isRegen ? '700' : '400' },
                   ]}
                 >
                   {label}
@@ -1143,7 +1212,7 @@ function ManualCard({
 
 const styles = StyleSheet.create({
   topbar: {
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 20,
     paddingBottom: 16,
     flexDirection: 'row',
@@ -1153,7 +1222,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  topbarSideBtn: {
+  topbarSideBtn: { minHeight: 44,
     minWidth: 64,
     zIndex: 2,
   },
@@ -1171,20 +1240,20 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 13,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_500',
+    fontFamily: fonts.medium,
   },
   singleEditWrap: {
     flex: 1,
     paddingTop: 8,
   },
-  cancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.grotesk },
+  cancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
   title: {
     fontSize: 16,
     lineHeight: 22.4,
-    fontWeight: '400',
+    fontWeight: '800',
     letterSpacing: -0.1,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_800',
+    fontFamily: fonts.extraBold,
     position: 'absolute',
     left: 0,
     right: 0,
@@ -1194,9 +1263,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: -0.1,
-    color: colors.accent,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    color: colors.accentText,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
     textAlign: 'right',
   },
   tagDisabled: { opacity: 0.6 },
@@ -1208,7 +1277,7 @@ const styles = StyleSheet.create({
     lineHeight: 24,
     letterSpacing: -0.1,
     color: colors.text,
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.regular,
     fontWeight: '400',
     padding: 0,
   },
@@ -1218,7 +1287,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: colors.border,
   },
-  actionBtn: { paddingHorizontal: 14, paddingVertical: 12 },
+  actionBtn: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12 },
   actionDisabled: { opacity: 0.5 },
   generateActionWrap: { flexDirection: 'row', alignItems: 'center' },
   generateDots: { width: 32, textAlign: 'left', flexShrink: 0 },
@@ -1229,13 +1298,13 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   quotaBarText: {
-    fontSize: 11, lineHeight: 15, color: colors.muted,
-    fontFamily: 'JetBrainsMono_400', fontWeight: '400',
+    fontSize: 12, lineHeight: 15, color: colors.muted,
+    fontFamily: fonts.regular, fontWeight: '400',
   },
-  quotaUpgradeBtn: { paddingVertical: 2, paddingHorizontal: 4 },
+  quotaUpgradeBtn: { minHeight: 44, paddingVertical: 2, paddingHorizontal: 4 },
   quotaUpgradeBtnText: {
-    fontSize: 11, lineHeight: 15, color: colors.accent,
-    fontFamily: 'JetBrainsMono_700', fontWeight: '400',
+    fontSize: 12, lineHeight: 15, color: colors.action,
+    fontFamily: fonts.bold, fontWeight: '700',
   },
   actionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionLabel: {
@@ -1244,14 +1313,14 @@ const styles = StyleSheet.create({
     color: colors.muted,
     letterSpacing: 0.5,
     textTransform: 'uppercase',
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   generateLabel: {
     fontSize: 14,
     lineHeight: 19.6,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 
   genHead: {
@@ -1263,7 +1332,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   empty: {
-    marginHorizontal: 16,
+    marginHorizontal: layout.screenInline,
     marginBottom: 16,
     paddingHorizontal: 18,
     paddingVertical: 28,
@@ -1273,7 +1342,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
   },
-  emptyText: { fontSize: 13, color: colors.muted, lineHeight: 21, textAlign: 'center', fontFamily: fonts.grotesk },
+  emptyText: { fontSize: 13, color: colors.muted, lineHeight: 21, textAlign: 'center', fontFamily: fonts.regular },
 
   skeletonCard: {
     backgroundColor: colors.surf,
@@ -1286,7 +1355,7 @@ const styles = StyleSheet.create({
   skeletonBar: { height: 8, backgroundColor: colors.dim, borderRadius: 2, opacity: 0.5 },
 
   fullCard: {
-    marginHorizontal: 16,
+    marginHorizontal: layout.screenInline,
     marginTop: 8,
     backgroundColor: colors.surf,
     borderWidth: 1,
@@ -1311,11 +1380,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     lineHeight: 20,
     color: colors.text,
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.bold,
   },
-  editLink: { fontSize: 12, color: colors.accent, fontWeight: '600', marginLeft: 10, fontFamily: fonts.grotesk },
+  editLink: { fontSize: 12, color: colors.action, fontWeight: '600', marginLeft: 10, fontFamily: fonts.semibold },
 
-  fullCardBody: { fontSize: 13, color: colors.sub, lineHeight: 21, marginBottom: 12, fontFamily: fonts.grotesk },
+  fullCardBody: { fontSize: 13, color: colors.sub, lineHeight: 21, marginBottom: 12, fontFamily: fonts.regular },
   exBlock: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -1324,15 +1393,15 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     backgroundColor: colors.bg,
   },
-  exText: { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.mono },
+  exText: { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.utility },
 
   fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border },
   fullCardAction: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  fullCardActionLabel: { fontSize: 12, fontFamily: fonts.grotesk },
+  fullCardActionLabel: { fontSize: 12, fontFamily: fonts.regular },
 
   manualSection: {
     marginTop: 8,
-    marginHorizontal: 16,
+    marginHorizontal: layout.screenInline,
   },
   manualSectionHead: {
     marginBottom: 10,
@@ -1365,7 +1434,7 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
     lineHeight: 20,
     color: colors.text,
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.bold,
   },
   manualCardBody: {
     padding: 12,
@@ -1387,22 +1456,22 @@ const styles = StyleSheet.create({
   },
   manualCardActionLabel: {
     fontSize: 12,
-    fontFamily: 'JetBrainsMono_500',
+    fontFamily: fonts.medium,
   },
   manualCardIndex: {
-    fontSize: 11,
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
+    fontSize: 12,
+    color: colors.accentText,
+    fontFamily: fonts.bold,
   },
   manualRemoveBtn: {
-    width: 24,
-    height: 24,
+    width: 44,
+    minHeight: 44,
     borderRadius: 6,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
   },
   manualRemoveBtnDisabled: {
     opacity: 0.5,
@@ -1417,11 +1486,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   manualInputLabel: {
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15.4,
     color: colors.muted,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
+    fontFamily: fonts.medium,
   },
   manualGenerateButtonDisabled: {
     opacity: 0.5,
@@ -1429,12 +1498,12 @@ const styles = StyleSheet.create({
   manualGenerateButtonText: {
     fontSize: 12,
     lineHeight: 17,
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
+    color: colors.action,
+    fontFamily: fonts.bold,
   },
-  manualInput: {
+  manualInput: { minHeight: 44,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     borderRadius: 8,
     backgroundColor: colors.surf,
     paddingHorizontal: 12,
@@ -1442,7 +1511,7 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
   manualTextarea: {
     minHeight: 62,

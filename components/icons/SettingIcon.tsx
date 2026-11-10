@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 
@@ -6,7 +7,7 @@ interface SettingIconProps {
   color?: string;
 }
 
-export default function SettingIcon({ size = 24, color = '#0A0A0A' }: SettingIconProps) {
+export default function SettingIcon({ size = 24, color = colors.text }: SettingIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <Path

@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { MemQTheme } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
@@ -150,7 +152,7 @@ export default function ResetPasswordScreen() {
     return (
       <View style={styles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={t.color.accent} />
+          <ActivityIndicator size="large" color={colors.accentText} />
           <Text style={styles.loadingText}>Verifying reset link...</Text>
         </View>
       </View>
@@ -176,7 +178,7 @@ export default function ResetPasswordScreen() {
           {/* New Password */}
           <View style={styles.inputContainer}>
             <View style={styles.passwordInputWrapper}>
-              <TextInput
+              <TextInput accessibilityLabel="New Password"
                 style={styles.passwordInput}
                 placeholder="New Password"
                 placeholderTextColor={colors.muted}
@@ -190,7 +192,7 @@ export default function ResetPasswordScreen() {
                 autoComplete="password-new"
                 editable={!loading}
               />
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
                 activeOpacity={0.7}
@@ -207,7 +209,7 @@ export default function ResetPasswordScreen() {
           {/* Confirm Password */}
           <View style={styles.inputContainer}>
             <View style={styles.passwordInputWrapper}>
-              <TextInput
+              <TextInput accessibilityLabel="Confirm New Password"
                 style={styles.passwordInput}
                 placeholder="Confirm New Password"
                 placeholderTextColor={colors.muted}
@@ -221,7 +223,7 @@ export default function ResetPasswordScreen() {
                 autoComplete="password-new"
                 editable={!loading}
               />
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.eyeButton}
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 activeOpacity={0.7}
@@ -241,18 +243,18 @@ export default function ResetPasswordScreen() {
             </View>
           )}
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleResetPassword}
             disabled={loading}>
             {loading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.surf} />
             ) : (
               <Text style={styles.buttonText}>Reset Password</Text>
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.backToLoginLink}
             onPress={() => router.replace('/login')}
             disabled={loading}
@@ -276,7 +278,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 40,
   },
   loadingContainer: {
@@ -288,21 +290,21 @@ const styles = StyleSheet.create({
     marginTop: 16,
     fontSize: 13,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
   title: {
     fontSize: 28,
-    fontWeight: '400',
+    fontWeight: '800',
     color: colors.text,
     marginBottom: 12,
-    fontFamily: 'JetBrainsMono_800',
+    fontFamily: fonts.extraBold,
   },
   subtitle: {
     fontSize: 13,
     color: colors.muted,
     marginBottom: 32,
     lineHeight: 19,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
   inputContainer: {
     marginBottom: 16,
@@ -313,19 +315,19 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surf,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
   },
-  passwordInput: {
+  passwordInput: { minHeight: 44,
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 14,
     color: colors.text,
     lineHeight: 20,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
-  eyeButton: {
+  eyeButton: { minHeight: 44,
     padding: 14,
     paddingRight: 16,
   },
@@ -335,16 +337,16 @@ const styles = StyleSheet.create({
     backgroundColor: colors.redL,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FCA5A5',
+    borderColor: colors.red,
   },
   errorText: {
     fontSize: 12,
     color: colors.red,
-    fontFamily: 'JetBrainsMono_500',
+    fontFamily: fonts.medium,
   },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: 8,
+  button: { minHeight: 44,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 16,
@@ -353,10 +355,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   backToLoginLink: {
     alignItems: 'center',
@@ -364,9 +366,9 @@ const styles = StyleSheet.create({
   },
   backToLoginText: {
     fontSize: 12,
-    color: colors.accent,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    color: colors.accentText,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });
 

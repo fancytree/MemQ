@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import Logo from '@/components/icons/Logo';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { signInWithOAuth, startGoogleOAuthInSafari } from '@/lib/auth';
@@ -49,40 +51,40 @@ export default function SignUpScreen() {
   const isValidEmail = (email: string) => {
     // 更严格的邮箱验证正则表达式
     const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-    
+
     // 基本检查
     if (!email || email.trim().length === 0) {
       return false;
     }
-    
+
     // 检查长度
     if (email.length > 255) {
       return false;
     }
-    
+
     // 检查是否包含 @ 符号
     const atIndex = email.indexOf('@');
     if (atIndex === -1 || atIndex === 0 || atIndex === email.length - 1) {
       return false;
     }
-    
+
     // 检查域名部分
     const domain = email.substring(atIndex + 1);
     if (domain.length === 0 || !domain.includes('.')) {
       return false;
     }
-    
+
     // 检查域名部分是否至少有一个有效的顶级域名（至少2个字符）
     const domainParts = domain.split('.');
     if (domainParts.length < 2) {
       return false;
     }
-    
+
     const tld = domainParts[domainParts.length - 1];
     if (tld.length < 2) {
       return false;
     }
-    
+
     // 使用正则表达式验证
     return emailRegex.test(email.trim());
   };
@@ -252,7 +254,7 @@ export default function SignUpScreen() {
 
           {/* 邮箱输入 */}
           <View style={[styles.inputContainer, styles.firstInputContainer]}>
-            <TextInput
+            <TextInput accessibilityLabel="Email"
               style={styles.input}
               placeholder="Email"
               placeholderTextColor={colors.muted}
@@ -268,7 +270,7 @@ export default function SignUpScreen() {
           {/* 密码输入 */}
           <View style={styles.inputContainer}>
             <View style={styles.passwordInputWrapper}>
-              <TextInput
+              <TextInput accessibilityLabel="Password"
                 style={styles.passwordInput}
                 placeholder="Password"
                 placeholderTextColor={colors.muted}
@@ -279,7 +281,7 @@ export default function SignUpScreen() {
                 autoComplete="password-new"
                 editable={!loading}
               />
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.eyeButton}
                 onPress={() => setShowPassword(!showPassword)}
                 activeOpacity={0.7}
@@ -296,7 +298,7 @@ export default function SignUpScreen() {
           {/* 确认密码输入 */}
           <View style={styles.inputContainer}>
             <View style={styles.passwordInputWrapper}>
-              <TextInput
+              <TextInput accessibilityLabel="Confirm Password"
                 style={styles.passwordInput}
                 placeholder="Confirm Password"
                 placeholderTextColor={colors.muted}
@@ -307,7 +309,7 @@ export default function SignUpScreen() {
                 autoComplete="password-new"
                 editable={!loading}
               />
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.eyeButton}
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                 activeOpacity={0.7}
@@ -321,7 +323,7 @@ export default function SignUpScreen() {
             </View>
           </View>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.button, styles.signUpButton, loading && styles.buttonDisabled]}
             onPress={signUp}
             disabled={loading}>
@@ -339,7 +341,7 @@ export default function SignUpScreen() {
           <View style={styles.socialLoginContainer}>
             <View style={styles.socialIconsRow}>
               {/* Google 登录 */}
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.socialIconButton}
                 onPress={handleGoogleSignIn}
                 disabled={loading || oauthLoading !== null}
@@ -347,16 +349,16 @@ export default function SignUpScreen() {
               >
                 <View style={[styles.socialIconContainer, styles.googleIconContainer]}>
                   {oauthLoading === 'google' ? (
-                    <ActivityIndicator size="small" color="#4285F4" />
+                    <ActivityIndicator size="small" color={colors.google} />
                   ) : (
-                    <FontAwesome5 name="google" size={20} color="#4285F4" />
+                    <FontAwesome5 name="google" size={20} color={colors.google} />
                   )}
                 </View>
               </TouchableOpacity>
 
               {/* Apple 登录 */}
               {Platform.OS === 'ios' && (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.socialIconButton}
                   onPress={handleAppleSignIn}
                   disabled={loading || oauthLoading !== null}
@@ -364,9 +366,9 @@ export default function SignUpScreen() {
                 >
                   <View style={[styles.socialIconContainer, styles.appleIconContainer]}>
                     {oauthLoading === 'apple' ? (
-                      <ActivityIndicator size="small" color="#FFFFFF" />
+                      <ActivityIndicator size="small" color={colors.surf} />
                     ) : (
-                      <FontAwesome5 name="apple" size={22} color="#FFFFFF" />
+                      <FontAwesome5 name="apple" size={22} color={colors.surf} />
                     )}
                   </View>
                 </TouchableOpacity>
@@ -377,8 +379,9 @@ export default function SignUpScreen() {
           {/* 跳转到登录页面 */}
           <View style={styles.signInLinkContainer}>
             <Text style={styles.signInLinkText}>Already have an account? </Text>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               onPress={() => router.replace('/login')}
+              style={styles.signInLinkTouchable}
               activeOpacity={0.7}
             >
               <Text style={styles.signInLinkButton}>Sign In</Text>
@@ -402,7 +405,7 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 20,
     flex: 1,
     justifyContent: 'space-between',
@@ -421,7 +424,7 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginTop: 12,
     textAlign: 'center',
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
   logo: {
     width: 100,
@@ -436,10 +439,10 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     lineHeight: 24,
-    fontWeight: '400',
+    fontWeight: '700',
     color: colors.text,
     textAlign: 'left',
-    fontFamily: 'JetBrainsMono_700',
+    fontFamily: fonts.bold,
   },
   inputContainer: {
     marginBottom: 16,
@@ -447,7 +450,7 @@ const styles = StyleSheet.create({
   firstInputContainer: {
     marginTop: 0,
   },
-  input: {
+  input: { minHeight: 44,
     backgroundColor: colors.surf,
     borderRadius: 8,
     paddingHorizontal: 16,
@@ -456,8 +459,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     color: colors.text,
     borderWidth: 1,
-    borderColor: colors.border,
-    fontFamily: 'JetBrainsMono_400',
+    borderColor: colors.controlBorder,
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
   passwordInputWrapper: {
@@ -466,39 +469,39 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surf,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
   },
-  passwordInput: {
+  passwordInput: { minHeight: 44,
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 14,
     fontSize: 14,
     lineHeight: 20,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
-  eyeButton: {
+  eyeButton: { minHeight: 44,
     padding: 14,
     paddingRight: 16,
   },
-  button: {
+  button: { minHeight: 44,
     borderRadius: 8,
     paddingVertical: 16,
     alignItems: 'center',
     marginTop: 8,
   },
-  signUpButton: {
-    backgroundColor: colors.accent,
+  signUpButton: { minHeight: 44,
+    backgroundColor: colors.action,
   },
   buttonDisabled: {
     opacity: 0.5,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -514,8 +517,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     fontSize: 12,
     color: colors.muted,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '500',
+    fontFamily: fonts.medium,
   },
   socialLoginContainer: {
     marginTop: 8,
@@ -524,7 +527,7 @@ const styles = StyleSheet.create({
   },
   socialLoginTitle: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.muted,
     textAlign: 'center',
     marginBottom: 16,
   },
@@ -549,9 +552,9 @@ const styles = StyleSheet.create({
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0,
     shadowRadius: 2,
-    elevation: 1,
+    elevation: 0,
   },
   googleIconContainer: {
     backgroundColor: colors.surf,
@@ -572,13 +575,17 @@ const styles = StyleSheet.create({
   signInLinkText: {
     fontSize: 12,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
+  },
+  signInLinkTouchable: {
+    minHeight: 44,
+    justifyContent: 'center',
   },
   signInLinkButton: {
     fontSize: 12,
-    color: colors.accent,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    color: colors.action,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });
 

@@ -1,4 +1,8 @@
+import { layout } from '@/theme/spacing';
+import { SecondaryPageNav } from '@/components/SecondaryPageNav';
+import { safeBack } from '@/lib/safeBack';
 import { EdBase } from '@/components/EdBase';
+import { MemqBuddy } from '@/components/MemqBuddy';
 import { SectionLabel } from '@/components/SectionLabel';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
@@ -138,6 +142,7 @@ export default function ProfileScreen() {
 
   return (
     <EdBase bottomInset={0} scroll={false}>
+      <SecondaryPageNav backLabel="← Today" onBack={() => safeBack('/(tabs)')} showDivider={false} />
       {/* Avatar row */}
       <View style={styles.avatarRow}>
         {avatarUrl ? (
@@ -155,13 +160,13 @@ export default function ProfileScreen() {
                 <Text style={styles.proBadgeText}>PRO</Text>
               </View>
             ) : (
-              <Pressable onPress={showPaywall} style={styles.upgradeEntry}>
+              <Pressable accessibilityRole="button" onPress={showPaywall} style={styles.upgradeEntry}>
                 <Text style={styles.upgradeEntryText}>Go Pro</Text>
               </Pressable>
             )}
           </View>
         </View>
-        <Pressable onPress={() => router.push('/profile/settings' as any)}>
+        <Pressable accessibilityRole="button" onPress={() => router.push('/profile/settings' as any)}>
           <Text style={styles.editLink}>Edit</Text>
         </Pressable>
       </View>
@@ -173,13 +178,18 @@ export default function ProfileScreen() {
       >
         {/* Streak */}
         <View style={styles.streakBlock}>
-          <SectionLabel size={11} style={{ marginBottom: 12, fontFamily: 'JetBrainsMono_500', fontWeight: '400', lineHeight: 15 }}>
-            Current Streak
-          </SectionLabel>
-          <View style={styles.streakLine}>
-            <Text style={styles.streakNum}>{currentStreak}</Text>
-            <Text style={styles.streakUnit}>days</Text>
-            <Text style={[styles.streakUnit, { marginLeft: 'auto' }]}>Best: {bestStreak}</Text>
+          <View style={styles.streakHead}>
+            <View style={styles.streakCopy}>
+              <SectionLabel size={11} style={{ marginBottom: 7, fontFamily: fonts.medium, fontWeight: '500', lineHeight: 15 }}>
+                Your streak
+              </SectionLabel>
+              <View style={styles.streakLine}>
+                <Text style={styles.streakNum}>{currentStreak}</Text>
+                <Text style={styles.streakUnit}>days</Text>
+                <Text style={[styles.streakUnit, { marginLeft: 'auto' }]}>Best {bestStreak}</Text>
+              </View>
+            </View>
+            <MemqBuddy size={78} mood={currentStreak > 0 ? 'happy' : 'curious'} />
           </View>
 
           {/* Day cells — 最近 7 天，有学习的天无论 streak 是否连续都高亮 */}
@@ -205,14 +215,14 @@ export default function ProfileScreen() {
 
         {/* Stats grid */}
         <View style={styles.gridBlock}>
-          <View style={[styles.gridRow, { borderBottomWidth: 1, borderBottomColor: colors.border }]}>
+          <View style={styles.gridRow}>
             {stats.slice(0, 2).map((item, i) => (
-              <StatCell key={item.label} item={item} hasBorder={i === 0} />
+              <StatCell key={item.label} item={item} />
             ))}
           </View>
           <View style={styles.gridRow}>
             {stats.slice(2, 4).map((item, i) => (
-              <StatCell key={item.label} item={item} hasBorder={i === 0} />
+              <StatCell key={item.label} item={item} />
             ))}
           </View>
         </View>
@@ -221,10 +231,10 @@ export default function ProfileScreen() {
   );
 }
 
-function StatCell({ item, hasBorder }: { item: QuadStat; hasBorder: boolean }) {
+function StatCell({ item }: { item: QuadStat }) {
   return (
-    <View style={[styles.statCell, hasBorder && { borderRightWidth: 1, borderRightColor: colors.border }]}>
-      <SectionLabel size={11} style={{ marginBottom: 6, fontFamily: 'JetBrainsMono_500', fontWeight: '400', lineHeight: 15 }}>
+    <View style={styles.statCell}>
+      <SectionLabel size={11} style={{ marginBottom: 6, fontFamily: fonts.medium, fontWeight: '500', lineHeight: 15 }}>
         {item.label}
       </SectionLabel>
       <Text style={styles.statVal}>{item.val}</Text>
@@ -235,78 +245,81 @@ function StatCell({ item, hasBorder }: { item: QuadStat; hasBorder: boolean }) {
 
 const styles = StyleSheet.create({
   avatarRow: {
-    paddingHorizontal: 20, paddingTop: 32, paddingBottom: 18,
+    paddingHorizontal: layout.screenInline, paddingTop: 16, paddingBottom: 16,
     flexDirection: 'row', alignItems: 'center', gap: 14,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   avatar: {
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: colors.accent,
+    width: 48, height: 48, borderRadius: 17,
+    backgroundColor: colors.accentL,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarImage: { width: 44, height: 44, borderRadius: 22 },
-  avatarChar: { color: '#fff', fontSize: 18, fontWeight: '700', fontFamily: fonts.grotesk },
+  avatarImage: { width: 48, height: 48, borderRadius: 17 },
+  avatarChar: { color: colors.accentText, fontSize: 19, fontWeight: '700', fontFamily: fonts.bold },
   avName: {
-    fontSize: 20, fontFamily: 'JetBrainsMono_700', fontWeight: '400',
+    fontSize: 20, fontFamily: fonts.bold, fontWeight: '700',
     lineHeight: 28, letterSpacing: -0.1, color: colors.text,
   },
   memberRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 8 },
   proBadge: {
-    borderWidth: 1, borderColor: colors.accent, borderRadius: 999,
+    borderWidth: 1, borderColor: colors.action, borderRadius: 999,
     paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.accentL,
   },
   proBadgeText: {
-    fontSize: 10, lineHeight: 14, letterSpacing: 0.4, color: colors.accent,
-    fontFamily: 'JetBrainsMono_700', fontWeight: '400',
+    fontSize: 12, lineHeight: 14, letterSpacing: 0.4, color: colors.accentText,
+    fontFamily: fonts.bold, fontWeight: '700',
   },
   upgradeEntry: {
     borderWidth: 1, borderColor: colors.border, borderRadius: 999,
     paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.bg,
   },
   upgradeEntryText: {
-    fontSize: 10, lineHeight: 14, letterSpacing: 0.2, color: colors.muted,
-    fontFamily: 'JetBrainsMono_500', fontWeight: '400',
+    fontSize: 12, lineHeight: 14, letterSpacing: 0.2, color: colors.muted,
+    fontFamily: fonts.medium, fontWeight: '500',
   },
   editLink: {
-    fontSize: 13, letterSpacing: -0.1, color: colors.accent,
-    fontFamily: 'JetBrainsMono_700', fontWeight: '400',
+    fontSize: 13, letterSpacing: -0.1, color: colors.action,
+    fontFamily: fonts.bold, fontWeight: '700',
   },
 
   contentScroll: { flex: 1 },
   contentScrollBody: { paddingBottom: 70 },
 
   streakBlock: {
-    paddingHorizontal: 20, paddingTop: 22, paddingBottom: 20,
-    backgroundColor: colors.surf,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    marginHorizontal: layout.screenInline, marginTop: 14,
+    paddingHorizontal: 17, paddingTop: 16, paddingBottom: 17,
+    backgroundColor: colors.heroBg,
+    borderWidth: 1, borderColor: colors.heroBorder, borderRadius: 20,
   },
+  streakHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  streakCopy: { flex: 1, minWidth: 0 },
   streakLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   streakNum: {
-    fontSize: 56, fontFamily: 'JetBrainsMono_800', fontWeight: '400',
-    letterSpacing: -0.16, lineHeight: 60, paddingTop: 2, color: colors.text,
+    fontSize: 50, fontFamily: fonts.extraBold, fontWeight: '800',
+    letterSpacing: -1.8, lineHeight: 56, paddingTop: 2, color: colors.text,
   },
-  streakUnit: { fontSize: 14, color: colors.muted, fontFamily: fonts.grotesk },
+  streakUnit: { fontSize: 14, color: colors.muted, fontFamily: fonts.regular },
 
-  daysRow: { flexDirection: 'row', gap: 6, marginTop: 14 },
+  daysRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
   dayCell: { flex: 1, alignItems: 'center', gap: 4 },
   daySquare: {
-    width: '100%', aspectRatio: 1, borderRadius: 6, borderWidth: 1.5,
+    width: '100%', aspectRatio: 1, borderRadius: 999, borderWidth: 1.5,
   },
-  daySquareActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  daySquareActive: { backgroundColor: colors.accent, borderColor: colors.action },
   daySquareIdle: { backgroundColor: colors.bg, borderColor: colors.border },
-  daySquareToday: { backgroundColor: 'transparent', borderWidth: 2, borderColor: colors.accent },
-  dayLabel: { fontSize: 9, color: colors.muted, fontWeight: '500', fontFamily: fonts.grotesk },
-  dayLabelToday: { color: colors.accent, fontFamily: 'JetBrainsMono_700', fontWeight: '400' },
+  daySquareToday: { backgroundColor: colors.transparent, borderWidth: 2, borderColor: colors.action },
+  dayLabel: { fontSize: 12, color: colors.muted, fontWeight: '500', fontFamily: fonts.medium },
+  dayLabelToday: { color: colors.accentText, fontFamily: fonts.bold, fontWeight: '700' },
 
-  gridBlock: { backgroundColor: colors.surf, borderBottomWidth: 1, borderBottomColor: colors.border },
-  gridRow: { flexDirection: 'row' },
-  statCell: { flex: 1, paddingHorizontal: 18, paddingVertical: 16 },
+  gridBlock: { gap: 10, paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 22 },
+  gridRow: { flexDirection: 'row', gap: 10 },
+  statCell: { flex: 1, paddingHorizontal: 14, paddingVertical: 15, backgroundColor: colors.surf, borderRadius: 17, borderWidth: 1, borderColor: colors.border },
   statVal: {
-    fontFamily: 'JetBrainsMono_800', fontSize: 32, fontWeight: '400',
+    fontFamily: fonts.extraBold, fontSize: 32, fontWeight: '800',
     letterSpacing: -0.1, lineHeight: 36, paddingTop: 2, color: colors.text,
   },
   statSub: {
     fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 4,
-    fontFamily: 'JetBrainsMono_400', fontWeight: '400',
+    fontFamily: fonts.regular, fontWeight: '400',
   },
 });

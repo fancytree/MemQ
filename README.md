@@ -1,74 +1,73 @@
-# MemQ — React Native (Expo) port
+# MemQ — iOS app
 
-Editorial flashcard app. TypeScript + Expo Router + react-native-svg.
+Editorial flashcard app built with React Native, Expo, and Expo Router. The supported app target is iOS.
 
 ## Stack
 
-- **Expo SDK 52** (React Native 0.76)
+- **Expo SDK 57** (React Native 0.86)
 - **TypeScript** (strict, `noUncheckedIndexedAccess`)
-- **Expo Router** v4 — file-based routing
+- **Expo Router** — file-based routing
 - **react-native-svg** for the icon set (zero icon-library dependencies)
 - **StyleSheet** (no styling library) — design tokens live in `theme/`
 
-## Install & run
+## iOS development
 
 ```bash
-cd memq-rn
 npm install
-npx expo start            # press i / a / w
+npm run ios                         # build/install the app in the iOS simulator
+npm start                           # connect Metro to the installed development build
+npm run start:local                 # loopback-only server with simulator-compatible IPv4 lookup
+npm run ios:device                  # build/install on a connected iPhone
 ```
+
+The app uses an Expo development build; Expo Go is not used. For a cloud development build, run `npm run build:ios:development` and install the resulting build on a registered iPhone. Use `npm run build:ios:preview` for internal distribution and `npm run build:ios:production` for the App Store build.
 
 ## File tree
 
 ```
 app/
-├── _layout.tsx           Root stack — wraps (tabs) + create + quiz + deck/[id]
+├── _layout.tsx           Root stack — wraps (tabs) + create + quiz + you
 ├── (tabs)/
 │   ├── _layout.tsx       Custom tab bar host
 │   ├── index.tsx         Today / Home
-│   ├── library.tsx       Library — your decks
-│   ├── explore.tsx       Browse / discover
-│   └── profile.tsx       You — streaks + stats
+│   └── library.tsx       Library — your lessons
 ├── create.tsx            Modal — generate cards
 ├── quiz.tsx              Quiz host (mcq / recall / flip)
-└── deck/[id].tsx         Deck detail — push from Library
+└── you.tsx              You — streaks + stats, opened from Today avatar
 
 components/
 ├── EdBase.tsx            Editorial base scroll surface
-├── SectionLabel.tsx      Uppercase tracked label
+├── SectionLabel.tsx      Compact compatibility label
 ├── Divider.tsx           1px hairline rule
 ├── Icon.tsx              Hand-rolled SVG icon set
-└── CustomTabBar.tsx      Tab bar with elevated FAB
+└── CustomTabBar.tsx      Today / prominent Create action / Library
 
 theme/
-├── colors.ts             Editorial palette (warm off-white + teal accent)
+├── colors.ts             Source palette + accessible semantic aliases
 ├── typography.ts         Font families + type ramp
-├── spacing.ts            4px scale + radius
+├── spacing.ts            Contextual layout spacing + legacy utility scale
 └── index.ts              Barrel
 
 data/
 ├── decks.ts              Deck list + per-deck detail
-├── questions.ts          Quiz questions (typed: MCQ | RecallQuestion | FlipQuestion)
-└── explore.ts            Featured + trending decks + categories
+└── questions.ts          Quiz questions (typed: MCQ | RecallQuestion | FlipQuestion)
 ```
 
 ## Design language
 
-- **Background** `#FAFAF8` (warm off-white)
-- **Single accent** `#1A8A72` (teal) — never compete with it
-- **Hairline borders** 1px on `#E5E3DE`
-- **Cards** 10px radius, white surface, hairline border
-- **Typography hierarchy**: 52px display number → 22px h1 → 14px body → 10px tracked label
+The current [MemQ design system v2](docs/design-system/README.md) follows the supplied Today, hand-drawn decoration and Inkling references: **white / ink foundation; color lives in the details**. This supersedes older teal/orange-led editorial explorations.
+
+- White canvas, near-black actions/progress, quiet metadata and open course rows.
+- Local pale paper and authored illustrations; no dominant lilac/peach product theme.
+- Measured source values remain separate from accessible runtime adaptations and unmeasured extensions.
+- [Reviewable specimen](docs/design-system/index.html), [source inspection](docs/design-system/source-design-language.md), [generated tokens](theme/tokens.json).
+- `npm run design-system:build` regenerates the token artifacts and specimen; `npm run check:ui` validates synchronization, contrast, fonts, asset registry and progress behavior.
 
 ## Fonts
 
-You said you'd handle font loading yourself. The family names referenced in code are:
+Manrope is the main application family; Inter handles compact utility/numbers; Caveat is limited to short supportive annotations. Font assets are packaged through Expo Google Fonts and loaded by `theme/font-assets.ts` in the root layout. JetBrains Mono remains an extension for actual code samples. New styles use `fonts` / `type` tokens rather than hardcoded family names.
 
-- `SpaceGrotesk` — body / UI
-- `Fraunces` — editorial alt
-- `JetBrainsMono` — numerics / labels
-
-Register them via `expo-font` (`useFonts({ SpaceGrotesk: require('./assets/...') })`) at the root layout. Until they resolve, RN falls back to system default — visually fine, the layout doesn't shift.
+The system provides `PrimaryButton`, `CourseRow`, `DailyGoal` and a three-destination `BottomNavigation`. Existing screens and the four-route application shell are not fully ported; see the [migration boundaries](docs/design-system/README.md#boundaries-and-next-migration).
 
 ## Routing notes
 

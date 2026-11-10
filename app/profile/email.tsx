@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { safeBack } from '@/lib/safeBack';
@@ -41,7 +43,7 @@ export default function EmailEditScreen() {
   const fetchEmail = useCallback(async () => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !user) {
         console.error('Error fetching user:', userError);
         setError('Failed to load user information');
@@ -70,40 +72,40 @@ export default function EmailEditScreen() {
     // 更严格的邮箱验证正则表达式
     // 要求：用户名部分至少1个字符，域名部分至少包含一个点，且点后至少2个字符
     const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-    
+
     // 基本检查
     if (!email || email.trim().length === 0) {
       return false;
     }
-    
+
     // 检查长度（Supabase 通常限制邮箱长度）
     if (email.length > 255) {
       return false;
     }
-    
+
     // 检查是否包含 @ 符号
     const atIndex = email.indexOf('@');
     if (atIndex === -1 || atIndex === 0 || atIndex === email.length - 1) {
       return false;
     }
-    
+
     // 检查域名部分
     const domain = email.substring(atIndex + 1);
     if (domain.length === 0 || !domain.includes('.')) {
       return false;
     }
-    
+
     // 检查域名部分是否至少有一个有效的顶级域名（至少2个字符）
     const domainParts = domain.split('.');
     if (domainParts.length < 2) {
       return false;
     }
-    
+
     const tld = domainParts[domainParts.length - 1];
     if (tld.length < 2) {
       return false;
     }
-    
+
     // 使用正则表达式验证
     return emailRegex.test(email.trim());
   };
@@ -124,11 +126,11 @@ export default function EmailEditScreen() {
 
     // 先获取 trimmedEmail
     const trimmedEmail = email.trim();
-    
+
     // 调试：打印实际要发送的邮箱
     console.log('Current email state:', email);
     console.log('Trimmed email to send:', trimmedEmail);
-    
+
     setError(null);
     setSaving(true);
 
@@ -177,10 +179,10 @@ export default function EmailEditScreen() {
           status: updateError.status,
           name: updateError.name,
         });
-        
+
         // 显示更友好的错误信息
         let errorMessage = updateError.message || 'Failed to update email';
-        
+
         // 检查错误是否与当前邮箱有关
         if (updateError.message?.includes('invalid') || updateError.message?.includes('Invalid')) {
           // 如果错误信息中提到的是当前邮箱，说明 Supabase 在验证当前邮箱时发现它无效
@@ -195,13 +197,13 @@ export default function EmailEditScreen() {
         } else if (updateError.message?.includes('already')) {
           errorMessage = 'This email address is already in use. Please use a different email address.';
         }
-        
+
         setError(errorMessage);
         Alert.alert('Error', errorMessage);
         setSaving(false);
         return;
       }
-      
+
       // 调试：打印成功响应
       console.log('Email update successful:', updateData);
 
@@ -212,7 +214,7 @@ export default function EmailEditScreen() {
         [
           {
             text: 'OK',
-            onPress: () => safeBack('/(tabs)/profile'),
+            onPress: () => safeBack('/you'),
           },
         ]
       );
@@ -229,7 +231,7 @@ export default function EmailEditScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color={colors.accentText} />
         </View>
       </SafeAreaView>
     );
@@ -247,7 +249,7 @@ export default function EmailEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <SecondaryPageNav onBack={() => safeBack('/(tabs)/profile')} />
+          <SecondaryPageNav onBack={() => safeBack('/you')} />
 
           <View style={styles.bodyContent}>
             {/* 错误提示 */}
@@ -263,10 +265,10 @@ export default function EmailEditScreen() {
                 <Text style={styles.label}>
                   Email <Text style={styles.required}>*</Text>
                 </Text>
-                <TextInput
+                <TextInput accessibilityLabel="Enter your email"
                   style={styles.input}
                   placeholder="Enter your email"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.muted}
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -279,7 +281,7 @@ export default function EmailEditScreen() {
                 />
               </View>
               <View style={styles.infoBox}>
-              <Feather name="info" size={16} color={colors.accent} />
+              <Feather name="info" size={16} color={colors.accentText} />
                 <Text style={styles.infoText}>
                   A confirmation email will be sent to your new email address. Please check your inbox to confirm the change.
                 </Text>
@@ -287,14 +289,14 @@ export default function EmailEditScreen() {
             </View>
 
             {/* Save Changes 按钮 */}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.saveButton, saving && styles.saveButtonDisabled]}
               onPress={handleSave}
               disabled={saving}
               activeOpacity={0.8}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.surf} />
               ) : (
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               )}
@@ -329,9 +331,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.redL,
     padding: 12,
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
     marginBottom: 16,
     borderRadius: 8,
     borderWidth: 1,
@@ -342,8 +344,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
   },
   formCard: {
     backgroundColor: colors.surf,
@@ -351,7 +353,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: 16,
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
     marginBottom: 24,
   },
   inputGroup: {
@@ -361,26 +363,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     color: colors.muted,
     marginBottom: 8,
   },
   required: {
     color: colors.red,
   },
-  input: {
+  input: { minHeight: 44,
     backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 13,
     fontSize: 16,
     lineHeight: 22,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
     color: colors.text,
   },
   infoBox: {
@@ -398,30 +400,30 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     letterSpacing: -0.1,
     color: colors.sub,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     marginLeft: 8,
   },
-  saveButton: {
-    backgroundColor: colors.accent,
+  saveButton: { minHeight: 44,
+    backgroundColor: colors.action,
     borderWidth: 1,
-    borderColor: '#146B59',
-    borderRadius: 8,
+    borderColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
 });
 

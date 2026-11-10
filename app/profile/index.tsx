@@ -1,3 +1,6 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
+import { colors } from '@/theme/colors';
 import MenuItem from '@/components/MenuItem';
 import { MemQTheme } from '@/constants/theme';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -78,11 +81,11 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const [dailyGoalCards, setDailyGoalCards] = useState(20);
   const [showDailyStudyOptions, setShowDailyStudyOptions] = useState(false);
   const [showDailyGoalOptions, setShowDailyGoalOptions] = useState(false);
-  
+
   // 缓存大小状态
   const [cacheSize, setCacheSize] = useState<string>('0 B');
   const [loadingCacheSize, setLoadingCacheSize] = useState(false);
-  
+
   // 时间选择器动画
   const slideAnim = useRef(new Animated.Value(300)).current;
 
@@ -97,7 +100,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const fetchUser = useCallback(async () => {
     try {
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !currentUser) {
         console.error('Error fetching user:', userError);
         setLoading(false);
@@ -112,7 +115,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
       if (!notificationInitialized.current) {
         const enabled = metadata.notification_enabled !== false; // 默认为 true
         setNotificationEnabled(enabled);
-        
+
         // 加载多个提醒时间
         let times: string[] = [];
         if (metadata.notification_times && Array.isArray(metadata.notification_times)) {
@@ -125,7 +128,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           times = ['09:00'];
         }
         setNotificationTimes(times);
-        
+
         setDailyStudyMinutes(
           typeof metadata.daily_study_minutes === 'number' ? metadata.daily_study_minutes : 30
         );
@@ -399,7 +402,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const handleNotificationToggle = async (value: boolean) => {
     // 先更新本地状态
     setNotificationEnabled(value);
-    
+
     // 如果打开且没有设置过时间，显示时间选择器
     if (value && notificationTimes.length === 0) {
       setEditingTimeIndex(null);
@@ -503,12 +506,12 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const handleTimePickerDone = async (selectedTime?: Date) => {
     const timeToSave = selectedTime || tempTime;
     const timeStr = `${timeToSave.getHours().toString().padStart(2, '0')}:${timeToSave.getMinutes().toString().padStart(2, '0')}`;
-    
+
     setShowTimePicker(false);
-    
+
     // 确保开关是打开状态
     setNotificationEnabled(true);
-    
+
     let newTimes: string[];
     if (editingTimeIndex !== null) {
       // 编辑现有时间
@@ -518,7 +521,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
       // 添加新时间
       newTimes = [...notificationTimes, timeStr].sort(); // 排序以便显示
     }
-    
+
     setNotificationTimes(newTimes);
     setEditingTimeIndex(null);
     await saveNotificationSettings(true, newTimes);
@@ -556,7 +559,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const handleDeleteTime = async (index: number) => {
     const newTimes = notificationTimes.filter((_, i) => i !== index);
     setNotificationTimes(newTimes);
-    
+
     // 如果删除后没有时间了，关闭开关
     if (newTimes.length === 0) {
       setNotificationEnabled(false);
@@ -678,7 +681,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
       // 更新本地状态
       setAvatarUrl(publicUrl);
-      
+
       // 刷新用户信息
       await fetchUser();
 
@@ -695,7 +698,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={t.color.accent} />
+          <ActivityIndicator size="large" color={colors.accentText} />
         </View>
       </SafeAreaView>
     );
@@ -714,7 +717,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             {isTab ? (
               <Text style={styles.navBack}>Profile</Text>
             ) : (
-              <TouchableOpacity onPress={() => safeBack('/(tabs)')} activeOpacity={0.7}>
+              <TouchableOpacity accessibilityRole="button" onPress={() => safeBack('/(tabs)')} activeOpacity={0.7}>
                 <Text style={styles.navBack}>← Profile</Text>
               </TouchableOpacity>
             )}
@@ -723,7 +726,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
           {/* 用户信息头部 */}
           <View style={styles.userHeader}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               onPress={handleAvatarPress}
               disabled={uploadingAvatar}
               activeOpacity={0.7}
@@ -731,7 +734,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             >
               {uploadingAvatar ? (
                 <View style={styles.avatar}>
-                  <ActivityIndicator size="small" color={t.color.accent} />
+                  <ActivityIndicator size="small" color={colors.accentText} />
                 </View>
               ) : avatarUrl ? (
                 <Image
@@ -744,7 +747,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                 </View>
               )}
               <View style={styles.avatarEditBadge}>
-                <Feather name="camera" size={14} color={t.color.accent} />
+                <Feather name="camera" size={14} color={colors.accentText} />
               </View>
             </TouchableOpacity>
             <Text style={styles.userName}>{getUserDisplayName()}</Text>
@@ -759,7 +762,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               <Text style={styles.premiumLabel}>Pro</Text>
             </View>
             <Text style={styles.premiumTitle}>Unlock Your Full Potential</Text>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={styles.premiumButton}
               activeOpacity={0.8}
               onPress={showPaywall}
@@ -816,7 +819,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               iconColor={t.color.muted}
               iconBgColor={t.color.bg}
               title="Notification"
-              subtitle={notificationEnabled && notificationTimes.length > 0 
+              subtitle={notificationEnabled && notificationTimes.length > 0
                 ? `${notificationTimes.length} reminder${notificationTimes.length > 1 ? 's' : ''}`
                 : "Get study reminders"}
               type="toggle"
@@ -827,7 +830,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             {notificationEnabled && (
               <>
                 {notificationTimes.map((timeStr, index) => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={index}
                     style={styles.timeItem}
                     onPress={() => handleEditTime(index)}
@@ -838,7 +841,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                       <Text style={styles.timeItemText}>
                         {formatTime(timeStr)}
                       </Text>
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete"
                         onPress={(e) => {
                           e.stopPropagation();
                           handleDeleteTime(index);
@@ -851,13 +854,13 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                     </View>
                   </TouchableOpacity>
                 ))}
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.addTimeButton}
                   onPress={handleAddTime}
                   activeOpacity={0.7}
                 >
                   <View style={styles.addTimeButtonContent}>
-                    <Feather name="plus" size={16} color={t.color.accent} />
+                    <Feather name="plus" size={16} color={colors.accentText} />
                     <Text style={styles.addTimeButtonText}>Add reminder time</Text>
                   </View>
                 </TouchableOpacity>
@@ -878,7 +881,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                   {[15, 30, 45, 60, 90].map((mins) => {
                     const active = dailyStudyMinutes === mins;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={mins}
                         style={[styles.inlineOptionChip, active && styles.inlineOptionChipActive]}
                         onPress={() => handleSetDailyStudyMinutes(mins)}
@@ -909,7 +912,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                   {[10, 20, 30, 50, 80].map((cards) => {
                     const active = dailyGoalCards === cards;
                     return (
-                      <TouchableOpacity
+                      <TouchableOpacity accessibilityRole="button"
                         key={cards}
                         style={[styles.inlineOptionChip, active && styles.inlineOptionChipActive]}
                         onPress={() => handleSetDailyGoal(cards)}
@@ -944,7 +947,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete"
                 onPress={handleClearCache}
                 style={styles.clearCacheButton}
                 activeOpacity={0.7}
@@ -989,14 +992,28 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                   console.error('Error navigating to help-center:', error);
                 }
               }}
-              showDivider={false}
+              showDivider={__DEV__}
             />
+            {/* Design review tool. Gated so it cannot ship in a release build. */}
+            {__DEV__ && (
+              <MenuItem
+                icon="activity"
+                iconColor={t.color.muted}
+                iconBgColor={t.color.bg}
+                title="Motion lab"
+                subtitle="Preview every mood of the Today character"
+                onPress={() => {
+                  router.push('/motion-lab' as any);
+                }}
+                showDivider={false}
+              />
+            )}
           </View>
         </View>
 
         {/* Footer Actions */}
         <View style={styles.footerActions}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.actionButton}
             onPress={handleSignOut}
             disabled={signingOut}
@@ -1008,7 +1025,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             <Text style={styles.actionButtonText}>Logout</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.actionButton}
             onPress={handleDeleteAccount}
             disabled={signingOut}
@@ -1035,7 +1052,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               animationType="none"
               onRequestClose={() => setShowTimePicker(false)}
             >
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.modalOverlay}
                 activeOpacity={1}
                 onPress={handleTimePickerCancel}
@@ -1049,7 +1066,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                   ]}
                 >
                   <View style={styles.modalHeader}>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       onPress={handleTimePickerCancel}
                       style={styles.modalButton}
                     >
@@ -1058,7 +1075,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                     <Text style={styles.modalTitle}>
                       {editingTimeIndex !== null ? 'Edit Study Time' : 'Add Study Time'}
                     </Text>
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       onPress={() => handleTimePickerDone()}
                       style={styles.modalButton}
                     >
@@ -1071,7 +1088,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                       mode="time"
                       display="spinner"
                       onChange={handleTimeChange}
-                      textColor="#111827"
+                      textColor={colors.text}
                       themeVariant="light"
                     />
                   </View>
@@ -1112,7 +1129,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 14,
     paddingBottom: 14,
   },
@@ -1123,7 +1140,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     letterSpacing: -0.1,
     color: t.color.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
   navRightSpacer: {
@@ -1132,7 +1149,7 @@ const styles = StyleSheet.create({
   userHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 18,
     marginBottom: 22,
   },
@@ -1154,9 +1171,9 @@ const styles = StyleSheet.create({
   },
   avatarText: {
     fontSize: 24,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
-    color: t.color.accent,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
+    color: colors.accentText,
   },
   avatarEditBadge: {
     position: 'absolute',
@@ -1175,13 +1192,13 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 28,
     letterSpacing: -0.1,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: t.color.textHigh,
     flex: 1,
   },
   premiumBanner: {
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
     marginBottom: 22,
     borderRadius: 10,
     padding: 18,
@@ -1196,8 +1213,8 @@ const styles = StyleSheet.create({
   },
   premiumLabel: {
     fontSize: 12,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_600',
+    fontWeight: '600',
+    fontFamily: fonts.semibold,
     color: t.color.muted,
     marginLeft: 8,
   },
@@ -1205,16 +1222,16 @@ const styles = StyleSheet.create({
     fontSize: 20,
     lineHeight: 28,
     letterSpacing: -0.2,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: t.color.textHigh,
     marginBottom: 14,
   },
-  premiumButton: {
-    backgroundColor: t.color.accent,
+  premiumButton: { minHeight: 44,
+    backgroundColor: colors.action,
     borderWidth: 1,
-    borderColor: t.color.accentDark,
-    borderRadius: 8,
+    borderColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 11,
     paddingHorizontal: 16,
     alignSelf: 'flex-start',
@@ -1222,19 +1239,19 @@ const styles = StyleSheet.create({
   premiumButtonText: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
-    color: '#FFFFFF',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
+    color: colors.onAction,
   },
   section: {
     marginBottom: 20,
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
   },
   sectionTitle: {
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '500',
+    fontFamily: fonts.medium,
     color: t.color.muted,
     textTransform: 'uppercase',
     letterSpacing: -0.1,
@@ -1248,17 +1265,17 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   footerActions: {
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     marginTop: 4,
     marginBottom: 20,
   },
-  actionButton: {
+  actionButton: { minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: t.color.surface,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: t.color.border,
+    borderColor: colors.controlBorder,
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 10,
@@ -1269,7 +1286,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     backgroundColor: t.color.bg,
     borderWidth: 1,
-    borderColor: t.color.border,
+    borderColor: colors.controlBorder,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1282,20 +1299,20 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '500',
+    fontFamily: fonts.medium,
     color: t.color.textHigh,
   },
   deleteButtonText: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '500',
+    fontFamily: fonts.medium,
     color: t.color.danger,
   },
   versionText: {
     fontSize: 12,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     color: t.color.muted,
     textAlign: 'center',
     marginTop: 8,
@@ -1316,14 +1333,14 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     letterSpacing: -0.1,
     color: t.color.textHigh,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     marginLeft: 8,
   },
-  deleteTimeButton: {
+  deleteTimeButton: { minHeight: 44,
     padding: 4,
   },
-  addTimeButton: {
+  addTimeButton: { minHeight: 44,
     backgroundColor: t.color.surface,
     paddingVertical: 12,
     paddingHorizontal: 16,
@@ -1339,8 +1356,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     color: t.color.muted,
     marginLeft: 8,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '500',
+    fontFamily: fonts.medium,
   },
   inlineOptionWrap: {
     marginLeft: 68,
@@ -1351,28 +1368,28 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  inlineOptionChip: {
+  inlineOptionChip: { minHeight: 44,
     paddingHorizontal: 10,
     paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: t.color.border,
+    borderColor: colors.controlBorder,
     backgroundColor: t.color.bg,
   },
   inlineOptionChipActive: {
-    borderColor: t.color.accent,
+    borderColor: colors.action,
     backgroundColor: t.color.accentLight,
   },
   inlineOptionChipText: {
     fontSize: 12,
     lineHeight: 16,
     color: t.color.muted,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
   },
   inlineOptionChipTextActive: {
-    color: t.color.accent,
-    fontFamily: 'JetBrainsMono_700',
+    color: colors.accentText,
+    fontFamily: fonts.bold,
   },
   divider: {
     height: 1,
@@ -1381,7 +1398,7 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: colors.scrim,
     justifyContent: 'flex-end',
   },
   modalContent: {
@@ -1394,35 +1411,35 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: t.color.border,
   },
-  modalButton: {
+  modalButton: { minHeight: 44,
     paddingVertical: 8,
     paddingHorizontal: 12,
   },
   modalCancelText: {
     fontSize: 14,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     color: t.color.muted,
   },
   modalTitle: {
     fontSize: 16,
     letterSpacing: -0.2,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: t.color.textHigh,
   },
   modalDoneText: {
     fontSize: 14,
     color: t.color.muted,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   timePickerContainer: {
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 20,
     backgroundColor: t.color.surface,
   },
@@ -1432,14 +1449,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: t.color.border,
     padding: 20,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
       height: 1,
     },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0,
     shadowRadius: 2,
-    elevation: 1,
+    elevation: 0,
   },
   statsRow: {
     flexDirection: 'row',
@@ -1494,7 +1511,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayName: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '500',
     color: t.color.muted,
     marginBottom: 8,
@@ -1511,12 +1528,12 @@ const styles = StyleSheet.create({
     borderColor: t.color.border,
   },
   dayCircleStudied: {
-    backgroundColor: t.color.accent,
-    borderColor: t.color.accent,
+    backgroundColor: colors.action,
+    borderColor: colors.action,
   },
   dayCircleToday: {
     borderWidth: 2,
-    borderColor: t.color.accent,
+    borderColor: colors.action,
   },
   dayNumber: {
     fontSize: 14,
@@ -1524,10 +1541,10 @@ const styles = StyleSheet.create({
     color: t.color.muted,
   },
   dayNumberStudied: {
-    color: '#FFFFFF',
+    color: colors.onAction,
   },
   dayNumberToday: {
-    color: t.color.accent,
+    color: colors.accentText,
   },
   cacheItem: {
     flexDirection: 'row',
@@ -1557,24 +1574,24 @@ const styles = StyleSheet.create({
   cacheItemTitle: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '500',
+    fontFamily: fonts.medium,
     color: t.color.textHigh,
     marginBottom: 2,
   },
   cacheItemSubtitle: {
     fontSize: 12,
     lineHeight: 17,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     color: t.color.muted,
   },
   clearCacheButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    minHeight: 44,
     borderRadius: 20,
     backgroundColor: t.color.bg,
     borderWidth: 1,
-    borderColor: t.color.border,
+    borderColor: colors.controlBorder,
     alignItems: 'center',
     justifyContent: 'center',
   },

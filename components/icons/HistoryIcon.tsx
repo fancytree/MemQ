@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 
@@ -6,7 +7,7 @@ interface HistoryIconProps {
   color?: string;
 }
 
-export default function HistoryIcon({ size = 20, color = '#0A0A0A' }: HistoryIconProps) {
+export default function HistoryIcon({ size = 20, color = colors.text }: HistoryIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <Path

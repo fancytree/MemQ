@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import React from 'react';
 import Svg, { G, Path, Defs, ClipPath, Rect } from 'react-native-svg';
 
@@ -6,7 +7,7 @@ interface AppleIconProps {
   color?: string;
 }
 
-export default function AppleIcon({ size = 24, color = '#000000' }: AppleIconProps) {
+export default function AppleIcon({ size = 24, color = colors.shadow }: AppleIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <G clipPath="url(#clip0_218_2139)">
@@ -17,7 +18,7 @@ export default function AppleIcon({ size = 24, color = '#000000' }: AppleIconPro
       </G>
       <Defs>
         <ClipPath id="clip0_218_2139">
-          <Rect width="48" height="48" fill="white" />
+          <Rect width="48" height="48" fill={colors.surf} />
         </ClipPath>
       </Defs>
     </Svg>

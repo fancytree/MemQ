@@ -7,6 +7,7 @@ import Logo from '@/components/icons/Logo';
 import React from 'react';
 import { ActivityIndicator, Modal, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/theme/colors';
 
 interface LoadingScreenProps {
   visible: boolean;
@@ -29,12 +30,12 @@ export default function LoadingScreen({ visible }: LoadingScreenProps) {
         <View style={styles.content}>
           {/* Logo - 白色版本 */}
           <View style={styles.logoContainer}>
-            <Logo width={200} color="#FFFFFF" />
+            <Logo width={200} color={colors.action} />
           </View>
-          
+
           {/* Loading 动画 */}
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
+            <ActivityIndicator size="large" color={colors.action} />
           </View>
         </View>
       </SafeAreaView>
@@ -45,7 +46,7 @@ export default function LoadingScreen({ visible }: LoadingScreenProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4E49FC', // 项目主题色
+    backgroundColor: colors.bg,
   },
   content: {
     flex: 1,

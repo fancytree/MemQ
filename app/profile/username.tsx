@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { supabase } from '@/lib/supabase';
 import { useFocusEffect } from 'expo-router';
 import { safeBack } from '@/lib/safeBack';
@@ -41,7 +43,7 @@ export default function UsernameEditScreen() {
   const fetchUsername = useCallback(async () => {
     try {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
+
       if (userError || !user) {
         console.error('Error fetching user:', userError);
         setError('Failed to load user information');
@@ -104,7 +106,7 @@ export default function UsernameEditScreen() {
       Alert.alert('Success', 'Username updated successfully', [
         {
           text: 'OK',
-          onPress: () => safeBack('/(tabs)/profile'),
+          onPress: () => safeBack('/you'),
         },
       ]);
     } catch (err) {
@@ -119,7 +121,7 @@ export default function UsernameEditScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color={colors.accentText} />
         </View>
       </SafeAreaView>
     );
@@ -137,7 +139,7 @@ export default function UsernameEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <SecondaryPageNav onBack={() => safeBack('/(tabs)/profile')} />
+          <SecondaryPageNav onBack={() => safeBack('/you')} />
 
           <View style={styles.bodyContent}>
             {/* 错误提示 */}
@@ -153,10 +155,10 @@ export default function UsernameEditScreen() {
                 <Text style={styles.label}>
                   User name <Text style={styles.required}>*</Text>
                 </Text>
-                <TextInput
+                <TextInput accessibilityLabel="Enter your username"
                   style={styles.input}
                   placeholder="Enter your username"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.muted}
                   value={username}
                   onChangeText={(text) => {
                     setUsername(text);
@@ -172,14 +174,14 @@ export default function UsernameEditScreen() {
             </View>
 
             {/* Save Changes 按钮 */}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.saveButton, saving && styles.saveButtonDisabled]}
               onPress={handleSave}
               disabled={saving}
               activeOpacity={0.8}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.surf} />
               ) : (
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               )}
@@ -214,9 +216,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.redL,
     padding: 12,
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
     marginBottom: 16,
     borderRadius: 8,
     borderWidth: 1,
@@ -227,8 +229,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
   },
   formCard: {
     backgroundColor: colors.surf,
@@ -236,7 +238,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: 16,
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
     marginBottom: 24,
   },
   inputGroup: {
@@ -246,57 +248,57 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     color: colors.muted,
     marginBottom: 8,
   },
   required: {
     color: colors.red,
   },
-  input: {
+  input: { minHeight: 44,
     backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 13,
     fontSize: 16,
     lineHeight: 22,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
     color: colors.text,
   },
   helperText: {
     marginTop: 8,
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     color: colors.muted,
   },
-  saveButton: {
-    backgroundColor: colors.accent,
+  saveButton: { minHeight: 44,
+    backgroundColor: colors.action,
     borderWidth: 1,
-    borderColor: '#146B59',
-    borderRadius: 8,
+    borderColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
 });
 

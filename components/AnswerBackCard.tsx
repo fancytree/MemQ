@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import React from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -15,7 +16,7 @@ export default function AnswerBackCard({
   questionText,
 }: AnswerBackCardProps) {
   return (
-    <TouchableOpacity
+    <TouchableOpacity accessibilityRole="button"
       style={styles.container}
       onPress={onFlipBack}
       activeOpacity={0.9}
@@ -67,7 +68,7 @@ const styles = StyleSheet.create({
   questionText: {
     fontSize: 20,
     fontWeight: '400',
-    color: '#0A0A0A',
+    color: colors.text,
     lineHeight: 28,
     letterSpacing: -0.4492,
   },
@@ -78,9 +79,9 @@ const styles = StyleSheet.create({
   },
   // 正确答案区
   correctAnswerContainer: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.greenL,
     borderWidth: 1.846,
-    borderColor: '#F0FDF4',
+    borderColor: colors.greenL,
     borderRadius: 10,
     padding: 16,
     gap: 8,
@@ -88,19 +89,19 @@ const styles = StyleSheet.create({
   correctAnswerLabel: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#4A5565',
+    color: colors.sub,
     lineHeight: 16,
   },
   correctAnswerText: {
     fontSize: 16,
     fontWeight: '400',
-    color: '#00A63E',
+    color: colors.green,
     lineHeight: 28,
     letterSpacing: -0.4395,
   },
   // 解析区
   explanationContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderRadius: 10,
     padding: 16,
     gap: 8,
@@ -108,13 +109,13 @@ const styles = StyleSheet.create({
   explanationLabel: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#4A5565',
+    color: colors.sub,
     lineHeight: 16,
   },
   explanationText: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#1E2939',
+    color: colors.text,
     lineHeight: 18,
   },
   // 底部提示
@@ -125,7 +126,7 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 12,
-    color: '#6A7282',
+    color: colors.muted,
     fontWeight: '400',
     textAlign: 'center',
     lineHeight: 16,

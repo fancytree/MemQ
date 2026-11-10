@@ -8,12 +8,12 @@ export default function LessonsLayout() {
         header: () => null,
       }}
     >
-      <Stack.Screen 
-        name="[id]" 
-        options={{ 
+      <Stack.Screen
+        name="[id]"
+        options={{
           headerShown: false,
           header: () => null,
-        }} 
+        }}
       />
     </Stack>
   );

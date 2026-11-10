@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import React from 'react';
 import Svg, { Path, G, ClipPath, Defs, Rect } from 'react-native-svg';
 
@@ -6,7 +7,7 @@ interface CloseIconProps {
   color?: string;
 }
 
-export default function CloseIcon({ size = 24, color = '#0A0A0A' }: CloseIconProps) {
+export default function CloseIcon({ size = 24, color = colors.text }: CloseIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
       <G clipPath="url(#clip0_168_971)">
@@ -20,7 +21,7 @@ export default function CloseIcon({ size = 24, color = '#0A0A0A' }: CloseIconPro
       </G>
       <Defs>
         <ClipPath id="clip0_168_971">
-          <Rect width="24" height="24" fill="white" />
+          <Rect width="24" height="24" fill={colors.surf} />
         </ClipPath>
       </Defs>
     </Svg>

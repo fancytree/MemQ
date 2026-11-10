@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 
@@ -6,7 +7,7 @@ interface EditIconProps {
   color?: string;
 }
 
-export default function EditIcon({ size = 20, color = '#0A0A0A' }: EditIconProps) {
+export default function EditIcon({ size = 20, color = colors.text }: EditIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <Path

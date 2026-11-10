@@ -1,5 +1,7 @@
+import { layout } from '@/theme/spacing';
 import AnswerBackCard from '@/components/AnswerBackCard';
 import FlipCard from '@/components/FlipCard';
+import { MemqBuddy } from '@/components/MemqBuddy';
 import StudySettingsModal, { StudySettings } from '@/components/StudySettingsModal';
 import { supabase } from '@/lib/supabase';
 import { updateTermProgressSafe } from '@/lib/updateTermProgress';
@@ -8,6 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { safeBack } from '@/lib/safeBack';
+import { colors } from '@/theme';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -79,7 +82,7 @@ export default function StudySessionScreen() {
   const [isFlipped, setIsFlipped] = useState(false);
   const [autoAdvanceTimer, setAutoAdvanceTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
   const fillBlankInputRef = useRef<TextInput>(null);
-  
+
   // 学习设置状态
   const [settingsVisible, setSettingsVisible] = useState(false);
   const [studySettings, setStudySettings] = useState<StudySettings>({
@@ -194,7 +197,7 @@ export default function StudySessionScreen() {
             .from('terms')
             .select('id, term, definition, lesson_id')
             .eq('lesson_id', id);
-          
+
           termsData = result.data || [];
           termsError = result.error;
         }
@@ -291,7 +294,7 @@ export default function StudySessionScreen() {
               // 只显示 definition 相关的题目：检查 correct_answer 是否是 definition 的一部分或关键词
               const answerLower = question.correct_answer.trim().toLowerCase();
               const definitionLower = termData.definition.trim().toLowerCase();
-              
+
               // 如果正确答案完全匹配 definition，或者 definition 包含正确答案，则显示
               // 否则检查是否是 definition 中的关键词（至少 3 个字符）
               if (
@@ -659,7 +662,7 @@ export default function StudySessionScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#3B82F6" />
+          <ActivityIndicator size="large" color={colors.accentText} />
           <Text style={styles.loadingText}>Loading questions...</Text>
         </View>
       </SafeAreaView>
@@ -670,7 +673,7 @@ export default function StudySessionScreen() {
   if (isAllCaughtUp && !reviewAllMode) {
     return (
       <LinearGradient
-        colors={['#F0F4FF', '#FFFFFF', '#F0FDF4']}
+        colors={[colors.studyGradientStart, colors.bg, colors.studyGradientEnd]}
         locations={[0, 0.5, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -682,19 +685,19 @@ export default function StudySessionScreen() {
             contentContainerStyle={styles.scrollContent}
           >
             <View style={styles.caughtUpContainer}>
-              <Text style={styles.caughtUpIcon}>🎉</Text>
-              <Text style={styles.caughtUpTitle}>You're all caught up!</Text>
+              <MemqBuddy size={122} mood="happy" />
+              <Text style={styles.caughtUpTitle}>Your review queue is clear.</Text>
               <Text style={styles.caughtUpSubtitle}>
                 No reviews due right now. Great job!
               </Text>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={styles.reviewAllButton}
                 onPress={handleReviewAll}
                 activeOpacity={0.8}
               >
                 <Text style={styles.reviewAllButtonText}>Review All Anyway</Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
                 style={styles.backButtonCaughtUp}
                 onPress={handleBack}
                 activeOpacity={0.8}
@@ -712,7 +715,7 @@ export default function StudySessionScreen() {
   if (error || (questions.length === 0 && !isAllCaughtUp)) {
     return (
       <LinearGradient
-        colors={['#F0F4FF', '#FFFFFF', '#F0FDF4']}
+        colors={[colors.studyGradientStart, colors.bg, colors.studyGradientEnd]}
         locations={[0, 0.5, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -720,12 +723,12 @@ export default function StudySessionScreen() {
       >
         <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.errorContainer}>
-            <Feather name="alert-circle" size={48} color="#EF4444" />
+            <Feather name="alert-circle" size={48} color={colors.red} />
             <Text style={styles.errorTitle}>Error</Text>
             <Text style={styles.errorText}>
               {error || 'No questions available'}
             </Text>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
               style={styles.backButton}
               onPress={handleBack}
               activeOpacity={0.8}
@@ -743,7 +746,7 @@ export default function StudySessionScreen() {
     const percentage = Math.round((score / questions.length) * 100);
     return (
       <LinearGradient
-        colors={['#F0F4FF', '#FFFFFF', '#F0FDF4']}
+        colors={[colors.studyGradientStart, colors.bg, colors.studyGradientEnd]}
         locations={[0, 0.5, 1]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -752,13 +755,13 @@ export default function StudySessionScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.summaryContainer}>
             <View style={styles.summaryContent}>
-              <Feather name="check-circle" size={64} color="#10B981" />
-              <Text style={styles.summaryTitle}>Session Complete!</Text>
+              <MemqBuddy size={130} mood="happy" />
+              <Text style={styles.summaryTitle}>Look what stuck.</Text>
               <Text style={styles.summaryScore}>
                 {score} / {questions.length}
               </Text>
               <Text style={styles.summaryPercentage}>{percentage}% Correct</Text>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
                 style={styles.summaryButton}
                 onPress={handleBack}
                 activeOpacity={0.8}
@@ -785,7 +788,7 @@ export default function StudySessionScreen() {
 
   return (
     <LinearGradient
-      colors={['#F0F4FF', '#FFFFFF', '#F0FDF4']}
+        colors={[colors.studyGradientStart, colors.bg, colors.studyGradientEnd]}
       locations={[0, 0.5, 1]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
@@ -801,22 +804,22 @@ export default function StudySessionScreen() {
           <View style={styles.header}>
             {/* 第一行：关闭按钮、标题、设置按钮 */}
             <View style={styles.headerTopRow}>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
                 style={styles.closeButton}
                 onPress={handleBack}
                 activeOpacity={0.7}
               >
                 <View style={styles.closeButtonCircle}>
-                  <Feather name="x" size={20} color="#787496" />
+                  <Feather name="x" size={20} color={colors.sub} />
                 </View>
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Round 1</Text>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Study settings"
                 style={styles.settingsButton}
                 onPress={() => setSettingsVisible(true)}
                 activeOpacity={0.7}
               >
-                <Feather name="settings" size={24} color="#0A0A0A" />
+                <Feather name="settings" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
             {/* 第二行：进度条 */}
@@ -874,8 +877,8 @@ export default function StudySessionScreen() {
                       ]}
                     >
                       {isCorrect
-                        ? "You've Got this !"
-                        : "No worries, Learning is a process !"}
+                        ? "You've got it."
+                        : "Not yet. This one takes practice."}
                     </Text>
                   ) : (
                     <Text style={styles.chooseAnswerText}>Choose the answer</Text>
@@ -912,7 +915,7 @@ export default function StudySessionScreen() {
                       }
 
                       return (
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           key={index}
                           style={buttonStyle}
                           onPress={() => handleSelectOption(option)}
@@ -940,8 +943,8 @@ export default function StudySessionScreen() {
                       ]}
                     >
                       {isCorrect
-                        ? "You've Got this !"
-                        : "No worries, Learning is a process !"}
+                        ? "You've got it."
+                        : "Not yet. This one takes practice."}
                     </Text>
                   ) : (
                     <Text style={styles.chooseAnswerText}>Choose the answer</Text>
@@ -978,7 +981,7 @@ export default function StudySessionScreen() {
                       }
 
                       return (
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           key={option}
                           style={buttonStyle}
                           onPress={() => handleSelectOption(option)}
@@ -1095,7 +1098,7 @@ export default function StudySessionScreen() {
               <View style={styles.fillBlankInputBar}>
                 <View style={styles.fillBlankInputWrapper}>
                   {!selectedAnswer.trim() ? (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={styles.fillBlankPlaceholderContainer}
                       onPress={() => fillBlankInputRef.current?.focus()}
                       activeOpacity={1}
@@ -1103,7 +1106,7 @@ export default function StudySessionScreen() {
                       <Text style={styles.fillBlankPlaceholder}>Type the answer</Text>
                     </TouchableOpacity>
                   ) : null}
-                  <TextInput
+                  <TextInput accessibilityLabel=""
                     ref={fillBlankInputRef}
                     style={[
                       styles.fillBlankInputBarInput,
@@ -1121,7 +1124,7 @@ export default function StudySessionScreen() {
                 </View>
                 <View style={styles.fillBlankInputBarActions}>
                   {!selectedAnswer.trim() && (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={styles.fillBlankDontKnowButton}
                       onPress={handleDontKnow}
                       activeOpacity={0.7}
@@ -1129,7 +1132,7 @@ export default function StudySessionScreen() {
                       <Text style={styles.fillBlankDontKnowButtonText}>Don't Know</Text>
                     </TouchableOpacity>
                   )}
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button" accessibilityLabel="Submit answer"
                     style={[
                       styles.fillBlankSubmitButton,
                       !selectedAnswer.trim() && styles.fillBlankSubmitButtonDisabled,
@@ -1145,7 +1148,7 @@ export default function StudySessionScreen() {
                     <Feather
                       name="arrow-up"
                       size={18}
-                      color={selectedAnswer.trim() ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)'}
+                      color={selectedAnswer.trim() ? colors.surf : colors.onDark}
                     />
                   </TouchableOpacity>
                 </View>
@@ -1157,7 +1160,7 @@ export default function StudySessionScreen() {
           {showFeedback && !isCorrect && (
             <SafeAreaView style={styles.footerContainer} edges={['bottom']}>
               <View style={styles.footer}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.footerButton}
                   onPress={handleNext}
                   activeOpacity={0.8}
@@ -1198,7 +1201,7 @@ const styles = StyleSheet.create({
   },
   // Header
   header: {
-    paddingHorizontal: 16,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 8,
     paddingBottom: 8,
     gap: 8,
@@ -1210,8 +1213,8 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   closeButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1219,14 +1222,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: 'rgba(120, 116, 150, 0.1)',
+    backgroundColor: colors.accentL,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: 0.4063,
   },
   progressBarContainer: {
@@ -1238,24 +1241,24 @@ const styles = StyleSheet.create({
   progressNumber: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#4A5565',
+    color: colors.muted,
     lineHeight: 16,
   },
   progressBarBackground: {
     flex: 1,
     height: 12,
-    backgroundColor: 'rgba(120, 116, 150, 0.08)',
+    backgroundColor: colors.borderS,
     borderRadius: 20642200,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: '#4E49FC',
+    backgroundColor: colors.accent,
     borderRadius: 20642200,
   },
   settingsButton: {
-    width: 24,
-    height: 24,
+    width: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1265,7 +1268,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flex: 1,
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 12,
     // paddingBottom = 卡片与按钮的距离 (12px) + 按钮高度 (104px) + SafeArea (约20-34px) = 136-150px
     // 按钮高度：footer padding (16px) + footerButton minHeight (56px) + footerButton paddingVertical (32px) = 104px
@@ -1302,7 +1305,7 @@ const styles = StyleSheet.create({
   questionText: {
     fontSize: 20,
     fontWeight: '400',
-    color: '#0A0A0A',
+    color: colors.text,
     lineHeight: 28,
     letterSpacing: -0.4492,
   },
@@ -1319,7 +1322,7 @@ const styles = StyleSheet.create({
   },
   chooseAnswerText: {
     fontSize: 14,
-    color: '#6A7282',
+    color: colors.muted,
     fontWeight: '500',
     lineHeight: 20,
   },
@@ -1327,61 +1330,61 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   optionButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 8,
     minHeight: 64,
     borderWidth: 0.62,
-    borderColor: '#C6C7CB',
+    borderColor: colors.muted,
     justifyContent: 'center',
     marginBottom: 0,
   },
   optionText: {
     fontSize: 14,
-    color: '#0A0A0A',
+    color: colors.text,
     fontWeight: '400',
     lineHeight: 20,
   },
   optionButtonSelected: {
-    borderColor: '#3B82F6',
-    backgroundColor: '#EFF6FF',
+    borderColor: colors.action,
+    backgroundColor: colors.accentL,
   },
   optionTextSelected: {
-    color: '#3B82F6',
+    color: colors.accentText,
   },
   optionButtonCorrect: {
-    borderColor: '#00A63E',
+    borderColor: colors.green,
     borderWidth: 1.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderStyle: 'solid',
   },
   optionButtonCorrectDashed: {
-    borderColor: '#00A63E',
+    borderColor: colors.green,
     borderWidth: 1.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderStyle: 'dashed',
   },
   optionTextCorrect: {
-    color: '#0A0A0A',
+    color: colors.text,
     fontWeight: '400',
   },
   optionButtonWrong: {
-    borderColor: '#FF6900',
+    borderColor: colors.red,
     borderWidth: 1.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderStyle: 'solid',
   },
   optionTextWrong: {
-    color: '#0A0A0A',
+    color: colors.text,
     fontWeight: '400',
   },
   // True/False - 现在使用与 MCQ 相同的样式
   // Fill Blank - 固定在键盘上方的输入栏
   fillBlankInputBarContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderWidth: 1,
-    borderColor: 'rgba(120, 116, 150, 0.08)',
+    borderColor: colors.controlBorder,
     borderTopLeftRadius: 16,
     borderTopRightRadius: 16,
     borderBottomLeftRadius: 0,
@@ -1411,13 +1414,13 @@ const styles = StyleSheet.create({
   },
   fillBlankPlaceholder: {
     fontSize: 14,
-    color: '#C6C7CB',
+    color: colors.muted,
     lineHeight: 20,
     fontWeight: '400',
   },
   fillBlankInputBarInput: {
     fontSize: 14,
-    color: '#0A0A0A',
+    color: colors.text,
     lineHeight: 20,
     maxHeight: 120,
     minHeight: 20,
@@ -1437,25 +1440,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
   },
-  fillBlankDontKnowButton: {
+  fillBlankDontKnowButton: { minHeight: 44,
     paddingVertical: 6,
   },
   fillBlankDontKnowButtonText: {
     fontSize: 14,
-    color: '#4E49FC',
+    color: colors.action,
     fontWeight: '500',
     lineHeight: 20,
   },
   fillBlankSubmitButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#4E49FC',
+    width: 44,
+    minHeight: 44,
+    borderRadius: 100,
+    backgroundColor: colors.action,
     alignItems: 'center',
     justifyContent: 'center',
   },
   fillBlankSubmitButtonDisabled: {
-    backgroundColor: 'rgba(78, 73, 252, 0.32)',
+    backgroundColor: colors.accentRing,
   },
   // Fill Blank Feedback
   fillBlankFeedbackContainer: {
@@ -1468,13 +1471,13 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   fillBlankFeedbackTextCorrect: {
-    color: '#00A63E',
+    color: colors.green,
   },
   fillBlankFeedbackTextWrong: {
-    color: '#FF6900',
+    color: colors.red,
   },
   fillBlankFeedbackTextSkipped: {
-    color: '#6A7282',
+    color: colors.muted,
   },
   fillBlankAnswerContainer: {
     gap: 8,
@@ -1486,30 +1489,30 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1.5,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     justifyContent: 'center',
   },
   fillBlankAnswerBoxCorrect: {
-    borderColor: '#00A63E',
+    borderColor: colors.green,
     borderStyle: 'solid',
   },
   fillBlankAnswerBoxWrong: {
-    borderColor: '#FF6900',
+    borderColor: colors.red,
     borderStyle: 'solid',
   },
   fillBlankAnswerBoxSkipped: {
-    borderColor: '#6A7282',
+    borderColor: colors.muted,
     borderStyle: 'solid',
   },
   fillBlankAnswerText: {
     fontSize: 14,
-    color: '#0A0A0A',
+    color: colors.text,
     fontWeight: '400',
     lineHeight: 20,
   },
   fillBlankCorrectAnswerLabel: {
     fontSize: 14,
-    color: '#00A63E',
+    color: colors.green,
     fontWeight: '500',
     lineHeight: 20,
   },
@@ -1519,20 +1522,20 @@ const styles = StyleSheet.create({
   correctAnswerHintLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#10B981',
+    color: colors.green,
     marginBottom: 8,
   },
   correctAnswerBox: {
     borderWidth: 2,
-    borderColor: '#10B981',
+    borderColor: colors.green,
     borderStyle: 'dashed',
     borderRadius: 12,
     padding: 16,
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.greenL,
   },
   correctAnswerText: {
     fontSize: 16,
-    color: '#10B981',
+    color: colors.green,
     fontWeight: '600',
   },
   // Feedback
@@ -1546,7 +1549,7 @@ const styles = StyleSheet.create({
   },
   flipHintText: {
     fontSize: 12,
-    color: '#6A7282',
+    color: colors.muted,
     fontWeight: '400',
     textAlign: 'center',
     lineHeight: 16,
@@ -1557,22 +1560,22 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   feedbackTextCorrect: {
-    color: '#00A63E',
+    color: colors.green,
   },
   feedbackTextWrong: {
-    color: '#FF6900',
+    color: colors.red,
   },
   explanationToggle: {
     marginTop: 8,
   },
   explanationToggleText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.muted,
     marginBottom: 8,
   },
   explanationText: {
     fontSize: 16,
-    color: '#111827',
+    color: colors.text,
     lineHeight: 24,
     marginTop: 8,
   },
@@ -1582,23 +1585,23 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   footer: {
     padding: 16,
   },
   footerButton: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 12,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 56,
   },
   footerButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 18,
     fontWeight: '600',
   },
@@ -1611,7 +1614,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.muted,
   },
   errorContainer: {
     flex: 1,
@@ -1622,24 +1625,24 @@ const styles = StyleSheet.create({
   errorTitle: {
     fontSize: 24,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     marginTop: 16,
     marginBottom: 8,
   },
   errorText: {
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.muted,
     textAlign: 'center',
     marginBottom: 32,
   },
-  backButton: {
-    backgroundColor: '#3B82F6',
+  backButton: { minHeight: 44,
+    backgroundColor: colors.action,
     paddingHorizontal: 24,
     paddingVertical: 12,
-    borderRadius: 12,
+    borderRadius: 100,
   },
   backButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1658,45 +1661,45 @@ const styles = StyleSheet.create({
   caughtUpTitle: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     marginBottom: 12,
     textAlign: 'center',
   },
   caughtUpSubtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.muted,
     textAlign: 'center',
     marginBottom: 32,
     lineHeight: 24,
   },
-  reviewAllButton: {
-    backgroundColor: '#4F46E5',
-    borderRadius: 12,
+  reviewAllButton: { minHeight: 44,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 16,
     paddingHorizontal: 32,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 0,
   },
   reviewAllButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 18,
     fontWeight: '600',
   },
   backButtonCaughtUp: {
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.accentL,
     borderRadius: 12,
     paddingVertical: 16,
     paddingHorizontal: 32,
   },
   backButtonCaughtUpText: {
-    color: '#6B7280',
+    color: colors.muted,
     fontSize: 16,
     fontWeight: '600',
   },
@@ -1713,30 +1716,30 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: 32,
     fontWeight: '700',
-    color: '#111827',
+    color: colors.text,
     marginTop: 24,
     marginBottom: 16,
   },
   summaryScore: {
     fontSize: 48,
     fontWeight: '700',
-    color: '#3B82F6',
+    color: colors.accentText,
     marginBottom: 8,
   },
   summaryPercentage: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.muted,
     marginBottom: 32,
   },
-  summaryButton: {
-    backgroundColor: '#3B82F6',
+  summaryButton: { minHeight: 44,
+    backgroundColor: colors.action,
     paddingHorizontal: 32,
     paddingVertical: 16,
-    borderRadius: 12,
+    borderRadius: 100,
   },
   summaryButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 18,
     fontWeight: '600',
   },

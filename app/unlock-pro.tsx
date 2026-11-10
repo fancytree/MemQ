@@ -1,3 +1,4 @@
+import { fonts } from '@/theme/typography';
 /**
  * Unlock MemQ Pro — 与全局 editorial 设计语言一致（JetBrains Mono + teal accent）
  */
@@ -32,7 +33,7 @@ export default function UnlockProScreen() {
   };
 
   const handleClose = () => {
-    safeBack('/(tabs)/profile');
+    safeBack('/you');
   };
 
   return (
@@ -50,7 +51,7 @@ export default function UnlockProScreen() {
         <View style={styles.hero}>
           <View style={styles.badgeRow}>
             <View style={styles.badgeIcon}>
-              <Feather name="zap" size={18} color={colors.accent} />
+              <Feather name="zap" size={18} color={colors.accentText} />
             </View>
             <Text style={styles.kicker}>MemQ Pro</Text>
           </View>
@@ -92,7 +93,7 @@ export default function UnlockProScreen() {
       <SafeAreaView style={styles.footerWrap} edges={['bottom']}>
         <View style={styles.footer}>
           <Text style={styles.footerHint}>7-day free trial · Cancel anytime</Text>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.primaryButton}
             onPress={handleStartFreeTrial}
             activeOpacity={0.85}
@@ -100,11 +101,11 @@ export default function UnlockProScreen() {
             <Text style={styles.primaryButtonText}>Start free trial</Text>
           </TouchableOpacity>
           <View style={styles.legalRow}>
-            <TouchableOpacity onPress={() => Linking.openURL(APPLE_EULA_URL)}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => Linking.openURL(APPLE_EULA_URL)}>
               <Text style={styles.legalLink}>Terms of Use (EULA)</Text>
             </TouchableOpacity>
             <Text style={styles.legalSep}>|</Text>
-            <TouchableOpacity onPress={() => router.push('/profile/privacy-policy')}>
+            <TouchableOpacity accessibilityRole="button" onPress={() => router.push('/profile/privacy-policy')}>
               <Text style={styles.legalLink}>Privacy Policy</Text>
             </TouchableOpacity>
           </View>
@@ -150,8 +151,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   kicker: {
-    fontSize: 11,
-    fontFamily: 'JetBrainsMono_500',
+    fontSize: 12,
+    fontFamily: fonts.medium,
     fontWeight: '500',
     letterSpacing: 0.45,
     textTransform: 'uppercase',
@@ -160,7 +161,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     lineHeight: 28,
-    fontFamily: 'JetBrainsMono_800',
+    fontFamily: fonts.extraBold,
     fontWeight: '800',
     letterSpacing: -0.6,
     color: colors.text,
@@ -169,7 +170,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 14,
     lineHeight: 22,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     color: colors.sub,
   },
@@ -198,7 +199,7 @@ const styles = StyleSheet.create({
   featureTitle: {
     fontSize: 15,
     lineHeight: 22,
-    fontFamily: 'JetBrainsMono_600',
+    fontFamily: fonts.semibold,
     fontWeight: '600',
     letterSpacing: -0.35,
     color: colors.text,
@@ -207,7 +208,7 @@ const styles = StyleSheet.create({
   featureDescription: {
     fontSize: 13,
     lineHeight: 20,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     color: colors.sub,
   },
@@ -226,15 +227,15 @@ const styles = StyleSheet.create({
   footerHint: {
     fontSize: 13,
     lineHeight: 20,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     color: colors.muted,
     textAlign: 'center',
     marginBottom: 4,
   },
   primaryButton: {
-    backgroundColor: colors.accent,
-    borderRadius: t.radius.lg,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 16,
     paddingHorizontal: t.space.lg,
     alignItems: 'center',
@@ -243,9 +244,9 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     fontSize: 14,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
-    color: '#FFFFFF',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
+    color: colors.onAction,
   },
   legalRow: {
     flexDirection: 'row',
@@ -256,15 +257,15 @@ const styles = StyleSheet.create({
     paddingBottom: 0,
   },
   legalLink: {
-    fontSize: 11,
-    fontFamily: 'JetBrainsMono_400',
+    fontSize: 12,
+    fontFamily: fonts.regular,
     fontWeight: '400',
     color: colors.muted,
     textDecorationLine: 'underline',
   },
   legalSep: {
-    fontSize: 11,
-    color: colors.dim,
-    fontFamily: 'JetBrainsMono_400',
+    fontSize: 12,
+    color: colors.muted,
+    fontFamily: fonts.regular,
   },
 });

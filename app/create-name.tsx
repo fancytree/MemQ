@@ -1,7 +1,8 @@
+import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
 import { clearCache } from '@/lib/cache';
-import { clearPendingTerms, getPendingTerms } from '@/lib/createStore';
+import { clearPendingTerms, getPendingLearningMode, getPendingTerms } from '@/lib/createStore';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts } from '@/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -25,14 +26,13 @@ import {
 export default function CreateNameScreen() {
   const [lessonName, setLessonName] = useState('');
   const [description, setDescription] = useState('');
-  const [isVocabMode, setIsVocabMode] = useState(false);
+  const [learningMode, setLearningMode] = useState<'language' | 'knowledge'>(getPendingLearningMode());
   const [deadline, setDeadline] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const nameInputRef = useRef<TextInput>(null);
   const slideAnim = useRef(new Animated.Value(300)).current;
-  const switchAnim = useRef(new Animated.Value(0)).current;
 
   const canCreate = lessonName.trim().length > 0;
 
@@ -44,12 +44,6 @@ export default function CreateNameScreen() {
   const closeDatePicker = () => {
     slideAnim.setValue(300);
     setShowDatePicker(false);
-  };
-
-  const toggleVocabMode = () => {
-    const next = !isVocabMode;
-    setIsVocabMode(next);
-    Animated.spring(switchAnim, { toValue: next ? 1 : 0, useNativeDriver: true, tension: 100, friction: 8 }).start();
   };
 
   const formatDate = (date: Date | null) => {
@@ -81,7 +75,7 @@ export default function CreateNameScreen() {
           name,
           description: description.trim() || null,
           deadline: deadline ? deadline.toISOString() : null,
-          is_vocab_mode: isVocabMode,
+          learning_mode: learningMode,
         })
         .select('id')
         .single();
@@ -97,6 +91,7 @@ export default function CreateNameScreen() {
           term: t.term,
           definition: t.definition,
           explanation: t.explanation,
+          language_data: learningMode === 'language' ? t.language_data || null : null,
         }))
       );
 
@@ -121,11 +116,11 @@ export default function CreateNameScreen() {
     <EdBase bottomInset={0} scroll={false}>
       {/* Top bar */}
       <View style={styles.topbar}>
-        <Pressable onPress={() => router.back()} style={styles.topbarSideBtn}>
+        <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.topbarSideBtn}>
           <Text style={styles.cancel}>← Back</Text>
         </Pressable>
         <Text style={styles.title}>New Lesson</Text>
-        <Pressable
+        <Pressable accessibilityRole="button"
           onPress={() => void handleCreate()}
           disabled={!canCreate || saving}
           style={styles.topbarSideBtn}
@@ -153,7 +148,7 @@ export default function CreateNameScreen() {
               <SectionLabel style={styles.label}>
                 Lesson Name <Text style={styles.required}>*</Text>
               </SectionLabel>
-              <TextInput
+              <TextInput accessibilityLabel="e.g. French Vocabulary, Biology Ch.3…"
                 ref={nameInputRef}
                 autoFocus
                 style={[styles.input, styles.singleLineInput]}
@@ -170,7 +165,7 @@ export default function CreateNameScreen() {
             {/* Description */}
             <View style={styles.inputGroup}>
               <SectionLabel style={styles.label}>Description</SectionLabel>
-              <TextInput
+              <TextInput accessibilityLabel="Enter description (optional)"
                 style={[styles.input, styles.textarea]}
                 value={description}
                 onChangeText={setDescription}
@@ -181,30 +176,29 @@ export default function CreateNameScreen() {
               />
             </View>
 
-            {/* Vocabulary Mode */}
+            {/* Learning mode */}
             <View style={styles.inputGroup}>
-              <View style={styles.switchRow}>
-                <View style={{ flex: 1, marginRight: 16 }}>
-                  <SectionLabel style={styles.label}>Vocabulary Mode</SectionLabel>
-                  <Text style={styles.switchDesc}>For words and phrases only. Not for grammar.</Text>
-                </View>
-                <TouchableOpacity
-                  style={[styles.switch, isVocabMode && styles.switchActive]}
-                  onPress={toggleVocabMode}
-                  activeOpacity={0.8}
-                >
-                  <Animated.View
-                    style={[
-                      styles.switchThumb,
-                      {
-                        transform: [{
-                          translateX: switchAnim.interpolate({ inputRange: [0, 1], outputRange: [0, 20] }),
-                        }],
-                      },
-                    ]}
-                  />
-                </TouchableOpacity>
+              <SectionLabel style={styles.label}>Learning mode</SectionLabel>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                {(['knowledge', 'language'] as const).map((mode) => (
+                  <Pressable
+                    key={mode}
+                    onPress={() => setLearningMode(mode)}
+                    accessibilityRole="radio"
+                    accessibilityState={{ checked: learningMode === mode }}
+                    style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1,
+                      borderColor: learningMode === mode ? colors.action : colors.controlBorder,
+                      backgroundColor: learningMode === mode ? colors.accentL : colors.surf }}
+                  >
+                    <Text style={{ color: learningMode === mode ? colors.action : colors.text, fontWeight: '700' }}>
+                      {mode === 'language' ? 'Language' : 'Knowledge'}
+                    </Text>
+                  </Pressable>
+                ))}
               </View>
+              <Text style={styles.switchDesc}>
+                {learningMode === 'language' ? 'Words, phrases, pronunciation, and grammar.' : 'Concepts, facts, and explanations.'}
+              </Text>
             </View>
 
             {/* Deadline */}
@@ -212,12 +206,12 @@ export default function CreateNameScreen() {
               <View style={styles.labelRow}>
                 <SectionLabel style={[styles.label, { marginBottom: 0 }]}>Deadline</SectionLabel>
                 {deadline && (
-                  <Pressable onPress={() => setDeadline(null)} style={styles.clearBtn}>
+                  <Pressable accessibilityRole="button" onPress={() => setDeadline(null)} style={styles.clearBtn}>
                     <Text style={styles.clearBtnText}>Clear</Text>
                   </Pressable>
                 )}
               </View>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.input, styles.singleLineInput, styles.dateBtn]}
                 onPress={openDatePicker}
                 activeOpacity={0.7}
@@ -230,7 +224,7 @@ export default function CreateNameScreen() {
           </View>
 
           {/* CTA */}
-          <Pressable
+          <Pressable accessibilityRole="button"
             style={[styles.cta, (!canCreate || saving) && styles.ctaDisabled]}
             onPress={() => void handleCreate()}
             disabled={!canCreate || saving}
@@ -245,14 +239,14 @@ export default function CreateNameScreen() {
       {/* Date picker */}
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal visible transparent animationType="none" onRequestClose={closeDatePicker}>
-          <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={closeDatePicker}>
+          <TouchableOpacity accessibilityRole="button" style={styles.modalOverlay} activeOpacity={1} onPress={closeDatePicker}>
             <Animated.View style={[styles.modalContent, { transform: [{ translateY: slideAnim }] }]}>
               <View style={styles.modalHeader}>
-                <TouchableOpacity onPress={closeDatePicker} style={styles.modalBtn}>
+                <TouchableOpacity accessibilityRole="button" onPress={closeDatePicker} style={styles.modalBtn}>
                   <Text style={styles.modalCancel}>Cancel</Text>
                 </TouchableOpacity>
                 <Text style={styles.modalTitle}>Select Deadline</Text>
-                <TouchableOpacity onPress={closeDatePicker} style={styles.modalBtn}>
+                <TouchableOpacity accessibilityRole="button" onPress={closeDatePicker} style={styles.modalBtn}>
                   <Text style={styles.modalDone}>Done</Text>
                 </TouchableOpacity>
               </View>
@@ -262,7 +256,7 @@ export default function CreateNameScreen() {
                 display="spinner"
                 onChange={(_, d) => d && setDeadline(d)}
                 minimumDate={new Date()}
-                textColor="#111827"
+                textColor={colors.text}
                 themeVariant="light"
               />
             </Animated.View>
@@ -284,20 +278,20 @@ export default function CreateNameScreen() {
 
 const styles = StyleSheet.create({
   topbar: {
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16,
+    paddingHorizontal: layout.screenInline, paddingTop: 20, paddingBottom: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     position: 'relative', borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  topbarSideBtn: { minWidth: 64, zIndex: 2 },
-  cancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.grotesk },
+  topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2 },
+  cancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
   title: {
-    fontSize: 16, lineHeight: 22.4, fontWeight: '400', letterSpacing: -0.1,
-    color: colors.text, fontFamily: 'JetBrainsMono_800',
+    fontSize: 16, lineHeight: 22.4, fontWeight: '800', letterSpacing: -0.1,
+    color: colors.text, fontFamily: fonts.extraBold,
     position: 'absolute', left: 0, right: 0, textAlign: 'center',
   },
   tag: {
-    fontSize: 13, lineHeight: 18, letterSpacing: -0.1, color: colors.accent,
-    fontWeight: '400', fontFamily: 'JetBrainsMono_700', textAlign: 'right',
+    fontSize: 13, lineHeight: 18, letterSpacing: -0.1, color: colors.accentText,
+    fontWeight: '700', fontFamily: fonts.bold, textAlign: 'right',
   },
   tagDisabled: { opacity: 0.45 },
 
@@ -312,8 +306,8 @@ const styles = StyleSheet.create({
   inputGroupLast: { marginBottom: 8 },
 
   label: {
-    fontSize: 11, lineHeight: 15.4, letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500', fontWeight: '400',
+    fontSize: 12, lineHeight: 15.4, letterSpacing: -0.1,
+    fontFamily: fonts.medium, fontWeight: '500',
     marginBottom: 8,
   },
   required: { color: colors.red },
@@ -323,46 +317,46 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', marginBottom: 8,
   },
 
-  input: {
+  input: { minHeight: 44,
     backgroundColor: colors.bg, borderRadius: 8,
     paddingHorizontal: 14, fontSize: 15, lineHeight: 22,
-    color: colors.text, fontFamily: 'JetBrainsMono_400',
-    borderWidth: 1, borderColor: colors.border,
+    color: colors.text, fontFamily: fonts.regular,
+    borderWidth: 1, borderColor: colors.controlBorder,
   },
-  singleLineInput: { paddingVertical: 12 },
+  singleLineInput: { minHeight: 44, paddingVertical: 12 },
   textarea: { minHeight: 90, paddingVertical: 12, textAlignVertical: 'top' },
 
-  dateBtn: { justifyContent: 'center' },
-  dateText: { fontSize: 15, lineHeight: 22, color: colors.text, fontFamily: 'JetBrainsMono_400' },
+  dateBtn: { minHeight: 44, justifyContent: 'center' },
+  dateText: { fontSize: 15, lineHeight: 22, color: colors.text, fontFamily: fonts.regular },
   datePlaceholder: { color: colors.muted },
 
-  clearBtn: { paddingVertical: 4, paddingHorizontal: 8 },
-  clearBtnText: { fontSize: 12, color: colors.red, fontFamily: 'JetBrainsMono_600' },
+  clearBtn: { minHeight: 44, paddingVertical: 4, paddingHorizontal: 8 },
+  clearBtnText: { fontSize: 12, color: colors.red, fontFamily: fonts.semibold },
 
   switchRow: { flexDirection: 'row', alignItems: 'center' },
   switchDesc: {
     fontSize: 12, lineHeight: 17, color: colors.muted,
-    fontFamily: 'JetBrainsMono_400', marginTop: 2,
+    fontFamily: fonts.regular, marginTop: 2,
   },
   switch: {
     width: 50, height: 30, borderRadius: 15,
-    backgroundColor: colors.dim, justifyContent: 'center', paddingHorizontal: 2,
+    backgroundColor: colors.switchTrack, justifyContent: 'center', paddingHorizontal: 2,
   },
-  switchActive: { backgroundColor: colors.accent },
+  switchActive: { backgroundColor: colors.action },
   switchThumb: {
-    width: 26, height: 26, borderRadius: 13, backgroundColor: '#FFFFFF',
+    width: 26, height: 26, borderRadius: 13, backgroundColor: colors.surf,
   },
 
-  cta: {
-    backgroundColor: colors.accent, borderRadius: 10,
+  cta: { minHeight: 44,
+    backgroundColor: colors.action, borderRadius: 100,
     paddingVertical: 14, alignItems: 'center',
   },
   ctaDisabled: { opacity: 0.45 },
-  ctaText: { fontFamily: 'JetBrainsMono_700', fontSize: 15, color: '#fff', fontWeight: '400' },
+  ctaText: { fontFamily: fonts.bold, fontSize: 15, color: colors.onAction, fontWeight: '700' },
 
   // Date picker modal
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'flex-end',
+    flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end',
   },
   modalContent: {
     backgroundColor: colors.surf,
@@ -372,17 +366,17 @@ const styles = StyleSheet.create({
   },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16,
+    paddingHorizontal: layout.screenInline, paddingVertical: 16,
     borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  modalBtn: { paddingVertical: 8, paddingHorizontal: 12 },
+  modalBtn: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 12 },
   modalTitle: {
     fontSize: 13, color: colors.text,
-    fontWeight: '400', fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700', fontFamily: fonts.bold,
   },
-  modalCancel: { fontSize: 13, color: colors.muted, fontFamily: 'JetBrainsMono_500' },
+  modalCancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.medium },
   modalDone: {
-    fontSize: 13, color: colors.accent,
-    fontWeight: '400', fontFamily: 'JetBrainsMono_700',
+    fontSize: 13, color: colors.accentText,
+    fontWeight: '700', fontFamily: fonts.bold,
   },
 });

@@ -1,9 +1,10 @@
 import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
 
 export type IconName =
+  | 'circlePlus'
+  | 'arrowRight'
   | 'home'
   | 'library'
-  | 'explore'
   | 'profile'
   | 'plus'
   | 'check'
@@ -17,13 +18,14 @@ interface IconProps {
   size?: number;
   /** Stroke width — defaults to 1.6 for tab icons, override to 3 for affirmative check/close. */
   strokeWidth?: number;
+  strokeLinejoin?: 'miter' | 'round' | 'bevel';
 }
 
 /**
  * Hand-rolled stroke icon set. Zero icon-library dependencies.
  * All icons share a 24x24 viewBox so the rendered size is consistent.
  */
-export function Icon({ name, color, size = 20, strokeWidth = 1.6 }: IconProps) {
+export function Icon({ name, color, size = 20, strokeWidth = 1.6, strokeLinejoin = 'round' }: IconProps) {
   const common = {
     width: size,
     height: size,
@@ -33,11 +35,15 @@ export function Icon({ name, color, size = 20, strokeWidth = 1.6 }: IconProps) {
     stroke: color,
     strokeWidth,
     strokeLinecap: 'round' as const,
-    strokeLinejoin: 'round' as const,
+    strokeLinejoin,
     fill: 'none' as const,
   };
 
   switch (name) {
+    case 'circlePlus':
+      return <Svg {...common}><G {...stroke}><Circle cx={12} cy={12} r={9} /><Path d="M8 12h8M12 8v8" /></G></Svg>;
+    case 'arrowRight':
+      return <Svg {...common}><Path d="M5 12h14M13 6l6 6-6 6" {...stroke} /></Svg>;
     case 'home':
       return (
         <Svg {...common}>
@@ -50,15 +56,6 @@ export function Icon({ name, color, size = 20, strokeWidth = 1.6 }: IconProps) {
           <G {...stroke}>
             <Rect x={5} y={4} width={14} height={16} rx={1.5} />
             <Path d="M9 4v16" />
-          </G>
-        </Svg>
-      );
-    case 'explore':
-      return (
-        <Svg {...common}>
-          <G {...stroke}>
-            <Circle cx={12} cy={12} r={8} />
-            <Path d="M15.5 8.5L13 13l-4.5 2.5L11 11z" strokeLinejoin="round" />
           </G>
         </Svg>
       );

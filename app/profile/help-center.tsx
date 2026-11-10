@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router/react-navigation';
 import { safeBack } from '@/lib/safeBack';
@@ -52,7 +54,7 @@ export default function HelpCenterScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <SecondaryPageNav onBack={() => safeBack('/(tabs)/profile')} />
+      <SecondaryPageNav onBack={() => safeBack('/you')} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -65,12 +67,12 @@ export default function HelpCenterScreen() {
           </Text>
 
           {/* WhatsApp Contact Button */}
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.whatsappButton}
             onPress={handleOpenWhatsApp}
             activeOpacity={0.8}
           >
-            <Feather name="message-circle" size={24} color="#FFFFFF" />
+            <Feather name="message-circle" size={24} color={colors.surf} />
             <Text style={styles.whatsappButtonText}>Contact via WhatsApp</Text>
           </TouchableOpacity>
 
@@ -87,7 +89,7 @@ export default function HelpCenterScreen() {
           {/* Alternative: Email Support */}
           <View style={styles.emailContainer}>
             <Text style={styles.emailLabel}>Email Support:</Text>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               onPress={() => Linking.openURL('mailto:support@riverstudio.cc')}
             >
               <Text style={styles.emailLink}>support@riverstudio.cc</Text>
@@ -111,15 +113,15 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 16,
   },
   title: {
     fontSize: 20,
     lineHeight: 28,
     letterSpacing: -0.2,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: colors.text,
     marginBottom: 10,
   },
@@ -127,16 +129,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 20,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     color: colors.muted,
     marginBottom: 20,
   },
-  whatsappButton: {
-    backgroundColor: colors.accent,
+  whatsappButton: { minHeight: 44,
+    backgroundColor: colors.action,
     borderWidth: 1,
-    borderColor: '#146B59',
-    borderRadius: 8,
+    borderColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 14,
     paddingHorizontal: 16,
     flexDirection: 'row',
@@ -146,12 +148,12 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   whatsappButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
   qrCodeContainer: {
     alignItems: 'center',
@@ -166,8 +168,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     color: colors.text,
     marginBottom: 12,
   },
@@ -187,7 +189,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     color: colors.muted,
     marginBottom: 8,
@@ -196,9 +198,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_600',
-    fontWeight: '400',
-    color: colors.accent,
+    fontFamily: fonts.semibold,
+    fontWeight: '600',
+    color: colors.action,
   },
 });
 

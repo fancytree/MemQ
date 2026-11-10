@@ -1,12 +1,14 @@
 import { EdBase } from '@/components/EdBase';
-import { SectionLabel } from '@/components/SectionLabel';
+import { MemqBuddy } from '@/components/MemqBuddy';
+import { DesignAsset } from '@/components/DesignAsset';
+import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
-import { colors, fonts } from '@/theme';
+import { colors, componentTokens, fonts, layout, radius, type } from '@/theme';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useMemo, useState } from 'react';
+import { FlatList, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 interface LessonSummary {
   id: string;
@@ -34,6 +36,10 @@ const getStatusWeight = (status?: LearningStage | null): number => {
 };
 
 export default function LibraryScreen() {
+  const { width: windowWidth, fontScale } = useWindowDimensions();
+  const [listWidth, setListWidth] = useState(windowWidth);
+  const columns = listWidth < 350 || fontScale > 1.3 ? 1 : 2;
+  const cardWidth = (listWidth - layout.screenInline * 2 - (columns - 1) * componentTokens.libraryCard.gridGap) / columns;
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
 
   const fetchLessons = useCallback(async () => {
@@ -121,153 +127,109 @@ export default function LibraryScreen() {
     void saveToCache('LESSONS', nextLessons, user.id);
   }, []);
 
-  useEffect(() => {
-    fetchLessons();
-  }, [fetchLessons]);
-
   useFocusEffect(
     useCallback(() => {
       fetchLessons();
     }, [fetchLessons])
   );
 
-  const summaryStats: { v: string; l: string }[] = useMemo(() => {
-    const lessonsCount = lessons.length;
-    const cardsCount = lessons.reduce((sum, lesson) => sum + lesson.cards, 0);
-    const dueCount = lessons.reduce((sum, lesson) => sum + lesson.due, 0);
-    return [
-      { v: String(lessonsCount), l: 'lessons' },
-      { v: String(cardsCount), l: 'cards' },
-      { v: String(dueCount), l: 'to review' },
-    ];
+  const summary = useMemo(() => {
+    const cards = lessons.reduce((sum, lesson) => sum + lesson.cards, 0);
+    const due = lessons.reduce((sum, lesson) => sum + lesson.due, 0);
+    return { lessons: lessons.length, cards, due };
   }, [lessons]);
 
   return (
     <EdBase bottomInset={0} scroll={false}>
-      {/* Top bar */}
-      <View style={styles.topbar}>
-        <Text style={styles.title}>Library</Text>
-        <Pressable onPress={() => router.push('/create')}>
-          <Text style={styles.linkAccent}>Add new</Text>
-        </Pressable>
-      </View>
-
-      <ScrollView
-        style={styles.contentScroll}
-        contentContainerStyle={styles.contentScrollBody}
+      <View style={styles.list} onLayout={(event) => setListWidth(event.nativeEvent.layout.width)}>
+      <FlatList
+        key={columns}
+        data={lessons}
+        numColumns={columns}
+        keyExtractor={(lesson) => lesson.id}
+        contentContainerStyle={styles.content}
+        columnWrapperStyle={columns === 2 ? styles.gridRow : undefined}
+        ItemSeparatorComponent={() => <View style={styles.gridSeparator} />}
         showsVerticalScrollIndicator={false}
-      >
-        {/* Stats summary */}
-        <View style={styles.statsRow}>
-          {summaryStats.map((s, i) => (
-            <View
-              key={s.l}
-              style={[styles.statCell, i < summaryStats.length - 1 && styles.statCellBorder]}
-            >
-              <Text style={styles.statVal}>{s.v}</Text>
-              <SectionLabel size={11} style={styles.statLabel}>{s.l}</SectionLabel>
-            </View>
-          ))}
-        </View>
-
-        {/* Lesson rows */}
-        <View style={styles.section}>
-          <View style={{ paddingHorizontal: 4, paddingBottom: 10 }}>
-            <SectionLabel size={12} style={{ fontFamily: 'JetBrainsMono_500', fontWeight: '400' }}>All Lessons</SectionLabel>
+        ListHeaderComponent={<View>
+          <View style={styles.introduction}>
+            <Text accessibilityRole="header" style={styles.title}>Your library</Text>
+            <Text style={styles.subtitle}>
+              <Text style={styles.summaryNumber}>{summary.lessons}</Text> {summary.lessons === 1 ? 'lesson' : 'lessons'} · <Text style={styles.summaryNumber}>{summary.cards}</Text> {summary.cards === 1 ? 'card' : 'cards'} · <Text style={styles.summaryNumber}>{summary.due}</Text> to review
+            </Text>
           </View>
-          <View style={{ gap: 8 }}>
-            {lessons.map((d) => (
-              <LessonRow key={d.id} lesson={d} />
-            ))}
+          <View style={styles.sectionHeading}>
+            <Text accessibilityRole="header" style={styles.sectionTitle}>All Lessons</Text>
+            <Pressable accessibilityRole="button" accessibilityLabel="Create a new lesson"
+              onPress={() => router.push('/create')} style={styles.newLesson}>
+              <Text style={styles.newLessonLabel}>+ New lesson</Text>
+            </Pressable>
           </View>
-        </View>
-      </ScrollView>
+        </View>}
+        renderItem={({ item }) => <LessonGridCard lesson={item} width={cardWidth} fontScale={fontScale} />}
+        ListEmptyComponent={<View style={styles.empty}>
+          <MemqBuddy size={82} mood="curious" />
+          <Text style={styles.emptyTitle}>A fresh page.</Text>
+          <Text style={styles.emptyCopy}>Start with one topic you want to remember.</Text>
+          <PrimaryButton label="Make your first lesson" onPress={() => router.push('/create')} />
+        </View>}
+      />
+      </View>
     </EdBase>
   );
 }
 
-function LessonRow({ lesson: d }: { lesson: LessonSummary }) {
+function LessonGridCard({ lesson, width, fontScale }: { lesson: LessonSummary; width: number; fontScale: number }) {
   return (
-    <Pressable onPress={() => router.push(`/lessons/${d.id}`)} style={styles.lessonCard}>
-      <View style={styles.lessonTitleRow}>
-        <Text style={styles.lessonTitle}>{d.title}</Text>
-        <Text style={[styles.dueLabel, { color: d.due > 0 ? colors.accent : colors.muted }]}>
-          {d.due > 0 ? 'review today' : 'caught up'}
-        </Text>
+    <Pressable accessibilityRole="button"
+      accessibilityLabel={`${lesson.title}. ${lesson.cards} ${lesson.cards === 1 ? 'card' : 'cards'}. ${lesson.pct} percent mastered. ${lesson.due} to review.`}
+      accessibilityHint="Opens lesson details"
+      onPress={() => router.push(`/lessons/${lesson.id}`)}
+      style={({ pressed }) => [styles.card, { width }, pressed && styles.cardPressed]}>
+      <View style={styles.cardHeading}>
+        <Text style={[styles.cardTitle, { minHeight: 38 * fontScale }]}>{lesson.title}</Text>
+        <View accessible={false} style={styles.chevron}><DesignAsset name="libraryChevron" /></View>
       </View>
-      <Text style={styles.lessonSub}>{d.sub}</Text>
-      <View style={styles.progressRow}>
-        <View style={styles.progressTrack}>
-          <View style={[styles.progressFill, { width: `${d.pct}%` }]} />
-        </View>
-        <Text style={styles.cardsLabel}>{d.cards} cards</Text>
-        <Text style={styles.pctLabel}>{d.pct}%</Text>
+      <Text style={[styles.description, { minHeight: 53 * fontScale }]}>{lesson.sub}</Text>
+      <View style={styles.cardSummary}>
+        <Text style={styles.cardCount}>{lesson.cards} {lesson.cards === 1 ? 'card' : 'cards'}</Text>
+        <Text style={styles.percentage}>{lesson.pct}%</Text>
+      </View>
+      <Text style={styles.review}>{lesson.due > 0 ? `${lesson.due} to review today` : 'All caught up'}</Text>
+      <View accessible={false} style={styles.track}>
+        <View style={[styles.fill, { width: `${Math.max(0, Math.min(100, lesson.pct))}%` }]} />
       </View>
     </Pressable>
   );
 }
 
+const card = componentTokens.libraryCard;
 const styles = StyleSheet.create({
-  topbar: {
-    paddingHorizontal: 20, paddingTop: 18, paddingBottom: 14,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  title: {
-    fontFamily: 'JetBrainsMono_800',
-    fontSize: 24, fontWeight: '400', letterSpacing: -0.5, color: colors.text,
-  },
-  linkAccent: { fontSize: 13, letterSpacing: -0.1, color: colors.accent, fontFamily: 'JetBrainsMono_700' },
-
-  statsRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-    backgroundColor: colors.surf,
-  },
-  statCell:       { flex: 1, paddingHorizontal: 20, paddingVertical: 20 },
-  statCellBorder: { borderRightWidth: 1, borderRightColor: colors.border },
-  statVal: {
-    fontFamily: 'JetBrainsMono_800',
-    fontSize: 26, letterSpacing: -0.1, color: colors.text, lineHeight: 26, paddingTop: 2,
-  },
-  statLabel: {
-    marginTop: 0,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
-    letterSpacing: -0.1,
-    lineHeight: 15,
-  },
-
-  contentScroll: { flex: 1 },
-  contentScrollBody: { paddingBottom: 70 },
-
-  section: { paddingHorizontal: 16, paddingTop: 22, paddingBottom: 24 },
-
-  lessonCard: {
-    backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    paddingHorizontal: 14, paddingVertical: 14,
-  },
-  lessonTitleRow: { flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 },
-  lessonTitle: {
-    flex: 1,
-    fontFamily: 'JetBrainsMono_700',
-    fontSize: 16, lineHeight: 22, fontWeight: '400', letterSpacing: -0.1, color: colors.text,
-  },
-  dueLabel: { fontSize: 12, fontWeight: '400', letterSpacing: -0.1, fontFamily: 'JetBrainsMono_600' },
-  lessonSub:  {
-    fontSize: 12,
-    lineHeight: 17,
-    letterSpacing: -0.1,
-    color: colors.muted,
-    marginTop: 3,
-    fontFamily: 'JetBrainsMono_400',
-    fontWeight: '400',
-  },
-
-  progressRow:   { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 14 },
-  progressTrack: { flex: 1, height: 2, borderRadius: 1, backgroundColor: colors.dim, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: colors.accent },
-  cardsLabel:    { fontSize: 11, color: colors.muted, width: 60, textAlign: 'right', fontFamily: fonts.grotesk },
-  pctLabel:      { fontSize: 11, color: colors.text, fontWeight: '700', width: 30, textAlign: 'right', fontFamily: fonts.grotesk },
+  list: { flex: 1 },
+  content: { paddingHorizontal: layout.screenInline, paddingTop: 24, paddingBottom: 16 },
+  introduction: { gap: 6, marginBottom: 12 },
+  title: { ...type.page, color: colors.text },
+  subtitle: { ...type.bodyReading, color: colors.text },
+  sectionHeading: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 8 },
+  sectionTitle: { ...type.section, color: colors.text, flexShrink: 1 },
+  newLesson: { minHeight: 44, justifyContent: 'center' },
+  newLessonLabel: { ...type.controlLink, color: colors.text },
+  gridRow: { gap: card.gridGap, alignItems: 'stretch' },
+  gridSeparator: { height: 8 },
+  card: { minHeight: card.minHeight, padding: card.padding, gap: card.gap, borderWidth: 1, borderColor: colors.border, borderRadius: card.borderRadius, backgroundColor: colors.bg },
+  cardPressed: { backgroundColor: colors.surfaceSubtle },
+  cardHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: 6 },
+  cardTitle: { ...type.courseTitle, color: colors.text, flex: 1 },
+  chevron: { paddingTop: 1 },
+  description: { ...type.meta, color: colors.supporting, flexGrow: 1 },
+  cardSummary: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 4 },
+  cardCount: { ...type.meta, color: colors.muted },
+  percentage: { ...type.meta, color: colors.supporting },
+  review: { ...type.meta, color: colors.supporting },
+  track: { height: card.progressHeight, borderRadius: radius.pill, backgroundColor: colors.progressTrack, overflow: 'hidden' },
+  fill: { height: '100%', borderRadius: radius.pill, backgroundColor: colors.action },
+  summaryNumber: { fontFamily: fonts.bold },
+  empty: { paddingVertical: 24, gap: 12 },
+  emptyTitle: { ...type.section, color: colors.text },
+  emptyCopy: { ...type.bodyReading, color: colors.supporting },
 });

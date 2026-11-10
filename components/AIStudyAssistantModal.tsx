@@ -1,3 +1,4 @@
+import { layout } from '@/theme/spacing';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -16,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/theme/colors';
 
 interface AIStudyAssistantModalProps {
   visible: boolean;
@@ -161,15 +163,15 @@ export default function AIStudyAssistantModal({
             <View style={styles.header}>
               {/* Grabber */}
               <View style={styles.grabber} />
-              
+
               {/* Title and Controls */}
               <View style={styles.headerContent}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close"
                   style={styles.closeButton}
                   onPress={onClose}
                   activeOpacity={0.7}
                 >
-                  <Feather name="x" size={24} color="#787496" />
+                  <Feather name="x" size={24} color={colors.sub} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Study Buddy</Text>
                 <View style={styles.headerSpacer} />
@@ -191,23 +193,23 @@ export default function AIStudyAssistantModal({
                 {/* 渐变圆形图标 */}
                 <View style={styles.iconContainer}>
                   <LinearGradient
-                    colors={['#AD46FF', '#2B7FFF']}
+                    colors={[colors.ai, colors.aiGradientEnd]}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
                     style={styles.iconGradient}
                   >
-                    <Feather name="zap" size={32} color="#FFFFFF" />
+                    <Feather name="zap" size={32} color={colors.surf} />
                   </LinearGradient>
                 </View>
 
                 {/* 选项按钮 */}
                 <View style={styles.optionsContainer}>
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     style={styles.optionButton}
                     onPress={() => handleOptionPress('ask')}
                     activeOpacity={0.7}
                   >
-                    <Feather name="search" size={20} color="#0A0A0A" />
+                    <Feather name="search" size={20} color={colors.text} />
                     <Text style={styles.optionText}>Ask any question</Text>
                   </TouchableOpacity>
                 </View>
@@ -216,10 +218,10 @@ export default function AIStudyAssistantModal({
 
             {/* 输入框 */}
             <View style={styles.inputContainer}>
-              <TextInput
+              <TextInput accessibilityLabel="Ask, search, or make anything"
                 style={styles.input}
                 placeholder="Ask, search, or make anything"
-                placeholderTextColor="#C6C7CB"
+                placeholderTextColor={colors.muted}
                 value={inputText}
                 onChangeText={setInputText}
                 multiline
@@ -230,15 +232,15 @@ export default function AIStudyAssistantModal({
                 editable={!isLoading}
               />
               <View style={styles.inputActions}>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={styles.uploadButton}
                   onPress={handleUpload}
                   activeOpacity={0.7}
                 >
-                  <Feather name="paperclip" size={16} color="#6A7282" />
+                  <Feather name="paperclip" size={16} color={colors.muted} />
                   <Text style={styles.uploadText}>Upload</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send message"
                   style={[
                     styles.sendButton,
                     (!inputText.trim() || isLoading) && styles.sendButtonDisabled,
@@ -250,7 +252,7 @@ export default function AIStudyAssistantModal({
                   <Feather
                     name="arrow-up"
                     size={18}
-                    color={inputText.trim() && !isLoading ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)'}
+                    color={inputText.trim() && !isLoading ? colors.onAction : colors.disabledText}
                   />
                 </TouchableOpacity>
               </View>
@@ -265,7 +267,7 @@ export default function AIStudyAssistantModal({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     overflow: 'hidden',
@@ -278,7 +280,7 @@ const styles = StyleSheet.create({
   grabber: {
     width: 36,
     height: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    backgroundColor: colors.border,
     borderRadius: 2,
     marginBottom: 10,
   },
@@ -286,29 +288,28 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 0,
     paddingBottom: 10,
     minHeight: 50,
     width: '100%',
   },
   closeButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   headerTitle: {
+    flex: 1,
+    textAlign: 'center',
     fontSize: 20,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: -0.43,
-    position: 'absolute',
-    left: '50%',
-    transform: [{ translateX: -50 }],
   },
   headerSpacer: {
-    width: 40,
+    width: 44,
   },
   initialHeader: {
     position: 'absolute',
@@ -321,14 +322,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
     zIndex: 100,
   },
   initialCloseButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    minHeight: 44,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -337,7 +338,7 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 0,
     paddingBottom: 48,
     justifyContent: 'flex-end',
@@ -353,16 +354,16 @@ const styles = StyleSheet.create({
     borderRadius: 32,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0,
     shadowRadius: 15,
-    elevation: 5,
+    elevation: 0,
   },
   optionsContainer: {
     gap: 12,
   },
-  optionButton: {
+  optionButton: { minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -373,24 +374,24 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     fontWeight: '400',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: -0.3125,
     lineHeight: 24,
   },
   inputContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: colors.controlBorder,
     borderRadius: 24,
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 12,
     minHeight: 106,
     justifyContent: 'space-between',
   },
-  input: {
+  input: { minHeight: 44,
     fontSize: 16,
     fontWeight: '400',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: -0.3125,
     lineHeight: 24,
     flex: 1,
@@ -404,7 +405,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     marginTop: 8,
   },
-  uploadButton: {
+  uploadButton: { minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -412,22 +413,22 @@ const styles = StyleSheet.create({
   uploadText: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#6A7282',
+    color: colors.muted,
     letterSpacing: -0.3125,
     lineHeight: 24,
   },
   sendButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: 'rgba(78, 73, 252, 0.32)',
+    width: 44,
+    minHeight: 44,
+    borderRadius: 100,
+    backgroundColor: colors.action,
     alignItems: 'center',
     justifyContent: 'center',
     transform: [{ rotate: '90deg' }],
   },
   sendButtonDisabled: {
-    backgroundColor: 'rgba(78, 73, 252, 0.32)',
-    opacity: 0.5,
+    backgroundColor: colors.disabledBg,
+    opacity: 1,
   },
 });
 

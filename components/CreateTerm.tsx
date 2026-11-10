@@ -1,3 +1,4 @@
+import { layout } from '@/theme/spacing';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -16,6 +17,7 @@ import {
     View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/theme/colors';
 
 interface TermRow {
   id: string;
@@ -90,7 +92,7 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
       if (error) {
         console.error('Error saving terms:', error);
         console.error('Error details:', JSON.stringify(error, null, 2));
-        
+
         // 如果错误是因为找不到 definition 列，提供明确的提示
         if (error.code === 'PGRST204' && error.message?.includes('definition')) {
           Alert.alert(
@@ -130,12 +132,12 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
       >
         {/* 顶部导航栏 */}
         <View style={styles.header}>
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
             onPress={() => safeBack('/(tabs)/library')}
             style={styles.backButton}
             activeOpacity={0.7}
           >
-            <Feather name="arrow-left" size={24} color="#111827" />
+            <Feather name="arrow-left" size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Add Terms</Text>
           <View style={styles.placeholder} />
@@ -158,21 +160,21 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
             <View key={termRow.id} style={styles.termRow}>
               <View style={styles.rowHeader}>
                 <Text style={styles.rowNumber}>Row {index + 1}</Text>
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Remove term"
                   onPress={() => handleDeleteRow(termRow.id)}
                   style={styles.deleteButton}
                   activeOpacity={0.7}
                 >
-                  <Feather name="x" size={20} color="#EF4444" />
+                  <Feather name="x" size={20} color={colors.red} />
                 </TouchableOpacity>
               </View>
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Term</Text>
-                <TextInput
+                <TextInput accessibilityLabel="e.g., Ambition"
                   style={styles.input}
                   placeholder="e.g., Ambition"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.muted}
                   value={termRow.term}
                   onChangeText={(value) => handleUpdateTerm(termRow.id, 'term', value)}
                   editable={!loading}
@@ -181,10 +183,10 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
 
               <View style={styles.inputGroup}>
                 <Text style={styles.label}>Definition</Text>
-                <TextInput
+                <TextInput accessibilityLabel="e.g., A strong desire to achieve something"
                   style={[styles.input, styles.textarea]}
                   placeholder="e.g., A strong desire to achieve something"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.muted}
                   value={termRow.definition}
                   onChangeText={(value) =>
                     handleUpdateTerm(termRow.id, 'definition', value)
@@ -200,10 +202,10 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
                 <Text style={styles.label}>
                   Explanation (Optional)
                 </Text>
-                <TextInput
+                <TextInput accessibilityLabel="Enter explanation (optional)"
                   style={[styles.input, styles.textarea]}
                   placeholder="Enter explanation (optional)"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.muted}
                   value={termRow.explanation}
                   onChangeText={(value) =>
                     handleUpdateTerm(termRow.id, 'explanation', value)
@@ -218,25 +220,25 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
           ))}
 
           {/* 添加行按钮 */}
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.addRowButton}
             onPress={handleAddRow}
             disabled={loading}
             activeOpacity={0.7}
           >
-            <Feather name="plus" size={20} color="#3B82F6" />
+            <Feather name="plus" size={20} color={colors.accentText} />
             <Text style={styles.addRowButtonText}>Add Row</Text>
           </TouchableOpacity>
 
           {/* 保存按钮 */}
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.saveButton, loading && styles.saveButtonDisabled]}
             onPress={handleSave}
             disabled={loading}
             activeOpacity={0.8}
           >
             {loading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.surf} />
             ) : (
               <Text style={styles.saveButtonText}>Save Terms</Text>
             )}
@@ -250,7 +252,7 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
   },
   keyboardView: {
     flex: 1,
@@ -259,18 +261,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
-  backButton: {
+  backButton: { minHeight: 44,
     padding: 8,
   },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.text,
   },
   placeholder: {
     width: 40,
@@ -279,29 +281,29 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingVertical: 20, paddingHorizontal: layout.screenInline,
     paddingBottom: 40,
   },
   infoContainer: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.infoL,
     borderRadius: 8,
     padding: 12,
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: colors.infoL,
   },
   infoText: {
     fontSize: 14,
-    color: '#1E40AF',
+    color: colors.info,
     lineHeight: 20,
   },
   termRow: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surfaceSubtle,
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
   },
   rowHeader: {
     flexDirection: 'row',
@@ -312,9 +314,9 @@ const styles = StyleSheet.create({
   rowNumber: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#6B7280',
+    color: colors.muted,
   },
-  deleteButton: {
+  deleteButton: { minHeight: 44,
     padding: 4,
   },
   inputGroup: {
@@ -323,61 +325,61 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#111827',
+    color: colors.text,
     marginBottom: 6,
   },
-  input: {
-    backgroundColor: '#FFFFFF',
+  input: { minHeight: 44,
+    backgroundColor: colors.surf,
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 16,
-    color: '#111827',
+    color: colors.text,
     borderWidth: 1,
-    borderColor: '#D1D5DB',
+    borderColor: colors.controlBorder,
   },
   textarea: {
     minHeight: 80,
     paddingTop: 10,
   },
-  addRowButton: {
+  addRowButton: { minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderRadius: 12,
     paddingVertical: 14,
     marginBottom: 16,
     borderWidth: 2,
-    borderColor: '#3B82F6',
+    borderColor: colors.action,
     borderStyle: 'dashed',
   },
   addRowButtonText: {
-    color: '#3B82F6',
+    color: colors.action,
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
   },
-  saveButton: {
-    backgroundColor: '#3B82F6',
-    borderRadius: 12,
+  saveButton: { minHeight: 44,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0,
     shadowRadius: 4,
-    elevation: 3,
+    elevation: 0,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 18,
     fontWeight: '600',
   },

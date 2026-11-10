@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notificationService';
 import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme';
@@ -189,7 +191,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
       <Text style={styles.welcomeSub}>
         Let's take a moment to set up your learning experience. It only takes a minute.
       </Text>
-      <Pressable style={styles.primaryBtn} onPress={onNext}>
+      <Pressable accessibilityRole="button" style={styles.primaryBtn} onPress={onNext}>
         <Text style={styles.primaryBtnText}>Get Started →</Text>
       </Pressable>
     </View>
@@ -216,7 +218,7 @@ function UsernameStep({
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.stepInner}>
-        <Pressable onPress={onBack} style={styles.backBtn}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} style={styles.backBtn}>
           <Text style={styles.backBtnText}>← Back</Text>
         </Pressable>
 
@@ -228,7 +230,7 @@ function UsernameStep({
           </Text>
         </View>
 
-        <TextInput
+        <TextInput accessibilityLabel="Your name"
           style={styles.textInput}
           value={value}
           onChangeText={onChange}
@@ -241,7 +243,7 @@ function UsernameStep({
           maxLength={40}
         />
 
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={[styles.primaryBtn, !canProceed && styles.primaryBtnDisabled]}
           onPress={canProceed ? onNext : undefined}
           disabled={!canProceed}
@@ -269,7 +271,7 @@ function GoalStep({
   const canProceed = selected !== null;
   return (
     <View style={styles.stepInner}>
-      <Pressable onPress={onBack} style={styles.backBtn}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} style={styles.backBtn}>
         <Text style={styles.backBtnText}>← Back</Text>
       </Pressable>
 
@@ -285,7 +287,7 @@ function GoalStep({
         {GOAL_OPTIONS.map((cards) => {
           const isSelected = selected === cards;
           return (
-            <Pressable
+            <Pressable accessibilityRole="button"
               key={cards}
               style={[styles.chip, isSelected && styles.chipSelected]}
               onPress={() => onSelect(cards)}
@@ -301,7 +303,7 @@ function GoalStep({
         })}
       </View>
 
-      <Pressable
+      <Pressable accessibilityRole="button"
         style={[styles.primaryBtn, !canProceed && styles.primaryBtnDisabled]}
         onPress={canProceed ? onNext : undefined}
         disabled={!canProceed}
@@ -331,7 +333,7 @@ function ReminderStep({
 }) {
   return (
     <View style={[styles.stepInner, { paddingBottom: 0 }]}>
-      <Pressable onPress={onBack} style={styles.backBtn}>
+      <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={onBack} style={styles.backBtn}>
         <Text style={styles.backBtnText}>← Back</Text>
       </Pressable>
 
@@ -351,7 +353,7 @@ function ReminderStep({
         {REMINDER_TIMES.map((t) => {
           const isSelected = selected === t.value;
           return (
-            <Pressable
+            <Pressable accessibilityRole="button"
               key={t.value}
               style={[styles.timeChip, isSelected && styles.timeChipSelected]}
               onPress={() => onSelect(t.value)}
@@ -365,13 +367,13 @@ function ReminderStep({
       </ScrollView>
 
       <View style={styles.reminderActions}>
-        <Pressable
+        <Pressable accessibilityRole="button"
           style={[styles.primaryBtn, { flex: 1 }, saving && styles.primaryBtnDisabled]}
           onPress={selected ? onFinish : onSkip}
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color={colors.surf} />
           ) : (
             <Text style={styles.primaryBtnText}>
               {selected ? "Let's go →" : 'Done →'}
@@ -379,7 +381,7 @@ function ReminderStep({
           )}
         </Pressable>
         {!selected && (
-          <Pressable style={styles.skipBtn} onPress={onSkip} disabled={saving}>
+          <Pressable accessibilityRole="button" style={styles.skipBtn} onPress={onSkip} disabled={saving}>
             <Text style={styles.skipBtnText}>Skip</Text>
           </Pressable>
         )}
@@ -409,6 +411,9 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
   dotFilled: {
+    width: 18,
+    borderWidth: 1,
+    borderColor: colors.action,
     backgroundColor: colors.accent,
   },
   dotEmpty: {
@@ -419,7 +424,7 @@ const styles = StyleSheet.create({
   },
   stepInner: {
     flex: 1,
-    paddingHorizontal: 28,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 32,
     paddingBottom: 32,
   },
@@ -438,16 +443,16 @@ const styles = StyleSheet.create({
     fontSize: 36,
   },
   welcomeTitle: {
-    fontFamily: 'JetBrainsMono_700',
+    fontFamily: fonts.bold,
     fontSize: 28,
     lineHeight: 34,
     letterSpacing: -0.8,
     color: colors.text,
     marginBottom: 14,
-    fontWeight: '400',
+    fontWeight: '700',
   },
   welcomeSub: {
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontSize: 14,
     lineHeight: 22,
     color: colors.muted,
@@ -456,12 +461,12 @@ const styles = StyleSheet.create({
   },
 
   // Back
-  backBtn: {
+  backBtn: { minHeight: 44,
     alignSelf: 'flex-start',
     marginBottom: 28,
   },
   backBtnText: {
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.muted,
     fontWeight: '400',
@@ -472,24 +477,24 @@ const styles = StyleSheet.create({
     marginBottom: 28,
   },
   stepLabel: {
-    fontFamily: 'JetBrainsMono_400',
-    fontSize: 11,
+    fontFamily: fonts.regular,
+    fontSize: 12,
     color: colors.muted,
     marginBottom: 8,
     letterSpacing: 0.5,
     fontWeight: '400',
   },
   stepTitle: {
-    fontFamily: 'JetBrainsMono_700',
+    fontFamily: fonts.bold,
     fontSize: 24,
     lineHeight: 30,
     letterSpacing: -0.6,
     color: colors.text,
     marginBottom: 8,
-    fontWeight: '400',
+    fontWeight: '700',
   },
   stepSub: {
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontSize: 13,
     lineHeight: 20,
     color: colors.muted,
@@ -498,12 +503,12 @@ const styles = StyleSheet.create({
 
   // Text input
   textInput: {
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontSize: 16,
     color: colors.text,
     backgroundColor: colors.surf,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     borderRadius: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
@@ -518,7 +523,7 @@ const styles = StyleSheet.create({
     gap: 10,
     marginBottom: 32,
   },
-  chip: {
+  chip: { minHeight: 44,
     backgroundColor: colors.surf,
     borderWidth: 1,
     borderColor: colors.border,
@@ -530,27 +535,27 @@ const styles = StyleSheet.create({
   },
   chipSelected: {
     backgroundColor: colors.accentL,
-    borderColor: colors.accent,
+    borderColor: colors.action,
   },
   chipNum: {
-    fontFamily: 'JetBrainsMono_700',
+    fontFamily: fonts.bold,
     fontSize: 20,
     lineHeight: 24,
     color: colors.text,
-    fontWeight: '400',
+    fontWeight: '700',
   },
   chipNumSelected: {
-    color: colors.accent,
+    color: colors.accentText,
   },
   chipUnit: {
-    fontFamily: 'JetBrainsMono_400',
-    fontSize: 11,
+    fontFamily: fonts.regular,
+    fontSize: 12,
     color: colors.muted,
     marginTop: 2,
     fontWeight: '400',
   },
   chipUnitSelected: {
-    color: colors.accent,
+    color: colors.accentText,
   },
 
   // Time chips
@@ -560,7 +565,7 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingBottom: 16,
   },
-  timeChip: {
+  timeChip: { minHeight: 44,
     backgroundColor: colors.surf,
     borderWidth: 1,
     borderColor: colors.border,
@@ -570,18 +575,18 @@ const styles = StyleSheet.create({
   },
   timeChipSelected: {
     backgroundColor: colors.accentL,
-    borderColor: colors.accent,
+    borderColor: colors.action,
   },
   timeChipText: {
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.sub,
     fontWeight: '400',
   },
   timeChipTextSelected: {
-    fontFamily: 'JetBrainsMono_700',
-    color: colors.accent,
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    color: colors.accentText,
+    fontWeight: '700',
   },
 
   // Reminder actions
@@ -592,21 +597,21 @@ const styles = StyleSheet.create({
     paddingBottom: 16,
     alignItems: 'center',
   },
-  skipBtn: {
+  skipBtn: { minHeight: 44,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
   skipBtnText: {
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontSize: 13,
     color: colors.muted,
     fontWeight: '400',
   },
 
   // Primary button
-  primaryBtn: {
-    backgroundColor: colors.accent,
-    borderRadius: 10,
+  primaryBtn: { minHeight: 44,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 14,
     alignItems: 'center',
   },
@@ -614,9 +619,9 @@ const styles = StyleSheet.create({
     opacity: 0.45,
   },
   primaryBtnText: {
-    fontFamily: 'JetBrainsMono_700',
+    fontFamily: fonts.bold,
     fontSize: 15,
-    color: '#fff',
-    fontWeight: '400',
+    color: colors.onAction,
+    fontWeight: '700',
   },
 });

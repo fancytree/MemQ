@@ -1,6 +1,10 @@
+import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { Icon } from '@/components/Icon';
+import { MemqBuddy } from '@/components/MemqBuddy';
 import { SectionLabel } from '@/components/SectionLabel';
+import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';
+import { LanguageCardData, normalizeLanguageData } from '@/lib/languageCard';
 import { supabase } from '@/lib/supabase';
 import { updateTermProgressSafe } from '@/lib/updateTermProgress';
 import { colors, fonts } from '@/theme';
@@ -17,6 +21,8 @@ interface MCQ {
   opts: string[];
   correct: number;
   explain?: string;
+  languageData?: LanguageCardData;
+  termText?: string;
 }
 
 interface RecallQuestion {
@@ -26,6 +32,8 @@ interface RecallQuestion {
   q: string;
   answer: string;
   explain?: string;
+  languageData?: LanguageCardData;
+  termText?: string;
 }
 
 interface FlipQuestion {
@@ -35,6 +43,8 @@ interface FlipQuestion {
   q: string;
   back: string;
   explain?: string;
+  languageData?: LanguageCardData;
+  termText?: string;
 }
 
 type QuizQuestion = MCQ | RecallQuestion | FlipQuestion;
@@ -129,6 +139,7 @@ type QuizTermRow = {
   term: string;
   definition: string | null;
   explanation: string | null;
+  language_data?: unknown;
 };
 
 type TermProgressLite = {
@@ -232,16 +243,17 @@ function buildQuizQuestionForStage(
   if (stage === 'done') return null;
   const topic = lessonTopicByLessonId[term.lesson_id] || 'Lesson';
   const definition = (term.definition ?? '').trim();
+  const languageData = term.language_data ? normalizeLanguageData(term.language_data) : undefined;
   if (stage === 'flip') {
     return {
       termId: term.id,
       mode: 'flip',
       topic,
+      languageData,
+      termText: term.term,
       q: term.term,
       back: definition,
-      explain:
-        term.explanation?.trim() ||
-        'No extra note yet. Try making your own sentence with this term.',
+      explain: term.explanation?.trim() || undefined,
     };
   }
   if (stage === 'mcq') {
@@ -251,6 +263,8 @@ function buildQuizQuestionForStage(
       termId: term.id,
       mode: 'mcq',
       topic,
+      languageData,
+      termText: term.term,
       q: `What is the best definition of "${term.term}"?`,
       opts,
       correct: correctIndex,
@@ -262,6 +276,8 @@ function buildQuizQuestionForStage(
     termId: term.id,
     mode: 'recall',
     topic,
+    languageData,
+    termText: term.term,
     q: `Define "${term.term}" in your own words.`,
     answer: definition,
     explain: explainText,
@@ -391,7 +407,7 @@ export default function QuizScreen() {
 
         const { data: lessonsData, error: lessonsError } = await supabase
           .from('lessons')
-          .select('id, name')
+          .select('id, name, learning_mode')
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
@@ -416,7 +432,7 @@ export default function QuizScreen() {
 
         const { data: termsData, error: termsError } = await supabase
           .from('terms')
-          .select('id, lesson_id, term, definition, explanation')
+          .select('id, lesson_id, term, definition, explanation, language_data')
           .in('lesson_id', lessonIds)
           .order('created_at', { ascending: false });
 
@@ -425,9 +441,15 @@ export default function QuizScreen() {
           return;
         }
 
+        const languageLessonIds = new Set(
+          targetLessons.filter((lesson) => lesson.learning_mode === 'language').map((lesson) => lesson.id),
+        );
         const usableTerms = ((termsData || []).filter(
           (term) => term.term?.trim() && term.definition?.trim(),
-        )) as QuizTermRow[];
+        ).map((term) => ({
+          ...term,
+          language_data: term.language_data || (languageLessonIds.has(term.lesson_id) ? {} : null),
+        }))) as QuizTermRow[];
 
         const termIds = usableTerms.map((term) => term.id);
         const { data: progressData } =
@@ -538,7 +560,7 @@ export default function QuizScreen() {
     return (
       <EdBase bottomInset={0}>
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="small" color={colors.accent} />
+          <ActivityIndicator size="small" color={colors.accentText} />
           <Text style={styles.loadingText}>Loading quiz...</Text>
         </View>
       </EdBase>
@@ -669,7 +691,7 @@ export default function QuizScreen() {
     <EdBase bottomInset={0}>
       {/* Nav */}
       <View style={styles.nav}>
-        <Pressable onPress={handleBack}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={handleBack}>
           <Text style={styles.navBack}>← Back</Text>
         </Pressable>
         <Text style={styles.navCount}>
@@ -685,7 +707,7 @@ export default function QuizScreen() {
       {/* Topic + question */}
       <View style={styles.qBlock}>
         <View style={styles.topicRow}>
-          <SectionLabel size={10.5} color={colors.accent}>{q.topic}</SectionLabel>
+          <SectionLabel size={10.5} color={colors.accentText}>{q.topic}</SectionLabel>
           <View style={styles.modeChip}>
             <Text style={styles.modeChipText}>
               {q.mode === 'mcq' ? 'Choose' : q.mode === 'recall' ? 'Recall' : 'Flashcard'}
@@ -693,6 +715,9 @@ export default function QuizScreen() {
           </View>
         </View>
         <Text style={styles.qText}>{q.q}</Text>
+        {q.languageData && !!q.termText && (
+          <PlayButton text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />
+        )}
       </View>
 
       {/* Body — per mode */}
@@ -761,18 +786,23 @@ export default function QuizScreen() {
       )}
 
       {/* Feedback (mcq + recall) */}
-      {revealed && q.mode !== 'flip' && q.explain && (
+      {revealed && q.mode !== 'flip' && (
         <FeedbackBlock
           q={q}
           recallCorrect={recallCorrect}
           mcqCorrect={q.mode === 'mcq' && selected === q.correct}
         />
       )}
+      {revealed && q.mode !== 'flip' && q.languageData && (
+        <View style={{ marginHorizontal: layout.screenInline }}>
+          <LanguageCardDetails data={q.languageData} />
+        </View>
+      )}
 
       {/* CTA — flip uses confidence buttons instead */}
       {q.mode !== 'flip' && (
-        <View style={{ paddingHorizontal: 20, paddingTop: 14, paddingBottom: 24 }}>
-          <Pressable
+        <View style={{ paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 24 }}>
+          <Pressable accessibilityRole="button"
             onPress={onCheckOrNext}
             disabled={checkDisabled}
             style={[styles.cta, checkDisabled && { backgroundColor: colors.dim }]}
@@ -804,8 +834,8 @@ function MCQView({ q, selected, revealed, onSelect }: MCQViewProps) {
         const isSelected = selected === i;
         const isCorrect = i === q.correct;
 
-        let leftColor: string = 'transparent';
-        let bg: string = 'transparent';
+        let leftColor: string = colors.transparent;
+        let bg: string = colors.transparent;
         let textColor: string = colors.text;
         let labelColor: string = colors.muted;
         let labelBg: string = colors.bg;
@@ -815,26 +845,30 @@ function MCQView({ q, selected, revealed, onSelect }: MCQViewProps) {
           leftColor = colors.green;
           bg = colors.greenL;
           textColor = colors.green;
-          labelColor = '#fff';
+          labelColor = colors.surf;
           labelBg = colors.green;
-          labelBorderColor = 'transparent';
+          labelBorderColor = colors.transparent;
         } else if (revealed && isSelected && !isCorrect) {
           leftColor = colors.red;
           bg = colors.redL;
           textColor = colors.red;
-          labelColor = '#fff';
+          labelColor = colors.surf;
           labelBg = colors.red;
-          labelBorderColor = 'transparent';
+          labelBorderColor = colors.transparent;
         } else if (!revealed && isSelected) {
-          leftColor = colors.accent;
-          labelColor = '#fff';
-          labelBg = colors.accent;
-          labelBorderColor = 'transparent';
+          leftColor = colors.action;
+          labelColor = colors.surf;
+          labelBg = colors.action;
+          labelBorderColor = colors.transparent;
         }
 
         return (
           <Pressable
             key={i}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: isSelected, disabled: revealed }}
+            accessibilityLabel={`${String.fromCharCode(65 + i)}. ${opt}${revealed && isCorrect ? ', correct answer' : revealed && isSelected ? ', incorrect answer' : ''}`}
+            disabled={revealed}
             onPress={() => onSelect(i)}
             style={[
               mcqStyles.row,
@@ -851,9 +885,9 @@ function MCQView({ q, selected, revealed, onSelect }: MCQViewProps) {
                 ]}
               >
                 {revealed && isCorrect ? (
-                  <Icon name="check" color="#fff" size={12} strokeWidth={3} />
+                  <Icon name="check" color={colors.surf} size={12} strokeWidth={3} />
                 ) : revealed && isSelected && !isCorrect ? (
-                  <Icon name="close" color="#fff" size={11} strokeWidth={3} />
+                  <Icon name="close" color={colors.surf} size={11} strokeWidth={3} />
                 ) : (
                   <Text style={[mcqStyles.labelChar, { color: labelColor }]}>
                     {String.fromCharCode(65 + i)}
@@ -882,7 +916,7 @@ function MCQView({ q, selected, revealed, onSelect }: MCQViewProps) {
 
 const mcqStyles = StyleSheet.create({
   wrap: {
-    marginHorizontal: 20, marginTop: 20,
+    marginHorizontal: layout.screenInline, marginTop: 20,
     backgroundColor: colors.surf,
     borderWidth: 1, borderColor: colors.border, borderRadius: 10,
     overflow: 'hidden',
@@ -894,8 +928,8 @@ const mcqStyles = StyleSheet.create({
     width: 22, height: 22, borderRadius: 5, borderWidth: 1,
     alignItems: 'center', justifyContent: 'center',
   },
-  labelChar: { fontSize: 11, fontWeight: '700', fontFamily: fonts.grotesk },
-  optText:   { fontSize: 14, lineHeight: 21, flex: 1, paddingTop: 1, fontFamily: fonts.grotesk },
+  labelChar: { fontSize: 12, fontWeight: '700', fontFamily: fonts.bold },
+  optText:   { fontSize: 14, lineHeight: 21, flex: 1, paddingTop: 1, fontFamily: fonts.regular },
 });
 
 // ── Recall ──────────────────────────────────────────────────────
@@ -915,7 +949,7 @@ function RecallView({ q, recallText, revealed, recallCorrect, onChange }: Recall
     : colors.border;
 
   return (
-    <View style={{ marginHorizontal: 20, marginTop: 20 }}>
+    <View style={{ marginHorizontal: layout.screenInline, marginTop: 20 }}>
       <View
         style={{
           backgroundColor: colors.surf,
@@ -954,7 +988,7 @@ const RECALL_DONT_KNOW_FILL = "I don't know";
 function RecallInput({ value, onChange, disabled }: { value: string; onChange: (s: string) => void; disabled: boolean }) {
   return (
     <View style={recallStyles.inputShell}>
-      <TextInput
+      <TextInput accessibilityLabel="Type your answer…"
         value={value}
         onChangeText={onChange}
         editable={!disabled}
@@ -991,9 +1025,9 @@ const recallStyles = StyleSheet.create({
     color: colors.text,
     fontSize: 15,
     lineHeight: 23,
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.regular,
   },
-  dontKnowChip: {
+  dontKnowChip: { minHeight: 44,
     position: 'absolute',
     right: 10,
     bottom: 10,
@@ -1011,7 +1045,7 @@ const recallStyles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: colors.muted,
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.semibold,
   },
   footer: {
     paddingHorizontal: 14, paddingVertical: 8,
@@ -1019,18 +1053,18 @@ const recallStyles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     backgroundColor: colors.bg,
   },
-  charCount: { fontSize: 11, color: colors.muted, fontFamily: fonts.grotesk },
+  charCount: { fontSize: 12, color: colors.muted, fontFamily: fonts.regular },
   statusText: {
-    fontSize: 11, fontWeight: '700',
+    fontSize: 12, fontWeight: '700',
     letterSpacing: 0.5, textTransform: 'uppercase',
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.bold,
   },
   answerCard: {
     marginTop: 12, paddingHorizontal: 14, paddingVertical: 12,
     backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+    borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 8,
   },
-  answerText: { fontSize: 14, fontWeight: '600', color: colors.text, fontFamily: fonts.grotesk },
+  answerText: { fontSize: 14, fontWeight: '600', color: colors.text, fontFamily: fonts.semibold },
 });
 
 // ── Flip ────────────────────────────────────────────────────────
@@ -1043,40 +1077,45 @@ interface FlipViewProps {
 
 const CONFIDENCE_BUTTONS = [
   { label: 'Need review', color: colors.red },
-  { label: 'I got it',  color: colors.accent },
+  { label: 'I got it',  color: colors.accentText },
 ] as const;
 
 function FlipView({ q, flipped, onFlip, onConfidence }: FlipViewProps) {
   return (
     <View style={flipStyles.wrap}>
-      <Pressable onPress={onFlip} style={flipStyles.card}>
+      <Pressable accessibilityRole="button" onPress={onFlip} style={flipStyles.card}>
         <SectionLabel style={{ marginBottom: 10 }}>
           {flipped ? 'Back' : 'Front'}
         </SectionLabel>
         {flipped ? (
-          <Text style={flipStyles.back}>
-            {q.explain || 'No extra note yet. Try making your own sentence with this term.'}
-          </Text>
+          <View>
+            <Text style={flipStyles.answerLabel}>Meaning</Text>
+            <Text style={flipStyles.definition}>{q.back}</Text>
+            {!!q.explain && <Text style={flipStyles.back}>{q.explain}</Text>}
+            {q.languageData && <LanguageCardDetails data={q.languageData} />}
+          </View>
         ) : (
-          <Text style={flipStyles.front}>{q.back}</Text>
+          <Text style={flipStyles.front}>Think of the meaning, then tap to reveal.</Text>
         )}
-        <Text style={flipStyles.cornerHint}>{flipped ? '← Front' : 'Confidence ↓'}</Text>
+        <Text style={flipStyles.cornerHint}>{flipped ? '← Front' : 'Tap to reveal'}</Text>
       </Pressable>
 
-      <View style={flipStyles.confRow}>
-        {CONFIDENCE_BUTTONS.map((b) => (
-          <Pressable key={b.label} onPress={() => onConfidence(b.label)} style={flipStyles.confBtn}>
-            <Text style={[flipStyles.confLabel, { color: b.color }]}>{b.label}</Text>
-          </Pressable>
-        ))}
-      </View>
+      {flipped && (
+        <View style={flipStyles.confRow}>
+          {CONFIDENCE_BUTTONS.map((b) => (
+            <Pressable accessibilityRole="button" key={b.label} onPress={() => onConfidence(b.label)} style={flipStyles.confBtn}>
+              <Text style={[flipStyles.confLabel, { color: b.color }]}>{b.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
 
 const flipStyles = StyleSheet.create({
   wrap: {
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
     marginTop: 20,
   },
   card: {
@@ -1085,21 +1124,23 @@ const flipStyles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 24,
     minHeight: 340, position: 'relative',
   },
-  front: { fontSize: 18, fontWeight: '700', letterSpacing: -0.4, lineHeight: 25, color: colors.text, fontFamily: fonts.grotesk },
-  back:  { fontSize: 14, lineHeight: 22, color: colors.sub, fontFamily: fonts.grotesk },
+  front: { fontSize: 18, fontWeight: '700', letterSpacing: -0.4, lineHeight: 25, color: colors.text, fontFamily: fonts.bold },
+  answerLabel: { fontSize: 12, color: colors.muted, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6 },
+  definition: { fontSize: 19, fontWeight: '700', lineHeight: 27, color: colors.text, fontFamily: fonts.bold, marginBottom: 12 },
+  back:  { fontSize: 14, lineHeight: 22, color: colors.sub, fontFamily: fonts.regular },
   cornerHint: {
     position: 'absolute', top: 14, right: 14,
-    fontSize: 10.5, color: colors.muted,
+    fontSize: 12, color: colors.muted,
     letterSpacing: 0.7, textTransform: 'uppercase', fontWeight: '600',
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.semibold,
   },
   confRow: { flexDirection: 'row', gap: 6, marginTop: 12, marginBottom: 10 },
-  confBtn: {
+  confBtn: { minHeight: 44,
     flex: 1, paddingVertical: 10, alignItems: 'center',
     backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+    borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 8,
   },
-  confLabel: { fontSize: 12, fontWeight: '700', fontFamily: fonts.grotesk },
+  confLabel: { fontSize: 12, fontWeight: '700', fontFamily: fonts.bold },
 });
 
 // ── Feedback ────────────────────────────────────────────────────
@@ -1119,22 +1160,27 @@ function FeedbackBlock({
 
   return (
     <View style={[fbStyles.block, { backgroundColor: bg, borderColor: `${accent}30` }]}>
-      <Text style={[fbStyles.heading, { color: accent }]}>
-        {tone === 'right' ? 'Correct' : q.mode === 'recall' ? 'Not quite' : 'Incorrect'}
-      </Text>
-      {q.explain && <Text style={fbStyles.body}>{q.explain}</Text>}
+      <MemqBuddy size={58} mood={tone === 'right' ? 'happy' : 'thinking'} />
+      <View style={fbStyles.copy}>
+        <Text style={[fbStyles.heading, { color: accent }]}>
+          {tone === 'right' ? 'That one stuck.' : q.mode === 'recall' ? 'Not quite yet.' : 'A useful miss.'}
+        </Text>
+        {q.explain ? <Text style={fbStyles.body}>{q.explain}</Text> : <Text style={fbStyles.body}>Keep going. Every try helps it settle in.</Text>}
+      </View>
     </View>
   );
 }
 
 const fbStyles = StyleSheet.create({
   block: {
-    marginHorizontal: 20, marginTop: 12,
-    paddingHorizontal: 14, paddingVertical: 12,
-    borderWidth: 1, borderRadius: 8,
+    marginHorizontal: layout.screenInline, marginTop: 12,
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderWidth: 1, borderRadius: 18,
+    flexDirection: 'row', alignItems: 'center', gap: 8,
   },
-  heading: { fontSize: 12, fontWeight: '700', marginBottom: 3, letterSpacing: 0.3, fontFamily: fonts.grotesk },
-  body:    { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.grotesk },
+  copy: { flex: 1, minWidth: 0 },
+  heading: { fontSize: 12, fontWeight: '700', marginBottom: 3, letterSpacing: 0.3, fontFamily: fonts.bold },
+  body:    { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.regular },
 });
 
 // ── Host styles ─────────────────────────────────────────────────
@@ -1149,36 +1195,36 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: colors.muted,
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.regular,
   },
-  progressTrack: { height: 2, backgroundColor: colors.dim },
+  progressTrack: { height: 5, backgroundColor: colors.borderS, borderRadius: 3, overflow: 'hidden' },
   progressFill:  { height: '100%', backgroundColor: colors.accent },
 
   nav: {
-    paddingHorizontal: 20, paddingVertical: 14,
+    paddingHorizontal: layout.screenInline, paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    borderBottomWidth: 0,
   },
-  navBack:  { fontSize: 13, color: colors.muted, fontFamily: fonts.grotesk },
-  navCount: { fontSize: 12, color: colors.muted, fontFamily: fonts.mono },
+  navBack:  { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
+  navCount: { fontSize: 12, color: colors.muted, fontFamily: fonts.utility },
 
-  qBlock: { paddingHorizontal: 20, paddingTop: 20 },
+  qBlock: { paddingHorizontal: layout.screenInline, paddingTop: 20 },
   topicRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  modeChip: {
+  modeChip: { minHeight: 44,
     paddingHorizontal: 7, paddingVertical: 2,
     backgroundColor: colors.bg,
     borderWidth: 1, borderColor: colors.border, borderRadius: 9,
   },
   modeChipText: {
-    fontSize: 9.5, color: colors.muted,
+    fontSize: 12, color: colors.muted,
     letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '600',
-    fontFamily: fonts.grotesk,
+    fontFamily: fonts.semibold,
   },
   qText: {
     fontSize: 19, fontWeight: '700', letterSpacing: -0.5, lineHeight: 26,
-    color: colors.text, fontFamily: fonts.grotesk,
+    color: colors.text, fontFamily: fonts.bold,
   },
 
-  cta: { paddingVertical: 14, borderRadius: 8, backgroundColor: colors.accent, alignItems: 'center' },
-  ctaText: { color: '#fff', fontSize: 14, fontWeight: '700', fontFamily: fonts.grotesk },
+  cta: { minHeight: 44, paddingVertical: 15, borderRadius: 100, backgroundColor: colors.action, alignItems: 'center', shadowColor: colors.actionShadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 8, elevation: 0 },
+  ctaText: { color: colors.onAction, fontSize: 15, fontWeight: '700', fontFamily: fonts.bold },
 });

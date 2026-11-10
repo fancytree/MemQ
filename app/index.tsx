@@ -17,10 +17,10 @@ export default function AuthCheckScreen() {
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
-        
+
         // 无论是否有 session，都先隐藏启动页面
         setLoading(false);
-        
+
         if (session) {
           // Check if the user has completed onboarding
           const meta = session.user?.user_metadata as Record<string, unknown> | undefined;
@@ -47,7 +47,7 @@ export default function AuthCheckScreen() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color={colors.accent} />
+      <ActivityIndicator size="large" color={colors.accentText} />
     </View>
   );
 }

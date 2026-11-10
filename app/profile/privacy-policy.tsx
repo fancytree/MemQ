@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
 import { colors } from '@/theme';
@@ -27,7 +29,7 @@ export default function PrivacyPolicyScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      <SecondaryPageNav onBack={() => safeBack('/(tabs)/profile')} />
+      <SecondaryPageNav onBack={() => safeBack('/you')} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -168,7 +170,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   content: {
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 16,
     paddingBottom: 12,
   },
@@ -177,7 +179,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     letterSpacing: -0.1,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     fontStyle: 'italic',
     marginBottom: 20,
@@ -186,8 +188,8 @@ const styles = StyleSheet.create({
     fontSize: 18,
     lineHeight: 25,
     letterSpacing: -0.1,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
     color: colors.text,
     marginTop: 24,
     marginBottom: 12,
@@ -196,8 +198,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: -0.1,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_600',
+    fontWeight: '600',
+    fontFamily: fonts.semibold,
     color: colors.text,
     marginTop: 16,
     marginBottom: 10,
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: -0.1,
     color: colors.sub,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     marginBottom: 12,
   },
@@ -216,7 +218,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     letterSpacing: -0.1,
     color: colors.sub,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     marginBottom: 8,
     paddingLeft: 10,

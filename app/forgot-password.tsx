@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
 import { MemQTheme } from '@/constants/theme';
@@ -50,40 +52,40 @@ export default function ForgotPasswordScreen() {
   const isValidEmail = (email: string) => {
     // 更严格的邮箱验证正则表达式
     const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)+$/;
-    
+
     // 基本检查
     if (!email || email.trim().length === 0) {
       return false;
     }
-    
+
     // 检查长度
     if (email.length > 255) {
       return false;
     }
-    
+
     // 检查是否包含 @ 符号
     const atIndex = email.indexOf('@');
     if (atIndex === -1 || atIndex === 0 || atIndex === email.length - 1) {
       return false;
     }
-    
+
     // 检查域名部分
     const domain = email.substring(atIndex + 1);
     if (domain.length === 0 || !domain.includes('.')) {
       return false;
     }
-    
+
     // 检查域名部分是否至少有一个有效的顶级域名（至少2个字符）
     const domainParts = domain.split('.');
     if (domainParts.length < 2) {
       return false;
     }
-    
+
     const tld = domainParts[domainParts.length - 1];
     if (tld.length < 2) {
       return false;
     }
-    
+
     // 使用正则表达式验证
     return emailRegex.test(email.trim());
   };
@@ -153,7 +155,7 @@ export default function ForgotPasswordScreen() {
           </Text>
 
           <View style={styles.inputContainer}>
-            <TextInput
+            <TextInput accessibilityLabel="Email"
               style={styles.input}
               placeholder="Email"
               placeholderTextColor={colors.muted}
@@ -166,12 +168,12 @@ export default function ForgotPasswordScreen() {
             />
           </View>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={[styles.button, (loading || cooldown > 0) && styles.buttonDisabled]}
             onPress={handleResetPassword}
             disabled={loading || cooldown > 0}>
             {loading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.surf} />
             ) : cooldown > 0 ? (
               <Text style={styles.buttonText}>Resend in {cooldown}s</Text>
             ) : (
@@ -179,7 +181,7 @@ export default function ForgotPasswordScreen() {
             )}
           </TouchableOpacity>
 
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             style={styles.backToLoginLink}
             onPress={() => safeBack('/login')}
             disabled={loading}
@@ -209,26 +211,26 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   content: {
-    paddingHorizontal: 24,
+    paddingHorizontal: layout.screenInline,
   },
   title: {
     fontSize: 28,
-    fontWeight: '400',
+    fontWeight: '800',
     color: colors.text,
     marginBottom: 12,
-    fontFamily: 'JetBrainsMono_800',
+    fontFamily: fonts.extraBold,
   },
   subtitle: {
     fontSize: 13,
     color: colors.muted,
     marginBottom: 32,
     lineHeight: 19,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
   inputContainer: {
     marginBottom: 24,
   },
-  input: {
+  input: { minHeight: 44,
     backgroundColor: colors.surf,
     borderRadius: 8,
     paddingHorizontal: 16,
@@ -236,13 +238,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.text,
     borderWidth: 1,
-    borderColor: colors.border,
-    fontFamily: 'JetBrainsMono_400',
+    borderColor: colors.controlBorder,
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
-  button: {
-    backgroundColor: colors.accent,
-    borderRadius: 8,
+  button: { minHeight: 44,
+    backgroundColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 16,
     alignItems: 'center',
     marginBottom: 16,
@@ -251,10 +253,10 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
   backToLoginLink: {
     alignItems: 'center',
@@ -262,9 +264,9 @@ const styles = StyleSheet.create({
   },
   backToLoginText: {
     fontSize: 12,
-    color: colors.accent,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    color: colors.accentText,
+    fontWeight: '700',
+    fontFamily: fonts.bold,
   },
 });
 

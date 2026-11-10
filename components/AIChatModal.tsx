@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 // import EditIcon from '@/components/icons/EditIcon';
 import FloatingAIButtonIcon from '@/components/icons/FloatingAIButtonIcon';
 // import HistoryIcon from '@/components/icons/HistoryIcon';
@@ -6,6 +8,7 @@ import { useSubscription } from '@/context/SubscriptionContext';
 import { clearCache } from '@/lib/cache';
 import { AI_LIMITS, getAIUsageCount, recordAIUsage } from '@/lib/aiUsage';
 import { supabase } from '@/lib/supabase';
+import { LanguageCardData, hasLanguageData, normalizeLanguageData } from '@/lib/languageCard';
 import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
@@ -62,6 +65,8 @@ const getClipboard = (): ClipboardModule => clipboardFallback;
 interface ExtractedTerm {
   term: string;
   definition: string;
+  explanation?: string;
+  language_data?: LanguageCardData;
   suggested_action: 'save_to_existing' | 'create_new' | 'save_to_default';
   target_lesson_id?: string;
   target_lesson_name: string;
@@ -162,13 +167,13 @@ function ChatInputBar({
 
   return (
     <View style={[cibStyles.bar, extraStyle]}>
-      <TextInput
+      <TextInput accessibilityLabel={placeholder}
         style={cibStyles.input}
         value={value}
         onChangeText={onChangeText}
         onFocus={onFocus}
         placeholder={placeholder}
-        placeholderTextColor="#C6C7CB"
+        placeholderTextColor={colors.muted}
         multiline
         scrollEnabled={scrollEnabled}
         editable={editable}
@@ -182,7 +187,7 @@ function ChatInputBar({
       />
 
       {/* 绝对定位于右下角，不与 TextInput 共享 flex-row */}
-      <TouchableOpacity
+      <TouchableOpacity accessibilityRole="button"
         style={cibStyles.sendBtn}
         onPress={onSend}
         disabled={!sendEnabled}
@@ -196,9 +201,9 @@ function ChatInputBar({
 
 const cibStyles = StyleSheet.create({
   bar: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: colors.border,
     borderRadius: 24,
     paddingLeft: CIB_H_PAD,
     // 右侧留出按钮宽度 + 间距，文字不会被遮住
@@ -214,7 +219,7 @@ const cibStyles = StyleSheet.create({
     fontSize: 16,
     lineHeight: CIB_LINE_HEIGHT,
     letterSpacing: -0.3125,
-    color: '#0A0A0A',
+    color: colors.text,
     paddingTop: 0,
     paddingBottom: 0,
     paddingLeft: 0,
@@ -269,11 +274,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const prevModeRef = useRef<'initial' | 'chat'>('initial');
   const prevMessagesLengthRef = useRef<number>(0);
   const statusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  
+
   // 与 lib/aiUsage.ts 中 ai_chat 日限额一致
   const FREE_TIER_MESSAGE_LIMIT = AI_LIMITS.ai_chat.free;
   const [messageCount, setMessageCount] = useState(0);
-  
+
   // 两个入口的对话会话（本地状态）
   const [chatSessions, setChatSessions] = useState<{
     ask: ChatSession;
@@ -284,7 +289,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     vocab_lookup: { threadId: null, messages: [], lastUpdated: 0 },
     quiz: { threadId: null, messages: [], lastUpdated: 0 },
   });
-  
+
   // 历史记录相关状态 - 已注释
   // const [showHistory, setShowHistory] = useState(false);
   // const [historyThreads, setHistoryThreads] = useState<Array<{
@@ -316,7 +321,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     try {
       const messagesKey = `@chat_${entryType}_messages`;
       const threadIdKey = `@chat_${entryType}_threadId`;
-      
+
       const [messagesJson, threadId] = await Promise.all([
         getAIStorage().getItem(messagesKey),
         getAIStorage().getItem(threadIdKey),
@@ -341,7 +346,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     try {
       const messagesKey = `@chat_${entryType}_messages`;
       const threadIdKey = `@chat_${entryType}_threadId`;
-      
+
       await Promise.all([
         getAIStorage().setItem(messagesKey, JSON.stringify(session.messages)),
         getAIStorage().setItem(threadIdKey, session.threadId || ''),
@@ -374,7 +379,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             // Clear messages
             setMessages([]);
             setThreadId(null);
-            
+
             // Clear local storage
             const currentMode = chatMode;
             await saveChatSession(currentMode, {
@@ -382,7 +387,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
               messages: [],
               lastUpdated: 0,
             });
-            
+
             // Reset message length reference
             prevMessagesLengthRef.current = 0;
           },
@@ -396,15 +401,15 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   const handleOptionPress = async (option: ChatEntryType) => {
     // 加载该入口的历史对话
     const session = await loadChatSession(option);
-    
+
     // 设置当前入口和线程ID
     setChatMode(option);
     setThreadId(session.threadId);
-    
+
     // 构建消息列表：欢迎消息 + 历史消息
     const welcomeMessage = getWelcomeMessage(option);
     const allMessages = [welcomeMessage, ...session.messages];
-    
+
     setMessages(allMessages);
     setMode('chat');
   };
@@ -524,7 +529,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   //   setIsLoadingHistory(true);
   //   try {
   //     const { data, error } = await supabase.functions.invoke('chat-history');
-  //     
+  //
   //     if (error) {
   //       console.error('Error fetching history:', error);
   //       Alert.alert('Error', 'Failed to load chat history');
@@ -546,7 +551,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   // const loadThread = async (threadIdToLoad: string) => {
   //   setIsLoading(true);
   //   setShowHistory(false);
-  //   
+  //
   //   try {
   //     const { data, error } = await supabase.functions.invoke('chat-thread-messages', {
   //       body: { thread_id: threadIdToLoad },
@@ -621,7 +626,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   //             if (data?.success) {
   //               // 从列表中移除
   //               setHistoryThreads((prev) => prev.filter((t) => t.thread_id !== threadIdToDelete));
-  //               
+  //
   //               // 如果当前正在查看被删除的对话，重置状态
   //               if (threadId === threadIdToDelete) {
   //                 setThreadId(null);
@@ -776,7 +781,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
       const { data: lessonsData, error: lessonsError } = await supabase
         .from('lessons')
-        .select('id, name')
+        .select('id, name, learning_mode')
         .eq('user_id', user.id);
 
       if (lessonsError) {
@@ -801,7 +806,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         // 使用 fetch 直接调用 Edge Function
         const supabaseUrl = 'https://sbwkwfqjpbwmacmrprwn.supabase.co';
         const functionUrl = `${supabaseUrl}/functions/v1/chat-assistant`;
-        
+
         const response = await fetch(functionUrl, {
           method: 'POST',
           headers: {
@@ -815,6 +820,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             user_lessons: userLessons.map((lesson) => ({
               id: lesson.id,
               name: lesson.name,
+              learning_mode: lesson.learning_mode,
             })),
             mode: activeEntryType === 'ask' ? 'normal' : activeEntryType, // 传递模式信息
             quiz_target_lesson_id:
@@ -828,7 +834,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
         const responseText = await response.text();
         let responseData: any;
-        
+
         try {
           responseData = JSON.parse(responseText);
         } catch (parseError) {
@@ -839,12 +845,12 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         if (!response.ok) {
           // 非 2xx 响应，提取错误信息
           let errorMsg = responseData.error || responseData.message || `HTTP ${response.status}: ${response.statusText}`;
-          
+
           // 如果有详细信息，添加到错误消息中
           if (responseData.details) {
             errorMsg += `\n\nDetails: ${responseData.details}`;
           }
-          
+
           // 如果有其他字段，也记录
           console.error('Edge Function error response:', {
             status: response.status,
@@ -852,7 +858,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             body: responseData,
             fullResponse: JSON.stringify(responseData, null, 2),
           });
-          
+
           throw new Error(errorMsg);
         }
 
@@ -980,7 +986,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
               // 验证 extracted_term 格式后再设置
               if (parsed.extracted_term && !extracted_term) {
                 const term = parsed.extracted_term;
-                if (term.term && term.definition && term.target_lesson_name && 
+                if (term.term && term.definition && term.target_lesson_name &&
                     ['save_to_existing', 'create_new', 'save_to_default'].includes(term.suggested_action)) {
                   extracted_term = term as ExtractedTerm;
                 }
@@ -1005,7 +1011,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
             // 验证 extracted_term 格式后再设置
             if (parsed.extracted_term && !extracted_term) {
               const term = parsed.extracted_term;
-              if (term.term && term.definition && term.target_lesson_name && 
+              if (term.term && term.definition && term.target_lesson_name &&
                   ['save_to_existing', 'create_new', 'save_to_default'].includes(term.suggested_action)) {
                 extracted_term = term as ExtractedTerm;
               }
@@ -1039,19 +1045,19 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       // 更新消息列表（排除欢迎消息，只保存实际对话）
       setMessages((prev) => {
         const newMessages = [...prev, aiMessage];
-        
+
         // 保存到本地存储（排除欢迎消息）
         const messagesToSave = newMessages.filter(
           (msg) => !msg.id.startsWith('welcome-')
         );
-        
+
         // 异步保存到本地存储
         saveChatSession(activeEntryType, {
           threadId: thread_id || threadId,
           messages: messagesToSave,
           lastUpdated: Date.now(),
         });
-        
+
         return newMessages;
       });
       if (extracted_term) {
@@ -1077,7 +1083,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       if (!isPro) {
         setMessageCount((prev) => Math.max(0, prev - 1));
       }
-      
+
       // 检查是否是 API Key 错误
       let userFriendlyMessage = errorMessage;
       if (errorMessage.includes('401') || errorMessage.includes('Incorrect API key') || errorMessage.includes('API key')) {
@@ -1085,7 +1091,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       } else if (errorMessage.includes('OPENAI_API_KEY')) {
         userFriendlyMessage = 'OpenAI API Key is not configured. Please set it in Supabase Dashboard → Settings → Edge Functions → Secrets.';
       }
-      
+
       // 添加错误消息
       const errorAiMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -1120,7 +1126,9 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         lesson_id: termSuggestion.target_lesson_id,
         term: termSuggestion.term,
         definition: termSuggestion.definition,
-        explanation: null,
+        explanation: termSuggestion.explanation || null,
+        language_data: termSuggestion.language_data && hasLanguageData(normalizeLanguageData(termSuggestion.language_data))
+          ? normalizeLanguageData(termSuggestion.language_data) : null,
       }).select().single();
 
       if (error) {
@@ -1174,11 +1182,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       }
 
       // 第一步：创建新课程
-      // 如果在 vocab_lookup 模式下，或者 lesson 名称包含 "Vocabulary"，自动开启 Vocabulary mode
-      const isVocabMode = chatMode === 'vocab_lookup' || 
-                         termSuggestion.target_lesson_name.toLowerCase().includes('vocabulary') ||
-                         termSuggestion.target_lesson_name.toLowerCase().includes('vocab');
-      
+      const learningMode = chatMode === 'vocab_lookup' ? 'language' : 'knowledge';
+
       const { data: newLesson, error: lessonError } = await supabase
         .from('lessons')
         .insert({
@@ -1186,7 +1191,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           name: termSuggestion.target_lesson_name,
           description: null,
           deadline: null,
-          is_vocab_mode: isVocabMode,
+          learning_mode: learningMode,
         })
         .select()
         .single();
@@ -1206,7 +1211,9 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         lesson_id: newLesson.id,
         term: termSuggestion.term,
         definition: termSuggestion.definition,
-        explanation: null,
+        explanation: termSuggestion.explanation || null,
+        language_data: termSuggestion.language_data && hasLanguageData(normalizeLanguageData(termSuggestion.language_data))
+          ? normalizeLanguageData(termSuggestion.language_data) : null,
       }).select().single();
 
       if (termError) {
@@ -1264,14 +1271,16 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         throw new Error('User not authenticated');
       }
 
-      // 第一步：查找或创建 "Default" 课程
+      // 第一步：按学习模式查找或创建默认课程
       let defaultLessonId: string;
+      const defaultLessonName = chatMode === 'vocab_lookup' ? 'Language' : 'Default';
 
       const { data: existingDefault, error: findError } = await supabase
         .from('lessons')
         .select('id')
         .eq('user_id', user.id)
-        .eq('name', 'Default')
+        .eq('name', defaultLessonName)
+        .eq('learning_mode', chatMode === 'vocab_lookup' ? 'language' : 'knowledge')
         .maybeSingle();
 
       if (findError && findError.code !== 'PGRST116') {
@@ -1287,9 +1296,10 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           .from('lessons')
           .insert({
             user_id: user.id,
-            name: 'Default',
+            name: defaultLessonName,
             description: null,
             deadline: null,
+            learning_mode: chatMode === 'vocab_lookup' ? 'language' : 'knowledge',
           })
           .select()
           .single();
@@ -1310,7 +1320,9 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         lesson_id: defaultLessonId,
         term: termSuggestion.term,
         definition: termSuggestion.definition,
-        explanation: null,
+        explanation: termSuggestion.explanation || null,
+        language_data: termSuggestion.language_data && hasLanguageData(normalizeLanguageData(termSuggestion.language_data))
+          ? normalizeLanguageData(termSuggestion.language_data) : null,
       }).select().single();
 
       if (termError) {
@@ -1481,7 +1493,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       return (
         <View style={styles.suggestionCard}>
           <View style={styles.savedIndicator}>
-            <Feather name="check-circle" size={20} color="#10B981" />
+            <Feather name="check-circle" size={20} color={colors.green} />
             <Text style={styles.savedText}>Saved successfully!</Text>
           </View>
         </View>
@@ -1531,7 +1543,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
               }
             }}
           >
-            <TextInput
+            <TextInput accessibilityLabel="Type a lesson name"
               style={styles.lessonInput}
               value={lessonDraftByMessage[messageId] ?? termSuggestion.target_lesson_name ?? 'Default'}
               onChangeText={(value) =>
@@ -1594,7 +1606,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         <View style={styles.suggestionActions}>
           {isExisting && (
             <>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.suggestionButton, styles.primaryButton]}
                 onPress={() => handleSaveToChosenLesson(termSuggestion, messageId)}
                 activeOpacity={0.7}
@@ -1605,7 +1617,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           )}
           {isCreateNew && (
             <>
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 style={[styles.suggestionButton, styles.primaryButton]}
                 onPress={() => handleSaveToChosenLesson(termSuggestion, messageId)}
                 activeOpacity={0.7}
@@ -1616,7 +1628,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           )}
           {isDefault && (
             <>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
                 style={[styles.suggestionButton, styles.primaryButton]}
                 onPress={() => handleSaveToChosenLesson(termSuggestion, messageId)}
                 activeOpacity={0.7}
@@ -1658,7 +1670,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       >
         <View style={[styles.messageBubbleWrapper, !isUser && styles.aiMessageInlineWrap]}>
           {isUser ? (
-            <Pressable
+            <Pressable accessibilityRole="button"
               style={[styles.messageBubble, styles.userBubble]}
               onLongPress={() => handleCopyMessage(item.text)}
               delayLongPress={500}
@@ -1672,7 +1684,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
               <View style={styles.aiInlineIcon}>
                 <FloatingAIButtonIcon size={14} />
               </View>
-              <Pressable onLongPress={() => handleCopyMessage(item.text)} delayLongPress={500} style={styles.aiInlineTextWrap}>
+              <Pressable accessibilityRole="button" onLongPress={() => handleCopyMessage(item.text)} delayLongPress={500} style={styles.aiInlineTextWrap}>
                 <Text style={styles.aiInlineText} selectable={true}>
                   {item.text}
                 </Text>
@@ -1755,21 +1767,21 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       >
         {mode === 'chat' && (
           <View style={styles.toolbar}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
               style={styles.toolbarButton}
               onPress={() => {
                 setMode('initial');
               }}
               activeOpacity={0.7}
             >
-              <Feather name="arrow-left" size={20} color="#0A0A0A" />
+              <Feather name="arrow-left" size={20} color={colors.text} />
             </TouchableOpacity>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete"
               style={styles.toolbarButton}
               onPress={handleClearChat}
               activeOpacity={0.7}
             >
-              <Feather name="trash-2" size={20} color="#0A0A0A" />
+              <Feather name="trash-2" size={20} color={colors.text} />
             </TouchableOpacity>
           </View>
         )}
@@ -1797,13 +1809,15 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                         <Text style={styles.assistantSubtitle}>grounded in your decks</Text>
                       </View>
                     </View>
-                    <TouchableOpacity style={styles.assistantRefreshBtn} onPress={onClose} activeOpacity={0.7}>
-                      <Feather name="x" size={16} color="#9B9790" />
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close" style={styles.assistantRefreshBtn} onPress={onClose} activeOpacity={0.7}>
+                      <Feather name="x" size={16} color={colors.muted} />
                     </TouchableOpacity>
                   </View>
 
                   <View style={styles.modeTabs}>
                     <Pressable
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: initialTab === 'qa' }}
                       style={[styles.modeTab, initialTab === 'qa' && styles.modeTabActive]}
                       onPress={() => {
                         handleInitialTabChange('qa');
@@ -1813,6 +1827,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       <Text style={styles.modeTabSub}>ASK</Text>
                     </Pressable>
                     <Pressable
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: initialTab === 'vocabulary' }}
                       style={[styles.modeTab, initialTab === 'vocabulary' && styles.modeTabActive]}
                       onPress={() => {
                         handleInitialTabChange('vocabulary');
@@ -1822,6 +1838,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       <Text style={styles.modeTabSub}>LOOK UP</Text>
                     </Pressable>
                     <Pressable
+                      accessibilityRole="tab"
+                      accessibilityState={{ selected: initialTab === 'quiz' }}
                       style={[styles.modeTab, initialTab === 'quiz' && styles.modeTabActive]}
                       onPress={() => {
                         handleInitialTabChange('quiz');
@@ -1833,7 +1851,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                   </View>
                 </View>
 
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete"
                   style={styles.clearFloatingBtn}
                   onPress={handleClearCurrentTabConversation}
                   activeOpacity={0.7}
@@ -1842,7 +1860,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                   <Feather
                     name="trash-2"
                     size={15}
-                    color={currentTabHasConversation ? colors.muted : '#C4C1BA'}
+                    color={currentTabHasConversation ? colors.muted : colors.disabledText}
                   />
                 </TouchableOpacity>
 
@@ -1873,7 +1891,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       <View style={styles.quizScopeWrap}>
                         <Text style={styles.quizScopeLabel}>Quiz scope</Text>
                         <View style={styles.quizScopeRecentWrap}>
-                          <TouchableOpacity
+                          <TouchableOpacity accessibilityRole="button"
                             style={[
                               styles.quizScopeChip,
                               quizTargetLessonId === 'random' && styles.quizScopeChipActive,
@@ -1891,7 +1909,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                             </Text>
                           </TouchableOpacity>
                           {recentQuizLessons.map((lesson) => (
-                            <TouchableOpacity
+                            <TouchableOpacity accessibilityRole="button"
                               key={lesson.id}
                               style={[
                                 styles.quizScopeChip,
@@ -1911,7 +1929,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                             </TouchableOpacity>
                           ))}
                         </View>
-                        <TextInput
+                        <TextInput accessibilityLabel="Search more lessons..."
                           style={styles.quizScopeSearchInput}
                           placeholder="Search more lessons..."
                           placeholderTextColor={colors.muted}
@@ -1923,7 +1941,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                           <View style={styles.quizScopeSearchList}>
                             {filteredQuizLessons.length > 0 ? (
                               filteredQuizLessons.map((lesson) => (
-                                <TouchableOpacity
+                                <TouchableOpacity accessibilityRole="button"
                                   key={lesson.id}
                                   style={[
                                     styles.quizScopeSearchItem,
@@ -1972,7 +1990,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                               'resilience',
                             ]
                         ).map((preset) => (
-                          <TouchableOpacity
+                          <TouchableOpacity accessibilityRole="button"
                             key={preset}
                             style={styles.quickPromptBtn}
                             activeOpacity={0.7}
@@ -2055,7 +2073,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                           : `${FREE_TIER_MESSAGE_LIMIT - messageCount} messages left today`}
                       </Text>
                       {messageCount >= FREE_TIER_MESSAGE_LIMIT && (
-                        <TouchableOpacity
+                        <TouchableOpacity accessibilityRole="button"
                           style={styles.upgradeButtonSmall}
                           onPress={async () => {
                             onClose();
@@ -2069,10 +2087,10 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                     </View>
                   )}
                   <View style={styles.initialComposer}>
-                    <TextInput
+                    <TextInput accessibilityLabel={getInitialInputPlaceholder()}
                       style={styles.initialComposerInput}
                       placeholder={getInitialInputPlaceholder()}
-                      placeholderTextColor="#9B9790"
+                      placeholderTextColor={colors.muted}
                       value={inputText}
                       onChangeText={setInputText}
                       onFocus={closeLessonDropdownPortal}
@@ -2085,7 +2103,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       editable={!isLoading && (isPro || messageCount < FREE_TIER_MESSAGE_LIMIT)}
                       returnKeyType="send"
                     />
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send message"
                       style={[
                         styles.initialComposerSend,
                         (!inputText.trim() || isLoading) &&
@@ -2095,7 +2113,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       disabled={!inputText.trim() || isLoading}
                       activeOpacity={0.8}
                     >
-                      <Feather name="arrow-right" size={18} color="#FFFFFF" />
+                      <Feather name="arrow-right" size={18} color={colors.surf} />
                     </TouchableOpacity>
                   </View>
                 </View>
@@ -2134,12 +2152,12 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                 <View style={[styles.messageLimitBar, styles.messageLimitBarChat]}>
                   <Feather name="info" size={12} color={colors.muted} />
                   <Text style={styles.messageLimitBarText}>
-                    {messageCount >= FREE_TIER_MESSAGE_LIMIT 
+                    {messageCount >= FREE_TIER_MESSAGE_LIMIT
                       ? 'Daily limit reached. Upgrade to Pro!'
                       : `${FREE_TIER_MESSAGE_LIMIT - messageCount} messages left today`}
                   </Text>
                   {messageCount >= FREE_TIER_MESSAGE_LIMIT && (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       style={styles.upgradeButtonSmall}
                       onPress={async () => {
                         onClose();
@@ -2183,7 +2201,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
               ]}
             >
               {activeLessonCandidates.map((lesson, index) => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={lesson.id}
                   style={[
                     styles.lessonDropdownItem,
@@ -2204,7 +2222,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                 </TouchableOpacity>
               ))}
               {activeLessonCanCreateNew && (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   style={[
                     styles.lessonDropdownItem,
                     activeLessonCandidates.length === 0 && styles.lessonDropdownItemFirst,
@@ -2317,7 +2335,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F7F5',
+    backgroundColor: colors.surfaceSubtle,
   },
   toolbar: {
     flexDirection: 'row',
@@ -2327,19 +2345,19 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 16,
     minHeight: 60,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
   },
   toolbarButton: {
-    width: 20,
-    height: 20,
+    width: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   toolbarCloseButton: {
-    width: 40,
-    height: 40,
+    width: 44,
+    minHeight: 44,
     borderRadius: 20,
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2360,23 +2378,23 @@ const styles = StyleSheet.create({
   },
   initialScreen: {
     flex: 1,
-    backgroundColor: '#F7F7F5',
+    backgroundColor: colors.surfaceSubtle,
   },
   initialTopFixed: {
-    backgroundColor: '#F7F7F5',
+    backgroundColor: colors.surfaceSubtle,
     zIndex: 20,
-    elevation: 20,
+    elevation: 0,
   },
   assistantHeader: {
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 8,
     paddingBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F7F7F5',
+    backgroundColor: colors.surfaceSubtle,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E3DE',
+    borderBottomColor: colors.border,
   },
   assistantHeaderLeft: {
     flexDirection: 'row',
@@ -2388,7 +2406,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#111111',
+    backgroundColor: colors.text,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -2404,83 +2422,83 @@ const styles = StyleSheet.create({
   assistantTitle: {
     fontSize: 15,
     lineHeight: 20,
-    color: '#1A1916',
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    color: colors.text,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
     letterSpacing: -0.2,
   },
   assistantOnlineDot: {
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#1A8A72',
+    backgroundColor: colors.accent,
   },
   assistantSubtitle: {
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15,
-    color: '#9B9790',
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    color: colors.muted,
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.1,
   },
   assistantRefreshBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    minHeight: 44,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E3DE',
-    backgroundColor: '#F7F7F5',
+    borderColor: colors.controlBorder,
+    backgroundColor: colors.surfaceSubtle,
     alignItems: 'center',
     justifyContent: 'center',
   },
   modeTabs: {
     flexDirection: 'row',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E3DE',
+    borderBottomColor: colors.border,
   },
   modeTab: {
     flex: 1,
     paddingVertical: 8,
     alignItems: 'center',
     borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    borderBottomColor: colors.transparent,
   },
   modeTabActive: {
-    borderBottomColor: '#1A1916',
+    borderBottomColor: colors.text,
   },
   modeTabTitle: {
     fontSize: 12,
     lineHeight: 17,
-    color: '#9B9790',
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
   modeTabTitleActive: {
-    color: '#1A1916',
+    color: colors.text,
   },
   modeTabSub: {
-    fontSize: 10,
+    fontSize: 12,
     lineHeight: 14,
-    color: '#9B9790',
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    color: colors.muted,
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     letterSpacing: 0.5,
   },
   clearFloatingBtn: {
     position: 'absolute',
     right: 14,
     top: 118,
-    width: 28,
-    height: 28,
+    width: 44,
+    minHeight: 44,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#E5E3DE',
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.controlBorder,
+    backgroundColor: colors.surf,
     alignItems: 'center',
     justifyContent: 'center',
     zIndex: 25,
-    elevation: 25,
+    elevation: 0,
   },
   initialBody: {
     paddingHorizontal: 16,
@@ -2514,7 +2532,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#111111',
+    backgroundColor: colors.text,
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
@@ -2524,8 +2542,8 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 20,
-    color: '#1A1916',
-    fontFamily: 'JetBrainsMono_400',
+    color: colors.text,
+    fontFamily: fonts.regular,
     fontWeight: '400',
     letterSpacing: -0.1,
   },
@@ -2535,9 +2553,9 @@ const styles = StyleSheet.create({
     marginLeft: 52,
     fontSize: 12,
     lineHeight: 17,
-    color: '#9B9790',
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
     letterSpacing: 1,
   },
   quickPrompts: {
@@ -2555,11 +2573,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   quizScopeLabel: {
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15,
-    color: '#9B9790',
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    color: colors.muted,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
     letterSpacing: 0.5,
   },
   quizScopeRecentWrap: {
@@ -2567,41 +2585,41 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  quizScopeChip: {
+  quizScopeChip: { minHeight: 44,
     borderWidth: 1,
-    borderColor: '#E5E3DE',
+    borderColor: colors.border,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
   quizScopeChipActive: {
-    borderColor: colors.accent,
-    backgroundColor: '#EAF7F3',
+    borderColor: colors.action,
+    backgroundColor: colors.greenL,
   },
   quizScopeChipText: {
     fontSize: 12,
     lineHeight: 17,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.1,
   },
   quizScopeChipTextActive: {
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
+    color: colors.accentText,
+    fontFamily: fonts.bold,
   },
-  quizScopeSearchInput: {
+  quizScopeSearchInput: { minHeight: 44,
     borderWidth: 1,
-    borderColor: '#E5E3DE',
+    borderColor: colors.controlBorder,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     paddingHorizontal: 12,
     paddingVertical: 9,
     fontSize: 13,
     lineHeight: 18,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
   quizScopeSearchList: {
@@ -2609,33 +2627,33 @@ const styles = StyleSheet.create({
   },
   quizScopeSearchItem: {
     borderWidth: 1,
-    borderColor: '#E5E3DE',
+    borderColor: colors.controlBorder,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     paddingHorizontal: 12,
     paddingVertical: 9,
   },
   quizScopeSearchItemActive: {
-    borderColor: colors.accent,
-    backgroundColor: '#EAF7F3',
+    borderColor: colors.action,
+    backgroundColor: colors.greenL,
   },
   quizScopeSearchItemText: {
     fontSize: 12,
     lineHeight: 17,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     letterSpacing: -0.1,
   },
   quizScopeSearchItemTextActive: {
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
+    color: colors.accentText,
+    fontFamily: fonts.bold,
   },
   quizScopeSearchEmpty: {
     borderWidth: 1,
-    borderColor: '#E5E3DE',
+    borderColor: colors.controlBorder,
     borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     paddingHorizontal: 12,
     paddingVertical: 12,
   },
@@ -2643,28 +2661,28 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
   quizScopeSelectedText: {
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
-  quickPromptBtn: {
+  quickPromptBtn: { minHeight: 44,
     borderWidth: 1,
-    borderColor: '#E5E3DE',
+    borderColor: colors.controlBorder,
     borderRadius: 6,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     paddingHorizontal: 10,
     paddingVertical: 6,
   },
   quickPromptText: {
     fontSize: 12,
     lineHeight: 17,
-    color: '#1A1916',
-    fontFamily: 'JetBrainsMono_400',
+    color: colors.text,
+    fontFamily: fonts.regular,
     fontWeight: '400',
     letterSpacing: -0.1,
   },
@@ -2673,11 +2691,11 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     paddingBottom: 10,
     borderTopWidth: 1,
-    borderTopColor: '#E5E3DE',
-    backgroundColor: '#F7F7F5',
+    borderTopColor: colors.border,
+    backgroundColor: colors.surfaceSubtle,
     position: 'relative',
     zIndex: 10,
-    elevation: 10,
+    elevation: 0,
   },
   aiStatusWrap: {
     flexDirection: 'row',
@@ -2691,19 +2709,19 @@ const styles = StyleSheet.create({
     left: 14,
     bottom: 10,
     zIndex: 40,
-    elevation: 8,
+    elevation: 0,
     maxWidth: '88%',
   },
   aiStatusFloatInner: {
-    backgroundColor: 'rgba(255,255,255,0.94)',
+    backgroundColor: colors.surfaceGlass,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#E5E3DE',
-    shadowColor: '#000',
+    borderColor: colors.border,
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0,
     shadowRadius: 6,
   },
   aiStatusDot: {
@@ -2713,18 +2731,18 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   aiStatusText: {
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15,
     letterSpacing: -0.1,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
   },
   initialComposer: {
     borderWidth: 1,
-    borderColor: '#E5E3DE',
+    borderColor: colors.border,
     borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     // 左侧正常 padding；右侧与 ChatInputBar 一致：10 + 32 + 8
     paddingLeft: 16,
     paddingRight: 50,
@@ -2737,8 +2755,8 @@ const styles = StyleSheet.create({
     maxHeight: 66,  // 3 行 × lineHeight 18 ≈ 66px
     fontSize: 13,
     lineHeight: 18,
-    color: '#1A1916',
-    fontFamily: 'JetBrainsMono_400',
+    color: colors.text,
+    fontFamily: fonts.regular,
     fontWeight: '400',
     letterSpacing: -0.1,
     paddingTop: 0,
@@ -2753,7 +2771,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: '#1A8A72',
+    backgroundColor: colors.action,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -2774,16 +2792,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0,
     shadowRadius: 15,
-    elevation: 5,
+    elevation: 0,
   },
   optionsContainer: {
     gap: 2,
   },
-  optionButton: {
+  optionButton: { minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -2794,7 +2812,7 @@ const styles = StyleSheet.create({
   optionText: {
     fontSize: 16,
     fontWeight: '400',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: -0.3125,
     lineHeight: 24,
   },
@@ -2843,7 +2861,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#111111',
+    backgroundColor: colors.text,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 2,
@@ -2855,7 +2873,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     color: colors.text,
   },
@@ -2867,8 +2885,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   userBubble: {
-    backgroundColor: '#111111',
-    borderColor: '#111111',
+    backgroundColor: colors.text,
+    borderColor: colors.text,
     borderBottomRightRadius: 4,
   },
   aiBubble: {
@@ -2879,11 +2897,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
   userMessageText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
   },
   aiMessageText: {
     color: colors.text,
@@ -2891,7 +2909,7 @@ const styles = StyleSheet.create({
   messageLimitBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F3FF',
+    backgroundColor: colors.aiL,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -2901,17 +2919,17 @@ const styles = StyleSheet.create({
   messageLimitText: {
     flex: 1,
     fontSize: 14,
-    color: '#6366F1',
+    color: colors.ai,
     fontWeight: '500',
   },
-  upgradeButton: {
-    backgroundColor: '#6366F1',
+  upgradeButton: { minHeight: 44,
+    backgroundColor: colors.ai,
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 8,
   },
   upgradeButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -2929,7 +2947,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
     zIndex: 2,
-    elevation: 2,
+    elevation: 0,
   },
   // initial 底部输入容器内：与左右 padding 对齐拉满
   messageLimitBarInComposer: {
@@ -2945,23 +2963,23 @@ const styles = StyleSheet.create({
   },
   messageLimitBarText: {
     flex: 1,
-    fontSize: 11,
+    fontSize: 12,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
   },
   upgradeButtonSmall: {
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 5,
     borderWidth: 1,
-    borderColor: colors.accent,
+    borderColor: colors.action,
   },
   upgradeButtonSmallText: {
-    color: colors.accent,
-    fontSize: 11,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    color: colors.action,
+    fontSize: 12,
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
   termSuggestionContainer: {
     marginTop: 12,
@@ -2982,9 +3000,9 @@ const styles = StyleSheet.create({
   suggestionLabel: {
     fontSize: 12,
     lineHeight: 17,
-    fontWeight: '400',
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    color: colors.accentText,
+    fontFamily: fonts.bold,
     marginRight: 8,
     minWidth: 20,
   },
@@ -2992,9 +3010,9 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 13,
     lineHeight: 19,
-    fontWeight: '400',
+    fontWeight: '600',
     color: colors.text,
-    fontFamily: 'JetBrainsMono_600',
+    fontFamily: fonts.semibold,
     letterSpacing: -0.1,
   },
   suggestionDefinition: {
@@ -3002,7 +3020,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     letterSpacing: -0.1,
   },
   lessonHint: {
@@ -3016,30 +3034,30 @@ const styles = StyleSheet.create({
   },
   lessonHintOpen: {
     zIndex: 20,
-    elevation: 20,
+    elevation: 0,
   },
   lessonHintText: {
     fontSize: 12,
     lineHeight: 17,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
   lessonHintSubtext: {
     marginTop: 6,
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
   lessonName: {
-    fontWeight: '400',
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    color: colors.accentText,
+    fontFamily: fonts.bold,
   },
-  lessonInput: {
+  lessonInput: { minHeight: 44,
     marginTop: 8,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     borderRadius: 8,
     backgroundColor: colors.bg,
     paddingHorizontal: 12,
@@ -3048,7 +3066,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     letterSpacing: -0.1,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
   lessonInputWrap: {
@@ -3059,7 +3077,7 @@ const styles = StyleSheet.create({
   lessonDropdownPortalLayer: {
     ...StyleSheet.absoluteFill,
     zIndex: 999,
-    elevation: 999,
+    elevation: 0,
   },
   lessonDropdownPortal: {
     position: 'absolute',
@@ -3069,7 +3087,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surf,
     overflow: 'hidden',
     zIndex: 1000,
-    elevation: 1000,
+    elevation: 0,
     maxHeight: 240,
   },
   lessonDropdown: {
@@ -3084,7 +3102,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surf,
     overflow: 'hidden',
     zIndex: 40,
-    elevation: 40,
+    elevation: 0,
     maxHeight: 240,
   },
   lessonDropdownItem: {
@@ -3100,7 +3118,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     letterSpacing: -0.1,
   },
   lessonDropdownCreateItem: {
@@ -3109,23 +3127,23 @@ const styles = StyleSheet.create({
   lessonDropdownCreateText: {
     fontSize: 13,
     lineHeight: 18,
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_600',
+    color: colors.accentText,
+    fontFamily: fonts.semibold,
     letterSpacing: -0.1,
   },
   lessonMatchedText: {
     marginTop: 6,
-    fontSize: 11,
+    fontSize: 12,
     lineHeight: 15,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
   },
   suggestionActions: {
     flexDirection: 'row',
     gap: 8,
     flexWrap: 'wrap',
   },
-  suggestionButton: {
+  suggestionButton: { minHeight: 44,
     flex: 1,
     minWidth: 120,
     paddingVertical: 10,
@@ -3134,32 +3152,32 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  fullWidthButton: {
+  fullWidthButton: { minHeight: 44,
     flex: 1,
     minWidth: '100%',
   },
-  primaryButton: {
-    backgroundColor: colors.accent,
+  primaryButton: { minHeight: 44,
+    backgroundColor: colors.action,
   },
   primaryButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    fontFamily: fonts.bold,
     letterSpacing: -0.1,
   },
-  secondaryButton: {
+  secondaryButton: { minHeight: 44,
     backgroundColor: colors.surf,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
   },
   secondaryButtonText: {
     color: colors.muted,
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_600',
+    fontWeight: '600',
+    fontFamily: fonts.semibold,
     letterSpacing: -0.1,
   },
   savedIndicator: {
@@ -3171,34 +3189,34 @@ const styles = StyleSheet.create({
   savedText: {
     fontSize: 13,
     lineHeight: 18,
-    fontWeight: '400',
+    fontWeight: '700',
     color: colors.green,
-    fontFamily: 'JetBrainsMono_700',
+    fontFamily: fonts.bold,
     letterSpacing: -0.1,
   },
   // 历史记录样式
   historyContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
   },
   historyHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 18,
+    paddingHorizontal: layout.screenInline,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E5E5',
+    borderBottomColor: colors.border,
   },
   historyTitle: {
     fontSize: 20,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: colors.text,
     letterSpacing: -0.5,
   },
   historyCloseButton: {
-    width: 32,
-    height: 32,
+    width: 44,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -3216,14 +3234,14 @@ const styles = StyleSheet.create({
   historyEmptyText: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: colors.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   historyEmptySubtext: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#6A7282',
+    color: colors.muted,
     textAlign: 'center',
   },
   historyListContent: {
@@ -3236,7 +3254,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+    borderBottomColor: colors.surfaceSubtle,
   },
   historyItemContent: {
     flex: 1,
@@ -3245,26 +3263,26 @@ const styles = StyleSheet.create({
   historyItemTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0A0A0A',
+    color: colors.text,
     marginBottom: 4,
   },
   historyItemPreview: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#6A7282',
+    color: colors.muted,
     marginBottom: 4,
     lineHeight: 20,
   },
   historyItemDate: {
     fontSize: 12,
     fontWeight: '400',
-    color: '#9CA3AF',
+    color: colors.muted,
   },
   // 左滑删除样式
   historyDeleteAction: {
     justifyContent: 'center',
     alignItems: 'flex-end',
-    backgroundColor: '#EF4444',
+    backgroundColor: colors.red,
     paddingRight: 20,
     marginVertical: 4,
     marginRight: 20,

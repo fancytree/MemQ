@@ -1,11 +1,14 @@
-import { SectionLabel } from '@/components/SectionLabel';
+import { fonts } from '@/theme/typography';
+import { DesignAsset } from '@/components/DesignAsset';
+import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import TermCard from '@/components/TermCard';
+import { LanguageCardModal } from '@/components/LanguageCardModal';
 import { Button } from '@/components/ui/Button';
 import { isCacheExpired, loadFromCache, saveToCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
-import { colors } from '@/theme';
+import { colors, componentTokens, layout, radius, type } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router/react-navigation';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -30,7 +33,7 @@ interface Lesson {
   description: string | null;
   deadline: string | null;
   created_at: string;
-  is_vocab_mode?: boolean;
+  learning_mode?: 'language' | 'knowledge';
 }
 
 // 学习阶段类型
@@ -56,6 +59,7 @@ interface Term {
   term: string;
   definition: string;
   explanation: string | null;
+  language_data?: unknown;
   created_at: string;
   user_term_progress?: Array<{
     status: LearningStage;
@@ -88,6 +92,7 @@ export default function LessonDetailScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLevel, setFilterLevel] = useState<'All' | LearningStage>('All');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [openTerm, setOpenTerm] = useState<Term | null>(null);
 
   // 动态设置导航栏隐藏（使用自定义 header）
   useEffect(() => {
@@ -173,7 +178,7 @@ export default function LessonDetailScreen() {
         setTerms([]);
       } else {
         const termsData = termsResult.data || [];
-        
+
         // 如果有词条，查询用户进度
         if (termsData.length > 0) {
           const termIds = termsData.map((t) => t.id);
@@ -182,10 +187,10 @@ export default function LessonDetailScreen() {
             .select('term_id, status, last_reviewed_at')
             .eq('user_id', user.id)
             .in('term_id', termIds);
-          
+
           // 统一取每个 term 的最新状态，避免与列表页顺序不一致
           const progressMap = buildLatestProgressMap(progressData || []);
-          
+
           // 合并词条和进度数据
           const processedTerms = termsData.map((term) => ({
             ...term,
@@ -193,7 +198,7 @@ export default function LessonDetailScreen() {
               ? [{ status: progressMap.get(term.id) }]
               : [],
           }));
-          
+
           finalProcessedTerms = processedTerms;
           setTerms(processedTerms);
         } else {
@@ -299,10 +304,13 @@ export default function LessonDetailScreen() {
         id: term.id,
         term: term.term,
         definition: term.definition,
+        explanation: term.explanation,
+        language_data: term.language_data,
       }));
 
       // 调用 Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke('generate-questions', {
+      const { data, error } = await supabase.functions.invoke(
+        lesson?.learning_mode === 'language' ? 'generate-vocab-questions' : 'generate-questions', {
         body: {
           lessonId: id,
           terms: termsList,
@@ -316,7 +324,7 @@ export default function LessonDetailScreen() {
 
       if (data && data.success) {
         Alert.alert('Success', `Successfully generated ${data.questionsGenerated || 0} questions!`);
-        
+
         // 重新加载页面数据以显示新生成的问题
         await fetchLessonDetail();
       } else {
@@ -346,6 +354,7 @@ export default function LessonDetailScreen() {
 
   // 处理编辑词条
   const handleEditTerm = (termId: string) => {
+    if (lesson?.learning_mode === 'language') return;
     // 跳转到 Add Terms 页面，带上 termId 参数用于编辑
     router.push({
       pathname: `/lessons/[id]/add-terms`,
@@ -379,8 +388,9 @@ export default function LessonDetailScreen() {
                 return;
               }
 
+              setOpenTerm(null);
               // 重新加载数据
-              await fetchLessonDetail();
+              await fetchLessonDetail(false);
             } catch (err) {
               console.error('Error:', err);
               Alert.alert('Error', 'Something went wrong');
@@ -418,7 +428,7 @@ export default function LessonDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color={colors.accentText} />
           <Text style={styles.loadingText}>Loading lesson...</Text>
         </View>
       </SafeAreaView>
@@ -430,7 +440,7 @@ export default function LessonDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
-          <Feather name="alert-circle" size={48} color="#EF4444" />
+          <Feather name="alert-circle" size={48} color={colors.red} />
           <Text style={styles.errorTitle}>Lesson Not Found</Text>
           <Text style={styles.errorText}>
             {error || 'The lesson you are looking for does not exist.'}
@@ -465,14 +475,16 @@ export default function LessonDetailScreen() {
       <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
         {/* Top nav */}
         <View style={styles.nav}>
-          <Button onPress={handleGoBack} activeOpacity={0.7}>
+          <Button accessibilityLabel="Back to Library" onPress={handleGoBack} activeOpacity={0.7}>
             <Text style={styles.navBack}>← Library</Text>
           </Button>
           <Button
+            accessibilityLabel="Edit lesson"
+            style={styles.navEdit}
             onPress={() => router.push(`/lessons/${id}/settings` as any)}
             activeOpacity={0.7}
           >
-            <Text style={styles.navEdit}>Edit</Text>
+            <Feather name="edit-2" size={20} color={colors.text} />
           </Button>
         </View>
 
@@ -481,113 +493,70 @@ export default function LessonDetailScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 28 + insets.bottom }]}
       >
 
-        {/* Title block */}
-        <View style={styles.titleBlock}>
-          <View style={styles.lessonMetaRow}>
-            <SectionLabel size={11}>Lesson</SectionLabel>
-            {lesson.is_vocab_mode && (
-              <View style={styles.vocabModeTag}>
-                <Text style={styles.vocabModeTagText}>Vocabulary Mode</Text>
+        <View style={styles.overview}>
+          <View style={styles.identity}>
+            <View style={styles.titleCopy}>
+              <View style={styles.titleRow}>
+                <Text accessibilityRole="header" style={styles.lessonTitle}>{lesson.name}</Text>
+                {lesson.learning_mode === 'language' && (
+                  <View accessible accessibilityLabel="Language learning" style={styles.languageTag}>
+                    <Feather name="globe" size={14} color={colors.text} />
+                  </View>
+                )}
               </View>
-            )}
-          </View>
-          <Text style={styles.lessonTitle}>{lesson.name}</Text>
-          {lesson.description && <Text style={styles.lessonDescription}>{lesson.description}</Text>}
-          <View style={styles.masteryLine}>
-            <Text style={styles.masteryNum}>{progressPct}%</Text>
-            <Text style={styles.masteryUnit}>mastery</Text>
-            <Text style={[styles.masteryUnit, { marginLeft: 'auto' }]}>
-              {masteredCount} of {totalCards}
-            </Text>
-          </View>
-          <View style={styles.barTrack}>
-            <View style={[styles.barFill, { width: `${progressPct}%` }]} />
-          </View>
-        </View>
-
-        {/* Stat row */}
-        <View style={styles.statsRow}>
-          {[
-            { v: totalCards, l: 'cards' },
-            { v: dueCount, l: 'to review' },
-            { v: masteredCount, l: 'mastered' },
-          ].map((s, i, arr) => (
-            <View
-              key={s.l}
-              style={[
-                styles.statCell,
-                i < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
-              ]}
-            >
-              <Text style={styles.statVal}>{s.v}</Text>
-              <SectionLabel size={11} style={styles.statLabel}>{s.l}</SectionLabel>
+              {lesson.learning_mode !== 'language' && <Text style={styles.lessonMetadata}>Knowledge learning</Text>}
             </View>
-          ))}
+            {!!lesson.description && <Text style={styles.lessonDescription}>{lesson.description}</Text>}
+          </View>
+          <View style={styles.statsRow}>
+            {[
+              { value: totalCards, label: 'total cards' },
+              { value: dueCount, label: 'to review' },
+              { value: masteredCount, label: 'mastered' },
+            ].map((stat) => <View key={stat.label} style={styles.statCell}>
+              <Text style={styles.statVal}>{stat.value}</Text>
+              <Text style={styles.statLabel}>{stat.label}</Text>
+            </View>)}
+          </View>
+          <View accessible accessibilityRole="progressbar" accessibilityLabel="Mastery"
+            accessibilityValue={{ min: 0, max: 100, now: progressPct }} style={styles.mastery}>
+            <View style={styles.masteryLine}>
+              <Text style={styles.masteryLabel}>Mastery</Text>
+              <Text style={styles.masteryValue}>{progressPct}%</Text>
+            </View>
+            <View style={styles.barTrack}><View style={[styles.barFill, { width: `${progressPct}%` }]} /></View>
+          </View>
+          <PrimaryButton label="Start review" onPress={handleStartStudy} disabled={totalCards === 0}
+            endIcon={<View style={styles.reviewArrow}><DesignAsset name="reviewArrow" /></View>} />
         </View>
 
-        {/* CTA */}
-        <View style={styles.ctaWrap}>
-          <Button
-            style={styles.continueLearningButton}
-            onPress={handleStartStudy}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.continueLearningButtonText}>Start review →</Text>
-          </Button>
-        </View>
-
-        {/* Terms 列表区域 */}
         <View style={styles.termsSection}>
-          <View style={styles.sectionHead}>
-            <SectionLabel>Terms</SectionLabel>
-            <Button onPress={handleEditTerms} activeOpacity={0.7}>
-              <Text style={styles.sectionAction}>Add</Text>
-            </Button>
-          </View>
-
-          {/* 工具栏 */}
-          <View style={styles.toolbar}>
-            {/* 搜索框 */}
-            <View style={styles.searchContainer}>
-              <Feather name="search" size={18} color={colors.dim} style={styles.searchIcon} />
-              <TextInput
-                style={styles.searchInput}
-                placeholder="Search Terms or Explanations..."
-                placeholderTextColor={colors.muted}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
+          <View style={styles.controls}>
+            <View style={styles.sectionHead}>
+              <Text accessibilityRole="header" style={styles.sectionTitle}>Terms</Text>
+              <Button accessibilityLabel="Add term" onPress={handleEditTerms} style={styles.addTerm}>
+                <DesignAsset name="termPlus" /><Text style={styles.sectionAction}>Add</Text>
+              </Button>
             </View>
-
-            {/* 筛选器下拉菜单 */}
-          <Button
-              style={styles.filterButton}
-              onPress={() => setShowFilterModal(true)}
-              activeOpacity={0.7}
-          >
-              <Text style={styles.filterButtonText}>
-                {filterLevel === 'All' ? 'All Levels' : filterLevel}
-            </Text>
-              <Feather 
-                name="chevron-down" 
-                size={16} 
-                color={colors.muted}
-              />
-          </Button>
-        </View>
-
-          {/* 列表头 */}
-          <View style={styles.listHeader}>
-            <Text style={styles.listHeaderTitle}>Terms</Text>
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>{filteredTerms.length}</Text>
+            <View style={styles.searchContainer}>
+              <DesignAsset name="termSearch" />
+              <TextInput accessibilityLabel="Search terms" style={styles.searchInput} placeholder="Search terms"
+                placeholderTextColor={colors.muted} value={searchQuery} onChangeText={setSearchQuery}
+                autoCorrect={false} returnKeyType="search" />
+            </View>
+            <View style={styles.filterRow}>
+              <Button accessibilityLabel={`Filter by level: ${filterLevel}`} style={styles.filterButton}
+                onPress={() => setShowFilterModal(true)}>
+                <Text style={styles.filterButtonText}>Level: {filterLevel}</Text><DesignAsset name="termChevronDown" />
+              </Button>
+              <Text style={styles.resultCount}>Showing {filteredTerms.length} of {totalCards} cards</Text>
             </View>
           </View>
 
           {/* 词条列表 */}
           {filteredTerms.length === 0 ? (
             <View style={styles.emptyTermsContainer}>
-              <Feather name="book-open" size={48} color={colors.dim} />
+              <Feather name="book-open" size={48} color={colors.muted} />
               <Text style={styles.emptyTermsTitle}>
                 {searchQuery || filterLevel !== 'All'
                   ? 'No Terms Found'
@@ -621,9 +590,9 @@ export default function LessonDetailScreen() {
                   <TermCard
                     key={term.id}
                     term={term}
+                    isLanguage={lesson.learning_mode === 'language'}
+                    onOpen={() => setOpenTerm(term)}
                     status={progressStatus}
-                    onEdit={() => handleEditTerm(term.id)}
-                    onDelete={() => handleDeleteTerm(term.id, term.term)}
                   />
                 );
               })}
@@ -632,6 +601,10 @@ export default function LessonDetailScreen() {
         </View>
       </ScrollView>
     </SafeAreaView>
+
+      <LanguageCardModal term={openTerm} onClose={() => setOpenTerm(null)} isLanguage={lesson.learning_mode === 'language'}
+        onEdit={openTerm && lesson.learning_mode !== 'language' ? () => handleEditTerm(openTerm.id) : undefined}
+        onDelete={openTerm ? () => handleDeleteTerm(openTerm.id, openTerm.term) : undefined} />
 
       {/* Filter Modal */}
       <Modal
@@ -653,6 +626,7 @@ export default function LessonDetailScreen() {
                   <View style={styles.filterModalHeaderRow}>
                     <Text style={styles.filterModalTitle}>Filter by Level</Text>
                     <Button
+                      accessibilityLabel="Close level filter"
                       onPress={() => setShowFilterModal(false)}
                       style={styles.filterModalCloseButton}
                       activeOpacity={0.7}
@@ -661,7 +635,7 @@ export default function LessonDetailScreen() {
                     </Button>
                   </View>
                 </View>
-                
+
                 <ScrollView
                   style={styles.filterOptionsList}
                   showsVerticalScrollIndicator={false}
@@ -690,7 +664,7 @@ export default function LessonDetailScreen() {
                   All Levels
                 </Text>
                 {filterLevel === 'All' && (
-                  <Feather name="check" size={20} color={colors.accent} />
+                  <Feather name="check" size={20} color={colors.accentText} />
                 )}
               </Button>
 
@@ -744,7 +718,7 @@ export default function LessonDetailScreen() {
                   Learning
                 </Text>
                 {filterLevel === 'Learning' && (
-                  <Feather name="check" size={20} color="#E7000B" />
+                  <Feather name="check" size={20} color={colors.red} />
                 )}
               </Button>
 
@@ -771,7 +745,7 @@ export default function LessonDetailScreen() {
                   Familiar
                 </Text>
                 {filterLevel === 'Familiar' && (
-                  <Feather name="check" size={20} color="#FF6900" />
+                  <Feather name="check" size={20} color={colors.accentText} />
                 )}
               </Button>
 
@@ -798,7 +772,7 @@ export default function LessonDetailScreen() {
                   Good
                 </Text>
                 {filterLevel === 'Good' && (
-                  <Feather name="check" size={20} color="#D08700" />
+                  <Feather name="check" size={20} color={colors.warn} />
                 )}
               </Button>
 
@@ -825,7 +799,7 @@ export default function LessonDetailScreen() {
                   Strong
                 </Text>
                 {filterLevel === 'Strong' && (
-                  <Feather name="check" size={20} color={colors.accent} />
+                  <Feather name="check" size={20} color={colors.accentText} />
                 )}
               </Button>
 
@@ -852,7 +826,7 @@ export default function LessonDetailScreen() {
                   Mastered
                 </Text>
                 {filterLevel === 'Mastered' && (
-                  <Feather name="check" size={20} color="#00A63E" />
+                  <Feather name="check" size={20} color={colors.green} />
                 )}
               </Button>
                 </ScrollView>
@@ -866,339 +840,57 @@ export default function LessonDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  safeAreaTop: {
-    flex: 1,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 13,
-    color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  errorTitle: {
-    fontSize: 20,
-    fontWeight: '400',
-    color: colors.text,
-    fontFamily: 'JetBrainsMono_700',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  errorText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
-    textAlign: 'center',
-    marginBottom: 32,
-  },
-  backButton: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 28,
-  },
-  nav: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  navBack: {
-    fontSize: 13,
-    color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
-    fontWeight: '400',
-  },
-  navEdit: {
-    fontSize: 13,
-    letterSpacing: -0.1,
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
-  },
-  titleBlock: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 18,
-    backgroundColor: colors.surf,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  lessonMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 8,
-  },
-  vocabModeTag: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 6,
-    backgroundColor: '#EEF2FF',
-    borderWidth: 1,
-    borderColor: '#E0E7FF',
-  },
-  vocabModeTagText: {
-    fontSize: 10,
-    lineHeight: 14,
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
-  },
-  lessonTitle: {
-    fontFamily: 'JetBrainsMono_700',
-    fontSize: 22,
-    lineHeight: 27,
-    fontWeight: '400',
-    letterSpacing: -0.7,
-    color: colors.text,
-  },
-  lessonDescription: {
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: colors.muted,
-    marginTop: 6,
-    fontFamily: 'JetBrainsMono_400',
-    fontWeight: '400',
-  },
-  masteryLine: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    marginTop: 18,
-  },
-  masteryNum: {
-    fontFamily: 'JetBrainsMono_800',
-    fontSize: 38,
-    letterSpacing: -1.2,
-    lineHeight: 42,
-    color: colors.text,
-    paddingTop: 2,
-    paddingRight: 2,
-  },
-  masteryUnit: {
-    fontSize: 12,
-    color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
-  },
-  barTrack: {
-    height: 2,
-    borderRadius: 1,
-    backgroundColor: colors.dim,
-    marginTop: 8,
-    overflow: 'hidden',
-  },
-  barFill: {
-    height: '100%',
-    backgroundColor: colors.accent,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.surf,
-  },
-  statCell: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-  },
-  statVal: {
-    fontFamily: 'JetBrainsMono_800',
-    fontSize: 26,
-    letterSpacing: -0.1,
-    lineHeight: 26,
-    color: colors.text,
-    paddingTop: 2,
-  },
-  statLabel: {
-    marginTop: 0,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
-    letterSpacing: -0.1,
-    lineHeight: 15,
-  },
-  ctaWrap: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    backgroundColor: colors.surf,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  // Terms 列表区域样式
-  termsSection: {
-    marginTop: 0,
-    paddingHorizontal: 16,
-    paddingTop: 16,
-  },
-  sectionHead: {
-    paddingHorizontal: 4,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  sectionAction: {
-    fontSize: 13,
-    letterSpacing: -0.1,
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
-  },
-  addTermsButtonEmpty: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-    marginTop: 16,
-  },
-  addTermsButtonTextEmpty: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_700',
-  },
-  toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  searchContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    minHeight: 42,
-    borderWidth: 1,
-    borderColor: colors.dim,
-    marginRight: 12,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.text,
-    fontFamily: 'JetBrainsMono_400',
-    paddingVertical: 10,
-  },
-  filterButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  filterButtonText: {
-    fontSize: 13,
-    fontWeight: '400',
-    color: colors.text,
-    fontFamily: 'JetBrainsMono_500',
-    marginRight: 6,
-  },
-  listHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  listHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.text,
-    fontFamily: 'JetBrainsMono_700',
-  },
-  badge: {
-    backgroundColor: colors.bg,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    minWidth: 32,
-    alignItems: 'center',
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: '400',
-    color: colors.muted,
-    fontFamily: 'JetBrainsMono_500',
-  },
-  emptyTermsContainer: {
-    alignItems: 'center',
-    paddingVertical: 48,
-    paddingHorizontal: 20,
-  },
-  emptyTermsTitle: {
-    fontSize: 16,
-    fontWeight: '400',
-    color: colors.text,
-    fontFamily: 'JetBrainsMono_700',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyTermsText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
-    textAlign: 'center',
-    marginBottom: 24,
-  },
-  termsList: {
-    gap: 12,
-  },
-  continueLearningButton: {
-    backgroundColor: colors.accent,
-    borderRadius: 8,
-    paddingVertical: 15,
-    alignItems: 'center',
-  },
-  continueLearningButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '400',
-    lineHeight: 22,
-    fontFamily: 'JetBrainsMono_700',
-    letterSpacing: -0.1,
-  },
+  container: { flex: 1, backgroundColor: colors.bg },
+  safeAreaTop: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { ...type.bodySmall, color: colors.muted, marginTop: 12 },
+  errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
+  errorTitle: { ...type.section, color: colors.text, marginTop: 16, marginBottom: 8 },
+  errorText: { ...type.bodySmall, color: colors.muted, textAlign: 'center', marginBottom: 24 },
+  backButton: { backgroundColor: colors.action, paddingHorizontal: 20, paddingVertical: 12, borderRadius: radius.pill },
+  backButtonText: { ...type.controlLink, color: colors.onAction },
+  nav: { paddingHorizontal: layout.screenInline, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  navBack: { ...type.controlLink, color: colors.text },
+  navEdit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  scrollView: { flex: 1 },
+  scrollContent: { paddingHorizontal: layout.screenInline, paddingTop: 12, gap: componentTokens.lessonDetail.sectionGap },
+  overview: { gap: componentTokens.lessonDetail.gap, padding: componentTokens.lessonDetail.overviewPadding, borderRadius: componentTokens.lessonDetail.overviewRadius, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg },
+  identity: { gap: 12 },
+  titleCopy: { gap: 5 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  lessonTitle: { ...type.lessonTitle, color: colors.text, flexShrink: 1 },
+  lessonMetadata: { ...type.meta, color: colors.supporting },
+  languageTag: { flexShrink: 0, minWidth: 28, height: 24, paddingHorizontal: 7, borderRadius: radius.pill, backgroundColor: colors.surfaceSubtle, alignItems: 'center', justifyContent: 'center' },
+  lessonDescription: { ...type.bodyReading, color: colors.supporting },
+  statsRow: { flexDirection: 'row', gap: 12 },
+  statCell: { flex: 1, gap: 2 },
+  statVal: { ...type.lessonStatistic, color: colors.text },
+  statLabel: { ...type.meta, color: colors.supporting },
+  mastery: { gap: 10 },
+  masteryLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
+  masteryLabel: { ...type.controlLink, color: colors.text },
+  masteryValue: { ...type.courseTitle, color: colors.text },
+  barTrack: { height: componentTokens.progress.height, borderRadius: radius.pill, backgroundColor: colors.progressTrack, overflow: 'hidden' },
+  barFill: { height: '100%', backgroundColor: colors.action, borderRadius: radius.pill },
+  reviewArrow: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
+  termsSection: { gap: 16 },
+  controls: { gap: 10 },
+  sectionHead: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { ...type.section, color: colors.text },
+  addTerm: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  sectionAction: { ...type.controlLink, color: colors.text },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSubtle, borderRadius: componentTokens.lessonDetail.controlRadius, paddingHorizontal: 14, minHeight: componentTokens.lessonDetail.searchHeight, gap: 10 },
+  searchInput: { ...type.input, color: colors.text, flex: 1, minHeight: 46, paddingVertical: 10 },
+  filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+  filterButton: { minHeight: 44, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.controlBorder, backgroundColor: colors.surfaceSubtle, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  filterButtonText: { ...type.streak, color: colors.text },
+  resultCount: { ...type.meta, color: colors.supporting },
+  emptyTermsContainer: { alignItems: 'center', paddingVertical: 24, gap: 12 },
+  emptyTermsTitle: { ...type.section, color: colors.text },
+  emptyTermsText: { ...type.bodySmall, color: colors.muted, textAlign: 'center' },
+  addTermsButtonEmpty: { backgroundColor: colors.action, paddingHorizontal: 24, paddingVertical: 12, borderRadius: radius.pill },
+  addTermsButtonTextEmpty: { ...type.controlLink, color: colors.onAction },
+  termsList: { gap: 16 },
   // Filter Modal Styles (iOS bottom sheet style)
   modalOverlay: {
     flex: 1,
@@ -1210,7 +902,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.35)',
+    backgroundColor: colors.scrim,
   },
   filterModalContainer: {
     width: '100%',
@@ -1227,7 +919,7 @@ const styles = StyleSheet.create({
     maxHeight: '90%',
   },
   filterModalHeader: {
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 14,
     paddingBottom: 16,
     borderBottomWidth: 1,
@@ -1242,19 +934,19 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 22,
     letterSpacing: -0.1,
-    fontWeight: '400',
+    fontWeight: '700',
     color: colors.text,
-    fontFamily: 'JetBrainsMono_700',
+    fontFamily: fonts.bold,
   },
   filterModalCloseButton: {
-    width: 30,
-    height: 30,
+    width: 44,
+    minHeight: 44,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
   },
   filterOptionsList: {
     paddingVertical: 10,
@@ -1270,34 +962,34 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     marginVertical: 3,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: colors.transparent,
   },
   filterOptionSelected: {
     backgroundColor: colors.bg,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
   },
   filterOptionAll: {
     backgroundColor: colors.surf,
   },
   filterOptionSelectedAll: {
     backgroundColor: colors.accentL,
-    borderColor: colors.accentRing,
+    borderColor: colors.action,
   },
   filterOptionText: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '400',
+    fontWeight: '500',
     color: colors.text,
-    fontFamily: 'JetBrainsMono_500',
+    fontFamily: fonts.medium,
   },
   filterOptionTextSelected: {
-    fontWeight: '400',
-    color: colors.accent,
-    fontFamily: 'JetBrainsMono_700',
+    fontWeight: '700',
+    color: colors.accentText,
+    fontFamily: fonts.bold,
   },
   // Filter Option Colors (matching LessonStatsCard)
   filterOptionNew: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
   },
   filterOptionSelectedNew: {
     backgroundColor: colors.bg,
@@ -1310,68 +1002,68 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   filterOptionLearning: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
   },
   filterOptionSelectedLearning: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.redL,
   },
   filterOptionTextLearning: {
-    color: '#E7000B',
+    color: colors.red,
   },
   filterOptionTextSelectedLearning: {
-    color: '#E7000B',
+    color: colors.red,
     fontWeight: '600',
   },
   filterOptionFamiliar: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
   },
   filterOptionSelectedFamiliar: {
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.accentL,
   },
   filterOptionTextFamiliar: {
-    color: '#FF6900',
+    color: colors.accentText,
   },
   filterOptionTextSelectedFamiliar: {
-    color: '#FF6900',
+    color: colors.accentText,
     fontWeight: '600',
   },
   filterOptionGood: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
   },
   filterOptionSelectedGood: {
-    backgroundColor: '#FEFCE8',
+    backgroundColor: colors.warnL,
   },
   filterOptionTextGood: {
-    color: '#D08700',
+    color: colors.warn,
   },
   filterOptionTextSelectedGood: {
-    color: '#D08700',
+    color: colors.warn,
     fontWeight: '600',
   },
   filterOptionStrong: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
   },
   filterOptionSelectedStrong: {
-    backgroundColor: '#FAF5FF',
+    backgroundColor: colors.aiL,
   },
   filterOptionTextStrong: {
-    color: colors.accent,
+    color: colors.accentText,
   },
   filterOptionTextSelectedStrong: {
-    color: colors.accent,
+    color: colors.accentText,
     fontWeight: '600',
   },
   filterOptionMastered: {
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
   },
   filterOptionSelectedMastered: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.greenL,
   },
   filterOptionTextMastered: {
-    color: '#00A63E',
+    color: colors.green,
   },
   filterOptionTextSelectedMastered: {
-    color: '#00A63E',
+    color: colors.green,
     fontWeight: '600',
   },
 });

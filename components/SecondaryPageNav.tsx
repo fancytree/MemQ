@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { colors } from '@/theme';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
@@ -14,7 +16,7 @@ export function SecondaryPageNav({
 }: SecondaryPageNavProps) {
   return (
     <View style={[styles.header, showDivider && styles.headerDivider]}>
-      <TouchableOpacity onPress={onBack} activeOpacity={0.7}>
+      <TouchableOpacity accessibilityLabel="Go back" onPress={onBack} activeOpacity={0.7} accessibilityRole="button" style={styles.backButton}>
         <Text style={styles.navBack}>{backLabel}</Text>
       </TouchableOpacity>
       <View style={styles.navRightSpacer} />
@@ -27,7 +29,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: layout.screenInline,
     paddingTop: 14,
     paddingBottom: 14,
   },
@@ -35,12 +37,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
+  backButton: { minHeight: 44, justifyContent: 'center' },
   navBack: {
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: -0.1,
     color: colors.muted,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
   },
   navRightSpacer: {

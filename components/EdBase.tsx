@@ -10,15 +10,14 @@ interface EdBaseProps {
   bottomInset?: number;
   scroll?: boolean;
 }
-const TOP_INSET_FACTOR = 0.8;
 
 /**
- * Editorial base surface. Warm off-white background, scroll by default,
+ * Editorial base surface. White canvas, scroll by default,
  * with bottom padding so the tab bar's elevated FAB doesn't cover content.
  */
 export function EdBase({ children, style, bottomInset = 70, scroll = true }: EdBaseProps) {
   const insets = useSafeAreaInsets();
-  const topInset = Math.round(insets.top * TOP_INSET_FACTOR);
+  const topInset = insets.top;
 
   if (!scroll) {
     return (

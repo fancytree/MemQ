@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
@@ -77,7 +78,7 @@ export default function FlashcardFeedback({
 
       {/* 背面（答案面）- 初始隐藏，翻转后显示 */}
       <Animated.View style={[styles.card, styles.backCard, backAnimatedStyle]}>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={styles.backContent}
           onPress={handleFlipBack}
           activeOpacity={0.9}
@@ -118,16 +119,16 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     minHeight: 400,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     borderRadius: 16,
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 0,
     overflow: 'hidden',
     // 确保背面不可见
     backfaceVisibility: 'hidden',
@@ -143,15 +144,15 @@ const styles = StyleSheet.create({
   },
   // 顶部答案区
   answerSection: {
-    backgroundColor: '#F0FDF4',
+    backgroundColor: colors.greenL,
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+    borderBottomColor: colors.border,
   },
   answerLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#15803D',
+    color: colors.green,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
     marginBottom: 8,
@@ -159,41 +160,41 @@ const styles = StyleSheet.create({
   answerText: {
     fontSize: 24,
     fontWeight: '900',
-    color: '#166534',
+    color: colors.green,
     marginTop: 8,
   },
   // 中间解析区
   explanationSection: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.surf,
     padding: 20,
     flex: 1,
   },
   explanationLabel: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '700',
-    color: '#6B7280',
+    color: colors.muted,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
     marginBottom: 8,
   },
   explanationText: {
     fontSize: 16,
-    color: '#374151',
+    color: colors.sub,
     marginTop: 8,
     lineHeight: 24,
   },
   // 底部操作区
   actionSection: {
-    backgroundColor: '#F9FAFB',
+    backgroundColor: colors.surfaceSubtle,
     padding: 16,
     alignItems: 'center',
     justifyContent: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
+    borderTopColor: colors.border,
   },
   actionText: {
     fontSize: 14,
-    color: '#6B7280',
+    color: colors.muted,
     fontWeight: '500',
     textAlign: 'center',
   },

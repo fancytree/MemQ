@@ -1,3 +1,4 @@
+import { fonts } from '@/theme/typography';
 import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import React from 'react';
@@ -33,6 +34,7 @@ export default function MenuItem({
   return (
     <>
       <TouchableOpacity
+        accessibilityRole={type === 'toggle' ? undefined : 'button'}
         style={styles.container}
         onPress={onPress}
         activeOpacity={type === 'toggle' ? 1 : 0.7}
@@ -54,11 +56,12 @@ export default function MenuItem({
         <View style={styles.rightSection}>
           {type === 'toggle' ? (
             <Switch
+              accessibilityLabel={title}
               value={toggleValue}
               onValueChange={onToggle}
-              trackColor={{ false: colors.border, true: colors.accent }}
-              thumbColor="#FFFFFF"
-              ios_backgroundColor={colors.border}
+              trackColor={{ false: colors.switchTrack, true: colors.action }}
+              thumbColor={colors.surf}
+              ios_backgroundColor={colors.switchTrack}
             />
           ) : (
             <Feather name="chevron-right" size={20} color={colors.muted} />
@@ -100,8 +103,8 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 14,
     lineHeight: 20,
-    fontWeight: '400',
-    fontFamily: 'JetBrainsMono_500',
+    fontWeight: '500',
+    fontFamily: fonts.medium,
     color: colors.text,
     marginBottom: 2,
   },
@@ -109,7 +112,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     color: colors.muted,
     marginTop: 2,
   },
@@ -118,7 +121,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     letterSpacing: -0.1,
     color: colors.text,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     marginTop: 2,
   },

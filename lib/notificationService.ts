@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import { Platform } from 'react-native';
 
 type NotificationsModule = any;
@@ -53,7 +54,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
         importance: Notifications.AndroidImportance.HIGH,
         sound: 'default',
         vibrationPattern: [0, 250, 250, 250],
-        lightColor: '#FF231F7C',
+        lightColor: colors.notification,
       });
     }
 

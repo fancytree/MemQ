@@ -1,3 +1,4 @@
+import { fonts } from '@/theme/typography';
 import { Text, StyleSheet, TextStyle, StyleProp } from 'react-native';
 import { colors } from '@/theme';
 import type { ReactNode } from 'react';
@@ -9,10 +10,10 @@ interface SectionLabelProps {
   size?: number;
 }
 
-/** Small uppercase tracked label — used as a section header throughout. */
+/** Legacy compact section label (use type.section for new screen headings) — used as a section header throughout. */
 export function SectionLabel({ children, style, color, size }: SectionLabelProps) {
   return (
-    <Text style={[styles.label, color ? { color } : null, size ? { fontSize: size } : null, style]}>
+    <Text style={[styles.label, color ? { color } : null, size ? { fontSize: Math.max(12, size) } : null, style]}>
       {children}
     </Text>
   );
@@ -20,11 +21,9 @@ export function SectionLabel({ children, style, color, size }: SectionLabelProps
 
 const styles = StyleSheet.create({
   label: {
-    fontFamily: 'JetBrainsMono_500',
-    fontSize: 10,
+    fontFamily: fonts.medium,
+    fontSize: 12,
     color: colors.muted,
-    letterSpacing: 0.45,
-    textTransform: 'uppercase',
-    fontWeight: '400',
+    fontWeight: '500',
   },
 });

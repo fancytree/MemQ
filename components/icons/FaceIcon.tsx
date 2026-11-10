@@ -1,3 +1,4 @@
+import { colors } from '@/theme/colors';
 import React from 'react';
 import Svg, { Path } from 'react-native-svg';
 
@@ -6,7 +7,7 @@ interface FaceIconProps {
   color?: string;
 }
 
-export default function FaceIcon({ size = 30, color = 'white' }: FaceIconProps) {
+export default function FaceIcon({ size = 30, color = colors.surf }: FaceIconProps) {
   return (
     <Svg width={size} height={size} viewBox="0 0 30 30" fill="none">
       <Path

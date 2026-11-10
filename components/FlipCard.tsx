@@ -1,10 +1,10 @@
+import { colors } from '@/theme/colors';
 import React, { useEffect } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import Animated, {
-  Easing,
   useAnimatedStyle,
   useSharedValue,
-  withTiming,
+  withSpring,
 } from 'react-native-reanimated';
 
 interface FlipCardProps {
@@ -26,9 +26,11 @@ export default function FlipCard({
 
   useEffect(() => {
     // 根据 isFlipped 状态更新动画值
-    flipProgress.value = withTiming(isFlipped ? 1 : 0, {
-      duration: 800,
-      easing: Easing.bezier(0.4, 0.0, 0.2, 1),
+    flipProgress.value = withSpring(isFlipped ? 1 : 0, {
+      damping: 17,
+      stiffness: 105,
+      mass: 0.9,
+      overshootClamping: true,
     });
   }, [isFlipped]);
 
@@ -62,7 +64,7 @@ export default function FlipCard({
         {frontContent}
         {/* 透明的点击覆盖层，只在允许翻转时显示 */}
         {!isFlipped && canFlip && (
-          <TouchableOpacity
+          <TouchableOpacity accessibilityRole="button"
             onPress={onFlip}
             activeOpacity={1}
             style={styles.overlay}
@@ -96,23 +98,23 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     height: '100%',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    borderWidth: 0.615,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-    paddingHorizontal: 18.615,
-    paddingTop: 24.615,
-    paddingBottom: 12, // "Tap to reveal explanation" 与卡片底部的距离为 12px
+    backgroundColor: colors.surf,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+    paddingBottom: 14,
     gap: 12,
     // 阴影：0px_12px_20px_-5px_rgba(0,0,0,0.05),0px_6px_8px_-6px_rgba(0,0,0,0.05)
-    shadowColor: '#000',
+    shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
-      height: 12,
+      height: 10,
     },
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOpacity: 0,
+    shadowRadius: 16,
+    elevation: 0,
     // 确保圆角和阴影不被裁剪
     overflow: 'visible',
     // 确保背面不可见
@@ -127,7 +129,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'transparent',
+    backgroundColor: colors.transparent,
   },
 });
 

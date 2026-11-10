@@ -1,3 +1,5 @@
+import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme/typography';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { safeBack } from '@/lib/safeBack';
@@ -122,7 +124,7 @@ export default function PasswordEditScreen() {
       Alert.alert('Success', 'Password updated successfully', [
         {
           text: 'OK',
-          onPress: () => safeBack('/(tabs)/profile'),
+          onPress: () => safeBack('/you'),
         },
       ]);
     } catch (err) {
@@ -145,7 +147,7 @@ export default function PasswordEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <SecondaryPageNav onBack={() => safeBack('/(tabs)/profile')} />
+          <SecondaryPageNav onBack={() => safeBack('/you')} />
 
           <View style={styles.bodyContent}>
             {/* 错误提示 */}
@@ -163,10 +165,10 @@ export default function PasswordEditScreen() {
                 Current Password <Text style={styles.required}>*</Text>
               </Text>
               <View style={styles.passwordInputContainer}>
-                <TextInput
+                <TextInput accessibilityLabel="Enter current password"
                   style={styles.passwordInput}
                   placeholder="Enter current password"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.muted}
                   value={currentPassword}
                   onChangeText={(text) => {
                     setCurrentPassword(text);
@@ -177,7 +179,7 @@ export default function PasswordEditScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   onPress={() => setShowCurrentPassword(!showCurrentPassword)}
                   style={styles.eyeButton}
                 >
@@ -196,10 +198,10 @@ export default function PasswordEditScreen() {
                 New Password <Text style={styles.required}>*</Text>
               </Text>
               <View style={styles.passwordInputContainer}>
-                <TextInput
+                <TextInput accessibilityLabel="Enter new password"
                   style={styles.passwordInput}
                   placeholder="Enter new password"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.muted}
                   value={newPassword}
                   onChangeText={(text) => {
                     setNewPassword(text);
@@ -210,7 +212,7 @@ export default function PasswordEditScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   onPress={() => setShowNewPassword(!showNewPassword)}
                   style={styles.eyeButton}
                 >
@@ -229,10 +231,10 @@ export default function PasswordEditScreen() {
                 Confirm New Password <Text style={styles.required}>*</Text>
               </Text>
               <View style={styles.passwordInputContainer}>
-                <TextInput
+                <TextInput accessibilityLabel="Confirm new password"
                   style={styles.passwordInput}
                   placeholder="Confirm new password"
-                  placeholderTextColor="#9CA3AF"
+                  placeholderTextColor={colors.muted}
                   value={confirmPassword}
                   onChangeText={(text) => {
                     setConfirmPassword(text);
@@ -243,7 +245,7 @@ export default function PasswordEditScreen() {
                   autoCapitalize="none"
                   autoCorrect={false}
                 />
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   onPress={() => setShowConfirmPassword(!showConfirmPassword)}
                   style={styles.eyeButton}
                 >
@@ -257,7 +259,7 @@ export default function PasswordEditScreen() {
             </View>
 
             <View style={styles.infoBox}>
-              <Feather name="info" size={16} color={colors.accent} />
+              <Feather name="info" size={16} color={colors.accentText} />
               <Text style={styles.infoText}>
                 Password must be at least 6 characters long.
               </Text>
@@ -265,14 +267,14 @@ export default function PasswordEditScreen() {
             </View>
 
             {/* Save Changes 按钮 */}
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.saveButton, saving && styles.saveButtonDisabled]}
               onPress={handleSave}
               disabled={saving}
               activeOpacity={0.8}
             >
               {saving ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ActivityIndicator size="small" color={colors.surf} />
               ) : (
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               )}
@@ -302,9 +304,9 @@ const styles = StyleSheet.create({
     paddingTop: 16,
   },
   errorBanner: {
-    backgroundColor: '#FEF2F2',
+    backgroundColor: colors.redL,
     padding: 12,
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
     marginBottom: 16,
     borderRadius: 8,
     borderWidth: 1,
@@ -315,8 +317,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
   },
   formCard: {
     backgroundColor: colors.surf,
@@ -324,7 +326,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     padding: 16,
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
     marginBottom: 24,
   },
   inputGroup: {
@@ -334,8 +336,8 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 17,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_500',
-    fontWeight: '400',
+    fontFamily: fonts.medium,
+    fontWeight: '500',
     color: colors.muted,
     marginBottom: 8,
   },
@@ -347,21 +349,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.bg,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.controlBorder,
     borderRadius: 8,
   },
-  passwordInput: {
+  passwordInput: { minHeight: 44,
     flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 13,
     fontSize: 16,
     lineHeight: 22,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
     color: colors.text,
   },
-  eyeButton: {
+  eyeButton: { minHeight: 44,
     padding: 12,
   },
   infoBox: {
@@ -380,30 +382,30 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     letterSpacing: -0.1,
     color: colors.sub,
-    fontFamily: 'JetBrainsMono_400',
+    fontFamily: fonts.regular,
     fontWeight: '400',
     marginLeft: 8,
   },
-  saveButton: {
-    backgroundColor: colors.accent,
+  saveButton: { minHeight: 44,
+    backgroundColor: colors.action,
     borderWidth: 1,
-    borderColor: '#146B59',
-    borderRadius: 8,
+    borderColor: colors.action,
+    borderRadius: 100,
     paddingVertical: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: layout.screenInline,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
-    color: '#FFFFFF',
+    color: colors.onAction,
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: -0.1,
-    fontFamily: 'JetBrainsMono_700',
-    fontWeight: '400',
+    fontFamily: fonts.bold,
+    fontWeight: '700',
   },
 });
 
