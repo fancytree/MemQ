@@ -1,12 +1,14 @@
 import { EdBase } from '@/components/EdBase';
 import {
-  BEAT, BLINK_EVERY, EYE_HOLD, EYE_PLAYLIST, GAZE, InklingCharacter, MOOD_GROUPS, POSES,
-  type InklingMood,
+  ALL_MOODS, BEAT, BLINK_EVERY, EYE_HOLD, EYE_PLAYLIST, GAZE, InklingCharacter, MOOD_GROUPS,
+  POSES, type InklingMood,
 } from '@/components/InklingCharacter';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
 import { colors, componentTokens, layout, radius, type } from '@/theme';
-import { useState } from 'react';
+import { useLocalSearchParams } from 'expo-router';
+import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 /** Preview screen for the Inkling. Every number shown is read back from the motion
@@ -39,7 +41,17 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default function MotionLabScreen() {
+  // `?mood=` makes any state reachable by deep link, which is how this screen gets
+  // checked: tapping twenty-three chips means scrolling the character out of frame.
+  // It has to be an effect, not a `useState` initialiser — navigating to the same
+  // route with a different parameter reuses the mounted screen, so an initialiser
+  // runs once and every later link silently does nothing.
+  const params = useLocalSearchParams<{ mood?: string }>();
   const [mood, setMood] = useState<InklingMood>('idle');
+  useEffect(() => {
+    const found = ALL_MOODS.find((m) => m === params.mood);
+    if (found) setMood(found);
+  }, [params.mood]);
   const [blinkSignal, setBlinkSignal] = useState(0);
   const [beatSignal, setBeatSignal] = useState(0);
   const pose = POSES[mood];
@@ -59,8 +71,10 @@ export default function MotionLabScreen() {
         </Text>
 
         <View style={styles.stage}>
-          <InklingCharacter width={PREVIEW_WIDTH} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} />
+          <MascotCharacter width={PREVIEW_WIDTH} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} />
         </View>
+        {/* The outgoing polygon character, kept alongside while the mascot is wired in
+            so every state can be compared against the motion it is replacing. */}
         <View style={styles.stageWhite}>
           <InklingCharacter width={PREVIEW_WIDTH * 0.6} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} />
         </View>
