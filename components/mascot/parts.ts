@@ -3,7 +3,7 @@
  * orthographic camera, then cropped to its own alpha bounds. `rect` is that crop as
  * [x, y, w, h] fractions of the canvas, so drawing each part at its rect inside a
  * square box reassembles the original render at any size. */
-export type MascotPartName = "body" | "shadow" | "tail" | "ear_L" | "arm_L" | "foot_L" | "ear_R" | "arm_R" | "foot_R" | "eye_white_L" | "pupil_L" | "eye_white_R" | "pupil_R" | "eyes_blink_half" | "eyes_blink_closed" | "eyes_squeezed" | "eyes_focused" | "eyes_wide" | "eyes_sleepy" | "mouth_smile" | "mouth_open" | "mouth_round" | "mouth_sleepy" | "gold_accents" | "zzz" | "laptop" | "book" | "card_check" | "confetti" | "arm_L_reach" | "body_thinking_L" | "arm_R_reach" | "body_thinking_R" | "body_feet" | "scene_learning_complete" | "scene_onboarding" | "scene_streak_reward" | "scene_study_review" | "eye_closed_L" | "eye_closed_R" | "eye_focused_L" | "eye_focused_R" | "eye_glance_L" | "eye_glance_R" | "eye_half_L" | "eye_half_R" | "eye_open_L" | "eye_open_R" | "eye_sleepy_L" | "eye_sleepy_R" | "eye_smile_L" | "eye_smile_R" | "eye_squeezed_L" | "eye_squeezed_R" | "eye_wide_L" | "eye_wide_R" | "eye_wink_L" | "eye_wink_R";
+export type MascotPartName = "body" | "shadow" | "tail" | "ear_L" | "arm_L" | "foot_L" | "ear_R" | "arm_R" | "foot_R" | "eye_white_L" | "pupil_L" | "eye_white_R" | "pupil_R" | "eyes_blink_half" | "eyes_blink_closed" | "eyes_squeezed" | "eyes_focused" | "eyes_wide" | "eyes_sleepy" | "mouth_smile" | "mouth_open" | "mouth_round" | "mouth_sleepy" | "gold_accents" | "zzz" | "laptop" | "book" | "card_check" | "confetti" | "arm_L_reach" | "body_thinking_L" | "arm_R_reach" | "body_thinking_R" | "body_feet" | "scene_learning_complete" | "scene_onboarding" | "scene_streak_reward" | "scene_study_review" | "eye_arc_L" | "eye_arc_R" | "eye_closed_L" | "eye_closed_R" | "eye_focused_L" | "eye_focused_R" | "eye_glance_L" | "eye_glance_R" | "eye_half_L" | "eye_half_R" | "eye_open_L" | "eye_open_R" | "eye_sleepy_L" | "eye_sleepy_R" | "eye_smile_L" | "eye_smile_R" | "eye_squeezed_L" | "eye_squeezed_R" | "eye_wide_L" | "eye_wide_R" | "eye_wink_L" | "eye_wink_R";
 
 export interface MascotPart {
   /** [x, y, w, h], fractions of the square canvas. */
@@ -52,8 +52,10 @@ export const MASCOT_PARTS: Record<MascotPartName, MascotPart> = {
   "scene_onboarding": { rect: [0.160156, 0.222656, 0.679688, 0.427734], src: require('../../assets/mascot/scene_onboarding.png') },
   "scene_streak_reward": { rect: [0.021484, 0.047852, 0.874023, 0.736328], src: require('../../assets/mascot/scene_streak_reward.png') },
   "scene_study_review": { rect: [0.201172, 0.290039, 0.679688, 0.602539], src: require('../../assets/mascot/scene_study_review.png') },
-  "eye_closed_L": { rect: [0.341797, 0.467773, 0.112305, 0.029297], src: require('../../assets/mascot/eye_closed_L.png') },
-  "eye_closed_R": { rect: [0.545898, 0.467773, 0.112305, 0.029297], src: require('../../assets/mascot/eye_closed_R.png') },
+  "eye_arc_L": { rect: [0.317383, 0.421875, 0.161133, 0.068359], src: require('../../assets/mascot/eye_arc_L.png') },
+  "eye_arc_R": { rect: [0.522461, 0.421875, 0.160156, 0.067383], src: require('../../assets/mascot/eye_arc_R.png') },
+  "eye_closed_L": { rect: [0.317383, 0.463867, 0.161133, 0.044922], src: require('../../assets/mascot/eye_closed_L.png') },
+  "eye_closed_R": { rect: [0.522461, 0.463867, 0.160156, 0.044922], src: require('../../assets/mascot/eye_closed_R.png') },
   "eye_focused_L": { rect: [0.321289, 0.420898, 0.151367, 0.130859], src: require('../../assets/mascot/eye_focused_L.png') },
   "eye_focused_R": { rect: [0.527344, 0.420898, 0.151367, 0.130859], src: require('../../assets/mascot/eye_focused_R.png') },
   "eye_glance_L": { rect: [0.317383, 0.385742, 0.161133, 0.163086], src: require('../../assets/mascot/eye_glance_L.png') },
@@ -62,8 +64,8 @@ export const MASCOT_PARTS: Record<MascotPartName, MascotPart> = {
   "eye_half_R": { rect: [0.521484, 0.4375, 0.161133, 0.078125], src: require('../../assets/mascot/eye_half_R.png') },
   "eye_open_L": { rect: [0.317383, 0.394531, 0.161133, 0.164063], src: require('../../assets/mascot/eye_open_L.png') },
   "eye_open_R": { rect: [0.521484, 0.394531, 0.161133, 0.164063], src: require('../../assets/mascot/eye_open_R.png') },
-  "eye_sleepy_L": { rect: [0.341797, 0.530273, 0.112305, 0.039063], src: require('../../assets/mascot/eye_sleepy_L.png') },
-  "eye_sleepy_R": { rect: [0.545898, 0.525391, 0.112305, 0.040039], src: require('../../assets/mascot/eye_sleepy_R.png') },
+  "eye_sleepy_L": { rect: [0.317383, 0.446289, 0.160156, 0.039063], src: require('../../assets/mascot/eye_sleepy_L.png') },
+  "eye_sleepy_R": { rect: [0.521484, 0.446289, 0.161133, 0.039063], src: require('../../assets/mascot/eye_sleepy_R.png') },
   "eye_smile_L": { rect: [0.317383, 0.394531, 0.161133, 0.164063], src: require('../../assets/mascot/eye_smile_L.png') },
   "eye_smile_R": { rect: [0.521484, 0.394531, 0.161133, 0.164063], src: require('../../assets/mascot/eye_smile_R.png') },
   "eye_squeezed_L": { rect: [0.351563, 0.441406, 0.089844, 0.070313], src: require('../../assets/mascot/eye_squeezed_L.png') },

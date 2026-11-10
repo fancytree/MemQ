@@ -35,27 +35,81 @@ scene.render.image_settings.color_mode = 'RGBA'
 DRAWN = ('MESH', 'CURVE', 'FONT')
 every = [o for o in bpy.data.objects if o.type in DRAWN]
 
+# The lid shapes are modelled narrower and thinner than the open eye they replace, so
+# closing an eye visibly shrinks it and the closed shapes read as scratches rather than
+# as eyes. Each is scaled up as a group and given a little extra stroke on top.
+#
+# Uniformly, and about one shared centre. A lid is a curve plus two cap meshes, and
+# scaling each object about its own origin walks the caps off the ends of the curve —
+# which showed up as the lid breaking into a wavy line with two dots under it.
+# Applied in memory for the render only; the .blend keeps its own proportions.
+#   name -> (group scale, extra stroke, extra vertical scale)
+ADJUST = {
+    'arc': (1.44, 1.25, 1.0),
+    'closed': (1.44, 1.25, 1.0),
+}
+
+# The sleepy lids modelled in the file curve the wrong way: their ends turn up, so the
+# pair reads as two cups rather than as lowered lids. The pleased crescent is the right
+# shape — flattened, it becomes a relaxed one — so the sleepy art is derived from it
+# instead, and the file's own sleepy curves go unused.
+#   group -> (name, scale, stroke, vertical scale)
+DERIVED = [
+    ('Eyes | Celebrate', 'sleepy', (1.44, 1.3, 0.55)),
+]
+
 # Group in the .blend -> the name this project knows that expression by.
 GROUPS = {
     'Eyes | Idle': 'open',
     'Eyes | Surprised': 'wide',
     'Eyes | Focused': 'focused',
     'Eyes | Excited': 'squeezed',
-    'Eyes | Sleepy': 'sleepy',
     'Eyes | Blink half': 'half',
     'Eyes | Blink closed': 'closed',
     'Eyes | Thinking': 'glance',
     'Eyes | Happy': 'smile',
+    # The upward crescent: eyes closed in a smile, which is what the reference art
+    # uses for the pleased states rather than an open eye.
+    'Eyes | Celebrate': 'arc',
 }
 # The confused group is not a symmetric pair - it is one open eye beside one winking
 # one - so it is handled on its own below rather than split like the others.
 
 
-def render_to(path, objects):
+def render_to(path, objects, adjust=None):
     for o in every:
         o.hide_render = o not in objects
+    pivot, bevels, basis = None, [], []
+    if adjust:
+        scale, stroke, vscale = adjust
+        # One empty at the group's own centre, everything parented to it, scaled once.
+        pivot = bpy.data.objects.new("__eye_pivot", None)
+        bpy.context.scene.collection.objects.link(pivot)
+        pivot.location = (mean_x(objects), 0.0, mean_z(objects))
+        bpy.context.view_layer.update()
+        for o in objects:
+            basis.append((o, o.matrix_basis.copy(), o.parent,
+                          o.matrix_parent_inverse.copy()))
+            o.parent = pivot
+            o.matrix_parent_inverse = pivot.matrix_world.inverted()
+            if o.type == 'CURVE':
+                bevels.append((o, o.data.bevel_depth))
+                o.data.bevel_depth *= stroke
+        pivot.scale = (scale, scale, scale * vscale)
+        bpy.context.view_layer.update()
     scene.render.filepath = path
     bpy.ops.render.render(write_still=True)
+    if pivot is not None:
+        # Put every transform back exactly as it was; clearing it instead leaves the
+        # pieces at the origin and every later render comes back empty.
+        for o, mb, parent, mpi in basis:
+            o.parent = parent
+            o.matrix_parent_inverse = mpi
+            o.matrix_basis = mb
+        for o, bevel in bevels:
+            o.data.bevel_depth = bevel
+        bpy.data.objects.remove(pivot)
+        bpy.context.view_layer.update()
 
 
 def ink_side(path):
@@ -86,6 +140,17 @@ def mean_x(objects):
         m = o.matrix_world
         xs.extend((m @ v.co).x for v in o.data.vertices)
     return sum(xs) / len(xs) if xs else 0.0
+
+
+def mean_z(objects):
+    """Mean world z of the geometry, for the same reason mean_x exists."""
+    zs = []
+    for o in objects:
+        if o.type != 'MESH':
+            continue
+        m = o.matrix_world
+        zs.extend((m @ v.co).z for v in o.data.vertices)
+    return sum(zs) / len(zs) if zs else 0.0
 
 
 def pieces(parent_name):
@@ -125,7 +190,7 @@ for group, label in GROUPS.items():
         if not objs:
             continue
         tmp = os.path.join(OUT, f"_tmp_{label}_{blender_side}.png")
-        render_to(tmp, objs)
+        render_to(tmp, objs, ADJUST.get(label))
         side, centre = ink_side(tmp)
         if side is None:
             os.remove(tmp)
@@ -141,6 +206,28 @@ for group, label in GROUPS.items():
 
 # The file models the wink on one eye only. Mirroring it about the centre line gives
 # the other side, so a wink can be played on whichever eye the state asks for.
+# Variants derived from another group's geometry, rendered under their own name.
+for group, label, adjust in DERIVED:
+    if group not in bpy.data.objects:
+        continue
+    bundles = pieces(group)
+    left = [o for x, objs in bundles if x < 0 for o in objs]
+    right = [o for x, objs in bundles if x >= 0 for o in objs]
+    for objs in (left, right):
+        objs = [o for o in objs if not o.name.startswith('Pupil')]
+        if not objs:
+            continue
+        tmp = os.path.join(OUT, f"_tmp_{label}.png")
+        render_to(tmp, objs, adjust)
+        side, centre = ink_side(tmp)
+        if side in ('L', 'R'):
+            os.replace(tmp, os.path.join(OUT, f"eye_{label}_{side}.png"))
+            made.append(f"eye_{label}_{side}.png")
+            print(f"[R] eye_{label}_{side}.png  <- derived from {group}  ink centre x={centre:.0f}")
+        else:
+            os.remove(tmp)
+            print(f"[R] derived {label} landed on {side}: not written")
+
 wink_src = [o for o in bpy.data.objects['Eyes | Confused'].children
             if o.type in DRAWN and 'Wink' in o.name]
 for mirror in (False, True):

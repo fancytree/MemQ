@@ -32,7 +32,7 @@ export const ALL_MASCOT_MOODS: MascotMood[] = MASCOT_GROUPS.flatMap((g) => g.moo
  * sides are independent and a wink is just one of them closed. */
 export type EyeArtName =
   | 'open' | 'wide' | 'focused' | 'squeezed' | 'sleepy' | 'closed'
-  | 'glance' | 'smile' | 'half' | 'wink';
+  | 'glance' | 'smile' | 'half' | 'wink' | 'arc';
 export type MouthArtName = 'mouth_smile' | 'mouth_open' | 'mouth_round' | 'mouth_sleepy';
 
 /** A hop, as a trajectory rather than an oscillation: crouch, rise, fall, land, and a
@@ -117,7 +117,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     roll: [0, 2.4, 1.05], tx: [0, 0.005, 1], ty: [0, 0, 0],
     squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.010, squash: 0.06, tilt: 7, splay: 13 },
     lid: 1, eyeScale: 1.04, arm: [11, 17, 1.8],
-    eyes: ['smile', 'squeezed'], eyeHold: [2200, 4200], mouth: 'mouth_open',
+    eyes: ['arc', 'squeezed'], eyeHold: [2200, 4200], mouth: 'mouth_open',
     blink: [2600, 5200], wink: [4200, 9000], earLag: 0.72, tailLag: 1.1,
     gaze: { x: 0, y: -0.1, wanderX: 0.3, wanderY: 0.2, hold: [1600, 3200] },
   },
@@ -220,7 +220,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     scene: 'scene_streak_reward',
     roll: [0, 3.2, 0.62], tx: [0, 0.007, 0.5], ty: [-0.012, 0.012, 0.72],
     squash: [1.012, 0.014, 0.72], lid: 1, eyeScale: 1.04, arm: [0, 0, 0],
-    eyes: 'squeezed', mouth: 'mouth_open', blink: [3000, 6500], earLag: 0, tailLag: 0,
+    eyes: 'arc', mouth: 'mouth_open', blink: [3000, 6500], earLag: 0, tailLag: 0,
     gaze: { x: 0, y: -0.1, wanderX: 0.2, wanderY: 0.12, hold: [1600, 3200] },
     beat: { tx: 0, ty: -0.01, roll: 4, every: [1800, 3400] },
   },

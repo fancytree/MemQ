@@ -47,12 +47,12 @@ type PartStyle = ComponentProps<typeof AnimatedImage>['style'];
 const EYE_ART_PREFIX: Record<EyeArtName, string> = {
   open: 'eye_open', wide: 'eye_wide', focused: 'eye_focused', squeezed: 'eye_squeezed',
   sleepy: 'eye_sleepy', closed: 'eye_closed', glance: 'eye_glance', smile: 'eye_smile',
-  half: 'eye_half', wink: 'eye_wink',
+  half: 'eye_half', wink: 'eye_wink', arc: 'eye_arc',
 };
 /** The shapes that are an open eye, and so want a pupil drawn in them. */
 const EYE_PUPILS: Record<EyeArtName, boolean> = {
   open: true, wide: true, focused: true, glance: true, smile: true, half: true,
-  squeezed: false, sleepy: false, closed: false, wink: false,
+  squeezed: false, sleepy: false, closed: false, wink: false, arc: false,
 };
 function eyePart(art: EyeArtName, side: 'L' | 'R'): MascotPartName {
   return `${EYE_ART_PREFIX[art]}_${side}` as MascotPartName;
