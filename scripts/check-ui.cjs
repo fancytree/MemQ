@@ -1,0 +1,82 @@
+/** Contract tests for color migration and documented accessible foreground/background pairs. */
+const fs = require('node:fs');
+const path = require('node:path');
+const assert = require('node:assert/strict');
+const ts = require('typescript');
+const { colors } = require('./sync-color-tokens.cjs');
+const root = path.resolve(__dirname, '..');
+const failures = [];
+const pairs = [];
+function luminance(hex) {
+  assert.match(hex, /^#[\da-f]{6}$/i, 'Contrast contract requires opaque sRGB tokens');
+  const rgb = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+  const [r, g, b] = rgb.map((v) => v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+function contrast(a, b) {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+// Reference values catch accidental changes to the WCAG calculation.
+assert.equal(contrast('#FFFFFF', '#000000'), 21);
+assert.equal(contrast('#FFFFFF', '#FFFFFF'), 1);
+function check(fg, bg, minimum, role) {
+  const ratio = contrast(colors[fg], colors[bg]);
+  pairs.push({ foreground: fg, background: bg, ratio: +ratio.toFixed(2), minimum, role });
+  if (ratio < minimum) failures.push(`${role}: ${fg}/${bg} = ${ratio.toFixed(2)}:1; needs ${minimum}:1`);
+}
+const lightSurfaces = ['surf', 'bg', 'surfaceSubtle', 'accentL', 'heroBg', 'learningBg', 'familiarBg', 'greenL', 'redL', 'warnL', 'infoL', 'aiL', 'studyGradientStart', 'studyGradientEnd', 'paperToday', 'paperPeach', 'paperLilac', 'paperBlue'];
+for (const bg of lightSurfaces) {
+  for (const fg of ['text', 'sub', 'muted']) check(fg, bg, 4.5, 'Body/helper/placeholder text');
+  check('focus', bg, 3, 'Keyboard focus');
+}
+for (const bg of ['surf', 'bg', 'accentL', 'heroBg', 'learningBg', 'familiarBg']) {
+  check('accentText', bg, 4.5, 'Neutral status text');
+  check('controlBorder', bg, 3, 'Control boundary');
+}
+for (const bg of ['action', 'actionPressed']) check('onAction', bg, 4.5, 'Primary action label');
+check('onAccent', 'accent', 4.5, 'Neutral compatibility action label');
+for (const [fg, bg] of [['green','greenL'], ['red','redL'], ['warn','warnL'], ['info','infoL'], ['ai','aiL'], ['proficientText','proficientBg']]) {
+  check(fg, bg, 4.5, 'Semantic status');
+  check('onDark', fg, 4.5, 'Solid semantic badge');
+}
+check('annotation', 'paperToday', 4.5, 'Handwritten annotation');
+check('surf', 'switchTrack', 3, 'Inactive switch thumb');
+check('surf', 'action', 3, 'Active switch thumb');
+check('disabledText', 'disabledBg', 4.5, 'Disabled control (product choice)');
+
+function walk(dir) {
+  return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const file = path.join(dir, entry.name);
+    return entry.isDirectory() ? walk(file) : [file];
+  });
+}
+let files = 0;
+for (const dir of ['app', 'components', 'context', 'data', 'lib', 'constants', 'theme']) {
+  for (const file of walk(path.join(root, dir)).filter((f) => /\.tsx?$/.test(f) && !f.endsWith('/theme/colors.ts'))) {
+    files++;
+    const source = fs.readFileSync(file, 'utf8');
+    const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    function report(node, message) {
+      const { line } = sf.getLineAndCharacterOfPosition(node.getStart(sf));
+      failures.push(`${path.relative(root, file)}:${line + 1}: ${message}`);
+    }
+    function visit(node) {
+      if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'fontFamily' && /AvenirNext|Space Grotesk/.test(node.initializer.getText(sf))) report(node, 'Use the bundled Manrope/Inter/Caveat font tokens');
+      if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && /^(#[\da-f]{3,8}|rgba?\(.+\)|hsla?\(.+\)|white|black|transparent)$/i.test(node.text)) report(node, `Inline color ${node.text}; use a semantic token`);
+      // Legacy brand and track tokens are never foreground APIs; use semantic ink roles.
+      if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'color' && !ts.isObjectLiteralExpression(node.initializer) && /\bcolors\.(accent|brand|dim)\b/.test(node.initializer.getText(sf))) report(node, 'Use accentText, muted or action for readable text');
+      if (ts.isJsxAttribute(node) && node.name.getText(sf) === 'color' && !ts.isObjectLiteralExpression(node.initializer) && /^{colors\.(accent|brand|dim)}$/.test(node.initializer?.getText(sf) || '')) report(node, 'Essential icons need a contrasting foreground token');
+      ts.forEachChild(node, visit);
+    }
+    visit(sf);
+  }
+}
+// Handwritten CSS uses generated variables; raw colors belong in theme/colors.ts only.
+for (const file of ['app/colors_and_type.css', 'theme/web.css']) {
+  const css = fs.readFileSync(path.join(root, file), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+  if (/#[\da-f]{3,8}\b|rgba?\(|hsla?\(/i.test(css)) failures.push(`${file}: inline CSS color`);
+}
+if (process.argv.includes('--json')) console.log(JSON.stringify({ files, pairs, failures }, null, 2));
+else console.log(`Checked ${files} source files and ${pairs.length} contrast contracts. ${failures.length} failures.`);
+if (failures.length) { console.error(failures.join('\n')); process.exitCode = 1; }

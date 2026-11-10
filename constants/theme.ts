@@ -1,35 +1,34 @@
+import { colors } from '@/theme/colors';
+import { layout, radius, space } from '@/theme/spacing';
+
 export const MemQTheme = {
+  // Compatibility API: values always come from the canonical theme.
   color: {
-    // Core editorial tokens (canonical set)
-    bg: '#FAFAF8',
-    surface: '#FFFFFF',
-    inner: '#F4F2F8',
-    border: '#E5E3DE',
-    accent: '#1A8A72',
-    accentDark: '#146B59',
-    accentLight: '#E6F5F2',
-    textHigh: '#1A1916',
-    text: '#37352F',
-    muted: '#9B9790',
-    danger: '#E03E3E',
-    dangerBg: '#FEF2F2',
-    dangerBorder: '#FCA5A5',
+    bg: colors.bg,
+    surface: colors.surf,
+    inner: colors.accentL,
+    border: colors.border,
+    controlBorder: colors.controlBorder,
+    accent: colors.accent,
+    action: colors.action,
+    actionPressed: colors.actionPressed,
+    onAction: colors.onAction,
+    accentDark: colors.accentDark,
+    accentText: colors.accentText,
+    accentLight: colors.accentL,
+    textHigh: colors.text,
+    text: colors.sub,
+    muted: colors.muted,
+    danger: colors.red,
+    dangerBg: colors.redL,
+    dangerBorder: colors.red,
   },
   radius: {
-    sm: 6,
-    md: 8,
-    lg: 10,
-    xl: 14,
-    xxl: 18,
-    pill: 999,
+    sm: radius.md, md: radius.lg, lg: radius.xl,
+    xl: 14, xxl: 18, pill: radius.pill, // Sheet radii remain legacy implementation extensions.
   },
   space: {
-    xs: 8,
-    sm: 10,
-    md: 12,
-    lg: 16,
-    xl: 20,
-    xxl: 24,
-    pageX: 20,
+    xs: space[2], sm: layout.profile, md: space[3], lg: space[4],
+    xl: layout.goalInline, xxl: layout.screenInline, pageX: layout.screenInline,
   },
 } as const;

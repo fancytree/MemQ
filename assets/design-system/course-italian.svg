@@ -1,0 +1,14 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Italian companion" clip-path="url(#clip0_0_15)">
+<path id="Paper circle" d="M27.5358 2.01345C45.5938 -0.118633 55.1539 13.7399 53.0294 30.7966C55.1539 46.7873 38.1582 56.3817 23.2869 53.1835C6.29116 54.2496 -1.14448 39.325 2.04222 23.3343C0.979986 9.47576 13.7268 2.01345 27.5358 2.01345Z" fill="#FBECE5"/>
+<path id="Espresso cup" d="M10 12H36.1864L34.2467 31.7265C32.307 42.17 15.8192 43.3304 12.9096 31.7265L10 12ZM36.1864 16.6415C51.7043 12 46.855 36.3681 35.2166 34.0473L36.1864 29.4058C42.9755 31.7265 45.8851 18.9623 36.1864 21.2831V16.6415Z" fill="#DC7F69"/>
+<ellipse id="Eye" cx="29.35" cy="25" rx="1.35" ry="2" fill="#242424"/>
+<ellipse id="Eye_2" cx="21.35" cy="25" rx="1.35" ry="2" fill="#242424"/>
+<path id="Saucer and steam" d="M10 41.5316C19.1852 44.8228 29.5185 44.8228 41 41.5316M20.3333 11.9114C17.2716 9.27848 17.2716 6.97468 20.3333 5M29.5185 10.9241C32.5802 8.94937 32.963 6.97468 30.6667 5" stroke-width="1.2" stroke-linecap="round" stroke="#242424"/>
+</g>
+<defs>
+<clipPath id="clip0_0_15">
+<rect width="52" height="52" fill="white"/>
+</clipPath>
+</defs>
+</svg>

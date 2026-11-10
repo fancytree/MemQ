@@ -1,0 +1,15 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Economics companion" clip-path="url(#clip0_0_8)">
+<path id="Paper circle" d="M25.1527 2.04015C44.0595 -2.20424 54.5632 13.7122 52.4625 28.5675C56.664 47.6672 39.858 55.0949 25.1527 52.9727C8.34669 56.156 -2.15707 38.1174 2.04443 25.3842C-0.0563195 11.59 11.4978 0.97905 25.1527 2.04015Z" fill="#EAF4F9"/>
+<path id="Growing chart" d="M9 31L18 29L19 41H10L9 31ZM21 22L30 21L31 41H22L21 22ZM33 13L42 12L43 41H34L33 13Z" fill="#5C9993"/>
+<circle id="Coin" cx="20.5" cy="15.5" r="8.5" fill="#E5B04E"/>
+<path id="Chart feet" d="M17.1724 41L15.1034 46L12 44.75M35.7931 41L37.8621 46L42 44.75" stroke-width="1.1" stroke-linecap="round" stroke="#242424"/>
+<ellipse id="Eye" cx="23" cy="14.5" rx="1" ry="1.5" fill="#242424"/>
+<ellipse id="Eye_2" cx="17" cy="14.5" rx="1" ry="1.5" fill="#242424"/>
+</g>
+<defs>
+<clipPath id="clip0_0_8">
+<rect width="52" height="52" fill="white"/>
+</clipPath>
+</defs>
+</svg>

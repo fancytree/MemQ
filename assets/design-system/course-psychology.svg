@@ -1,0 +1,14 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="52" height="52" viewBox="0 0 52 52" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Psychology companion" clip-path="url(#clip0_0_41)">
+<path id="Paper circle" d="M27.3464 1.00929C44.2298 -1.08181 54.7818 12.5104 52.6714 28.1936C57.9475 44.9224 40.0089 55.3779 24.1808 52.2413C8.35268 55.3779 -0.0889879 39.6947 2.02143 24.0114C-1.1442 11.4648 14.6839 -0.0362572 27.3464 1.00929Z" fill="#F1ECFA"/>
+<path id="Thoughtful brain" d="M26.075 13.7794C20.0654 5.77602 11.0512 11.7785 14.0559 19.7818C7.04483 21.7827 10.0496 31.7868 16.0591 32.7873C13.0543 41.791 24.0718 43.7918 28.0781 36.7889C36.0908 42.7914 45.1051 34.7881 39.0956 29.786C47.1083 23.7835 41.0987 13.7794 36.0908 16.7806C35.0892 9.77769 28.0781 7.77685 26.075 13.7794Z" fill="#8D75BC"/>
+<ellipse id="Eye" cx="31.35" cy="28" rx="1.35" ry="2" fill="#242424"/>
+<ellipse id="Eye_2" cx="23.35" cy="29" rx="1.35" ry="2" fill="#242424"/>
+<path id="Thought lines and feet" d="M23.32 14.0645C19.16 16.9032 18.4667 19.7419 21.24 22.5806M32.68 13C35.4533 17.2581 35.4533 20.0968 32.68 21.5161M21.24 39.6129L18.12 46L15 44.9355M33.72 39.6129L35.8 46L41 44.9355" stroke-width="1.1" stroke-linecap="round" stroke="#242424"/>
+</g>
+<defs>
+<clipPath id="clip0_0_41">
+<rect width="52" height="52" fill="white"/>
+</clipPath>
+</defs>
+</svg>

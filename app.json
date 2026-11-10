@@ -13,24 +13,13 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "5"
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/images/android-icon-foreground.png",
-        "backgroundImage": "./assets/images/android-icon-background.png",
-        "backgroundColor": "#FAFAF8"
-      }
-    },
-    "web": {
-      "bundler": "metro",
-      "output": "single"
+      "buildNumber": "6"
     },
     "plugins": [
+      "expo-dev-client",
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#FAFAF8",
           "resizeMode": "contain"
         }
       ],

@@ -9,6 +9,7 @@ dotenv.config({ path: path.resolve(__dirname, '.env'), override: false, quiet: t
 
 // 从 app.json 读取配置
 const appJson = require('./app.json');
+const nativeColors = require('./theme/native-colors.json');
 
 // 规范化 iOS Public Key（避免复制进 .env 时带引号或首尾空格导致与 Dashboard 不一致）
 function normalizeRcIosKey(raw) {
@@ -40,6 +41,12 @@ if (process.env.NODE_ENV !== 'production') {
 
 module.exports = {
   ...appJson.expo,
+  backgroundColor: nativeColors.background,
+  plugins: appJson.expo.plugins.map((plugin) =>
+    Array.isArray(plugin) && plugin[0] === 'expo-splash-screen'
+      ? [plugin[0], { ...plugin[1], backgroundColor: nativeColors.background }]
+      : plugin
+  ),
   extra: {
     ...appJson.expo.extra,
     // EAS 动态配置需手写 projectId，否则无法关联云端项目
