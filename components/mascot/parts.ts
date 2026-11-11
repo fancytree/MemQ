@@ -78,11 +78,11 @@ export const MASCOT_PARTS: Record<MascotPartName, MascotPart> = {
   "body_feet_s1": { rect: [0.210938, 0.259766, 0.578125, 0.634766], src: require('../../assets/mascot/body_feet_s1.png') },
   "body_feet_s2": { rect: [0.220703, 0.259766, 0.558594, 0.637695], src: require('../../assets/mascot/body_feet_s2.png') },
   "body_feet_s3": { rect: [0.231445, 0.259766, 0.537109, 0.639648], src: require('../../assets/mascot/body_feet_s3.png') },
-  "body_rig": { rect: [0.125, 0.189453, 0.75293, 0.701172], src: require('../../assets/mascot/body_rig.png') },
-  "body_rig_s0": { rect: [0.125, 0.189453, 0.75293, 0.701172], src: require('../../assets/mascot/body_rig_s0.png') },
-  "body_rig_s1": { rect: [0.125, 0.189453, 0.75293, 0.701172], src: require('../../assets/mascot/body_rig_s1.png') },
-  "body_rig_s2": { rect: [0.125, 0.189453, 0.75293, 0.700195], src: require('../../assets/mascot/body_rig_s2.png') },
-  "body_rig_s3": { rect: [0.125, 0.189453, 0.75293, 0.699219], src: require('../../assets/mascot/body_rig_s3.png') },
+  "body_rig": { rect: [0.114258, 0.189453, 0.771484, 0.701172], src: require('../../assets/mascot/body_rig.png') },
+  "body_rig_s0": { rect: [0.114258, 0.189453, 0.771484, 0.701172], src: require('../../assets/mascot/body_rig_s0.png') },
+  "body_rig_s1": { rect: [0.115234, 0.189453, 0.769531, 0.701172], src: require('../../assets/mascot/body_rig_s1.png') },
+  "body_rig_s2": { rect: [0.114258, 0.189453, 0.771484, 0.700195], src: require('../../assets/mascot/body_rig_s2.png') },
+  "body_rig_s3": { rect: [0.115234, 0.189453, 0.769531, 0.699219], src: require('../../assets/mascot/body_rig_s3.png') },
 };
 
 /** Back to front, the standing stack. */

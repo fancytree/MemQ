@@ -136,7 +136,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     lid: 1, eyeScale: 1.06, arm: [5, 21, 2.3],
     eyes: 'squeezed', mouth: 'mouth_open',
     prop: 'gold_accents', propMotion: 'pop',
-    blink: [2100, 4200], wink: [3200, 7000], earLag: 0.85, tailLag: 1.3,
+    blink: [2100, 4200], wink: [2200, 4800], earLag: 0.85, tailLag: 1.3,
     gaze: { x: 0, y: -0.15, wanderX: 0.35, wanderY: 0.2, hold: [900, 1900] },
     beat: { tx: 0, ty: -0.012, roll: 5, every: [1100, 2000] },
   },

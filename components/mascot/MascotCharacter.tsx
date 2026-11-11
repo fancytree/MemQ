@@ -54,6 +54,13 @@ const EYE_PUPILS: Record<EyeArtName, boolean> = {
   open: true, wide: true, focused: true, glance: true, smile: true, half: true,
   squeezed: false, sleepy: false, closed: false, wink: false, arc: false,
 };
+/** A wink is asymmetric on purpose: one eye shuts and the other opens. Leaving the
+ * other on the state's own art makes a winking excited face read as two squints,
+ * since its resting art is already a squeezed eye. */
+function eyeArt(base: EyeArtName, side: 'L' | 'R', wink: 'L' | 'R' | null): EyeArtName {
+  if (!wink) return base;
+  return wink === side ? 'wink' : 'wide';
+}
 function eyePart(art: EyeArtName, side: 'L' | 'R'): MascotPartName {
   return `${EYE_ART_PREFIX[art]}_${side}` as MascotPartName;
 }
@@ -579,12 +586,12 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
         <Animated.View style={[StyleSheet.absoluteFill, eyeGroup]}>
           <Animated.View style={[StyleSheet.absoluteFill, openEyes]}>
             <Animated.View style={[StyleSheet.absoluteFill, fromArt]}>
-              <Eye art={winkSide === 'L' ? 'wink' : eyePair.from} side="L" box={box} pupil={pupilL} />
-              <Eye art={winkSide === 'R' ? 'wink' : eyePair.from} side="R" box={box} pupil={pupilR} />
+              <Eye art={eyeArt(eyePair.from, 'L', winkSide)} side="L" box={box} pupil={pupilL} />
+              <Eye art={eyeArt(eyePair.from, 'R', winkSide)} side="R" box={box} pupil={pupilR} />
             </Animated.View>
             <Animated.View style={[StyleSheet.absoluteFill, toArt]}>
-              <Eye art={winkSide === 'L' ? 'wink' : eyePair.to} side="L" box={box} pupil={pupilL} />
-              <Eye art={winkSide === 'R' ? 'wink' : eyePair.to} side="R" box={box} pupil={pupilR} />
+              <Eye art={eyeArt(eyePair.to, 'L', winkSide)} side="L" box={box} pupil={pupilL} />
+              <Eye art={eyeArt(eyePair.to, 'R', winkSide)} side="R" box={box} pupil={pupilR} />
             </Animated.View>
           </Animated.View>
           <Animated.View style={[StyleSheet.absoluteFill, halfEyes]}>
