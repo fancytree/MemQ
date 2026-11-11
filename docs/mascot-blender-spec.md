@@ -163,3 +163,57 @@ file by seeking to the right frame.
 | Learning Complete | 470–511 |
 | Study Review | 512–559 |
 | Streak Reward | 560–607 |
+
+---
+
+## 8. The next file: one piece, rigged
+
+Everything above describes the cut-out pipeline, where the app composites flat part
+renders and animates them with springs. That pipeline has a ceiling, and we have hit
+it: it cannot deform the body. The legs are the clearest case. They are separate
+meshes that overlap the torso, which is why they render with no seam — the body stops
+at z 0.225 and each foot reaches up to 0.571 — but overlap is not attachment. Swing a
+leg and it slides out from under the body's own fillet, and the join shows. Joining
+the objects does not help: `bpy.ops.object.join()` merges objects, it does not weld
+surfaces, and the result still holds five unconnected shells of 6050, 3010, 3010,
+1490 and 1490 verts. An armature bound to that deforms nothing across the hip.
+
+Welding them after the fact is possible — a voxel remesh does produce one continuous
+surface — and it is the wrong answer. It discards the original topology, inflates the
+mesh from 15k to 19k or 59k verts depending on voxel size, and quantises the boundary
+between the body material and the slightly darker `Clay · feet` into a voxel-sized
+staircase. A character that is one piece should be modelled as one piece.
+
+### What the next file needs
+
+**One continuous mesh** for everything that deforms: torso, both arms, both legs. Not
+five objects overlapping, and not a remesh of five objects — one surface, modelled
+that way, with the fillets where the limbs meet the body built into the geometry.
+Horns and tail are better joined into it too, so they can be weighted and carry
+secondary motion; the eyes and mouth stay separate, because they are swapped rather
+than deformed and the per-eye split already works.
+
+**Material slots on that one mesh** rather than one material per object: the body
+lavender, the horns darker, the feet their own slightly darker tone. The values in
+section 7 are the source of truth and should not be retuned.
+
+**An armature**, weight-painted rather than auto-bound — automatic weights on a smooth
+blob put the body on whichever bone is nearest and the deformation is unusable. A
+workable set is root, spine, head, arm_L/R, leg_L/R, two or three tail bones so it
+trails, and a bone per horn.
+
+**A named action per state**: idle, happy, excited, thinking, focused, surprised,
+sleepy, and the four product moments. Looping ones should return exactly to their
+first pose without repeating a frame at the end.
+
+Keep `Camera | Front` and its orthographic scale of 3.66 unchanged, so whatever comes
+out still lines up with the face art already imported.
+
+### Then rendering
+
+Hand over the .blend rather than rendered animations. With the rig in the file the
+frames can be generated here, at the size and frame count the app actually wants, and
+re-generated when a timing changes — rather than being fixed at whatever was exported.
+A supplied 6-frame 512px lossless WebP measured 1.62 MB; re-encoded lossy at q90 it is
+253 KB with the alpha untouched and a mean RGB difference of 1.9/255, so the encoding
+belongs in the import step, not in the hand-off.
