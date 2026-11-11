@@ -272,3 +272,33 @@ three idle clips to alternate between. Neither is needed to ship.
 - A small JSON: frame rate, and whether it loops.
 
 Budget roughly 40 KB a frame at q90, so a twelve-frame loop is about half a megabyte.
+
+---
+
+## 10. Where instant feedback is actually needed
+
+Read off the product rather than guessed. The character appears in six places.
+
+| Where | What chooses the state | Needs the runtime? |
+| --- | --- | --- |
+| Today hero, `components/ui/TodayHero.tsx` | derived in `app/(tabs)/index.tsx`: thinking while the first fetch is out, curious with no courses, happy when the goal is met, drowsy when nothing is due, idle otherwise | **No** |
+| Quiz answer feedback, `app/quiz.tsx:1163` | right or wrong, the moment the learner taps | **Yes** |
+| Study answer checking, `app/study/[id].tsx` | the same, per card | **Yes** |
+| You, Library, Create, Study headers | nothing; decorative | **No** |
+| Onboarding, Learning Complete, Study Review, Streak Reward | a moment the app enters | **No** |
+| Motion lab | a chip; developer only | **No** |
+
+Only one kind of thing needs composing here, and it is the answer beat. A clip cannot
+land on a tap, cannot ride on top of whatever the character is already doing without
+restarting it, and cannot be scaled - a fifth right answer in a row should kick harder
+than the first. Everything else is a state the app *enters*, which a clip plus a
+cross-fade covers completely.
+
+So the list to generate as video is: **idle, thinking, happy, sleepy, curious** for the
+Today hero, the four product moments, and whatever the decorative spots should hold.
+That is nine clips, and they cover every surface except the two answer-feedback ones.
+
+The answer beat stays here and needs no art of its own: it is a velocity impulse into
+the position and rotation springs applied over whichever clip is playing, plus the
+accents popping on the same impulse. It works the same whether the body underneath is
+a still, a clip, or the rigged model.
