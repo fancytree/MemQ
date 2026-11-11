@@ -220,46 +220,55 @@ belongs in the import step, not in the hand-off.
 
 ---
 
-## 9. Video for the body, runtime for the face
+## 9. Clips carry the character; the runtime carries the reactions
 
-Hands are the case that settles the argument. Posing a hand that reaches, holds and
-lets go is modelling and animation work that does not reduce to translating a cut-out,
-and the measurements say the rendered attempts are not close: over one Blender-exported
-`thinking` clip the frame-to-frame change averages 0.6 to 6.1, while the directly
-generated animation of the same state averages 14 to 17. Three times the motion. The
-generated one deforms the body every frame; the exported one translates a rigid shape.
+Hands settle the argument about who renders what. Over one Blender-exported `thinking`
+clip the frame-to-frame change averages 0.6 to 6.1, while the directly generated
+animation of the same state averages 14 to 17 — three times the motion, because the
+generated one deforms the body every frame and the exported one translates a rigid
+shape. Posing a hand that reaches, holds and lets go is not something a cut-out layer
+can be made to do.
 
-So the body comes from the renderer and the face stays here. That split works because
-the two need different things. A body that squashes, reaches and holds has to be
-authored once and played back. A face has to react — the blink cadence is random so it
-never reads as a loop, the gaze picks a new target on its own interval, the eye art
-changes with state, and a correct answer should land as a beat the moment it happens.
-None of that survives being baked into a clip.
+So a clip is the **whole character, face included**. Nothing is stripped out of it and
+nothing is composited into the face. The runtime adds only what a recorded clip cannot
+have: a reaction to something that just happened.
 
-### What has to come with the clip
+### What the runtime adds
 
-A face drawn on top of a deforming body cannot sit at a fixed spot: the head bobs,
-tilts and scales. So each clip needs a **per-frame face anchor** — the two eye
-positions in the same normalised canvas coordinates the parts already use.
+All of it sits outside the clip, so none of it depends on what the clip contains.
 
-This exports cleanly. `world_to_camera_view` on the eye objects gives exactly those
-coordinates: measured against the current file it returns 0.3986 for the left eye
-where the parts manifest records a pivot of 0.397814, which is the same point. Across
-the happy block the anchor tracks the hop — x 0.3986 to 0.3849 and back, y 0.4767 to
-0.4531 and back — and the small difference between the left and right y carries the
-head's tilt. Four numbers a frame give position, tilt and scale.
+- **A beat on a real event.** A correct answer, a streak landing, a finished session:
+  a velocity impulse into the position and rotation springs, so the character kicks and
+  settles. This is the thing a loop can never do — the loop does not know.
+- **Entry on a state change.** The new clip arrives with a small overshoot rather than
+  starting flat.
+- **Cross-fade between clips**, so a state change is not a cut.
+- **Playback rate**, so one clip can serve two states at different energies.
+- **Accents**, which are already their own parts: the gold marks snap out and overshoot
+  on the same impulse that moves the body, and the sleep Z drifts on its own cycle.
+- **The contact shadow**, which is its own part and responds to the whole-character
+  lift rather than being baked into the clip's own framing.
 
-### Frames, not an animated file
+### What this costs
 
-Ship each clip as a **numbered frame sequence**, not as an animated WebP or a video.
+Blink and gaze become whatever the clip recorded. A short loop will blink on a fixed
+period, which is exactly what the spring model avoided. Two things soften it without
+changing the architecture: vary the playback rate slightly per loop, and supply two or
+three idle clips to alternate between. Neither is needed to ship.
 
-An animated image plays itself, and nothing can ask it which frame is showing — so the
-face overlay cannot be placed, which is the whole point of the anchor. Driving the
-frames here fixes that, and buys two more things: the same clip can play at different
-speeds for different states, and two clips can cross-fade on a state change. It also
-needs no new dependency, since a frame is just another part.
+### What a clip needs to be
 
-Each clip therefore is: frames rendered **without the eyes and mouth**, on the usual
-camera with alpha; and a small JSON with the frame rate, whether it loops, and the
-anchor track. Budget roughly 40 KB a frame at q90, so a twelve-frame loop is about
-half a megabyte.
+- A **numbered frame sequence**, not an animated file. An animated image plays itself
+  and cannot be told to go faster, to start from a particular frame, or to cross-fade,
+  and all three are things the runtime does.
+- Rendered on the usual `Camera | Front`, orthographic scale 3.66, **with alpha**. The
+  earlier Blender exports were `hevc / yuv420p` on black, which leaves dark fringes
+  where the character meets a pale card.
+- At least 576px square, which is 192pt at 3x. The earlier exports were 384.
+- **The same character size in every clip.** Measured across the six exported clips,
+  the horn span runs 152 to 176px and the head width 230 to 265 — a 14% spread, and
+  neither of those changes with pose, so it is drift. Switching states would visibly
+  pop the character. This is a render-setup fix, not a modelling one.
+- A small JSON: frame rate, and whether it loops.
+
+Budget roughly 40 KB a frame at q90, so a twelve-frame loop is about half a megabyte.
