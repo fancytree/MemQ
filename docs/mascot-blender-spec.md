@@ -217,3 +217,49 @@ re-generated when a timing changes — rather than being fixed at whatever was e
 A supplied 6-frame 512px lossless WebP measured 1.62 MB; re-encoded lossy at q90 it is
 253 KB with the alpha untouched and a mean RGB difference of 1.9/255, so the encoding
 belongs in the import step, not in the hand-off.
+
+---
+
+## 9. Video for the body, runtime for the face
+
+Hands are the case that settles the argument. Posing a hand that reaches, holds and
+lets go is modelling and animation work that does not reduce to translating a cut-out,
+and the measurements say the rendered attempts are not close: over one Blender-exported
+`thinking` clip the frame-to-frame change averages 0.6 to 6.1, while the directly
+generated animation of the same state averages 14 to 17. Three times the motion. The
+generated one deforms the body every frame; the exported one translates a rigid shape.
+
+So the body comes from the renderer and the face stays here. That split works because
+the two need different things. A body that squashes, reaches and holds has to be
+authored once and played back. A face has to react — the blink cadence is random so it
+never reads as a loop, the gaze picks a new target on its own interval, the eye art
+changes with state, and a correct answer should land as a beat the moment it happens.
+None of that survives being baked into a clip.
+
+### What has to come with the clip
+
+A face drawn on top of a deforming body cannot sit at a fixed spot: the head bobs,
+tilts and scales. So each clip needs a **per-frame face anchor** — the two eye
+positions in the same normalised canvas coordinates the parts already use.
+
+This exports cleanly. `world_to_camera_view` on the eye objects gives exactly those
+coordinates: measured against the current file it returns 0.3986 for the left eye
+where the parts manifest records a pivot of 0.397814, which is the same point. Across
+the happy block the anchor tracks the hop — x 0.3986 to 0.3849 and back, y 0.4767 to
+0.4531 and back — and the small difference between the left and right y carries the
+head's tilt. Four numbers a frame give position, tilt and scale.
+
+### Frames, not an animated file
+
+Ship each clip as a **numbered frame sequence**, not as an animated WebP or a video.
+
+An animated image plays itself, and nothing can ask it which frame is showing — so the
+face overlay cannot be placed, which is the whole point of the anchor. Driving the
+frames here fixes that, and buys two more things: the same clip can play at different
+speeds for different states, and two clips can cross-fade on a state change. It also
+needs no new dependency, since a frame is just another part.
+
+Each clip therefore is: frames rendered **without the eyes and mouth**, on the usual
+camera with alpha; and a small JSON with the frame rate, whether it loops, and the
+anchor track. Budget roughly 40 KB a frame at q90, so a twelve-frame loop is about
+half a megabyte.
