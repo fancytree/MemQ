@@ -100,6 +100,9 @@ export interface MascotState {
   earLag: number;
   /** A product moment renders as its whole illustration instead of as parts. */
   scene?: MascotPartName;
+  /** `rig` draws the rigged model's single body mesh — torso, arms, legs, horns and
+   * tail in one piece — instead of assembling those from separate parts. */
+  body?: 'rig';
 }
 
 export const MASCOT_STATES: Record<MascotMood, MascotState> = {
@@ -108,6 +111,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   idle: {
     roll: [0, 1.2, 0.44], tx: [0, 0.004, 0.27], ty: [0, 0.006, 0.78],
     squash: [1, 0.013, 0.78], lid: 1, eyeScale: 1, arm: [0, 7, 0.9],
+    body: 'rig',
     eyes: ['open', 'open', 'glance'], eyeHold: [5200, 11000], mouth: 'mouth_smile',
     blink: [4800, 11000], wink: [9000, 19000], earLag: 0.5, tailLag: 0.8,
     gaze: { x: 0, y: 0, wanderX: 0.5, wanderY: 0.35, hold: [2400, 5200] },

@@ -527,6 +527,12 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
 
   // Reaching swaps the torso layer for the composite that has the palm joined to it,
   // and the neutral arm on that side is dropped so the two do not overlap.
+  // The rigged model is one mesh: body, both arms, both legs, horns and tail. It
+  // replaces the whole lower stack, so the separate tail, ears, arms and torso are not
+  // drawn alongside it — they would double. What that costs is the ear lag, tail swing
+  // and arm swing, which were secondary and small; what it buys is the model the
+  // character is actually being animated from.
+  const rigBody = state.body === 'rig';
   const reach = state.reach;
   const torso: MascotPartName = reach === 'L' ? MASCOT_ARM_VARIANTS.thinking.bodyLeft
     : reach === 'R' ? MASCOT_ARM_VARIANTS.thinking.bodyRight
@@ -547,16 +553,17 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     <View accessible={false} pointerEvents="none" style={[{ width: box, height: box }, style]}>
       <Part name="shadow" box={box} style={shadow} />
       <Animated.View style={[StyleSheet.absoluteFill, stage]}>
-        <Hinged name="tail" box={box} out={out} angle="tail" />
-        <Hinged name="ear_L" box={box} out={out} angle="ear" />
-        <Hinged name="ear_R" box={box} out={out} angle="ear" />
-        {posedLegs
+        {rigBody && <Part name="body_rig" box={box} />}
+        {!rigBody && <Hinged name="tail" box={box} out={out} angle="tail" />}
+        {!rigBody && <Hinged name="ear_L" box={box} out={out} angle="ear" />}
+        {!rigBody && <Hinged name="ear_R" box={box} out={out} angle="ear" />}
+        {!rigBody && (posedLegs
           ? LEG_FRAMES.map((name, i) => (
             <LegFrame key={name} name={name} index={i} box={box} out={out} />
           ))
-          : <Part name={torso} box={box} />}
-        {reach !== 'L' && <Hinged name="arm_L" box={box} out={out} angle="armL" />}
-        {reach !== 'R' && <Hinged name="arm_R" box={box} out={out} angle="armR" />}
+          : <Part name={torso} box={box} />)}
+        {!rigBody && reach !== 'L' && <Hinged name="arm_L" box={box} out={out} angle="armL" />}
+        {!rigBody && reach !== 'R' && <Hinged name="arm_R" box={box} out={out} angle="armR" />}
 
         <Animated.View style={[StyleSheet.absoluteFill, eyeGroup]}>
           <Animated.View style={[StyleSheet.absoluteFill, openEyes]}>
