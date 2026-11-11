@@ -102,6 +102,10 @@ const ARM_GAIN = 0.45;
 /** The joined torso, rendered at each leg angle. Degrees between frames must match
  * the STEPS in scripts/rig-mascot-legs.py. */
 const LEG_FRAMES: MascotPartName[] = ['body_feet_s0', 'body_feet_s1', 'body_feet_s2', 'body_feet_s3'];
+/** The same angles on the rigged model, where the legs are bone-deformed rather than
+ * rotated rigidly: the hip stays with the body and only the lower part swings, so the
+ * join holds at angles the cut-out version could not reach. */
+const RIG_LEG_FRAMES: MascotPartName[] = ['body_rig_s0', 'body_rig_s1', 'body_rig_s2', 'body_rig_s3'];
 const LEG_FRAME_DEG = 6;
 
 interface Spring { x: number; v: number; t: number }
@@ -220,7 +224,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     ear: spring(0), tail: spring(0), pop: spring(1),
     clock: 0, armClock: 0, driftClock: 0,
     moodSeen: mood, kickSeen: 0, morphSeen: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, splay: 0, lift: 0 },
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, splay: 0, lift: 0, tilt: 0 },
   });
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, armL: 0, armR: 0, ear: 0, tail: 0, splay: 0,
@@ -327,7 +331,10 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       // The hop's lift lands here rather than on the ty spring: a spring chasing it
       // would round off the launch and swallow the apex.
       ty: (m.ty.x - (rest ? 0 : p.lift)) * box,
-      roll: m.roll.x,
+      // The hop's lean rides on top of the sprung roll rather than through it, for the
+      // same reason the lift does: measured on device, fed through the spring a 16
+      // degree lean arrived as 8.7.
+      roll: m.roll.x + (rest ? 0 : p.tilt),
       sx: m.sx.x, sy: m.sy.x,
       armL: m.armL.x, armR: m.armR.x,
       ear: rest ? 0 : (m.roll.x - m.ear.x) * earLag.value * EAR_SWING,
@@ -553,7 +560,11 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     <View accessible={false} pointerEvents="none" style={[{ width: box, height: box }, style]}>
       <Part name="shadow" box={box} style={shadow} />
       <Animated.View style={[StyleSheet.absoluteFill, stage]}>
-        {rigBody && <Part name="body_rig" box={box} />}
+        {rigBody && (state.hop
+          ? RIG_LEG_FRAMES.map((name, i) => (
+            <LegFrame key={name} name={name} index={i} box={box} out={out} />
+          ))
+          : <Part name="body_rig" box={box} />)}
         {!rigBody && <Hinged name="tail" box={box} out={out} angle="tail" />}
         {!rigBody && <Hinged name="ear_L" box={box} out={out} angle="ear" />}
         {!rigBody && <Hinged name="ear_R" box={box} out={out} angle="ear" />}
@@ -601,8 +612,7 @@ function LegFrame({ name, index, box, out }: {
   name: MascotPartName; index: number; box: number; out: SharedValue<Rendered>;
 }) {
   const style = useAnimatedStyle(() => ({
-    opacity: Math.min(LEG_FRAMES.length - 1,
-      Math.round(out.value.splay / LEG_FRAME_DEG)) === index ? 1 : 0,
+    opacity: Math.min(3, Math.round(out.value.splay / LEG_FRAME_DEG)) === index ? 1 : 0,
   }));
   return <Part name={name} box={box} style={style} />;
 }

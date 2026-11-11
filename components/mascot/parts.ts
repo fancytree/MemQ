@@ -3,7 +3,7 @@
  * orthographic camera, then cropped to its own alpha bounds. `rect` is that crop as
  * [x, y, w, h] fractions of the canvas, so drawing each part at its rect inside a
  * square box reassembles the original render at any size. */
-export type MascotPartName = "body" | "shadow" | "tail" | "ear_L" | "arm_L" | "foot_L" | "ear_R" | "arm_R" | "foot_R" | "eye_white_L" | "pupil_L" | "eye_white_R" | "pupil_R" | "eyes_blink_half" | "eyes_blink_closed" | "eyes_squeezed" | "eyes_focused" | "eyes_wide" | "eyes_sleepy" | "mouth_smile" | "mouth_open" | "mouth_round" | "mouth_sleepy" | "gold_accents" | "zzz" | "laptop" | "book" | "card_check" | "confetti" | "arm_L_reach" | "body_thinking_L" | "arm_R_reach" | "body_thinking_R" | "body_feet" | "scene_learning_complete" | "scene_onboarding" | "scene_streak_reward" | "scene_study_review" | "eye_arc_L" | "eye_arc_R" | "eye_closed_L" | "eye_closed_R" | "eye_focused_L" | "eye_focused_R" | "eye_glance_L" | "eye_glance_R" | "eye_half_L" | "eye_half_R" | "eye_open_L" | "eye_open_R" | "eye_sleepy_L" | "eye_sleepy_R" | "eye_smile_L" | "eye_smile_R" | "eye_squeezed_L" | "eye_squeezed_R" | "eye_wide_L" | "eye_wide_R" | "eye_wink_L" | "eye_wink_R" | "body_feet_s0" | "body_feet_s1" | "body_feet_s2" | "body_feet_s3" | "body_rig";
+export type MascotPartName = "body" | "shadow" | "tail" | "ear_L" | "arm_L" | "foot_L" | "ear_R" | "arm_R" | "foot_R" | "eye_white_L" | "pupil_L" | "eye_white_R" | "pupil_R" | "eyes_blink_half" | "eyes_blink_closed" | "eyes_squeezed" | "eyes_focused" | "eyes_wide" | "eyes_sleepy" | "mouth_smile" | "mouth_open" | "mouth_round" | "mouth_sleepy" | "gold_accents" | "zzz" | "laptop" | "book" | "card_check" | "confetti" | "arm_L_reach" | "body_thinking_L" | "arm_R_reach" | "body_thinking_R" | "body_feet" | "scene_learning_complete" | "scene_onboarding" | "scene_streak_reward" | "scene_study_review" | "eye_arc_L" | "eye_arc_R" | "eye_closed_L" | "eye_closed_R" | "eye_focused_L" | "eye_focused_R" | "eye_glance_L" | "eye_glance_R" | "eye_half_L" | "eye_half_R" | "eye_open_L" | "eye_open_R" | "eye_sleepy_L" | "eye_sleepy_R" | "eye_smile_L" | "eye_smile_R" | "eye_squeezed_L" | "eye_squeezed_R" | "eye_wide_L" | "eye_wide_R" | "eye_wink_L" | "eye_wink_R" | "body_feet_s0" | "body_feet_s1" | "body_feet_s2" | "body_feet_s3" | "body_rig" | "body_rig_s0" | "body_rig_s1" | "body_rig_s2" | "body_rig_s3";
 
 export interface MascotPart {
   /** [x, y, w, h], fractions of the square canvas. */
@@ -79,6 +79,10 @@ export const MASCOT_PARTS: Record<MascotPartName, MascotPart> = {
   "body_feet_s2": { rect: [0.220703, 0.259766, 0.558594, 0.637695], src: require('../../assets/mascot/body_feet_s2.png') },
   "body_feet_s3": { rect: [0.231445, 0.259766, 0.537109, 0.639648], src: require('../../assets/mascot/body_feet_s3.png') },
   "body_rig": { rect: [0.125, 0.189453, 0.75293, 0.701172], src: require('../../assets/mascot/body_rig.png') },
+  "body_rig_s0": { rect: [0.125, 0.189453, 0.75293, 0.701172], src: require('../../assets/mascot/body_rig_s0.png') },
+  "body_rig_s1": { rect: [0.125, 0.189453, 0.75293, 0.701172], src: require('../../assets/mascot/body_rig_s1.png') },
+  "body_rig_s2": { rect: [0.125, 0.189453, 0.75293, 0.700195], src: require('../../assets/mascot/body_rig_s2.png') },
+  "body_rig_s3": { rect: [0.125, 0.189453, 0.75293, 0.699219], src: require('../../assets/mascot/body_rig_s3.png') },
 };
 
 /** Back to front, the standing stack. */

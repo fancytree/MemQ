@@ -131,6 +131,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
    * which is what separates excitement from cheerfulness: it punctuates. */
   excited: {
     roll: [0, 4.5, 5.2], tx: [0, 0.008, 1.1], ty: [0, 0, 0],
+    body: 'rig',
     squash: [1.008, 0.026, 2.3], hop: { height: 0.046, rate: 1.28, crouch: 0.013, squash: 0.075, tilt: 16, splay: 18 },
     lid: 1, eyeScale: 1.06, arm: [5, 21, 2.3],
     eyes: 'squeezed', mouth: 'mouth_open',
@@ -239,6 +240,10 @@ export interface MascotPose {
   /** Upward displacement from a hop, applied kinematically rather than as a spring
    * target: a spring chasing it rounds off the launch and swallows the apex. */
   lift: number;
+  /** The hop's own lean, kinematic for the same reason and measured to need it: fed
+   * through the roll spring it arrived at half size, because the spring runs at
+   * 5 rad/s and the hop drives it at about 8. */
+  tilt: number;
 }
 
 /** Offsetting by the value at t=0 keeps the first frame in the authored rest pose. */
@@ -286,12 +291,13 @@ export function mascotPose(mood: MascotMood, clock: number, out: MascotPose) {
   let squash = s.squash[0] + wave(clock, s.squash[2], 0) * s.squash[1];
   out.lift = 0;
   out.splay = 0;
+  out.tilt = 0;
   if (s.hop) {
     squash *= hopAt(s.hop, clock, out);
     // Both the lean and the legs follow how far off the ground the body is, so they
     // gather on the crouch, open at the apex and close again as it comes down.
     const air = out.lift / s.hop.height;
-    out.roll += air * (s.hop.tilt ?? 0);
+    out.tilt = air * (s.hop.tilt ?? 0);
     out.splay = Math.max(0, air) * (s.hop.splay ?? 0);
   }
   // Volume is roughly preserved: what compresses vertically spreads horizontally.
