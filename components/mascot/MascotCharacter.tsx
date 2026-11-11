@@ -531,13 +531,16 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   const torso: MascotPartName = reach === 'L' ? MASCOT_ARM_VARIANTS.thinking.bodyLeft
     : reach === 'R' ? MASCOT_ARM_VARIANTS.thinking.bodyRight
       : 'body_feet';
-  // A hop swings the legs out, and the torso is re-rendered joined at each angle
-  // rather than having its legs cut off and rotated as layers. Two reasons. The legs
-  // only read as part of the character because of the contact shading where they meet
-  // the body - separated, the silhouettes still match to an IoU of 0.998 and the whole
-  // visible difference is that join. And they are bone-deformed, so the hip stays with
-  // the body and only the lower part swings; rotating a cut-out leg rigidly pivots the
-  // whole stump clear of the outline and it stops reading as a leg.
+  // A hop swings the legs out, and the torso is re-rendered at each angle rather than
+  // having its legs cut off and rotated as layers, so each frame keeps the contact
+  // shading where a leg meets the body.
+  //
+  // The swing is still a rigid rotation. An armature was tried and does nothing here:
+  // the torso and the two legs are three separate meshes, and joining them leaves
+  // three unconnected surfaces in one object - 6050 + 3010 + 3010 verts, no shared
+  // topology at the hip - so a bone has nothing to deform across. Past about eight
+  // degrees the stump therefore swings clear of the body's own fillet and the join
+  // shows. Making this better needs the legs welded into the body in the model.
   const posedLegs = !!state.hop && !reach;
 
   return (

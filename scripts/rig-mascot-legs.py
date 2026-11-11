@@ -1,13 +1,22 @@
 # Rig the joined torso's legs and render them posed.
 #
-# Rotating a leg as a rigid object pivots the whole stump out of the body's outline,
-# so past a few degrees it stops reading as a leg and starts reading as a lozenge
-# parked beside the body. A bone does not have that problem: weighted across the hip,
-# the top of the leg stays with the body and only the lower part swings, which is what
-# lets the swing be large enough to see.
+# THIS DOES NOT WORK, and is kept only so the next person does not try it again.
 #
-# The torso and the two feet are three separate objects in the file, and a bone cannot
-# deform smoothly across an object boundary, so they are joined into one mesh first.
+# The intent was: rotating a leg rigidly pivots the whole stump out of the body's
+# outline, so past a few degrees it reads as a lozenge parked beside the body, whereas
+# a bone weighted across the hip would keep the top with the body and swing only the
+# lower part.
+#
+# The flaw is that joining objects is not welding them. The torso and the two feet are
+# three separate meshes; after bpy.ops.object.join() the single object still contains
+# three unconnected surfaces of 6050, 3010 and 3010 verts, with no shared topology at
+# the hip. Automatic weights therefore give each leg bone only its own island, and the
+# result is identical to rotating the leg rigidly.
+#
+# It passes its own rest-pose check at IoU 1.0, which proves nothing: at rest a rigid
+# rotation and a bone agree by construction. Making this work needs the legs welded
+# into the body in the model, which is modelling work, not a script.
+#
 # All of this happens in memory - the .blend is opened, never written.
 #
 #   blender --background "<parts.blend>" --python scripts/rig-mascot-legs.py -- <out-dir>
