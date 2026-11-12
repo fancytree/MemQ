@@ -2,7 +2,7 @@ import { layout } from '@/theme/spacing';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
 import { EdBase } from '@/components/EdBase';
-import { MemqBuddy } from '@/components/MemqBuddy';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { SectionLabel } from '@/components/SectionLabel';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
@@ -189,7 +189,7 @@ export default function ProfileScreen() {
                 <Text style={[styles.streakUnit, { marginLeft: 'auto' }]}>Best {bestStreak}</Text>
               </View>
             </View>
-            <MemqBuddy size={78} mood={currentStreak > 0 ? 'happy' : 'curious'} />
+            <MascotCharacter width={102} mood={currentStreak > 0 ? 'happy' : 'idle'} />
           </View>
 
           {/* Day cells — 最近 7 天，有学习的天无论 streak 是否连续都高亮 */}

@@ -1,6 +1,6 @@
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
-import { MemqBuddy } from '@/components/MemqBuddy';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, LanguageCardEditor } from '@/components/LanguageCardFields';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -426,7 +426,7 @@ export default function CreateScreen() {
         {/* Empty state */}
         {cards.length === 0 && (
           <View style={styles.empty}>
-            <MemqBuddy size={72} mood="curious" />
+            <MascotCharacter width={94} mood="thinking" />
             <Text style={styles.emptyTitle}>Let’s make it memorable.</Text>
             <Text style={styles.emptyText}>
               Add a topic, a paragraph, or a PDF above. Your cards will land here.

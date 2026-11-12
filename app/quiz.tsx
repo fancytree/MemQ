@@ -1,7 +1,7 @@
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { Icon } from '@/components/Icon';
-import { MemqBuddy } from '@/components/MemqBuddy';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';
 import { LanguageCardData, normalizeLanguageData } from '@/lib/languageCard';
@@ -1160,7 +1160,7 @@ function FeedbackBlock({
 
   return (
     <View style={[fbStyles.block, { backgroundColor: bg, borderColor: `${accent}30` }]}>
-      <MemqBuddy size={58} mood={tone === 'right' ? 'happy' : 'thinking'} />
+      <MascotCharacter width={76} mood={tone === 'right' ? 'happy' : 'thinking'} />
       <View style={fbStyles.copy}>
         <Text style={[fbStyles.heading, { color: accent }]}>
           {tone === 'right' ? 'That one stuck.' : q.mode === 'recall' ? 'Not quite yet.' : 'A useful miss.'}

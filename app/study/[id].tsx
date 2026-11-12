@@ -1,7 +1,7 @@
 import { layout } from '@/theme/spacing';
 import AnswerBackCard from '@/components/AnswerBackCard';
 import FlipCard from '@/components/FlipCard';
-import { MemqBuddy } from '@/components/MemqBuddy';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import StudySettingsModal, { StudySettings } from '@/components/StudySettingsModal';
 import { supabase } from '@/lib/supabase';
 import { updateTermProgressSafe } from '@/lib/updateTermProgress';
@@ -685,7 +685,7 @@ export default function StudySessionScreen() {
             contentContainerStyle={styles.scrollContent}
           >
             <View style={styles.caughtUpContainer}>
-              <MemqBuddy size={122} mood="happy" />
+              <MascotCharacter width={158} mood="happy" />
               <Text style={styles.caughtUpTitle}>Your review queue is clear.</Text>
               <Text style={styles.caughtUpSubtitle}>
                 No reviews due right now. Great job!
@@ -755,7 +755,7 @@ export default function StudySessionScreen() {
         <SafeAreaView style={styles.container} edges={['top']}>
           <View style={styles.summaryContainer}>
             <View style={styles.summaryContent}>
-              <MemqBuddy size={130} mood="happy" />
+              <MascotCharacter width={170} mood="learningComplete" />
               <Text style={styles.summaryTitle}>Look what stuck.</Text>
               <Text style={styles.summaryScore}>
                 {score} / {questions.length}

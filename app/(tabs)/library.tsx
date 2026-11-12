@@ -1,5 +1,5 @@
 import { EdBase } from '@/components/EdBase';
-import { MemqBuddy } from '@/components/MemqBuddy';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { DesignAsset } from '@/components/DesignAsset';
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { loadFromCache, saveToCache } from '@/lib/cache';
@@ -168,7 +168,7 @@ export default function LibraryScreen() {
         </View>}
         renderItem={({ item }) => <LessonGridCard lesson={item} width={cardWidth} fontScale={fontScale} />}
         ListEmptyComponent={<View style={styles.empty}>
-          <MemqBuddy size={82} mood="curious" />
+          <MascotCharacter width={108} mood="onboarding" />
           <Text style={styles.emptyTitle}>A fresh page.</Text>
           <Text style={styles.emptyCopy}>Start with one topic you want to remember.</Text>
           <PrimaryButton label="Make your first lesson" onPress={() => router.push('/create')} />
