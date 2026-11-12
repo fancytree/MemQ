@@ -58,8 +58,16 @@ export interface GazeSpec { x: number; y: number; wanderX: number; wanderY: numb
 export interface BeatSpec { tx: number; ty: number; roll: number; every: [number, number] }
 
 export interface MascotState {
-  /** Which drawn frame this state wears. */
-  frame: MascotFrame;
+  /** The frame this state wears, or the frames it drifts between on its own.
+   *
+   * The first is the primary, and the body, the horns, the tail and the decorations
+   * always come from it: only the face moves between frames. The accents, the badge
+   * and the question mark announce something, and a passing smile during idle is not
+   * an announcement — a character that spontaneously threw up celebration marks every
+   * nine seconds would be lying about what had happened. */
+  frame: MascotFrame | MascotFrame[];
+  /** How long each frame is held before the next, when there is more than one. */
+  frameHold?: [number, number];
   /** [resting, amplitude, rate] for each quantity. */
   roll: [number, number, number];
   tx: [number, number, number];
@@ -91,7 +99,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   /** Alive and doing nothing. Everything here is small; the state has to survive being
    * looked at for a minute without becoming a tic. */
   idle: {
-    frame: 'neutral',
+    frame: ['neutral', 'neutral', 'neutral', 'happy'],
+    frameHold: [6000, 13000],
     roll: [0, 1.2, 0.44], tx: [0, 0.004, 0.27], ty: [0, 0.006, 0.78],
     squash: [1, 0.013, 0.78], lid: 1, eyeScale: 1,
     blink: [4800, 11000], wink: [9000, 19000], hornLag: 0.5, tailLag: 0.8,
@@ -101,7 +110,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   /** Pleased. The hop is small and lands softly — this is contentment, not a party.
    * The frame's eyes are already closed crescents, so it does not blink. */
   happy: {
-    frame: 'happy',
+    frame: ['happy', 'aha'],
+    frameHold: [2600, 5200],
     roll: [0, 2.4, 1.05], tx: [0, 0.005, 1], ty: [0, 0, 0],
     squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.010, squash: 0.06, tilt: 7 },
     lid: 1, eyeScale: 1.04,
@@ -113,7 +123,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   /** Bursting. Faster and higher than happy, and the accents pop on every landing,
    * which is what separates excitement from cheerfulness: it punctuates. */
   excited: {
-    frame: 'aha',
+    frame: ['aha', 'happy'],
+    frameHold: [1400, 2800],
     roll: [0, 4.5, 5.2], tx: [0, 0.008, 1.1], ty: [0, 0, 0],
     squash: [1.008, 0.026, 2.3], hop: { height: 0.046, rate: 1.28, crouch: 0.013, squash: 0.075, tilt: 16 },
     lid: 1, eyeScale: 1.06,
@@ -126,7 +137,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   /** Working something out. Leaning away, looking off, and slow — the rates here are
    * the lowest in the set, because thought reads as unhurried. */
   thinking: {
-    frame: 'thinking',
+    frame: ['thinking', 'focused'],
+    frameHold: [2200, 4200],
     roll: [-8, 4, 0.33], tx: [0, 0.011, 0.3], ty: [0, 0.005, 0.58],
     squash: [1, 0.007, 0.58], lid: 0.92, eyeScale: 1,
     propMotion: 'float',
@@ -176,7 +188,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
 
   /** Peeking in. Rises a little, as though just arrived. */
   onboarding: {
-    frame: 'neutral',
+    frame: ['neutral', 'happy'],
+    frameHold: [4000, 9000],
     roll: [0, 0.9, 0.4], tx: [0, 0.004, 0.3], ty: [0.004, 0.006, 0.62],
     squash: [1, 0.009, 0.62], lid: 1, eyeScale: 1,
     blink: [4000, 9000], hornLag: 0.4, tailLag: 0.7,
@@ -186,7 +199,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   /** Holding up the finished card. A small proud lift and a settle, and the one state
    * that wears the badge. */
   learningComplete: {
-    frame: 'completed',
+    frame: ['completed', 'aha'],
+    frameHold: [2400, 4600],
     roll: [0, 1.6, 0.8], tx: [0, 0.004, 0.7], ty: [-0.004, 0.007, 1.1],
     squash: [1.01, 0.013, 1.1], lid: 1, eyeScale: 1,
     propMotion: 'pop',
@@ -197,7 +211,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
 
   /** Reading. The steadiest thing in the set, barely more than breathing. */
   studyReview: {
-    frame: 'focused',
+    frame: ['focused', 'neutral'],
+    frameHold: [3000, 6500],
     roll: [0, 0.8, 0.36], tx: [0, 0.002, 0.24], ty: [0.002, 0.005, 0.54],
     squash: [1, 0.010, 0.54], lid: 0.95, eyeScale: 1,
     blink: [3200, 7000], hornLag: 0.3, tailLag: 0.45,
@@ -207,7 +222,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   /** The reward. Off the ground entirely, turning slowly — so this one floats rather
    * than hops: it never lands. */
   streakReward: {
-    frame: 'happy',
+    frame: ['happy', 'aha'],
+    frameHold: [1800, 3400],
     roll: [0, 3.2, 0.62], tx: [0, 0.007, 0.5], ty: [-0.012, 0.012, 0.72],
     squash: [1.012, 0.014, 0.72], lid: 1, eyeScale: 1.04,
     propMotion: 'pop',

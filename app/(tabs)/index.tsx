@@ -4,7 +4,7 @@ import { DesignAsset } from '@/components/DesignAsset';
 import { CourseRow } from '@/components/ui/CourseRow';
 import { DailyGoal } from '@/components/ui/DailyGoal';
 import { TodayHero } from '@/components/ui/TodayHero';
-import type { InklingMood } from '@/components/InklingCharacter';
+import type { MascotMood } from '@/components/mascot/MascotCharacter';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
@@ -69,10 +69,10 @@ export default function TodayScreen() {
 
   // The character reacts to where the learner actually stands today.
   const goalMet = dailyGoalCards > 0 && reviewedToday >= dailyGoalCards;
-  const mood: InklingMood = !loaded ? 'thinking'
-    : totalCards === 0 ? 'curious'
+  const mood: MascotMood = !loaded ? 'thinking'
+    : totalCards === 0 ? 'onboarding'
     : goalMet ? 'happy'
-    : totalDue === 0 ? 'drowsy'
+    : totalDue === 0 ? 'sleepy'
     : 'idle';
 
   useEffect(() => {

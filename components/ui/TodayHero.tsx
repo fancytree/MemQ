@@ -1,7 +1,7 @@
 import { colors, componentTokens, elevation, interaction, type } from '@/theme';
 import { Pressable, PressableProps, StyleSheet, Text, View } from 'react-native';
+import { MascotCharacter, type MascotMood } from '../mascot/MascotCharacter';
 import { DesignAsset } from '../DesignAsset';
-import { InklingCharacter, type InklingMood } from '../InklingCharacter';
 
 type TodayHeroProps = Omit<PressableProps, 'children'> & {
   dueCount: number;
@@ -10,12 +10,12 @@ type TodayHeroProps = Omit<PressableProps, 'children'> & {
   actionLabel: string;
   showPlayIcon?: boolean;
   /** How the character should feel about the state of the card. */
-  mood?: InklingMood;
+  mood?: MascotMood;
 };
 
 /** Today 96:762: neutral card with the due count, a time estimate and a pill action.
- * The Inkling deliberately overflows the card's top-right corner, as in the reference.
- */
+ * The character deliberately overflows the card's top-right corner, as in the
+ * reference. It is not mirrored: the tail is drawn on its right and belongs there. */
 export function TodayHero({ dueCount, estimateMinutes, actionLabel, showPlayIcon = true, mood = 'idle', style, ...props }: TodayHeroProps) {
   return (
     <View style={styles.card}>
@@ -28,7 +28,7 @@ export function TodayHero({ dueCount, estimateMinutes, actionLabel, showPlayIcon
           {estimateMinutes === null ? 'Nothing due right now.' : `Estimate· ${estimateMinutes}min`}
         </Text>
       </View>
-      <InklingCharacter width={hero.inklingWidth} mood={mood} style={styles.inkling} />
+      <MascotCharacter width={hero.characterWidth} mood={mood} style={styles.character} />
       <Pressable {...props} accessibilityRole="button"
         accessibilityLabel={props.accessibilityLabel ?? actionLabel}
         style={(state) => [styles.action, state.pressed && styles.actionPressed,
@@ -56,11 +56,10 @@ const styles = StyleSheet.create({
   count: { ...type.dueCount, color: colors.text },
   unit: { ...type.dueLabel, color: colors.text },
   estimate: { ...type.dueEstimate, color: colors.supporting },
-  inkling: {
+  character: {
     position: 'absolute',
-    top: hero.inklingTop,
-    right: hero.inklingRight,
-    transform: [{ scaleX: -1 }],
+    top: hero.characterTop,
+    right: hero.characterRight,
   },
   action: {
     alignSelf: 'flex-start',

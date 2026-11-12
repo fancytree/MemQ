@@ -120,7 +120,7 @@ export default function MotionLabScreen() {
           <Row label="Squash" value={`${pose.squash[0]} ± ${pose.squash[1]}`} />
           {pose.hop && <Row label="Hop" value={`${pct(pose.hop.height)} at ${pose.hop.rate}/s · crouch ${pct(pose.hop.crouch)} · squash ${pose.hop.squash}`} />}
           {pose.shake && <Row label="Shake" value={`${pct(pose.shake[0])} at ${pose.shake[1]} Hz`} />}
-          <Row label="Frame" value={pose.frame} />
+          <Row label="Frame" value={Array.isArray(pose.frame) ? pose.frame.join(' → ') : pose.frame} />
           <Row label="Lid" value={pose.lid >= 1 ? 'open' : `${Math.round(pose.lid * 100)}% open`} />
           <Row label="Eye size" value={pose.eyeScale === 1 ? 'normal' : `${pose.eyeScale}×`} />
           {pose.propMotion && <Row label="Accents" value={pose.propMotion} />}

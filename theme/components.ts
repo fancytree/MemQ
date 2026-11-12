@@ -16,7 +16,7 @@ export const componentTokens = {
     label: type.button,
   },
   // Today redesign 96:762: neutral hero card; the Inkling overflows its top-right corner.
-  todayHero: { minHeight: 223, borderRadius: 24, padding: 18, textGap: 7, backgroundColor: colors.surfaceSubtle, inklingWidth: 192, inklingTop: -57, inklingRight: -20 },
+  todayHero: { minHeight: 223, borderRadius: 24, padding: 18, textGap: 7, backgroundColor: colors.surfaceSubtle, characterWidth: 170, characterTop: -49, characterRight: -7 },
   heroAction: { minHeight: 44, borderRadius: radius.pill, paddingHorizontal: space[6], paddingVertical: 12, gap: space[2], backgroundColor: colors.action, label: type.heroAction },
   profile: { size: 44, borderRadius: radius.pill, backgroundColor: colors.surfaceSubtle, label: type.initial },
   course: { minHeight: 72, illustrationSize: 52, gap: layout.courseInline, textGap: layout.courseText, disclosureWidth: 32, disclosureMinHeight: 44, title: type.courseTitle, meta: type.meta },

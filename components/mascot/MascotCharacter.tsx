@@ -62,6 +62,9 @@ const BLINK_KEYS = [
   { at: 0, lid: 0.05 }, { at: 85, lid: 0.05 }, { at: 170, lid: 1.08 }, { at: 320, lid: null },
 ] as const;
 const DOUBLE_BLINK_CHANCE = 0.14;
+/** How far into a blink the face is swapped. The lid spring reaches shut at about
+ * 60ms and starts back up at 170, so this lands while the eye is closed. */
+const SWAP_AT = 110;
 /** How long one eye stays shut in a wink. Longer than a blink, which is the whole
  * difference: a blink is involuntary and a wink is addressed to someone. */
 const WINK_MS = 420;
@@ -236,7 +239,13 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   const reduceMotion = useReducedMotion();
   const state = MASCOT_STATES[mood];
 
-  const art = useMemo(() => build(state.frame), [state.frame]);
+  // A state may name several frames and drift between them. The first is the one it
+  // is wearing when it arrives, and the one everything but the face comes from.
+  const frames = useMemo(
+    () => (Array.isArray(state.frame) ? state.frame : [state.frame]), [state.frame]);
+  const [face, setFace] = useState<MascotFrame>(frames[0]);
+  useEffect(() => { setFace(frames[0]); }, [frames]);
+  const art = useMemo(() => build(frames[0], face), [frames, face]);
 
   const moodRef = useSharedValue<MascotMood>(mood);
   const lidOverride = useSharedValue<number | null>(null);
@@ -391,6 +400,28 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     blink(timers);
     return () => timers.forEach(clearTimeout);
   }, [blink, blinkSignal, reduceMotion]);
+
+  // Expressions drift on their own, which is the difference between a character and
+  // an illustration that happens to wobble. The change happens behind a blink: a
+  // drawn face cannot be cross-faded into another drawn face without both being half
+  // transparent at once, and swapping on an open eye pops.
+  useEffect(() => {
+    const hold = MASCOT_STATES[mood].frameHold;
+    if (reduceMotion || frames.length < 2 || !hold) return;
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    let i = 0;
+    const schedule = () => {
+      timers.push(setTimeout(() => {
+        blink(timers);
+        i = (i + 1) % frames.length;
+        const next = frames[i];
+        timers.push(setTimeout(() => setFace(next), SWAP_AT));
+        schedule();
+      }, randomMs(hold)));
+    };
+    schedule();
+    return () => timers.forEach(clearTimeout);
+  }, [blink, frames, mood, reduceMotion]);
 
   // A wink: one eye shut on its own interval, and never while the pair is blinking —
   // two overlapping closures read as a glitch, not as a wink.
@@ -578,27 +609,34 @@ function scaleAbout(k: number, at: { dx: number; dy: number }, box: number) {
   ];
 }
 
-/** Sort one frame's paths into the layers that move together, once per frame rather
- * than once per render. */
-function build(frame: MascotFrame) {
-  const parts = MASCOT_ART[frame].parts;
-  const of = (...names: MascotPartName[]) => parts.filter((p) => names.includes(p.name));
-  const one = (name: MascotPartName) => parts.find((p) => p.name === name);
-  const white = { L: one('eyeWhiteL'), R: one('eyeWhiteR') };
-  const closed = { L: one('eyeClosedL'), R: one('eyeClosedR') };
-  const accents = of(...ACCENTS);
-  const badge = of(...BADGE);
+/** Sort a frame's paths into the layers that move together, once per frame rather
+ * than once per render.
+ *
+ * Two frames go in, because only the face drifts. The primary carries the body, the
+ * horns, the tail and the decorations; the face frame carries the eyes and the mouth.
+ * The body geometry is identical across every frame of the set, so the seam that
+ * ought to exist does not. */
+function build(primary: MascotFrame, face: MascotFrame) {
+  const base = MASCOT_ART[primary].parts;
+  const front = MASCOT_ART[face].parts;
+  const of = (src: FigmaPath[], ...names: MascotPartName[]) =>
+    src.filter((p) => names.includes(p.name));
+  const one = (src: FigmaPath[], name: MascotPartName) => src.find((p) => p.name === name);
+  const white = { L: one(front, 'eyeWhiteL'), R: one(front, 'eyeWhiteR') };
+  const closed = { L: one(front, 'eyeClosedL'), R: one(front, 'eyeClosedR') };
+  const accents = of(base, ...ACCENTS);
+  const badge = of(base, ...BADGE);
   // The borrowed lid is drawn where this frame's eye is, not where the sleeping face
   // wears it.
   const lid = { L: moveLid('eyeClosedL', white.L), R: moveLid('eyeClosedR', white.R) };
   return {
-    plate: of('plate'),
-    horns: of('horns'),
-    tail: of('tail', 'tailTip'),
-    body: of('body'),
-    mouth: of('mouth'),
+    plate: of(base, 'plate'),
+    horns: of(base, 'horns'),
+    tail: of(base, 'tail', 'tailTip'),
+    body: of(base, 'body'),
+    mouth: of(front, 'mouth'),
     white, closed, lid,
-    pupil: { L: one('pupilL'), R: one('pupilR') },
+    pupil: { L: one(front, 'pupilL'), R: one(front, 'pupilR') },
     accents, badge,
     accentAt: accents.length ? pivotOf(accents) : { dx: 0, dy: 0 },
     badgeAt: badge.length ? pivotOf(badge) : { dx: 0, dy: 0 },
