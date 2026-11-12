@@ -37,6 +37,15 @@ function pct(n: number) {
   return `${(Math.abs(n) * 100).toFixed(1)}%`;
 }
 
+/** Where a state rests its gaze, in words. Saying it in two halves put an "and" in
+ * front of a state that looks straight up. */
+function look(x: number, y: number) {
+  const across = x === 0 ? '' : x > 0 ? 'right' : 'left';
+  const down = y === 0 ? '' : y < 0 ? 'up' : 'down';
+  if (!across && !down) return 'straight out';
+  return [across, down].filter(Boolean).join(' and ');
+}
+
 function Row({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
@@ -60,11 +69,11 @@ export default function MotionLabScreen() {
   }, [params.mood]);
   const [blinkSignal, setBlinkSignal] = useState(0);
   const [beatSignal, setBeatSignal] = useState(0);
+  const [winkSignal, setWinkSignal] = useState(0);
   const pose = MASCOT_STATES[mood];
   const gaze = pose.gaze;
   const beat = pose.beat;
   const blinkEvery = pose.blink;
-  const eyes = Array.isArray(pose.eyes) ? pose.eyes : [pose.eyes];
 
   return (
     <EdBase scroll={false} bottomInset={0}>
@@ -72,17 +81,17 @@ export default function MotionLabScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>Motion lab</Text>
         <Text style={styles.lede}>
-          Six expressions and four product moments. Posture, rhythm and arm carriage come from
-          the state; the blink, the gaze, the eye art and the beat each run on their own random
-          interval, so no two viewings look alike. A product moment is one illustration and
-          drifts as a unit.
+          Six expressions and four product moments, drawn from eight frames of flat vector
+          art. The frame carries the expression; posture and rhythm come from the state, and
+          the blink, the wink, the gaze and the beat each run on their own random interval, so
+          no two viewings look alike.
         </Text>
 
         <View style={styles.stage}>
-          <MascotCharacter width={PREVIEW_WIDTH} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} />
+          <MascotCharacter width={PREVIEW_WIDTH} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} winkSignal={winkSignal} />
         </View>
         <View style={styles.stageWhite}>
-          <MascotCharacter width={PREVIEW_WIDTH * 0.6} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} />
+          <MascotCharacter width={PREVIEW_WIDTH * 0.6} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} winkSignal={winkSignal} />
         </View>
 
         {MASCOT_GROUPS.map((group) => (
@@ -111,16 +120,15 @@ export default function MotionLabScreen() {
           <Row label="Squash" value={`${pose.squash[0]} ± ${pose.squash[1]}`} />
           {pose.hop && <Row label="Hop" value={`${pct(pose.hop.height)} at ${pose.hop.rate}/s · crouch ${pct(pose.hop.crouch)} · squash ${pose.hop.squash}`} />}
           {pose.shake && <Row label="Shake" value={`${pct(pose.shake[0])} at ${pose.shake[1]} Hz`} />}
-          {pose.scene
-            ? <Row label="Form" value="one illustration, drifting as a unit" />
-            : <Row label="Arms" value={`droop ${signed(pose.arm[0], '°')} · swing ± ${pose.arm[1]}° · ${pose.arm[2]}× · ${pose.reach ? 'reaching' : 'at rest'}`} />}
+          <Row label="Frame" value={pose.frame} />
           <Row label="Lid" value={pose.lid >= 1 ? 'open' : `${Math.round(pose.lid * 100)}% open`} />
           <Row label="Eye size" value={pose.eyeScale === 1 ? 'normal' : `${pose.eyeScale}×`} />
-          <Row label="Eye art" value={eyes.join(', ') + (pose.eyeHold ? ` · held ${secs(pose.eyeHold)}` : '')} />
-          {pose.prop && <Row label="Accent" value={`${pose.prop}, ${pose.propMotion ?? 'static'}`} />}
-          {!pose.scene && <Row label="Ear lag" value={pose.earLag === 0 ? 'rigid' : `${Math.round(pose.earLag * 100)}%`} />}
-          <Row label="Looks" value={`${gaze.x === 0 ? '' : gaze.x > 0 ? 'right ' : 'left '}${gaze.y === 0 ? (gaze.x === 0 ? 'straight out' : '') : gaze.y < 0 ? 'and up' : 'and down'} · held ${secs(gaze.hold)}`} />
+          {pose.propMotion && <Row label="Accents" value={pose.propMotion} />}
+          <Row label="Horn lag" value={pose.hornLag === 0 ? 'rigid' : `${Math.round(pose.hornLag * 100)}%`} />
+          <Row label="Tail lag" value={pose.tailLag === 0 ? 'rigid' : `${Math.round(pose.tailLag * 100)}%`} />
+          <Row label="Looks" value={`${look(gaze.x, gaze.y)} · held ${secs(gaze.hold)}`} />
           <Row label="Blink" value={blinkEvery ? `every ${secs(blinkEvery)}` : 'held, never blinks'} />
+          <Row label="Wink" value={pose.wink ? `every ${secs(pose.wink)}` : 'none'} />
           <Row label="Beat" value={beat ? `${pct(beat.ty)} lift · ${signed(beat.roll, '°')} every ${secs(beat.every)}` : 'none'} />
         </View>
 
@@ -134,6 +142,11 @@ export default function MotionLabScreen() {
             disabled={!beat}
             style={({ pressed }) => [styles.action, !beat && styles.actionDisabled, pressed && styles.actionPressed]}>
             <Text style={[styles.actionText, !beat && styles.actionTextDisabled]}>Beat now</Text>
+          </Pressable>
+          <Pressable accessibilityRole="button" onPress={() => setWinkSignal((n) => n + 1)}
+            disabled={!blinkEvery}
+            style={({ pressed }) => [styles.action, !blinkEvery && styles.actionDisabled, pressed && styles.actionPressed]}>
+            <Text style={[styles.actionText, !blinkEvery && styles.actionTextDisabled]}>Wink now</Text>
           </Pressable>
         </View>
 

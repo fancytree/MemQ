@@ -251,6 +251,7 @@ const body = Object.entries(frames).map(([state, fr]) => {
     + (p.width ? ', width: ' + p.width : '')
     + (p.cap ? ', cap: ' + esc(p.cap) : '')
     + (p.join ? ', join: ' + esc(p.join) : '')
+    + ', box: [' + [p.b.x0, p.b.y0, p.b.x1, p.b.y1].map((n) => Math.round(n * 10) / 10).join(', ') + ']'
     + (p.clip ? ', clip: ' + esc(p.clip) : '')
     + (p.clipD ? ', clipD: ' + esc(p.clipD) : '')
     + ' },').join('\n');
@@ -278,6 +279,11 @@ export type MascotPartName =
 export interface FigmaPath {
   name: MascotPartName;
   d: string;
+  /** The path data's own bounds, x0 y0 x1 y1. Control points are counted, so a curved
+   * shape measures a little large - near enough to hang a pivot on, which is all it
+   * is for: a horn turns about where it meets the head, an eye narrows about its own
+   * centre, and neither wants a number typed in by hand. */
+  box: [number, number, number, number];
   fill?: string;
   stroke?: string;
   width?: number;

@@ -1,76 +1,60 @@
-/** The mascot, drawn as a stack of rendered parts driven by springs.
+/** The mascot, drawn as vector parts driven by springs.
  *
  * Nothing is keyframed. Every frame computes a *target* pose for the current state
  * and a damped spring per quantity chases it, so a state change needs no cross-fade
- * and a discrete accent is injected as velocity rather than tweened. What that used
- * to animate were vector paths; what it animates now are a dozen images, translated,
- * rotated and scaled. The medium changed, the model did not.
+ * and a discrete accent is injected as velocity rather than tweened. That model has
+ * now outlived three media — vector paths, then rendered clay, now vector paths
+ * again — which is the point of keeping it separate from the artwork.
  *
- * Parts were rendered on one square canvas through one orthographic camera and then
- * cropped; `parts.ts` carries each crop as a fraction of that canvas. Drawing every
- * part at its own rectangle inside a square box reassembles the render at any size,
- * so nothing here multiplies by a pixel scale except the box itself.
+ * The artwork is eight Figma frames, imported as named paths by
+ * scripts/import-mascot-figma.cjs. A state names the frame it wears; the frame
+ * carries the expression and the springs carry the life. Everything inside the SVG
+ * is in the artwork's own 256-square space, and only the outer views work in pixels,
+ * so the character is resolution-independent and nothing here multiplies by a scale
+ * except the box itself.
  *
- * Three things this body can do that the outgoing one could not. Its ears are their
- * own parts, so they trail the head instead of being welded into one silhouette. Its
- * accents are their own parts, so they can pop on a beat instead of just sitting
- * there. And its four product moments are whole illustrations, so they drift as one.
+ * Each part that moves on its own gets its own layer, because a React Native view
+ * transform is the cheapest animation available and it cannot reach inside an SVG.
+ * The one exception is the pupil, which has to move *within* its eye: it lives in
+ * the same SVG as the eye white so the white can clip it, and is driven by animated
+ * SVG props instead.
  *
- * One thing it cannot: there is no face turn. The art is authored at a single fixed
- * three-quarter angle, which is what made the solid-of-revolution rebuild redundant.
+ * Three things this body does that the clay one could not: it is a few kilobytes
+ * instead of a few megabytes, it is sharp at any size, and its horns and tail are
+ * separate paths, so they trail the head instead of being welded into one
+ * silhouette. One thing it cannot: there are no arms or legs to swing, because the
+ * design does not have any.
  */
-import { useCallback, useEffect, useRef, useState, type ComponentProps } from 'react';
-import { Image, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
+import {
+  useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentProps,
+} from 'react';
+import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
-  useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue,
+  useAnimatedProps, useAnimatedStyle, useFrameCallback, useReducedMotion, useSharedValue,
   type SharedValue,
 } from 'react-native-reanimated';
+import Svg, { ClipPath, Defs, G, Path } from 'react-native-svg';
 
+import { MASCOT_ART, type FigmaPath, type MascotPartName } from './figma-parts';
 import {
-  MASCOT_STATES, armRate, mascotPose,
-  type EyeArtName, type MascotMood, type MascotPose,
+  MASCOT_STATES, mascotPose,
+  type MascotFrame, type MascotMood, type MascotPose,
 } from './state';
-import {
-  MASCOT_ARM_VARIANTS, MASCOT_PARTS, MASCOT_REFERENCE_GAZE, MASCOT_THINKING_GAZE,
-  type MascotPart, type MascotPartName,
-} from './parts';
 
-const AnimatedImage = Animated.createAnimatedComponent(Image);
-/** Whatever the animated image accepts: a plain image style, or the handle a
+const AnimatedG = Animated.createAnimatedComponent(G);
+/** Whatever an animated view accepts: a plain view style, or the handle a
  * `useAnimatedStyle` returns. Spelling it this way avoids casting at each call. */
-type PartStyle = ComponentProps<typeof AnimatedImage>['style'];
+type AnimStyle = ComponentProps<typeof Animated.View>['style'];
 
-/** Every eye shape exists as its own render per eye, so the two eyes are independent:
- * a wink is simply one side closed while the other stays open, which a piece of art
- * spanning both eyes cannot express at all. Pupils are never baked into these - gaze
- * moves a pupil inside its white every frame. */
-const EYE_ART_PREFIX: Record<EyeArtName, string> = {
-  open: 'eye_open', wide: 'eye_wide', focused: 'eye_focused', squeezed: 'eye_squeezed',
-  sleepy: 'eye_sleepy', closed: 'eye_closed', glance: 'eye_glance', smile: 'eye_smile',
-  half: 'eye_half', wink: 'eye_wink', arc: 'eye_arc',
-};
-/** The shapes that are an open eye, and so want a pupil drawn in them. */
-const EYE_PUPILS: Record<EyeArtName, boolean> = {
-  open: true, wide: true, focused: true, glance: true, smile: true, half: true,
-  squeezed: false, sleepy: false, closed: false, wink: false, arc: false,
-};
-/** A wink is asymmetric on purpose: one eye shuts and the other opens. Leaving the
- * other on the state's own art makes a winking excited face read as two squints,
- * since its resting art is already a squeezed eye. */
-function eyeArt(base: EyeArtName, side: 'L' | 'R', wink: 'L' | 'R' | null): EyeArtName {
-  if (!wink) return base;
-  return wink === side ? 'wink' : 'wide';
-}
-function eyePart(art: EyeArtName, side: 'L' | 'R'): MascotPartName {
-  return `${EYE_ART_PREFIX[art]}_${side}` as MascotPartName;
-}
+/** The side of the square the artwork is drawn on. */
+const VIEW = 256;
 
-/** [frequency, damping] per quantity. Under-damped squash is what makes a clay body
- * read as soft; a stiff lid makes a blink snap; a loose ear trails and wobbles. */
+/** [frequency, damping] per quantity. Under-damped squash is what makes a soft body
+ * read as soft; a stiff lid makes a blink snap; a loose horn trails and wobbles. */
 const SPRING = {
   roll: [5, 0.9], tx: [3.5, 1], ty: [4, 1], squash: [9, 0.72],
-  lid: [26, 1], eye: [9, 0.85], gaze: [13, 1], arm: [6, 0.75],
-  ear: [7.5, 0.5], pop: [12, 0.52],
+  lid: [26, 1], eye: [9, 0.85], gaze: [13, 1],
+  lag: [7.5, 0.5], pop: [12, 0.52],
 } as const;
 const SUBSTEP = 1 / 120;
 
@@ -82,38 +66,39 @@ const DOUBLE_BLINK_CHANCE = 0.14;
  * difference: a blink is involuntary and a wink is addressed to someone. */
 const WINK_MS = 420;
 
-/** Idle drift of the pupils, in canvas fractions. */
-const EYE_DRIFT = { ax: 0.0022, rx: 0.47, bx: 0.0008, rx2: 1.13, ay: 0.0014, ry: 0.63 } as const;
-/** How far the pupils travel for a full unit of gaze. */
-const GAZE_REACH = { x: 0.013, y: 0.010 } as const;
-/** Where the character meets the ground. Squash pivots here, not at the centre, or
- * the body sinks into the floor as it compresses. */
-const GROUND = { x: 0.5, y: 0.9 } as const;
-/** Blink frame thresholds, as fractions of the state's *own* resting lid. A state
- * that sits half-lidded is squinting, not blinking, and must not be stuck in the
- * half-blink frame merely for resting below an absolute number. */
-const LID_CLOSED = 0.42;
-const LID_HALF = 0.78;
-/** How far the trailing ear and tail angles are amplified before they are drawn. */
-const EAR_SWING = 2.4;
+/** Idle drift of the pupils, in artwork units. */
+const EYE_DRIFT = { ax: 0.56, rx: 0.47, bx: 0.20, rx2: 1.13, ay: 0.36, ry: 0.63 } as const;
+/** How far the pupils travel for a full unit of gaze, in artwork units. */
+const GAZE_REACH = { x: 3.3, y: 2.6 } as const;
+/** Where the character meets the ground: the bottom of the body, on its centre line.
+ * Squash pivots here, not at the middle, or the body sinks into the floor as it
+ * compresses. */
+const GROUND = { x: 124, y: 216 } as const;
+/** Below this fraction of the state's own resting lid, the eye is drawn shut instead
+ * of narrowed. A state that rests half-lidded is squinting, not blinking, which is
+ * why the threshold is relative rather than absolute. */
+const LID_CLOSED = 0.3;
+/** How far the lid can open past its rest, so a blink comes back with a flick. */
+const LID_MAX = 1.15;
+/** How far the trailing horn and tail angles are amplified before they are drawn. */
+const HORN_SWING = 2.0;
 const TAIL_SWING = 3.2;
-/** One rise of a drifting prop: how long it takes and how far it travels. */
+/** One rise of a drifting decoration: how long it takes and how far it travels. */
 const DRIFT_MS = 2600;
-const DRIFT_RISE = 0.05;
-/** How much the shadow shrinks and fades per unit of lift. */
-const SHADOW_FALLOFF = 9;
-/** The arms render in front of the torso now, so a swing is visible without having to
- * clear the silhouette. It is still scaled back: the arm meets a modelled shoulder and
- * a large rotation walks the join off the body. */
-const ARM_GAIN = 0.45;
-/** The joined torso, rendered at each leg angle. Degrees between frames must match
- * the STEPS in scripts/rig-mascot-legs.py. */
-const LEG_FRAMES: MascotPartName[] = ['body_feet_s0', 'body_feet_s1', 'body_feet_s2', 'body_feet_s3'];
-/** The same angles on the rigged model, where the legs are bone-deformed rather than
- * rotated rigidly: the hip stays with the body and only the lower part swings, so the
- * join holds at angles the cut-out version could not reach. */
-const RIG_LEG_FRAMES: MascotPartName[] = ['body_rig_s0', 'body_rig_s1', 'body_rig_s2', 'body_rig_s3'];
-const LEG_FRAME_DEG = 6;
+const DRIFT_RISE = 16;
+/** A floating decoration bobs rather than leaving: amplitude in artwork units. */
+const FLOAT_RISE = 5;
+
+/** The decorations, and which group each belongs to. The badge pops about itself; the
+ * accents, question mark and z's pop, bob or drift about theirs. */
+const ACCENTS: MascotPartName[] = ['accent', 'question', 'zzz'];
+const BADGE: MascotPartName[] = ['badge', 'check'];
+
+/** A closed lid, for a frame whose own eyes are open. It is the sleeping frame's arc
+ * — a lid coming down, where the happy frame's curves up into a smile — moved to sit
+ * on whichever eye it is covering, since the sleeping face is drawn 19 units lower
+ * than the rest. */
+const LID_ART = MASCOT_ART.sleepy.parts.filter((p) => p.name.startsWith('eyeClosed'));
 
 interface Spring { x: number; v: number; t: number }
 function spring(x: number): Spring { return { x, v: 0, t: x }; }
@@ -131,121 +116,156 @@ function randomMs([min, max]: readonly [number, number]) {
   return min + Math.random() * (max - min);
 }
 
+/** Where a part turns, as pixels from the box's centre. A view transform rotates and
+ * scales about its own centre, so a pivot is reached, used and undone. */
+function pivot(x: number, y: number, box: number) {
+  return { dx: (x / VIEW - 0.5) * box, dy: (y / VIEW - 0.5) * box };
+}
+function centre(parts: FigmaPath[]) {
+  const x0 = Math.min(...parts.map((p) => p.box[0]));
+  const y0 = Math.min(...parts.map((p) => p.box[1]));
+  const x1 = Math.max(...parts.map((p) => p.box[2]));
+  const y1 = Math.max(...parts.map((p) => p.box[3]));
+  return { x: (x0 + x1) / 2, y: (y0 + y1) / 2 };
+}
+/** The first point of a path, which for the tail is exactly where it leaves the body
+ * and so exactly where it should swing from. */
+function start(part: FigmaPath) {
+  const m = /^M\s*(-?[\d.]+)[\s,]+(-?[\d.]+)/.exec(part.d);
+  return m ? { x: Number(m[1]), y: Number(m[2]) } : centre([part]);
+}
+
 interface Motion {
   roll: Spring; tx: Spring; ty: Spring; sx: Spring; sy: Spring;
-  lid: Spring; eyeScale: Spring; gazeX: Spring; gazeY: Spring;
-  morph: Spring; armL: Spring; armR: Spring; ear: Spring; tail: Spring; pop: Spring;
-  clock: number; armClock: number; driftClock: number;
+  lid: Spring; eye: Spring; gazeX: Spring; gazeY: Spring;
+  horn: Spring; tail: Spring; pop: Spring;
+  clock: number; driftClock: number;
   /** Everything crossing from JS arrives as a counter this worklet compares against,
-   * never as a field JS writes into this object: writing into an object already handed
-   * to a worklet is unsupported and silently unreliable. */
-  moodSeen: MascotMood; kickSeen: number; morphSeen: number;
+   * never as a field JS writes into this object: writing into an object already
+   * handed to a worklet is unsupported and silently unreliable. */
+  moodSeen: MascotMood; kickSeen: number;
   pose: MascotPose;
 }
 interface Rendered {
   tx: number; ty: number; roll: number; sx: number; sy: number;
-  armL: number; armR: number; ear: number; tail: number;
-  /** Degrees the legs are swung out; the torso frames are chosen from it. */
-  splay: number;
+  /** Degrees the horns and the tail trail the body's lean by. */
+  horn: number; tail: number;
+  /** Pupil offset, in artwork units. */
   gx: number; gy: number;
-  esx: number; esy: number;
-  morph: number;
+  eye: number;
   /** Where the lid is now, and where this state rests it. */
   lid: number; lidRest: number;
-  lift: number;
-  /** Scale of a popping prop, and rise/fade position of a drifting one. */
-  pop: number; drift: number;
+  /** Scale of a popping decoration, and the rise of a drifting or bobbing one. */
+  pop: number; drift: number; float: number;
 }
 
-function partStyle(part: MascotPart, box: number) {
-  const [x, y, w, h] = part.rect;
-  return { position: 'absolute' as const, left: x * box, top: y * box, width: w * box, height: h * box };
-}
-/** Offset from a part's own centre to its pivot: what a rotation about the pivot has
- * to translate by, since a transform turns about the centre. */
-function pivotOffset(part: MascotPart, box: number) {
-  const [x, y, w, h] = part.rect;
-  const p = part.pivot ?? [x + w / 2, y + h / 2];
-  return { dx: (p[0] - (x + w / 2)) * box, dy: (p[1] - (y + h / 2)) * box };
+function Shape({ part, clip }: { part: FigmaPath; clip?: string }) {
+  return (
+    <Path
+      d={part.d}
+      // A stroked path carries no fill in the export, and SVG's own default fill is
+      // black, so the absence has to be said out loud.
+      fill={part.fill ?? 'none'}
+      stroke={part.stroke}
+      strokeWidth={part.width}
+      strokeLinecap={part.cap as 'round' | undefined}
+      strokeLinejoin={part.join as 'round' | undefined}
+      clipPath={clip}
+    />
+  );
 }
 
-function Part({ name, box, style }: { name: MascotPartName; box: number; style?: PartStyle }) {
-  const part = MASCOT_PARTS[name];
-  return <AnimatedImage source={part.src} style={[partStyle(part, box), style]} />;
-}
-
-/** A part that turns about the point where it meets the body: an arm at its shoulder,
- * an ear at its root. */
-function Hinged({ name, box, out, angle }: {
-  name: MascotPartName; box: number; out: SharedValue<Rendered>;
-  /** Names the field to read rather than being a function that reads it: a plain
-   * callback cannot be called from the UI runtime, and passing one throws on the
-   * first frame with "Tried to synchronously call a Remote Function". */
-  angle: 'armL' | 'armR' | 'ear' | 'tail';
+/** One still layer of the stack: a transparent SVG the size of the box, holding
+ * whichever parts move together, under whatever animated style drives them. */
+function Layer({ box, parts, style }: {
+  box: number; parts: FigmaPath[]; style?: AnimStyle;
 }) {
-  const part = MASCOT_PARTS[name];
-  const { dx, dy } = pivotOffset(part, box);
-  const style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: dx }, { translateY: dy },
-      { rotate: `${out.value[angle]}deg` },
-      { translateX: -dx }, { translateY: -dy },
-    ],
-  }));
-  return <AnimatedImage source={part.src} style={[partStyle(part, box), style]} />;
+  if (!parts.length) return null;
+  return (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
+      <Svg width={box} height={box} viewBox={`0 0 ${VIEW} ${VIEW}`}>
+        {parts.map((p, i) => <Shape key={i} part={p} />)}
+      </Svg>
+    </Animated.View>
+  );
 }
 
-export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, style }: {
+/** One open eye: the white, and the pupil clipped to it.
+ *
+ * The pupil is the only thing in the character that has to move inside another part
+ * rather than with it, so it is the only thing driven through animated SVG props.
+ * The clip matters for more than tidiness: the focused frame draws a whole disc and
+ * lets the brow cut the top off it, so an unclipped pupil there rides up over the
+ * brow and the squint disappears. */
+function OpenEye({ box, white, pupil, out, clipId, style }: {
+  box: number; white: FigmaPath; pupil?: FigmaPath;
+  out: SharedValue<Rendered>; clipId: string; style: AnimStyle;
+}) {
+  const gaze = useAnimatedProps(() => ({
+    transform: `translate(${out.value.gx} ${out.value.gy})`,
+  }));
+  return (
+    <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
+      <Svg width={box} height={box} viewBox={`0 0 ${VIEW} ${VIEW}`}>
+        <Defs><ClipPath id={clipId}><Path d={white.d} /></ClipPath></Defs>
+        <Shape part={white} />
+        {pupil && (
+          <AnimatedG animatedProps={gaze}>
+            <Shape part={pupil} clip={`url(#${clipId})`} />
+          </AnimatedG>
+        )}
+      </Svg>
+    </Animated.View>
+  );
+}
+
+export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, style }: {
   width: number;
   mood?: MascotMood;
   /** Increment to blink right now, regardless of the state's cadence. */
   blinkSignal?: number;
   /** Increment to fire the state's beat right now. */
   beatSignal?: number;
+  /** Increment to wink right now. */
+  winkSignal?: number;
   style?: StyleProp<ViewStyle>;
 }) {
   const box = width;
+  // React's own id carries colons, which an SVG url(#...) reference cannot hold.
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
   const reduceMotion = useReducedMotion();
   const state = MASCOT_STATES[mood];
+
+  const art = useMemo(() => build(state.frame), [state.frame]);
 
   const moodRef = useSharedValue<MascotMood>(mood);
   const lidOverride = useSharedValue<number | null>(null);
   const gazeAim = useSharedValue({ x: state.gaze.x, y: state.gaze.y });
   const kickSignal = useSharedValue(0);
-  const morphSignal = useSharedValue(0);
-  const earLag = useSharedValue(state.earLag);
+  const hornLag = useSharedValue(state.hornLag);
   const tailLag = useSharedValue(state.tailLag);
 
-  const first = Array.isArray(state.eyes) ? state.eyes[0] : state.eyes;
-  const [eyePair, setEyePair] = useState<{ from: EyeArtName; to: EyeArtName }>(
-    () => ({ from: first, to: first }),
-  );
-  const eyeIndex = useRef(0);
   /** Which eye, if either, is closed on its own right now. */
   const [winkSide, setWinkSide] = useState<'L' | 'R' | null>(null);
 
   const motion = useSharedValue<Motion>({
     roll: spring(0), tx: spring(0), ty: spring(0), sx: spring(1), sy: spring(1),
-    lid: spring(1), eyeScale: spring(1), gazeX: spring(0), gazeY: spring(0),
-    morph: spring(1), armL: spring(0), armR: spring(0),
-    ear: spring(0), tail: spring(0), pop: spring(1),
-    clock: 0, armClock: 0, driftClock: 0,
-    moodSeen: mood, kickSeen: 0, morphSeen: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, arm: 0, armSwing: 0, splay: 0, lift: 0, tilt: 0 },
+    lid: spring(1), eye: spring(1), gazeX: spring(0), gazeY: spring(0),
+    horn: spring(0), tail: spring(0), pop: spring(1),
+    clock: 0, driftClock: 0,
+    moodSeen: mood, kickSeen: 0,
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0 },
   });
   const out = useSharedValue<Rendered>({
-    tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, armL: 0, armR: 0, ear: 0, tail: 0, splay: 0,
-    gx: 0, gy: 0, esx: 1, esy: 1, morph: 1, lid: 1, lidRest: 1, lift: 0, pop: 1, drift: 0,
+    tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, horn: 0, tail: 0,
+    gx: 0, gy: 0, eye: 1, lid: 1, lidRest: 1, pop: 1, drift: 0, float: 0,
   });
 
   useEffect(() => {
     moodRef.value = mood;
-    eyeIndex.current = 0;
-    earLag.value = MASCOT_STATES[mood].earLag;
+    hornLag.value = MASCOT_STATES[mood].hornLag;
     tailLag.value = MASCOT_STATES[mood].tailLag;
-  }, [earLag, mood, moodRef, tailLag]);
-
-  useEffect(() => { morphSignal.value += 1; }, [eyePair.to, morphSignal]);
+  }, [hornLag, mood, moodRef, tailLag]);
 
   useFrameCallback((frame) => {
     'worklet';
@@ -262,7 +282,6 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       m.driftClock = 0;
     }
     m.clock += rest ? 0 : dt;
-    m.armClock += rest ? 0 : dt * armRate(moodRef.value);
     m.driftClock = rest ? 0 : (m.driftClock + dt * 1000) % DRIFT_MS;
 
     mascotPose(moodRef.value, m.clock, m.pose);
@@ -274,23 +293,15 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     m.sx.t = rest ? 1 : p.sx;
     m.sy.t = rest ? 1 : p.sy;
     m.lid.t = rest ? 1 : (lidOverride.value ?? p.lid);
-    m.eyeScale.t = rest ? 1 : p.eyeScale;
+    m.eye.t = rest ? 1 : p.eyeScale;
     m.gazeX.t = rest ? 0 : gazeAim.value.x;
     m.gazeY.t = rest ? 0 : gazeAim.value.y;
-    // The ear chases the body's lean on a looser, wobblier spring; what is drawn is
-    // the gap between them, so an ear trails on the way out and overshoots coming back.
-    m.ear.t = m.roll.x;
+    // The horns and tail chase the body's lean on a looser, wobblier spring; what is
+    // drawn is the gap between them, so they trail on the way out and overshoot
+    // coming back.
+    m.horn.t = m.roll.x;
     m.tail.t = m.roll.x;
     m.pop.t = 1;
-    m.morph.t = 1;
-    if (morphSignal.value !== m.morphSeen) {
-      m.morphSeen = morphSignal.value;
-      m.morph.x = 0; m.morph.v = 0;
-    }
-
-    const swing = rest ? 0 : wave(m.armClock, 1, 0) * p.armSwing;
-    m.armL.t = rest ? 0 : -(p.arm + swing) * ARM_GAIN;
-    m.armR.t = rest ? 0 : (p.arm - swing) * ARM_GAIN;
 
     // A beat is a velocity impulse, so it kicks and settles instead of tweening. The
     // count is the number fired since the last frame, so two landing in one frame
@@ -303,7 +314,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
         m.tx.v += beat.tx * beats;
         m.ty.v += beat.ty * beats;
         m.roll.v += beat.roll * beats;
-        // The accents restart their pop on the same impulse that moves the body.
+        // The decorations restart their pop on the same impulse that moves the body.
         m.pop.x = 0; m.pop.v = 0;
       }
     }
@@ -317,14 +328,11 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       step(m.sx, SPRING.squash[0], SPRING.squash[1], h);
       step(m.sy, SPRING.squash[0], SPRING.squash[1], h);
       step(m.lid, SPRING.lid[0], SPRING.lid[1], h);
-      step(m.eyeScale, SPRING.eye[0], SPRING.eye[1], h);
+      step(m.eye, SPRING.eye[0], SPRING.eye[1], h);
       step(m.gazeX, SPRING.gaze[0], SPRING.gaze[1], h);
       step(m.gazeY, SPRING.gaze[0], SPRING.gaze[1], h);
-      step(m.morph, SPRING.eye[0], SPRING.eye[1], h);
-      step(m.armL, SPRING.arm[0], SPRING.arm[1], h);
-      step(m.armR, SPRING.arm[0], SPRING.arm[1], h);
-      step(m.ear, SPRING.ear[0], SPRING.ear[1], h);
-      step(m.tail, SPRING.ear[0], SPRING.ear[1], h);
+      step(m.horn, SPRING.lag[0], SPRING.lag[1], h);
+      step(m.tail, SPRING.lag[0], SPRING.lag[1], h);
       step(m.pop, SPRING.pop[0], SPRING.pop[1], h);
     }
 
@@ -338,26 +346,21 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       // The hop's lift lands here rather than on the ty spring: a spring chasing it
       // would round off the launch and swallow the apex.
       ty: (m.ty.x - (rest ? 0 : p.lift)) * box,
-      // The hop's lean rides on top of the sprung roll rather than through it, for the
-      // same reason the lift does: measured on device, fed through the spring a 16
-      // degree lean arrived as 8.7.
+      // The hop's lean rides on top of the sprung roll rather than through it, for
+      // the same reason the lift does: measured on device, fed through the spring a
+      // 16 degree lean arrived as 8.7.
       roll: m.roll.x + (rest ? 0 : p.tilt),
       sx: m.sx.x, sy: m.sy.x,
-      armL: m.armL.x, armR: m.armR.x,
-      ear: rest ? 0 : (m.roll.x - m.ear.x) * earLag.value * EAR_SWING,
+      horn: rest ? 0 : (m.roll.x - m.horn.x) * hornLag.value * HORN_SWING,
       tail: rest ? 0 : (m.roll.x - m.tail.x) * tailLag.value * TAIL_SWING,
-      // The legs follow the trajectory, not a spring: they are weightless in the air
-      // and the moment they are under the body again they have to be straight.
-      splay: rest ? 0 : p.splay,
-      gx: (m.gazeX.x * GAZE_REACH.x + driftX) * box,
-      gy: (m.gazeY.x * GAZE_REACH.y + driftY) * box,
-      esx: m.eyeScale.x, esy: m.eyeScale.x,
-      morph: Math.min(1, Math.max(0, m.morph.x)),
+      gx: m.gazeX.x * GAZE_REACH.x + driftX,
+      gy: m.gazeY.x * GAZE_REACH.y + driftY,
+      eye: m.eye.x,
       lid: m.lid.x,
       lidRest: rest ? 1 : Math.max(p.lid, 0.08),
-      lift: rest ? 0 : p.lift,
       pop: rest ? 1 : m.pop.x,
       drift: rest ? 0 : m.driftClock / DRIFT_MS,
+      float: rest ? 0 : Math.sin(m.clock * 1.1),
     };
   }, true);
 
@@ -389,27 +392,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     return () => timers.forEach(clearTimeout);
   }, [blink, blinkSignal, reduceMotion]);
 
-  // Eye art: a state with more than one piece cycles, holding each for its own span.
-  useEffect(() => {
-    const s = MASCOT_STATES[mood];
-    const list = Array.isArray(s.eyes) ? s.eyes : [s.eyes];
-    setEyePair((prev) => ({ from: prev.to, to: list[0] }));
-    const hold = s.eyeHold;
-    if (reduceMotion || list.length < 2 || !hold) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const next = () => {
-      timer = setTimeout(() => {
-        eyeIndex.current = (eyeIndex.current + 1) % list.length;
-        setEyePair((prev) => ({ from: prev.to, to: list[eyeIndex.current] }));
-        next();
-      }, randomMs(hold));
-    };
-    next();
-    return () => clearTimeout(timer);
-  }, [mood, reduceMotion]);
-
   // A wink: one eye shut on its own interval, and never while the pair is blinking —
   // two overlapping closures read as a glitch, not as a wink.
+  const winkTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   useEffect(() => {
     const cadence = MASCOT_STATES[mood].wink;
     setWinkSide(null);
@@ -425,6 +410,13 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     schedule();
     return () => { timers.forEach(clearTimeout); setWinkSide(null); };
   }, [mood, reduceMotion]);
+
+  useEffect(() => {
+    if (!winkSignal || reduceMotion) return;
+    setWinkSide(Math.random() < 0.5 ? 'L' : 'R');
+    winkTimer.current = setTimeout(() => setWinkSide(null), WINK_MS);
+    return () => clearTimeout(winkTimer.current);
+  }, [reduceMotion, winkSignal]);
 
   // Gaze: pick a place to look, hold it, pick another. The spring does the move.
   useEffect(() => {
@@ -461,178 +453,177 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     kickSignal.value += 1;
   }, [beatSignal, kickSignal, reduceMotion]);
 
-  const groundDX = (GROUND.x - 0.5) * box;
-  const groundDY = (GROUND.y - 0.5) * box;
+  const ground = pivot(GROUND.x, GROUND.y, box);
   const stage = useAnimatedStyle(() => ({
     transform: [
       { translateX: out.value.tx }, { translateY: out.value.ty },
-      { translateX: groundDX }, { translateY: groundDY },
+      { translateX: ground.dx }, { translateY: ground.dy },
       { rotate: `${out.value.roll}deg` },
       { scaleX: out.value.sx }, { scaleY: out.value.sy },
-      { translateX: -groundDX }, { translateY: -groundDY },
+      { translateX: -ground.dx }, { translateY: -ground.dy },
     ],
   }));
-  const shadow = useAnimatedStyle(() => {
-    const k = Math.max(0.2, 1 - out.value.lift * SHADOW_FALLOFF);
-    return { opacity: 0.55 * k, transform: [{ scaleX: k }, { scaleY: k }] };
-  });
-  // The lid narrows the eye rather than fading it: a squint is a shape, not a
-  // transparency. Clamped so a very low resting lid never collapses it to a line.
-  const eyeGroup = useAnimatedStyle(() => {
-    const narrow = Math.min(1.15, Math.max(0.45, out.value.lid));
-    return { transform: [{ scaleX: out.value.esx }, { scaleY: out.value.esy * narrow }] };
-  });
-  const baseGaze = mood === 'thinking' ? MASCOT_THINKING_GAZE : MASCOT_REFERENCE_GAZE;
-  const baseL = { x: baseGaze.pupil_L[0] * box, y: baseGaze.pupil_L[1] * box };
-  const baseR = { x: baseGaze.pupil_R[0] * box, y: baseGaze.pupil_R[1] * box };
-  const pupilL = useAnimatedStyle(() => ({
+
+  const hornAt = art.horns.length
+    ? pivot(centre(art.horns).x, art.horns[0].box[3], box) : { dx: 0, dy: 0 };
+  const horns = useAnimatedStyle(() => ({
     transform: [
-      { translateX: baseL.x + out.value.gx }, { translateY: baseL.y + out.value.gy },
+      { translateX: hornAt.dx }, { translateY: hornAt.dy },
+      { rotate: `${out.value.horn}deg` },
+      { translateX: -hornAt.dx }, { translateY: -hornAt.dy },
     ],
   }));
-  const pupilR = useAnimatedStyle(() => ({
+  const tailAt = art.tail.length
+    ? pivot(start(art.tail[0]).x, start(art.tail[0]).y, box) : { dx: 0, dy: 0 };
+  const tail = useAnimatedStyle(() => ({
     transform: [
-      { translateX: baseR.x + out.value.gx }, { translateY: baseR.y + out.value.gy },
+      { translateX: tailAt.dx }, { translateY: tailAt.dy },
+      { rotate: `${out.value.tail}deg` },
+      { translateX: -tailAt.dx }, { translateY: -tailAt.dy },
     ],
   }));
-  const openEyes = useAnimatedStyle(() => ({
-    opacity: out.value.lid >= out.value.lidRest * LID_HALF ? 1 : 0,
-  }));
-  const halfEyes = useAnimatedStyle(() => {
-    const r = out.value.lidRest;
-    return { opacity: out.value.lid < r * LID_HALF && out.value.lid >= r * LID_CLOSED ? 1 : 0 };
-  });
-  const shutEyes = useAnimatedStyle(() => ({
+
+  // An eye narrows rather than fading: a squint is a shape, not a transparency. It
+  // scales about its own centre, which is also what carries the pupil's clip with it.
+  const eyeAt = (side: 'L' | 'R') => {
+    const white = art.white[side];
+    if (!white) return { dx: 0, dy: 0 };
+    const c = centre([white]);
+    return pivot(c.x, c.y, box);
+  };
+  const atL = eyeAt('L');
+  const atR = eyeAt('R');
+  const openL = useAnimatedStyle(() => eyeTransform(out.value, atL));
+  const openR = useAnimatedStyle(() => eyeTransform(out.value, atR));
+  const shut = useAnimatedStyle(() => ({
     opacity: out.value.lid < out.value.lidRest * LID_CLOSED ? 1 : 0,
   }));
-  // A frame swap, not a dissolve. Two opaque pieces cross-faded at 50/50 are both
-  // half transparent at once, and the body shows through. Cut-out animation cuts; the
-  // morph spring still supplies the timing and the scale springs still carry the eye
-  // into and out of the cut.
-  const fromArt = useAnimatedStyle(() => ({ opacity: out.value.morph < 0.5 ? 1 : 0 }));
-  const toArt = useAnimatedStyle(() => ({ opacity: out.value.morph < 0.5 ? 0 : 1 }));
-  // An accent snaps out from nothing and overshoots; a Z rises away and fades.
-  const popProp = useAnimatedStyle(() => ({
+
+  // An accent snaps out from nothing and overshoots; a z rises away and fades; a
+  // question mark stays where it is and bobs.
+  const popStyle = useAnimatedStyle(() => ({
     opacity: Math.min(1, Math.max(0, out.value.pop) * 2),
-    transform: [{ scale: Math.max(0, out.value.pop) }],
+    transform: scaleAbout(Math.max(0, out.value.pop), art.accentAt, box),
   }));
-  const driftProp = useAnimatedStyle(() => ({
+  const badgeStyle = useAnimatedStyle(() => ({
+    opacity: Math.min(1, Math.max(0, out.value.pop) * 2),
+    transform: scaleAbout(Math.max(0, out.value.pop), art.badgeAt, box),
+  }));
+  const driftStyle = useAnimatedStyle(() => ({
     opacity: Math.sin(out.value.drift * Math.PI) ** 0.6,
     transform: [
-      { translateY: -out.value.drift * DRIFT_RISE * box },
-      { scale: 0.75 + out.value.drift * 0.35 },
+      { translateY: (-out.value.drift * DRIFT_RISE / VIEW) * box },
+      ...scaleAbout(0.75 + out.value.drift * 0.35, art.accentAt, box),
     ],
   }));
-
-  const propStyle = state.propMotion === 'drift' ? driftProp
-    : state.propMotion === 'pop' ? popProp : undefined;
-
-  // A product moment is one illustration, so it drifts, leans and breathes as a unit
-  // and nothing inside it is articulated.
-  if (state.scene) {
-    return (
-      <View accessible={false} pointerEvents="none" style={[{ width: box, height: box }, style]}>
-        <Animated.View style={[StyleSheet.absoluteFill, stage]}>
-          <Part name={state.scene} box={box} />
-        </Animated.View>
-      </View>
-    );
-  }
-
-  // Reaching swaps the torso layer for the composite that has the palm joined to it,
-  // and the neutral arm on that side is dropped so the two do not overlap.
-  // The rigged model is one mesh: body, both arms, both legs, horns and tail. It
-  // replaces the whole lower stack, so the separate tail, ears, arms and torso are not
-  // drawn alongside it — they would double. What that costs is the ear lag, tail swing
-  // and arm swing, which were secondary and small; what it buys is the model the
-  // character is actually being animated from.
-  const rigBody = state.body === 'rig';
-  const reach = state.reach;
-  const torso: MascotPartName = reach === 'L' ? MASCOT_ARM_VARIANTS.thinking.bodyLeft
-    : reach === 'R' ? MASCOT_ARM_VARIANTS.thinking.bodyRight
-      : 'body_feet';
-  // A hop swings the legs out, and the torso is re-rendered at each angle rather than
-  // having its legs cut off and rotated as layers, so each frame keeps the contact
-  // shading where a leg meets the body.
-  //
-  // The swing is still a rigid rotation. An armature was tried and does nothing here:
-  // the torso and the two legs are three separate meshes, and joining them leaves
-  // three unconnected surfaces in one object - 6050 + 3010 + 3010 verts, no shared
-  // topology at the hip - so a bone has nothing to deform across. Past about eight
-  // degrees the stump therefore swings clear of the body's own fillet and the join
-  // shows. Making this better needs the legs welded into the body in the model.
-  const posedLegs = !!state.hop && !reach;
+  const floatStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: (out.value.float * FLOAT_RISE / VIEW) * box }],
+  }));
+  const decorStyle = state.propMotion === 'drift' ? driftStyle
+    : state.propMotion === 'float' ? floatStyle
+      : state.propMotion === 'pop' ? popStyle : undefined;
 
   return (
     <View accessible={false} pointerEvents="none" style={[{ width: box, height: box }, style]}>
-      <Part name="shadow" box={box} style={shadow} />
       <Animated.View style={[StyleSheet.absoluteFill, stage]}>
-        {rigBody && (state.hop
-          ? RIG_LEG_FRAMES.map((name, i) => (
-            <LegFrame key={name} name={name} index={i} box={box} out={out} />
-          ))
-          : <Part name="body_rig" box={box} />)}
-        {!rigBody && <Hinged name="tail" box={box} out={out} angle="tail" />}
-        {!rigBody && <Hinged name="ear_L" box={box} out={out} angle="ear" />}
-        {!rigBody && <Hinged name="ear_R" box={box} out={out} angle="ear" />}
-        {!rigBody && (posedLegs
-          ? LEG_FRAMES.map((name, i) => (
-            <LegFrame key={name} name={name} index={i} box={box} out={out} />
-          ))
-          : <Part name={torso} box={box} />)}
-        {!rigBody && reach !== 'L' && <Hinged name="arm_L" box={box} out={out} angle="armL" />}
-        {!rigBody && reach !== 'R' && <Hinged name="arm_R" box={box} out={out} angle="armR" />}
+        <Layer box={box} parts={art.plate} />
+        <Layer box={box} parts={art.horns} style={horns} />
+        <Layer box={box} parts={art.tail} style={tail} />
+        <Layer box={box} parts={art.body} />
 
-        <Animated.View style={[StyleSheet.absoluteFill, eyeGroup]}>
-          <Animated.View style={[StyleSheet.absoluteFill, openEyes]}>
-            <Animated.View style={[StyleSheet.absoluteFill, fromArt]}>
-              <Eye art={eyeArt(eyePair.from, 'L', winkSide)} side="L" box={box} pupil={pupilL} />
-              <Eye art={eyeArt(eyePair.from, 'R', winkSide)} side="R" box={box} pupil={pupilR} />
-            </Animated.View>
-            <Animated.View style={[StyleSheet.absoluteFill, toArt]}>
-              <Eye art={eyeArt(eyePair.to, 'L', winkSide)} side="L" box={box} pupil={pupilL} />
-              <Eye art={eyeArt(eyePair.to, 'R', winkSide)} side="R" box={box} pupil={pupilR} />
-            </Animated.View>
-          </Animated.View>
-          <Animated.View style={[StyleSheet.absoluteFill, halfEyes]}>
-            <Eye art="half" side="L" box={box} pupil={pupilL} />
-            <Eye art="half" side="R" box={box} pupil={pupilR} />
-          </Animated.View>
-          <Animated.View style={[StyleSheet.absoluteFill, shutEyes]}>
-            <Part name="eye_closed_L" box={box} />
-            <Part name="eye_closed_R" box={box} />
-          </Animated.View>
-        </Animated.View>
+        {(['L', 'R'] as const).map((side) => {
+          const white = art.white[side];
+          const closed = art.closed[side];
+          // A frame drawn with its eyes already shut — happy, sleepy, completed —
+          // keeps its own arcs and never blinks or winks. There is nothing to open.
+          if (!white) return closed ? <Layer key={side} box={box} parts={[closed]} /> : null;
+          if (winkSide === side) return <Layer key={side} box={box} parts={[art.lid[side]]} />;
+          return (
+            <View key={side} style={StyleSheet.absoluteFill}>
+              <OpenEye box={box} white={white} pupil={art.pupil[side]} out={out}
+                clipId={`${uid}-eye-${side}`} style={side === 'L' ? openL : openR} />
+              <Layer box={box} parts={[art.lid[side]]} style={shut} />
+            </View>
+          );
+        })}
 
-        <Part name={state.mouth} box={box} />
-        {state.prop && <Part name={state.prop} box={box} style={propStyle} />}
+        <Layer box={box} parts={art.mouth} />
+        <Layer box={box} parts={art.badge} style={badgeStyle} />
+        <Layer box={box} parts={art.accents} style={decorStyle} />
       </Animated.View>
     </View>
   );
 }
 
-/** One eye: its own shape, and its own pupil if that shape is an open one. */
-/** The joined torso at one leg angle. All of them are mounted and the one that
- * matches the current swing is the only one drawn, so the choice stays on the UI
- * thread — the same way the blink frames are chosen. */
-function LegFrame({ name, index, box, out }: {
-  name: MascotPartName; index: number; box: number; out: SharedValue<Rendered>;
-}) {
-  const style = useAnimatedStyle(() => ({
-    opacity: Math.min(3, Math.round(out.value.splay / LEG_FRAME_DEG)) === index ? 1 : 0,
-  }));
-  return <Part name={name} box={box} style={style} />;
+/** An eye's narrowing and sizing, as one transform about its own centre. */
+function eyeTransform(r: Rendered, at: { dx: number; dy: number }) {
+  'worklet';
+  const narrow = Math.min(LID_MAX, Math.max(0, r.lid));
+  return {
+    opacity: r.lid < r.lidRest * LID_CLOSED ? 0 : 1,
+    transform: [
+      { translateX: at.dx }, { translateY: at.dy },
+      { scaleX: r.eye }, { scaleY: r.eye * narrow },
+      { translateX: -at.dx }, { translateY: -at.dy },
+    ],
+  };
+}
+function scaleAbout(k: number, at: { dx: number; dy: number }, box: number) {
+  'worklet';
+  const dx = at.dx * box, dy = at.dy * box;
+  return [
+    { translateX: dx }, { translateY: dy },
+    { scale: k },
+    { translateX: -dx }, { translateY: -dy },
+  ];
 }
 
-function Eye({ art, side, box, pupil }: {
-  art: EyeArtName; side: 'L' | 'R'; box: number; pupil: PartStyle;
-}) {
-  return (
-    <>
-      <Part name={eyePart(art, side)} box={box} />
-      {EYE_PUPILS[art] && <Part name={side === 'L' ? 'pupil_L' : 'pupil_R'} box={box} style={pupil} />}
-    </>
-  );
+/** Sort one frame's paths into the layers that move together, once per frame rather
+ * than once per render. */
+function build(frame: MascotFrame) {
+  const parts = MASCOT_ART[frame].parts;
+  const of = (...names: MascotPartName[]) => parts.filter((p) => names.includes(p.name));
+  const one = (name: MascotPartName) => parts.find((p) => p.name === name);
+  const white = { L: one('eyeWhiteL'), R: one('eyeWhiteR') };
+  const closed = { L: one('eyeClosedL'), R: one('eyeClosedR') };
+  const accents = of(...ACCENTS);
+  const badge = of(...BADGE);
+  // The borrowed lid is drawn where this frame's eye is, not where the sleeping face
+  // wears it.
+  const lid = { L: moveLid('eyeClosedL', white.L), R: moveLid('eyeClosedR', white.R) };
+  return {
+    plate: of('plate'),
+    horns: of('horns'),
+    tail: of('tail', 'tailTip'),
+    body: of('body'),
+    mouth: of('mouth'),
+    white, closed, lid,
+    pupil: { L: one('pupilL'), R: one('pupilR') },
+    accents, badge,
+    accentAt: accents.length ? pivotOf(accents) : { dx: 0, dy: 0 },
+    badgeAt: badge.length ? pivotOf(badge) : { dx: 0, dy: 0 },
+  };
+}
+/** Pivots are held as fractions here and scaled at use, so one build survives a
+ * component rendered at two different widths. */
+function pivotOf(parts: FigmaPath[]) {
+  const c = centre(parts);
+  return { dx: c.x / VIEW - 0.5, dy: c.y / VIEW - 0.5 };
+}
+function moveLid(name: MascotPartName, white?: FigmaPath): FigmaPath {
+  const art = LID_ART.find((p) => p.name === name) ?? LID_ART[0];
+  if (!white) return art;
+  const dy = centre([white]).y - centre([art]).y;
+  return { ...art, d: shiftY(art.d, dy), box: [art.box[0], art.box[1] + dy, art.box[2], art.box[3] + dy] };
+}
+/** Move a path down the page by rewriting every y in it. The export is absolute and
+ * has no arcs, so each coordinate is a plain x y pair and the second of each is a y. */
+function shiftY(d: string, dy: number) {
+  let i = 0;
+  return d.replace(/-?\d*\.?\d+/g, (n) => {
+    i += 1;
+    return i % 2 === 0 ? String(Math.round((Number(n) + dy) * 1000) / 1000) : n;
+  });
 }
 
 export { ALL_MASCOT_MOODS, MASCOT_GROUPS, MASCOT_STATES } from './state';
