@@ -748,38 +748,26 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <View style={styles.socialCol}>
+          <View style={styles.socialRow}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Google"
+              style={styles.social} onPress={handleGoogleSignIn} disabled={busy} activeOpacity={0.8}>
+              <View style={styles.socialFace}>
+                {oauthLoading === 'google'
+                  ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
+                  : <FontAwesome5 name="google" size={20} color={colors.google} />}
+              </View>
+            </TouchableOpacity>
+
             {Platform.OS === 'ios' && (
               <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Apple"
-                style={styles.social}
-                onPress={handleAppleSignIn} disabled={busy} activeOpacity={0.85}>
+                style={styles.social} onPress={handleAppleSignIn} disabled={busy} activeOpacity={0.8}>
                 <View style={styles.socialFace}>
                   {oauthLoading === 'apple'
-                    ? <MascotCharacter width={BUTTON_MASCOT} mood="thinking" />
-                    : (
-                      <>
-                        <FontAwesome5 name="apple" size={19} color={homeColors.darkest} />
-                        <Text style={styles.socialText}>Sign in with Apple</Text>
-                      </>
-                    )}
+                    ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
+                    : <FontAwesome5 name="apple" size={22} color={homeColors.darkest} />}
                 </View>
               </TouchableOpacity>
             )}
-
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Google"
-              style={styles.social}
-              onPress={handleGoogleSignIn} disabled={busy} activeOpacity={0.85}>
-              <View style={styles.socialFace}>
-                {oauthLoading === 'google'
-                  ? <MascotCharacter width={BUTTON_MASCOT} mood="thinking" />
-                  : (
-                    <>
-                      <FontAwesome5 name="google" size={18} color={colors.google} />
-                      <Text style={styles.socialText}>Sign in with Google</Text>
-                    </>
-                  )}
-              </View>
-            </TouchableOpacity>
           </View>
 
           <View style={styles.signUpRow}>
@@ -882,17 +870,13 @@ const styles = StyleSheet.create({
   dividerLine: { flex: 1, height: 1, backgroundColor: homeColors.border },
   dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
 
-  // Two doors to the same room, so they are the same door — and built the way every
-  // other surface here is built: a shell with a white face on it and two points of
-  // ledge showing at the bottom. A solid black slab is a heavier thing than signing
-  // in deserves, and it belonged to no part of this app's language. The brand marks
-  // keep their own colours; nothing else about them is borrowed.
-  socialCol: { gap: 10 },
-  social: { height: 52, borderRadius: 42, backgroundColor: homeColors.border, paddingBottom: 2 },
-  socialFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.white,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    overflow: 'hidden' },
-  socialText: { fontFamily: 'Geist_500Medium', fontSize: 17, color: homeColors.deep },
+  // Side by side and identical: two doors to the same room, neither of them the
+  // main one. 60 wide and 62 tall, because the two points at the bottom are the
+  // shell's ledge — sizing the shell square leaves the face wider than it is tall.
+  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+  social: { width: 60, height: 62, borderRadius: 22, backgroundColor: homeColors.border, paddingBottom: 2 },
+  socialFace: { flex: 1, borderRadius: 22, backgroundColor: homeColors.white,
+    alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
 
   signUpRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 'auto' },
   signUpText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted },
