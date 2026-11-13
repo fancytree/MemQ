@@ -320,8 +320,11 @@ const purple = homeColors.deep;
  * puts the body on screen at the same size and the layout above is untouched. */
 const MASCOT_WIDTH = 220.205;
 /** It sits in the top right with the count, the line of copy and the button all to
- * its left, so that is where it looks. The state's wander still drifts it. */
-const MASCOT_LOOK = { x: -1, y: 0.15 };
+ * its left, so that is where it looks. Past -1 because the frames draw the pair of
+ * eyes about 10 units right of the body's middle to begin with: the first unit of
+ * look only undoes that, and the rest is what reads as looking left. The state's
+ * wander still drifts it, and the clip keeps the pupils in their whites. */
+const MASCOT_LOOK = { x: -2.4, y: 0.15 };
 /** The lean the hero draws the character at. It is passed in rather than wrapped
  * around, so the hill behind it stays level. */
 const MASCOT_TILT = 10.1;

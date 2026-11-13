@@ -98,7 +98,7 @@ const GAZE_REACH = { x: 12, y: 8 } as const;
  * off to one side of the face, so a pupil sliding the other way inside a white that
  * stays put reads as a squint, not as looking. An eye is a mass in a head and it
  * moves; the pupil moves further, within it. */
-const WHITE_SHARE = 0.5;
+const WHITE_SHARE = 0.65;
 /** Where the character meets the ground: the bottom of the body, on its centre line.
  * Squash pivots here, not at the middle, or the body sinks into the floor as it
  * compresses. */
@@ -192,8 +192,9 @@ interface Rendered {
   eye: number; pupil: number;
   /** Where the lid is now, and where this state rests it. */
   lid: number; lidRest: number;
-  /** Scale of a popping decoration, and the rise of a drifting or bobbing one. */
-  pop: number; drift: number; float: number;
+  /** Scale of a popping decoration, the rise of a drifting or bobbing one, and the
+   * twinkle all of them carry. */
+  pop: number; drift: number; float: number; spark: number;
 }
 
 function Shape({ part, clip }: { part: FigmaPath; clip?: string }) {
@@ -329,12 +330,12 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     pupil: spring(1),
     clock: 0, driftClock: 0,
     moodSeen: mood, kickSeen: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0, arm: 0, tail: 0, pupilScale: 1 },
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0, arm: 0, tail: 0, pupilScale: 1, spark: 0 },
   });
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, horn: 0, tail: 0,
     gx: 0, gy: 0, eye: 1, pupil: 1, lid: 1, lidRest: 1, pop: 1, drift: 0, float: 0,
-    armL: 0, armR: 0,
+    spark: 0, armL: 0, armR: 0,
   });
 
   useEffect(() => {
@@ -448,6 +449,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       lidRest: rest ? 1 : Math.max(p.lid, 0.08),
       pop: rest ? 1 : m.pop.x,
       drift: rest ? 0 : m.driftClock / DRIFT_MS,
+      spark: rest ? 0 : p.spark,
       float: rest ? 0 : Math.sin(m.clock * 1.1),
     };
   }, true);
@@ -626,13 +628,18 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
 
   // An accent snaps out from nothing and overshoots; a z rises away and fades; a
   // question mark stays where it is and bobs.
+  const TWINKLE = 0.11;
   const popStyle = useAnimatedStyle(() => ({
     opacity: Math.min(1, Math.max(0, out.value.pop) * 2),
-    transform: scaleAbout(Math.max(0, out.value.pop), art.accentAt, box),
+    transform: scaleAbout(Math.max(0, out.value.pop) * (1 + out.value.spark * TWINKLE),
+      art.accentAt, box),
   }));
   const badgeStyle = useAnimatedStyle(() => ({
     opacity: Math.min(1, Math.max(0, out.value.pop) * 2),
     transform: scaleAbout(Math.max(0, out.value.pop), art.badgeAt, box),
+  }));
+  const twinkleStyle = useAnimatedStyle(() => ({
+    transform: scaleAbout(1 + out.value.spark * TWINKLE, art.accentAt, box),
   }));
   const driftStyle = useAnimatedStyle(() => ({
     opacity: Math.sin(out.value.drift * Math.PI) ** 0.6,
@@ -642,11 +649,14 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     ],
   }));
   const floatStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: (out.value.float * FLOAT_RISE / VIEW) * box }],
+    transform: [
+      { translateY: (out.value.float * FLOAT_RISE / VIEW) * box },
+      ...scaleAbout(1 + out.value.spark * TWINKLE, art.accentAt, box),
+    ],
   }));
   const decorStyle = state.propMotion === 'drift' ? driftStyle
     : state.propMotion === 'float' ? floatStyle
-      : state.propMotion === 'pop' ? popStyle : undefined;
+      : state.propMotion === 'pop' ? popStyle : twinkleStyle;
 
   return (
     <View accessible={false} pointerEvents="none" style={[{ width: box, height: box }, style]}>
@@ -681,9 +691,14 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
         })}
 
         <Layer box={box} parts={art.mouth} />
+        {/* The badge stays with the body: the character is holding it. */}
         <Layer box={box} parts={art.badge} style={badgeStyle} />
-        <Layer box={box} parts={art.accents} style={decorStyle} />
       </Animated.View>
+      {/* Outside the stage on purpose. Accents, a question mark and sleeping z's are
+          marks in the air next to a character, not parts of it, and inheriting its
+          lean, its squash and its hop made them read as painted onto its back. They
+          keep their own slow twinkle. */}
+      <Layer box={box} parts={art.accents} style={decorStyle} />
     </View>
   );
 }
