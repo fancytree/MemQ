@@ -58,6 +58,10 @@ const { width: SCREEN_W } = Dimensions.get('window');
 
 const GOAL_OPTIONS = [10, 20, 30, 50, 80] as const;
 type GoalCards = (typeof GOAL_OPTIONS)[number];
+/** About two minutes of cards, and what the save falls back to anyway. */
+const DEFAULT_GOAL: GoalCards = 20;
+/** Evening, when the day's reading is done and the cards are what is left. */
+const DEFAULT_REMINDER = '20:00';
 
 const REMINDER_TIMES = [
   { label: '6:00 AM', value: '06:00' },
@@ -114,8 +118,11 @@ export default function OnboardingScreen() {
   const insets = useSafeAreaInsets();
   const [step, setStep] = useState(0);
   const [username, setUsername] = useState('');
-  const [goalCards, setGoalCards] = useState<GoalCards | null>(null);
-  const [reminderTime, setReminderTime] = useState<string | null>(null);
+  // Answered before the page is opened. A blank form asks a person to make three
+  // decisions before they can get in; these two have a sensible answer, and the
+  // ones who care can change them here or later in their profile.
+  const [goalCards, setGoalCards] = useState<GoalCards>(DEFAULT_GOAL);
+  const [reminderTime, setReminderTime] = useState<string | null>(DEFAULT_REMINDER);
   const [saving, setSaving] = useState(false);
   const slideAnim = useRef(new RNAnimated.Value(0)).current;
 
@@ -197,11 +204,14 @@ export default function OnboardingScreen() {
   };
 
   if (step < WELCOME_SCENES) {
+    // No transform here: the story slides its own scene and keeps its footer
+    // still, so the progress can travel between screens instead of arriving
+    // already changed.
     return (
-      <RNAnimated.View style={[styles.root, { transform: [{ translateX: slideAnim }] }]}>
+      <View style={styles.root}>
         <LoadingScreen visible={saving} />
         <WelcomeStory step={step} onNext={goNext} onSkip={() => animateTo(WELCOME_SCENES)} />
-      </RNAnimated.View>
+      </View>
     );
   }
 
@@ -280,15 +290,14 @@ function Lead({ label, onPress, off }: { label: string; onPress: () => void; off
 function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDone }: {
   username: string;
   onName: (v: string) => void;
-  goal: GoalCards | null;
+  goal: GoalCards;
   onGoal: (v: GoalCards) => void;
   reminder: string | null;
-  onReminder: (v: string) => void;
+  onReminder: (v: string | null) => void;
   onDone: () => void;
 }) {
-  // A name and a number, because the home screen and the day's count are built
-  // out of them. The reminder is the one a person can leave alone.
-  const ready = username.trim().length > 0 && goal !== null;
+  // Only the name is still open: the other two came with an answer.
+  const ready = username.trim().length > 0;
   const { width } = useWindowDimensions();
   // The card is nested inside the character's box, so it has to be pulled back
   // out to the width it would have had on its own.
@@ -341,6 +350,9 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
                   </View>
                 </Field>
 
+                {/* The chosen time clears when it is tapped again. A reminder that
+                    arrives by default has to be refusable, and this row is the only
+                    place to refuse it. */}
                 <Field label="When should we remind you?">
                   <View style={styles.times}>
                     {REMINDER_TIMES.map((t) => {
@@ -349,7 +361,7 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
                         <Pressable accessibilityRole="button" key={t.value}
                           accessibilityState={{ selected: on }}
                           style={[styles.time, on && styles.chipOn]}
-                          onPress={() => onReminder(t.value)}>
+                          onPress={() => onReminder(on ? null : t.value)}>
                           <View style={[styles.timeFace, on && styles.chipFaceOn]}>
                             <Text style={[styles.timeText, on && styles.chipTextOn]}>{t.label}</Text>
                           </View>

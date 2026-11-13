@@ -22,8 +22,11 @@
  */
 import { homeColors } from '@/theme/colors';
 import { Asset } from 'expo-asset';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import Animated, {
+  Easing, interpolateColor, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming,
+} from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgUri } from 'react-native-svg';
 
@@ -145,6 +148,32 @@ const SCENES: Scene[] = [
 
 export const WELCOME_SCENES = SCENES.length;
 
+/** The scenes' own colours as ramps, so a move between screens can travel along
+ *  them rather than cutting. The index is the step, which is what `at` below
+ *  carries while it is between two of them. */
+const STEPS = SCENES.map((_, i) => i);
+const DOT_ON = SCENES.map((s) => s.dot.on);
+const DOT_OFF = SCENES.map((s) => s.dot.off);
+const BUTTON_BG = SCENES.map((s) => s.button.bg);
+const BUTTON_INK = SCENES.map((s) => s.button.ink);
+
+/** One step's dot. It is the same view throughout: between screens it grows or
+ *  shrinks between the dot and the pill and takes its colour with it, rather
+ *  than the row being swapped for another row. */
+function Dot({ at, i, k }: { at: { value: number }; i: number; k: number }) {
+  const shape = useAnimatedStyle(() => {
+    const near = Math.max(0, 1 - Math.abs(at.value - i));
+    return {
+      width: (6 + 16 * near) * k,
+      backgroundColor: interpolateColor(near, [0, 1], [
+        interpolateColor(at.value, STEPS, DOT_OFF),
+        interpolateColor(at.value, STEPS, DOT_ON),
+      ]),
+    };
+  });
+  return <Animated.View style={[{ height: 6 * k, borderRadius: 3 * k }, shape]} />;
+}
+
 /** One exported drawing, at its own proportions.
  *
  * Both edges are rounded to whole points. These exports carry
@@ -168,28 +197,26 @@ function Art({ piece, k, ox, oy }: { piece: Piece; k: number; ox: number; oy: nu
   );
 }
 
-export function WelcomeStory({ step, onNext, onSkip }: {
-  step: number;
-  onNext: () => void;
+/** One screen of the story, standing on its own ground. The three sit side by
+ *  side on one track, so a move between them carries each screen's colour across
+ *  with the screen instead of fading the colour underneath them all. */
+function Screen({ scene, i, k, width, top, foot, onSkip }: {
+  scene: Scene;
+  i: number;
+  k: number;
+  width: number;
+  top: number;
+  foot: number;
   onSkip: () => void;
 }) {
-  const scene = SCENES[step];
-  const { width } = useWindowDimensions();
-  const insets = useSafeAreaInsets();
-  const k = width / FRAME_W;
-
-  // Everything below the scene hangs off the bottom inset, in the order and with
-  // the gaps the design gives it.
-  const foot = insets.bottom;
   const group = scene.group;
   const groupBottom = foot + (DESIGN_FOOT - (group.y + group.h)) * k;
-
   return (
-    <View style={[styles.root, { backgroundColor: scene.bg }]}>
-      {scene.waves.map((wave, i) => (
+    <View style={[styles.screen, { left: i * width, width, backgroundColor: scene.bg }]}>
+      {scene.waves.map((wave, j) => (
         // How far the wave's bottom edge falls below the footer's last line in the
         // design, taken off the inset the footer now sits on.
-        <View key={i} pointerEvents="none" style={[styles.wave, {
+        <View key={j} pointerEvents="none" style={[styles.wave, {
           bottom: Math.round(foot - (wave.top + wave.h - DESIGN_FOOT) * k),
           width: Math.round(wave.w * k), height: Math.round(wave.h * k),
         }]}>
@@ -202,15 +229,15 @@ export function WelcomeStory({ step, onNext, onSkip }: {
         position: 'absolute', left: Math.round(group.x * k), bottom: Math.round(groupBottom),
         width: Math.round(group.w * k), height: Math.round(group.h * k),
       }}>
-        {scene.pieces.map((piece, i) => (
-          <Art key={i} piece={piece} k={k} ox={group.x} oy={group.y} />
+        {scene.pieces.map((piece, j) => (
+          <Art key={j} piece={piece} k={k} ox={group.x} oy={group.y} />
         ))}
       </View>
 
       {scene.skip && (
         <Pressable accessibilityRole="button" accessibilityLabel="Skip the introduction"
           onPress={onSkip} hitSlop={16}
-          style={{ position: 'absolute', right: 24 * k, top: insets.top + 12 * k }}>
+          style={{ position: 'absolute', right: 24 * k, top: top + 12 * k }}>
           <Text style={{
             fontFamily: 'Geist_500Medium', fontSize: 14 * k, lineHeight: 20 * k, color: scene.ink,
           }}>Skip</Text>
@@ -218,37 +245,83 @@ export function WelcomeStory({ step, onNext, onSkip }: {
       )}
 
       <Text accessibilityRole="header" style={{
-        position: 'absolute', left: 24 * k, top: insets.top + (140 - DESIGN_TOP) * k, width: 354 * k,
+        position: 'absolute', left: 24 * k, top: top + (140 - DESIGN_TOP) * k, width: 354 * k,
         fontFamily: 'Geist_800ExtraBold', fontSize: 40 * k, lineHeight: 43 * k,
         letterSpacing: -1.4 * k, color: scene.ink,
       }}>{scene.title}</Text>
 
       {!!scene.body && (
         <Text style={{
-          position: 'absolute', left: 24 * k, top: insets.top + (scene.bodyTop! - DESIGN_TOP) * k,
+          position: 'absolute', left: 24 * k, top: top + (scene.bodyTop! - DESIGN_TOP) * k,
           width: 330 * k,
           fontFamily: 'Geist_400Regular', fontSize: 14 * k, lineHeight: 20 * k, color: scene.ink,
         }}>{scene.body}</Text>
       )}
+    </View>
+  );
+}
+
+export function WelcomeStory({ step, onNext, onSkip }: {
+  step: number;
+  onNext: () => void;
+  onSkip: () => void;
+}) {
+  const scene = SCENES[step];
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const k = width / FRAME_W;
+
+  // Where the story is, which is not always on a screen: between two of them it
+  // holds the fraction, and everything that has to travel rather than cut reads
+  // its position off this one number.
+  const at = useSharedValue(step);
+  const reduce = useReducedMotion();
+  useEffect(() => {
+    if (reduce) { at.value = step; return; }
+    at.value = withTiming(step, { duration: 420, easing: Easing.out(Easing.cubic) });
+  }, [at, reduce, step]);
+
+  // All three screens stand in a row and the row is what moves. One screen is
+  // always under the glass, so nothing of the colour between two of them is ever
+  // on show: the screen leaving takes its ground with it as the next one arrives.
+  const track = useAnimatedStyle(() => ({
+    transform: [{ translateX: -at.value * width }],
+  }));
+  // The footer does not travel — that is the point of it. The button crosses
+  // between the screens' colours in place instead.
+  const button = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(at.value, STEPS, BUTTON_BG),
+  }));
+  const buttonInk = useAnimatedStyle(() => ({
+    color: interpolateColor(at.value, STEPS, BUTTON_INK),
+  }));
+
+  const foot = insets.bottom;
+
+  return (
+    <View style={styles.root}>
+      <Animated.View style={[styles.track, { width: width * SCENES.length }, track]}>
+        {SCENES.map((s, i) => (
+          <Screen key={i} scene={s} i={i} k={k} width={width}
+            top={insets.top} foot={foot} onSkip={onSkip} />
+        ))}
+      </Animated.View>
 
       <View style={[styles.footer, { bottom: foot + (DESIGN_FOOT - DESIGN_BUTTON_BOTTOM) * k }]}>
         <View accessibilityRole="progressbar"
           accessibilityLabel={`Screen ${step + 1} of ${SCENES.length}`}
           style={[styles.dots, { gap: 8 * k }]}>
-          {SCENES.map((_, i) => (
-            <View key={i} style={{
-              width: (i === step ? 22 : 6) * k, height: 6 * k, borderRadius: 3 * k,
-              backgroundColor: i === step ? scene.dot.on : scene.dot.off,
-            }} />
-          ))}
+          {SCENES.map((_, i) => <Dot key={i} at={at} i={i} k={k} />)}
         </View>
-        <Pressable accessibilityRole="button" onPress={onNext} style={{
-          marginTop: 33 * k, width: 354 * k, height: 58 * k, borderRadius: 100 * k,
-          backgroundColor: scene.button.bg, alignItems: 'center', justifyContent: 'center',
-        }}>
-          <Text style={{
-            fontFamily: 'Geist_700Bold', fontSize: 16 * k, lineHeight: 22 * k, color: scene.button.ink,
-          }}>{scene.button.label}</Text>
+        <Pressable accessibilityRole="button" onPress={onNext}>
+          <Animated.View style={[{
+            marginTop: 33 * k, width: 354 * k, height: 58 * k, borderRadius: 100 * k,
+            alignItems: 'center', justifyContent: 'center',
+          }, button]}>
+            <Animated.Text style={[{
+              fontFamily: 'Geist_700Bold', fontSize: 16 * k, lineHeight: 22 * k,
+            }, buttonInk]}>{scene.button.label}</Animated.Text>
+          </Animated.View>
         </Pressable>
       </View>
     </View>
@@ -257,6 +330,8 @@ export function WelcomeStory({ step, onNext, onSkip }: {
 
 const styles = StyleSheet.create({
   root: { flex: 1, overflow: 'hidden' },
+  track: { position: 'absolute', top: 0, bottom: 0, left: 0, flexDirection: 'row' },
+  screen: { position: 'absolute', top: 0, bottom: 0, overflow: 'hidden' },
   wave: { position: 'absolute', left: 0 },
   piece: { position: 'absolute' },
   footer: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
