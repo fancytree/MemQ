@@ -78,6 +78,15 @@ const REMINDER_TIMES = [
   { label: '10:00 PM', value: '22:00' },
 ] as const;
 
+/** Three to a row, each row sharing its width equally. Left to wrap on their own
+ *  widths, "12:00 PM" pushed its row wider than the others and every row ended on
+ *  a different edge, which read as twelve loose pills rather than as one grid. */
+const TIME_ROWS = REMINDER_TIMES.reduce<(typeof REMINDER_TIMES)[number][][]>((rows, t, i) => {
+  if (i % 3 === 0) rows.push([]);
+  rows[rows.length - 1].push(t);
+  return rows;
+}, []);
+
 // Two phases. The first three screens are the welcome story, drawn from Figma and
 // owning the whole screen — background, waves, scene, progress and button all their
 // own. Then one page asks everything the app needs answered.
@@ -265,10 +274,16 @@ const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
  * The sentence each of these used to carry is gone. Three of them under three
  * headings was a page of explanation around three short answers — and what they
  * explained, the field and the chips say for themselves. */
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, lead, children }: {
+  label: string;
+  /** The one question still open. It is asked louder than the two that came with
+   *  an answer, so the page says at a glance how much is left to do. */
+  lead?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={lead ? styles.fieldLead : styles.field}>
+      <Text style={lead ? styles.labelLead : styles.label}>{label}</Text>
       {children}
     </View>
   );
@@ -316,7 +331,7 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
           behind={(
             <View style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
               <View style={styles.cardFace}>
-                <Field label="What should we call you?">
+                <Field label="What should we call you?" lead>
                   <View style={styles.input}>
                     <TextInput accessibilityLabel="Your name"
                       style={styles.inputText}
@@ -332,6 +347,7 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
                   </View>
                 </Field>
 
+                <View style={styles.settings}>
                 <Field label="How many cards a day?">
                   <View style={styles.chips}>
                     {GOAL_OPTIONS.map((cards) => {
@@ -355,7 +371,9 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
                     place to refuse it. */}
                 <Field label="When should we remind you?">
                   <View style={styles.times}>
-                    {REMINDER_TIMES.map((t) => {
+                    {TIME_ROWS.map((row, i) => (
+                      <View key={i} style={styles.timeRow}>
+                        {row.map((t) => {
                       const on = reminder === t.value;
                       return (
                         <Pressable accessibilityRole="button" key={t.value}
@@ -367,9 +385,12 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
                           </View>
                         </Pressable>
                       );
-                    })}
+                        })}
+                      </View>
+                    ))}
                   </View>
                 </Field>
+                </View>
               </View>
             </View>
           )} />
@@ -406,11 +427,13 @@ const styles = StyleSheet.create({
   // Centred, so a short step sits in the middle of the screen rather than pinned
   // to the top with the button a long way below it. A step taller than the screen
   // (the twelve reminder times) overflows and scrolls as usual.
-  // The button is pinned outside the scroll, so the last card needs room to clear
-  // it: 64 of button, 12 of the footer's own top, and a little air under that.
+  // The button is pinned outside the scroll and the footer is already taken off
+  // this view's height, so the room it needs is not this view's to leave: an extra
+  // button's worth here only pushed the card up and left the gap under it. What is
+  // left is the air a scrolled-to-the-bottom card wants above the button.
   scrollContent: {
     flexGrow: 1, justifyContent: 'center',
-    paddingHorizontal: layout.screenInline, paddingTop: 4, paddingBottom: 88, gap: 14,
+    paddingHorizontal: layout.screenInline, paddingTop: 4, paddingBottom: 20, gap: 14,
   },
 
   // A shell with a lighter face on it, offset so a band shows along the bottom.
@@ -423,21 +446,30 @@ const styles = StyleSheet.create({
     backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: ledge.raised,
   },
   cardFace: {
-    backgroundColor: homeColors.white, borderRadius: 32, padding: 20, gap: 20,
+    backgroundColor: homeColors.white, borderRadius: 32, padding: 20, gap: 26,
   },
+  // The two that came answered, held together as one block under the open one, and
+  // closer to each other than either is to it.
+  settings: { gap: 18 },
 
   // A question and the thing it is answered with, kept together.
   field: { gap: 10 },
+  fieldLead: { gap: 12 },
+  // Three weights, and they are the three jobs on the page: the question to answer,
+  // the answers to pick from, and the questions already answered.
   label: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 17, lineHeight: 24, color: homeColors.darkest,
+    fontFamily: 'Geist_600SemiBold', fontSize: 15, lineHeight: 20, color: homeColors.muted,
+  },
+  labelLead: {
+    fontFamily: 'Geist_700Bold', fontSize: 19, lineHeight: 26, color: homeColors.darkest,
   },
   input: {
-    minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas,
-    justifyContent: 'center', paddingHorizontal: 16,
+    minHeight: 56, borderRadius: 18, backgroundColor: homeColors.canvas,
+    justifyContent: 'center', paddingHorizontal: 18,
   },
   inputText: {
-    fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest,
-    paddingVertical: 14,
+    fontFamily: 'Geist_500Medium', fontSize: 17, color: homeColors.darkest,
+    paddingVertical: 15,
   },
 
   // One row of five, each taking an equal share of it. Wrapped, the fifth sat alone
@@ -456,18 +488,21 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', paddingVertical: 14,
   },
   chipFaceOn: { backgroundColor: homeColors.primary },
-  chipNum: { fontFamily: 'Geist_600SemiBold', fontSize: 20, color: homeColors.darkest },
+  chipNum: { fontFamily: 'Geist_600SemiBold', fontSize: 20, color: homeColors.deep },
   chipTextOn: { color: homeColors.white },
 
-  times: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  // Twelve of anything outweighs a field and a row of five however quietly it is
+  // asked, so the rows are packed tighter than the chips above them.
+  times: { gap: 7 },
+  timeRow: { flexDirection: 'row', gap: 7 },
   time: {
-    borderRadius: 16, backgroundColor: homeColors.border, paddingBottom: ledge.control,
+    flex: 1, borderRadius: 16, backgroundColor: homeColors.border, paddingBottom: ledge.control,
   },
   timeFace: {
     borderRadius: 16, backgroundColor: homeColors.canvas,
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 9, paddingHorizontal: 14,
+    alignItems: 'center', justifyContent: 'center', paddingVertical: 9,
   },
-  timeText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.darkest },
+  timeText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.deep },
 
   footer: { paddingHorizontal: layout.screenInline, paddingTop: 12 },
   lead: {
