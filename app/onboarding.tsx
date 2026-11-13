@@ -25,6 +25,7 @@
 import { HomeAsset } from '@/components/HomeAsset';
 import LoadingScreen from '@/components/LoadingScreen';
 import { WELCOME_SCENES, WelcomeStory } from '@/components/WelcomeStory';
+import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notificationService';
 import { supabase } from '@/lib/supabase';
@@ -45,6 +46,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import Animated, {
@@ -238,21 +240,26 @@ export default function OnboardingScreen() {
 
 // ─── The one page the story hands over to ────────────────────────────────────
 
-/** One question: its own surface, like every other card in this app.
+/** How tall the character is where it perches. */
+const PERCH = 150;
+/** Where the card's top edge crosses the character, read off the hands rather than
+ *  typed in: a little below their middle, so their lower part laps onto the card
+ *  and they read as resting on the edge instead of hovering above it. The sign-in
+ *  screens perch on the same line. */
+const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
+  / MASCOT_HANDS.length / 256;
+const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
+
+/** One question: what it asks, then what it asks with.
  *
- * The three used to be three screens with a Next under each. Asked together they
- * are three short answers, and a person can see at a glance what is left — which
- * three screens could never show them. */
-function Card({ title, line, children }: {
-  title: string; line: string; children: React.ReactNode;
-}) {
+ * The sentence each of these used to carry is gone. Three of them under three
+ * headings was a page of explanation around three short answers — and what they
+ * explained, the field and the chips say for themselves. */
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <View style={styles.card}>
-      <View style={styles.cardFace}>
-        <Text style={styles.title}>{title}</Text>
-        <Text style={styles.body}>{line}</Text>
-        {children}
-      </View>
+    <View style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      {children}
     </View>
   );
 }
@@ -282,6 +289,11 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
   // A name and a number, because the home screen and the day's count are built
   // out of them. The reminder is the one a person can leave alone.
   const ready = username.trim().length > 0 && goal !== null;
+  const { width } = useWindowDimensions();
+  // The card is nested inside the character's box, so it has to be pulled back
+  // out to the width it would have had on its own.
+  const bleed = -((width - layout.screenInline * 2) - PERCH) / 2;
+
   return (
     <View style={styles.step}>
       <ScrollView
@@ -289,62 +301,66 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        <MascotCharacter width={92} mood="onboarding" calm style={styles.mascot} />
-
-        <Card title="What should we call you?"
-          line="It goes at the top of your home screen.">
-          <View style={styles.field}>
-            <TextInput accessibilityLabel="Your name"
-              style={styles.input}
-              value={username}
-              onChangeText={onName}
-              placeholder="Your name"
-              placeholderTextColor={homeColors.placeholder}
-              autoCorrect={false}
-              autoCapitalize="words"
-              returnKeyType="done"
-              maxLength={40}
-            />
-          </View>
-        </Card>
-
-        <Card title="How many cards a day?"
-          line="Twenty is about two minutes. Pick one you would still do on a bad day.">
-          <View style={styles.chips}>
-            {GOAL_OPTIONS.map((cards) => {
-              const on = goal === cards;
-              return (
-                <Pressable accessibilityRole="button" key={cards}
-                  accessibilityState={{ selected: on }}
-                  style={[styles.chip, on && styles.chipOn]}
-                  onPress={() => onGoal(cards)}>
-                  <View style={[styles.chipFace, on && styles.chipFaceOn]}>
-                    <Text style={[styles.chipNum, on && styles.chipTextOn]}>{cards}</Text>
+        {/* Body behind the card, hands over its front edge — the character leans
+            on the questions the way it leans on the sign-in form. */}
+        <MascotCharacter width={PERCH} mood="onboarding" calm style={styles.perch}
+          behind={(
+            <View style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
+              <View style={styles.cardFace}>
+                <Field label="What should we call you?">
+                  <View style={styles.input}>
+                    <TextInput accessibilityLabel="Your name"
+                      style={styles.inputText}
+                      value={username}
+                      onChangeText={onName}
+                      placeholder="Your name"
+                      placeholderTextColor={homeColors.placeholder}
+                      autoCorrect={false}
+                      autoCapitalize="words"
+                      returnKeyType="done"
+                      maxLength={40}
+                    />
                   </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
+                </Field>
 
-        <Card title="When should we remind you?"
-          line="One a day, at a time you are usually free. Leave it if you would rather not.">
-          <View style={styles.times}>
-            {REMINDER_TIMES.map((t) => {
-              const on = reminder === t.value;
-              return (
-                <Pressable accessibilityRole="button" key={t.value}
-                  accessibilityState={{ selected: on }}
-                  style={[styles.time, on && styles.chipOn]}
-                  onPress={() => onReminder(t.value)}>
-                  <View style={[styles.timeFace, on && styles.chipFaceOn]}>
-                    <Text style={[styles.timeText, on && styles.chipTextOn]}>{t.label}</Text>
+                <Field label="How many cards a day?">
+                  <View style={styles.chips}>
+                    {GOAL_OPTIONS.map((cards) => {
+                      const on = goal === cards;
+                      return (
+                        <Pressable accessibilityRole="button" key={cards}
+                          accessibilityState={{ selected: on }}
+                          style={[styles.chip, on && styles.chipOn]}
+                          onPress={() => onGoal(cards)}>
+                          <View style={[styles.chipFace, on && styles.chipFaceOn]}>
+                            <Text style={[styles.chipNum, on && styles.chipTextOn]}>{cards}</Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
                   </View>
-                </Pressable>
-              );
-            })}
-          </View>
-        </Card>
+                </Field>
+
+                <Field label="When should we remind you?">
+                  <View style={styles.times}>
+                    {REMINDER_TIMES.map((t) => {
+                      const on = reminder === t.value;
+                      return (
+                        <Pressable accessibilityRole="button" key={t.value}
+                          accessibilityState={{ selected: on }}
+                          style={[styles.time, on && styles.chipOn]}
+                          onPress={() => onReminder(t.value)}>
+                          <View style={[styles.timeFace, on && styles.chipFaceOn]}>
+                            <Text style={[styles.timeText, on && styles.chipTextOn]}>{t.label}</Text>
+                          </View>
+                        </Pressable>
+                      );
+                    })}
+                  </View>
+                </Field>
+              </View>
+            </View>
+          )} />
       </ScrollView>
       <View style={styles.footer}>
         <Lead label="Done" onPress={onDone} off={!ready} />
@@ -384,30 +400,30 @@ const styles = StyleSheet.create({
     flexGrow: 1, justifyContent: 'center',
     paddingHorizontal: layout.screenInline, paddingTop: 4, paddingBottom: 88, gap: 14,
   },
-  mascot: { alignSelf: 'center' },
 
   // A shell with a lighter face on it, offset so a band shows along the bottom.
   // In a palette with no shadows that band is the only depth there is — see
   // theme/ledge.ts for the scale.
+  perch: { alignSelf: 'center' },
+  // Ridden up under the character's hands, so it reads as the thing being held.
   card: {
+    marginTop: CARD_LIFT,
     backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: ledge.raised,
   },
   cardFace: {
-    backgroundColor: homeColors.white, borderRadius: 32, padding: 20, gap: 14,
-  },
-  title: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 24, lineHeight: 30,
-    color: homeColors.darkest,
-  },
-  body: {
-    fontFamily: 'Geist_500Medium', fontSize: 15, lineHeight: 22, color: homeColors.muted,
+    backgroundColor: homeColors.white, borderRadius: 32, padding: 20, gap: 20,
   },
 
-  field: {
+  // A question and the thing it is answered with, kept together.
+  field: { gap: 10 },
+  label: {
+    fontFamily: 'Geist_600SemiBold', fontSize: 17, lineHeight: 24, color: homeColors.darkest,
+  },
+  input: {
     minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas,
     justifyContent: 'center', paddingHorizontal: 16,
   },
-  input: {
+  inputText: {
     fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest,
     paddingVertical: 14,
   },
