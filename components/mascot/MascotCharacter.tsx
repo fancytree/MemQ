@@ -296,7 +296,7 @@ function OpenEye({ box, white, pupil, align, out, clipId, style }: {
   );
 }
 
-export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, calm = false, behind, eyesShut = false, style }: {
+export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, calm = false, behind, handRest, eyesShut = false, style }: {
   width: number;
   mood?: MascotMood;
   /** A fixed lean, in degrees, applied inside the character rather than to the box
@@ -326,6 +326,21 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
    * stops forcing a square when it is present, and stops swallowing touches — the
    * card it is handed may be a form. */
   behind?: ReactNode;
+  /** Moves a hand off where the artwork rests it, in art units of the 256 box:
+   * [x, y], x positive to the right. It is per screen on purpose.
+   *
+   * The two hands are not mirror images in the artwork. Measured about the body's
+   * own centre (x 124, not 128 — the body is not centred in its box), the left
+   * paw rests at 50.17 and the right at 191.27, where the mirror of the left would
+   * be 197.83. So the right paw sits 6.56 units further in than the left, buried
+   * in the outline rather than resting against it.
+   *
+   * That is in the shared art, so every screen has it; it only reads as wrong
+   * where the body is large and fully in view. Correcting the art would move the
+   * hands on the sign-in screens too, where they are placed against a card edge
+   * and are right as they are. So the correction belongs to the screen that needs
+   * it, and this is how a screen asks for it. */
+  handRest?: { left?: readonly [number, number]; right?: readonly [number, number] };
   /** Hold the eyes shut. The login screen covers them while a password is being
    * typed, which is the oldest joke in the book and the right one. */
   eyesShut?: boolean;
@@ -656,8 +671,17 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   // the outline, and what it does is slide along it.
   const bodyAt = art.body.length
     ? pivot(centre(art.body).x, centre(art.body).y, box) : { dx: 0, dy: 0 };
-  const handL = useAnimatedStyle(() => turnAbout(out.value.armL, bodyAt));
-  const handR = useAnimatedStyle(() => turnAbout(out.value.armR, bodyAt));
+  // A screen's own correction to where a paw rests, art units scaled to this size.
+  const restL = { x: (handRest?.left?.[0] ?? 0) / VIEW * box, y: (handRest?.left?.[1] ?? 0) / VIEW * box };
+  const restR = { x: (handRest?.right?.[0] ?? 0) / VIEW * box, y: (handRest?.right?.[1] ?? 0) / VIEW * box };
+  const handL = useAnimatedStyle(() => ({
+    transform: [{ translateX: restL.x }, { translateY: restL.y },
+      ...turnAbout(out.value.armL, bodyAt).transform],
+  }));
+  const handR = useAnimatedStyle(() => ({
+    transform: [{ translateX: restR.x }, { translateY: restR.y },
+      ...turnAbout(out.value.armR, bodyAt).transform],
+  }));
 
   // An eye narrows rather than fading: a squint is a shape, not a transparency. It
   // scales about its own centre, which is also what carries the pupil's clip with it.

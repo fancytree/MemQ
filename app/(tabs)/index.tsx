@@ -266,6 +266,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
         <View pointerEvents="none" style={styles.mascot}>
           <MascotCharacter width={MASCOT_WIDTH} mood={mood} tilt={MASCOT_TILT} look={MASCOT_LOOK}
+            handRest={{ right: MASCOT_RIGHT_HAND }}
             behind={<View pointerEvents="none" style={styles.waveOverMascot}><HomeAsset name="waveFront" /></View>} />
         </View>
         <View style={[styles.top, { paddingTop: insets.top + 10 }]}>
@@ -331,6 +332,19 @@ const MASCOT_LOOK = { x: -1.8, y: 0.75 };
  * different angle. Upright, the hands sit where they were drawn and the character
  * faces its copy without being tipped at it. */
 const MASCOT_TILT = 0;
+
+/** The right paw, put back where its mirror would be.
+ *
+ * The two hands are not mirror images in the artwork: about the body's own centre
+ * (x 124 of the 256 box) the left paw rests at 50.17 and the right at 191.27,
+ * where the mirror of the left is 197.83. The right one therefore sits 6.56 units
+ * inside the outline instead of against it, which on a body this size and this
+ * fully in view reads as a hand stuck to the cheek.
+ *
+ * It is corrected here and not in the artwork because the sign-in screens rest the
+ * same hands on the top edge of a card, where they are placed right as they are —
+ * see handRest in MascotCharacter. */
+const MASCOT_RIGHT_HAND = [6.56, 0] as const;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: homeColors.canvas },
