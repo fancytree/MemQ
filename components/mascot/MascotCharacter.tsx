@@ -62,7 +62,7 @@ const VIEW = 256;
 const SPRING = {
   roll: [3.2, 0.62], tx: [2.6, 0.7], ty: [3, 0.68], squash: [7, 0.5],
   lid: [26, 1], eye: [7, 0.7], gaze: [8, 0.75], arm: [4.2, 0.52],
-  tail: [5, 0.42], lag: [6, 0.42], pop: [10, 0.48],
+  tail: [5, 0.42], lag: [6, 0.42], pop: [10, 0.48], mark: [4.5, 0.45],
   // Slower and looser than the horns', so the tail trails further behind the body
   // and keeps swinging after it has stopped.
   trail: [3.4, 0.33],
@@ -116,6 +116,10 @@ const LID_MAX = 1.15;
  * tail whips out when the body turns and swings back through when it stops. Its own
  * sway is a garnish on top of that, not the other way round — a tail running on a
  * clock of its own looks pinned to the picture rather than hung off the animal. */
+/** How much of the body's drift and lean the decorations keep. Not none: they hang
+ * in the air beside the character and move when it does, just less, and late. */
+const MARK_FOLLOW = 0.4;
+const MARK_ROLL = 0.35;
 const HORN_SWING = 2.0;
 const TAIL_SWING = 7.0;
 /** One rise of a drifting decoration: how long it takes and how far it travels. */
@@ -174,6 +178,7 @@ interface Motion {
   roll: Spring; tx: Spring; ty: Spring; sx: Spring; sy: Spring;
   lid: Spring; eye: Spring; gazeX: Spring; gazeY: Spring;
   horn: Spring; tail: Spring; wag: Spring; arm: Spring; pop: Spring; pupil: Spring;
+  markX: Spring; markY: Spring; markR: Spring;
   clock: number; driftClock: number;
   /** Everything crossing from JS arrives as a counter this worklet compares against,
    * never as a field JS writes into this object: writing into an object already
@@ -195,6 +200,11 @@ interface Rendered {
   /** Scale of a popping decoration, the rise of a drifting or bobbing one, and the
    * twinkle all of them carry. */
   pop: number; drift: number; float: number; spark: number;
+  /** How far the decorations have followed the body, in pixels and degrees. They
+   * keep its rhythm at a fraction of its size and a beat behind — drawn outside the
+   * stage so they do not wear its squash and its hop, but not cut loose from it
+   * either: a mark that ignores the body entirely reads as a different drawing. */
+  markX: number; markY: number; markRoll: number;
 }
 
 function Shape({ part, clip }: { part: FigmaPath; clip?: string }) {
@@ -327,7 +337,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     roll: spring(0), tx: spring(0), ty: spring(0), sx: spring(1), sy: spring(1),
     lid: spring(1), eye: spring(1), gazeX: spring(0), gazeY: spring(0),
     horn: spring(0), tail: spring(0), wag: spring(0), arm: spring(0), pop: spring(1),
-    pupil: spring(1),
+    pupil: spring(1), markX: spring(0), markY: spring(0), markR: spring(0),
     clock: 0, driftClock: 0,
     moodSeen: mood, kickSeen: 0,
     pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0, arm: 0, tail: 0, pupilScale: 1, spark: 0 },
@@ -335,7 +345,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, horn: 0, tail: 0,
     gx: 0, gy: 0, eye: 1, pupil: 1, lid: 1, lidRest: 1, pop: 1, drift: 0, float: 0,
-    spark: 0, armL: 0, armR: 0,
+    spark: 0, armL: 0, armR: 0, markX: 0, markY: 0, markRoll: 0,
   });
 
   useEffect(() => {
@@ -372,6 +382,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     m.lid.t = rest ? 1 : (lidOverride.value ?? p.lid);
     m.eye.t = rest ? 1 : p.eyeScale;
     m.pupil.t = rest ? 1 : p.pupilScale;
+    m.markX.t = rest ? 0 : (m.tx.x + p.shake) * MARK_FOLLOW;
+    m.markY.t = rest ? 0 : (m.ty.x - p.lift) * MARK_FOLLOW;
+    m.markR.t = rest ? 0 : (m.roll.x + p.tilt) * MARK_ROLL;
     m.gazeX.t = rest ? 0 : gazeAim.value.x;
     m.gazeY.t = rest ? 0 : gazeAim.value.y;
     // The horns and tail chase the body's lean on a looser, wobblier spring; what is
@@ -410,6 +423,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       step(m.lid, SPRING.lid[0], SPRING.lid[1], h);
       step(m.eye, SPRING.eye[0], SPRING.eye[1], h);
       step(m.pupil, SPRING.eye[0], SPRING.eye[1], h);
+      step(m.markX, SPRING.mark[0], SPRING.mark[1], h);
+      step(m.markY, SPRING.mark[0], SPRING.mark[1], h);
+      step(m.markR, SPRING.mark[0], SPRING.mark[1], h);
       step(m.gazeX, SPRING.gaze[0], SPRING.gaze[1], h);
       step(m.gazeY, SPRING.gaze[0], SPRING.gaze[1], h);
       step(m.horn, SPRING.lag[0], SPRING.lag[1], h);
@@ -450,6 +466,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       pop: rest ? 1 : m.pop.x,
       drift: rest ? 0 : m.driftClock / DRIFT_MS,
       spark: rest ? 0 : p.spark,
+      markX: m.markX.x * box, markY: m.markY.x * box, markRoll: m.markR.x,
       float: rest ? 0 : Math.sin(m.clock * 1.1),
     };
   }, true);
@@ -629,27 +646,36 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   // An accent snaps out from nothing and overshoots; a z rises away and fades; a
   // question mark stays where it is and bobs.
   const TWINKLE = 0.11;
+  const follow = (r: Rendered) => {
+    'worklet';
+    return [{ translateX: r.markX }, { translateY: r.markY },
+      ...turnAbout(r.markRoll, art.accentAt, box).transform];
+  };
   const popStyle = useAnimatedStyle(() => ({
     opacity: Math.min(1, Math.max(0, out.value.pop) * 2),
-    transform: scaleAbout(Math.max(0, out.value.pop) * (1 + out.value.spark * TWINKLE),
-      art.accentAt, box),
+    transform: [...follow(out.value),
+      ...scaleAbout(Math.max(0, out.value.pop) * (1 + out.value.spark * TWINKLE),
+        art.accentAt, box)],
   }));
   const badgeStyle = useAnimatedStyle(() => ({
     opacity: Math.min(1, Math.max(0, out.value.pop) * 2),
     transform: scaleAbout(Math.max(0, out.value.pop), art.badgeAt, box),
   }));
   const twinkleStyle = useAnimatedStyle(() => ({
-    transform: scaleAbout(1 + out.value.spark * TWINKLE, art.accentAt, box),
+    transform: [...follow(out.value),
+      ...scaleAbout(1 + out.value.spark * TWINKLE, art.accentAt, box)],
   }));
   const driftStyle = useAnimatedStyle(() => ({
     opacity: Math.sin(out.value.drift * Math.PI) ** 0.6,
     transform: [
+      ...follow(out.value),
       { translateY: (-out.value.drift * DRIFT_RISE / VIEW) * box },
       ...scaleAbout(0.75 + out.value.drift * 0.35, art.accentAt, box),
     ],
   }));
   const floatStyle = useAnimatedStyle(() => ({
     transform: [
+      ...follow(out.value),
       { translateY: (out.value.float * FLOAT_RISE / VIEW) * box },
       ...scaleAbout(1 + out.value.spark * TWINKLE, art.accentAt, box),
     ],
@@ -720,13 +746,15 @@ function eyeTransform(r: Rendered, at: { dx: number; dy: number }, box: number) 
     ],
   };
 }
-function turnAbout(deg: number, at: { dx: number; dy: number }) {
+function turnAbout(deg: number, at: { dx: number; dy: number }, box = 1) {
   'worklet';
+  const dx = box === 1 ? at.dx : at.dx * box;
+  const dy = box === 1 ? at.dy : at.dy * box;
   return {
     transform: [
-      { translateX: at.dx }, { translateY: at.dy },
+      { translateX: dx }, { translateY: dy },
       { rotate: `${deg}deg` },
-      { translateX: -at.dx }, { translateY: -at.dy },
+      { translateX: -dx }, { translateY: -dy },
     ],
   };
 }

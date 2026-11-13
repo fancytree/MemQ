@@ -96,7 +96,10 @@ export interface MascotState {
    * lower right, so raising them is a turn one way for one and the other way for the
    * other, which the renderer mirrors. They orbit the body's centre rather than
    * hanging off an arm, because in this drawing there is no arm: a hand is a paw
-   * resting on the outline, and it slides along it.
+   * resting on the outline, and it slides along it. The swing is small for a reason
+   * measured rather than guessed: the orbit is a circle and the body is not quite
+   * one, so past about eight degrees of raise the hand slides off the outline and a
+   * gap of background opens between them.
    *
    * Optional, and that is the point: the hands are a part like the eyes or the
    * accents, assembled in by the states that want them. A state with no carriage
@@ -142,7 +145,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frameHold: [2600, 5200],
     roll: [0, -2.4, 1.05], tx: [0, -0.005, 1], ty: [0, 0, 0],
     squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.010, squash: 0.06, tilt: 7 },
-    arm: [7, 9, 1.0],
+    arm: [4, 5, 1.0],
     tail: [-4, 6, 1.5],
     lid: 1, eyeScale: 1.04,
     propMotion: 'pop',
@@ -157,7 +160,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frameHold: [1400, 2800],
     roll: [0, -4.5, 5.2], tx: [0, -0.008, 1.1], ty: [0, 0, 0],
     squash: [1.008, 0.026, 2.3], hop: { height: 0.046, rate: 1.28, crouch: 0.013, squash: 0.075, tilt: 16 },
-    arm: [13, 15, 2.3],
+    arm: [7, 8, 2.3],
     tail: [-6, 8, 1.4],
     lid: 1, eyeScale: 1.06,
     propMotion: 'pop',
@@ -197,7 +200,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frame: 'aha',
     roll: [0, -1.1, 8.5], tx: [0, -0.002, 0.9], ty: [-0.013, 0.003, 0.9],
     squash: [1.035, 0.008, 1.4], shake: [0.007, 20],
-    arm: [11, 1.5, 1.6],
+    arm: [7, 1.5, 1.6],
     tail: [-8, 2, 1.3],
     lid: 1, eyeScale: 1.16, pupilScale: 1.22,
     propMotion: 'pop',
@@ -241,7 +244,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frame: ['completed', 'aha'],
     frameHold: [2400, 4600],
     roll: [0, -1.6, 0.8], tx: [0, -0.004, 0.7], ty: [-0.004, 0.007, 1.1],
-    squash: [1.01, 0.013, 1.1], arm: [9, 5, 0.9],
+    squash: [1.01, 0.013, 1.1], arm: [5, 4, 0.9],
     tail: [-5, 4.5, 1.5],
     lid: 1, eyeScale: 1,
     propMotion: 'pop',
@@ -267,7 +270,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frame: ['happy', 'aha'],
     frameHold: [1800, 3400],
     roll: [0, -3.2, 0.62], tx: [0, -0.007, 0.5], ty: [-0.012, 0.012, 0.72],
-    squash: [1.012, 0.014, 0.72], arm: [12, 7, 0.6],
+    squash: [1.012, 0.014, 0.72], arm: [7, 5, 0.6],
     tail: [-6, 5, 1.5],
     lid: 1, eyeScale: 1.04,
     propMotion: 'pop',
