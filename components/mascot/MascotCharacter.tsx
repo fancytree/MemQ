@@ -296,7 +296,7 @@ function OpenEye({ box, white, pupil, align, out, clipId, style }: {
   );
 }
 
-export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, calm = false, behind, handRest, tailRest, eyesShut = false, style }: {
+export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, calm = false, behind, handRest, tailRest, hands, eyesShut = false, style }: {
   width: number;
   mood?: MascotMood;
   /** A fixed lean, in degrees, applied inside the character rather than to the box
@@ -367,6 +367,12 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
    * already pivots about that point — which moves with this, so the motion follows.
    */
   tailRest?: { x?: number; y?: number };
+  /** Whether the paws are drawn at all. By default the mood decides: the states that
+   * say how the character carries its arms get them, the rest do not. Pass false to
+   * take them off a mood that has them — on a screen where the character is standing
+   * over something rather than holding it, paws reaching out of frame read as a crop
+   * rather than as a pose. */
+  hands?: boolean;
   /** Hold the eyes shut. The login screen covers them while a password is being
    * typed, which is the oldest joke in the book and the right one. */
   eyesShut?: boolean;
@@ -390,8 +396,8 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     () => (Array.isArray(state.frame) ? state.frame : [state.frame]), [state.frame]);
   const [face, setFace] = useState<MascotFrame>(frames[0]);
   useEffect(() => { setFace(frames[0]); }, [frames]);
-  const art = useMemo(() => build(frames[0], face, !!state.arm, !!state.bare),
-    [frames, face, state.arm, state.bare]);
+  const art = useMemo(() => build(frames[0], face, hands ?? !!state.arm, !!state.bare),
+    [frames, face, hands, state.arm, state.bare]);
 
   const moodRef = useSharedValue<MascotMood>(mood);
   const lidOverride = useSharedValue<number | null>(null);

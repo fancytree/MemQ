@@ -327,11 +327,17 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
             </View>
           ) : offering ? (
             <View style={styles.contentContainer}>
-              {/* The character, filling the room above the plans. A black wordmark
-                  stood here, left over from the older style: the one mark on the sheet
-                  that did not belong to this palette, floating in an empty band. */}
+              {/* The character, filling the room above the plans, and answering what
+                  is chosen under it: pleased at the year, which is the one that saves
+                  money, and plainly waiting at the month. A black wordmark stood here,
+                  left over from the older style — the one mark on the sheet that did
+                  not belong to this palette, floating in an empty band.
+
+                  No paws. It is standing over the plans rather than holding them, and
+                  paws reaching out of a frame nothing fills read as a crop. */}
               <View style={styles.logoContainer}>
-                <MascotCharacter width={168} mood="excited" calm />
+                <MascotCharacter width={168} hands={false} calm
+                  mood={selectedPlan === 'yearly' ? 'happy' : selectedPlan === 'monthly' ? 'idle' : 'excited'} />
               </View>
 
               {/* Plan Options + Footer */}
