@@ -66,6 +66,15 @@ function Flow({ name, style, seconds, shiftX, shiftY }: {
   );
 }
 
+/** Placeholder ink. A hint is not content: `muted` measures 5.3:1 against the field
+ * it sits in, which is body-text contrast, and that is why it read as something
+ * already typed. This is 3.7:1 — clearly legible, clearly subordinate.
+ *
+ * The token is named for a chart bar because the palette has no placeholder ink of
+ * its own. The name belongs to the palette; the use is this, and it is worth giving
+ * it a name of its own next time theme/colors.ts is being edited anyway. */
+const HINT = homeColors.chartBar;
+
 const REMEMBER_EMAIL_KEY = 'remembered_email';
 const REMEMBER_PASSWORD_KEY = 'remembered_password';
 const REMEMBER_PASSWORD_ENABLED_KEY = 'remember_password_enabled';
@@ -655,7 +664,7 @@ export default function LoginScreen() {
                     <TextInput accessibilityLabel="Email"
                       style={styles.input}
                       placeholder="Email"
-                      placeholderTextColor={homeColors.muted}
+                      placeholderTextColor={HINT}
                       value={identifier}
                       onChangeText={setIdentifier}
                       keyboardType="email-address"
@@ -669,7 +678,7 @@ export default function LoginScreen() {
                     <TextInput accessibilityLabel="Password"
                       style={[styles.input, styles.passwordInput]}
                       placeholder="Password"
-                      placeholderTextColor={homeColors.muted}
+                      placeholderTextColor={HINT}
                       value={password}
                       onChangeText={setPassword}
                       onFocus={() => setTypingPassword(true)}

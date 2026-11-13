@@ -64,6 +64,15 @@ const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH_MASCOT;
 const SOCIAL_MASCOT = 54;
 const BUTTON_MASCOT = 72;
 
+/** Placeholder ink. A hint is not content: `muted` measures 5.3:1 against the field
+ * it sits in, which is body-text contrast, and that is why it read as something
+ * already typed. This is 3.7:1 — clearly legible, clearly subordinate.
+ *
+ * The token is named for a chart bar because the palette has no placeholder ink of
+ * its own. The name belongs to the palette; the use is this, and it is worth giving
+ * it a name of its own next time theme/colors.ts is being edited anyway. */
+const HINT = homeColors.chartBar;
+
 const SUBSCRIPTION_REFRESH_TIMEOUT_MS = 4000;
 
 export default function SignUpScreen() {
@@ -311,7 +320,7 @@ export default function SignUpScreen() {
                     <TextInput accessibilityLabel="Email"
                       style={styles.input}
                       placeholder="Email"
-                      placeholderTextColor={homeColors.muted}
+                      placeholderTextColor={HINT}
                       value={identifier}
                       onChangeText={setIdentifier}
                       keyboardType="email-address"
@@ -325,7 +334,7 @@ export default function SignUpScreen() {
                     <TextInput accessibilityLabel="Password"
                       style={[styles.input, styles.passwordInput]}
                       placeholder="Password"
-                      placeholderTextColor={homeColors.muted}
+                      placeholderTextColor={HINT}
                       value={password}
                       onChangeText={setPassword}
                       onFocus={() => setTypingPassword(true)}
@@ -347,7 +356,7 @@ export default function SignUpScreen() {
                     <TextInput accessibilityLabel="Confirm Password"
                       style={[styles.input, styles.passwordInput]}
                       placeholder="Confirm Password"
-                      placeholderTextColor={homeColors.muted}
+                      placeholderTextColor={HINT}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
                       onFocus={() => setTypingPassword(true)}
