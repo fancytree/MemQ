@@ -31,9 +31,14 @@ import { SvgUri } from 'react-native-svg';
 const FRAME_W = 402;
 /** Where the design's own status bar ends, so the words can hang off the real one. */
 const DESIGN_TOP = 62;
-/** The design's bottom edge, and the bottom of the footer's last line of type.
- *  The gap between them is the safe area the footer is pinned to instead. */
+/** The design's bottom edge, and the line its last footer type sat on. The gap
+ *  between them is the safe area everything below the words is pinned to. */
 const DESIGN_FOOT = 840.4;
+/** The bottom edge of the button, which is now the last thing in the footer. The
+ *  counter that used to sit under it said in words what the dots above it already
+ *  say, so it went; this keeps the button where the design put it rather than
+ *  letting it drop into the space the counter left. */
+const DESIGN_BUTTON_BOTTOM = 814;
 
 type Piece = {
   src: number;
@@ -59,7 +64,6 @@ type Scene = {
   skip: boolean;
   button: { label: string; bg: string; ink: string };
   dot: { on: string; off: string };
-  counter: { text: string; ink: string };
 };
 
 const SCENES: Scene[] = [
@@ -85,7 +89,6 @@ const SCENES: Scene[] = [
     skip: true,
     button: { label: 'Next  →', bg: homeColors.hill, ink: homeColors.deep },
     dot: { on: homeColors.hill, off: homeColors.streakBorder },
-    counter: { text: '01 / 03', ink: homeColors.white },
   },
   {
     bg: homeColors.primary,
@@ -110,7 +113,6 @@ const SCENES: Scene[] = [
     skip: true,
     button: { label: 'Next  →', bg: homeColors.primary, ink: homeColors.white },
     dot: { on: homeColors.primary, off: homeColors.streakBorder },
-    counter: { text: '02 / 03', ink: homeColors.deep },
   },
   {
     bg: homeColors.track,
@@ -132,7 +134,6 @@ const SCENES: Scene[] = [
     skip: false,
     button: { label: 'Start learning  →', bg: homeColors.hill, ink: homeColors.deep },
     dot: { on: homeColors.deep, off: homeColors.track },
-    counter: { text: '03 / 03', ink: homeColors.deep },
   },
 ];
 
@@ -224,8 +225,10 @@ export function WelcomeStory({ step, onNext, onSkip }: {
         }}>{scene.body}</Text>
       )}
 
-      <View style={[styles.footer, { bottom: foot }]}>
-        <View style={[styles.dots, { gap: 8 * k }]}>
+      <View style={[styles.footer, { bottom: foot + (DESIGN_FOOT - DESIGN_BUTTON_BOTTOM) * k }]}>
+        <View accessibilityRole="progressbar"
+          accessibilityLabel={`Screen ${step + 1} of ${SCENES.length}`}
+          style={[styles.dots, { gap: 8 * k }]}>
           {SCENES.map((_, i) => (
             <View key={i} style={{
               width: (i === step ? 22 : 6) * k, height: 6 * k, borderRadius: 3 * k,
@@ -241,10 +244,6 @@ export function WelcomeStory({ step, onNext, onSkip }: {
             fontFamily: 'Geist_700Bold', fontSize: 16 * k, lineHeight: 22 * k, color: scene.button.ink,
           }}>{scene.button.label}</Text>
         </Pressable>
-        <Text style={{
-          marginTop: 11 * k,
-          fontFamily: 'Geist_500Medium', fontSize: 11 * k, lineHeight: 15.4 * k, color: scene.counter.ink,
-        }}>{scene.counter.text}</Text>
       </View>
     </View>
   );
