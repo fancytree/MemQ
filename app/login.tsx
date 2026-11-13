@@ -1,6 +1,10 @@
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
 import Logo from '@/components/icons/Logo';
+import { HomeAsset } from '@/components/HomeAsset';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { homeColors } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
 import { MemQTheme } from '@/constants/theme';
 import { useLoading } from '@/context/LoadingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -12,7 +16,6 @@ import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -566,152 +569,145 @@ export default function LoginScreen() {
     }
   };
 
+  // The character wears the arriving face, and turns thinking while it waits on the
+  // network — the same vocabulary the rest of the app uses, rather than a spinner
+  // borrowed from the system.
+  const busy = loading || oauthLoading !== null;
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
+      <LinearGradient pointerEvents="none"
+        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
+      <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
+      <View pointerEvents="none" style={styles.waveFront}><HomeAsset name="waveFront" /></View>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            <Logo width={200} />
+          <View style={styles.hero}>
+            <View pointerEvents="none" style={styles.mascot}>
+              <MascotCharacter width={HERO_MASCOT} mood={busy ? 'thinking' : 'onboarding'} />
+            </View>
+            <Logo width={190} />
             <Text style={styles.tagline}>Smart Quiz & Memory</Text>
           </View>
 
-          {/* 邮箱输入 */}
-          <View style={[styles.inputContainer, styles.firstInputContainer]}>
-            <TextInput accessibilityLabel="Email"
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor={colors.muted}
-              value={identifier}
-              onChangeText={setIdentifier}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              editable={!loading}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput accessibilityLabel="Password"
-                style={styles.passwordInput}
-                placeholder="Password"
-                placeholderTextColor={colors.muted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoComplete="password"
-                editable={!loading}
-              />
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-                activeOpacity={0.7}
-              >
-                <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.muted}
+          <View style={styles.card}>
+            <View style={styles.cardFace}>
+              <View style={styles.field}>
+                <TextInput accessibilityLabel="Email"
+                  style={styles.input}
+                  placeholder="Email"
+                  placeholderTextColor={homeColors.muted}
+                  value={identifier}
+                  onChangeText={setIdentifier}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoComplete="email"
+                  editable={!loading}
                 />
-              </TouchableOpacity>
+              </View>
+
+              <View style={styles.field}>
+                <TextInput accessibilityLabel="Password"
+                  style={[styles.input, styles.passwordInput]}
+                  placeholder="Password"
+                  placeholderTextColor={homeColors.muted}
+                  value={password}
+                  onChangeText={setPassword}
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  editable={!loading}
+                />
+                <TouchableOpacity accessibilityRole="button"
+                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                  activeOpacity={0.7}>
+                  <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.rememberRow}>
+                <TouchableOpacity accessibilityRole="checkbox"
+                  accessibilityState={{ checked: rememberPassword }}
+                  style={styles.remember}
+                  onPress={() => setRememberPassword(!rememberPassword)}
+                  activeOpacity={0.7}
+                  disabled={loading}>
+                  <View style={[styles.checkbox, rememberPassword && styles.checkboxChecked]}>
+                    {rememberPassword && <Feather name="check" size={14} color={homeColors.white} />}
+                  </View>
+                  <Text style={styles.rememberText}>Remember password</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity accessibilityRole="button"
+                  onPress={() => router.push('/forgot-password' as any)}
+                  disabled={loading}
+                  activeOpacity={0.7}>
+                  <Text style={styles.forgotText}>Forgot password?</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
-          {/* 记住密码和忘记密码 */}
-          <View style={styles.rememberPasswordRow}>
-            <TouchableOpacity accessibilityRole="button"
-              style={styles.rememberPasswordContainer}
-              onPress={() => setRememberPassword(!rememberPassword)}
-              activeOpacity={0.7}
-              disabled={loading}
-            >
-              <View style={styles.checkboxContainer}>
-                <View style={[styles.checkbox, rememberPassword && styles.checkboxChecked]}>
-                  {rememberPassword && (
-                    <Feather name="check" size={14} color={colors.surf} />
-                  )}
-                </View>
-                <Text style={styles.rememberPasswordText}>Remember password</Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* 忘记密码链接 */}
-            <TouchableOpacity accessibilityRole="button"
-              onPress={() => router.push('/forgot-password' as any)}
-              disabled={loading}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
-            </TouchableOpacity>
-          </View>
-
           <TouchableOpacity accessibilityRole="button"
-            style={[styles.button, styles.signInButton, loading && styles.buttonDisabled]}
+            accessibilityState={{ disabled: busy }}
+            style={[styles.signIn, busy && styles.signInBusy]}
             onPress={signIn}
-            disabled={loading}>
-            <Text style={styles.buttonText}>Sign In</Text>
+            activeOpacity={0.9}
+            disabled={busy}>
+            <View style={styles.signInFace}>
+              {loading
+                ? <MascotCharacter width={BUTTON_MASCOT} mood="excited" />
+                : <Text style={styles.signInText}>Sign In</Text>}
+            </View>
           </TouchableOpacity>
 
-          {/* 分隔线 */}
-          <View style={styles.dividerContainer}>
+          <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>OR</Text>
             <View style={styles.dividerLine} />
           </View>
 
-          {/* 第三方登录 */}
-          <View style={styles.socialLoginContainer}>
-            <View style={styles.socialIconsRow}>
-              {/* Google 登录 */}
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.socialIconButton}
-                onPress={handleGoogleSignIn}
-                disabled={loading || oauthLoading !== null}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.socialIconContainer, styles.googleIconContainer]}>
-                  {oauthLoading === 'google' ? (
-                    <ActivityIndicator size="small" color={colors.google} />
-                  ) : (
-                    <FontAwesome5 name="google" size={20} color={colors.google} />
-                  )}
+          <View style={styles.socialRow}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continue with Google"
+              style={styles.social}
+              onPress={handleGoogleSignIn}
+              disabled={busy}
+              activeOpacity={0.8}>
+              <View style={styles.socialFace}>
+                {oauthLoading === 'google'
+                  ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
+                  : <FontAwesome5 name="google" size={20} color={colors.google} />}
+              </View>
+            </TouchableOpacity>
+
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continue with Apple"
+                style={styles.social}
+                onPress={handleAppleSignIn}
+                disabled={busy}
+                activeOpacity={0.8}>
+                <View style={[styles.socialFace, styles.appleFace]}>
+                  {oauthLoading === 'apple'
+                    ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
+                    : <FontAwesome5 name="apple" size={22} color={homeColors.white} />}
                 </View>
               </TouchableOpacity>
-
-              {/* Apple 登录 */}
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity accessibilityRole="button"
-                  style={styles.socialIconButton}
-                  onPress={handleAppleSignIn}
-                  disabled={loading || oauthLoading !== null}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.socialIconContainer, styles.appleIconContainer]}>
-                    {oauthLoading === 'apple' ? (
-                      <ActivityIndicator size="small" color={colors.surf} />
-                    ) : (
-                      <FontAwesome5 name="apple" size={22} color={colors.surf} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
           </View>
 
-          {/* 跳转到注册页面 */}
-          <View style={styles.signUpLinkContainer}>
-            <Text style={styles.signUpLinkText}>Don't have an account? </Text>
+          <View style={styles.signUpRow}>
+            <Text style={styles.signUpText}>Don’t have an account? </Text>
             <TouchableOpacity accessibilityRole="button"
               onPress={() => router.replace('/signup')}
-              style={styles.signUpLinkTouchable}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.signUpLinkButton}>Sign Up</Text>
+              activeOpacity={0.7}>
+              <Text style={styles.signUpLink}>Sign Up</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -720,240 +716,57 @@ export default function LoginScreen() {
   );
 }
 
+/** The character above the form, and the two sizes it appears at while it waits. */
+const HERO_MASCOT = 190;
+const BUTTON_MASCOT = 72;
+const SOCIAL_MASCOT = 54;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
-    paddingTop: 72, // 24 + 48 = 72px (原24px + 下移48px)
-    paddingBottom: 24,
-  },
-  content: {
-    paddingHorizontal: layout.screenInline,
-    paddingVertical: 20,
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  logoContainer: {
-    alignSelf: 'center',
-    marginTop: 80,
-    marginBottom: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tagline: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '400',
-    color: colors.muted,
-    marginTop: 12,
-    textAlign: 'center',
-    fontFamily: fonts.regular,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 40,
-    textAlign: 'center',
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  firstInputContainer: {
-    marginTop: 80,
-  },
-  input: { minHeight: 44,
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-  },
-  passwordInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-  },
-  passwordInput: { minHeight: 44,
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-  },
-  eyeButton: { minHeight: 44,
-    padding: 14,
-    paddingRight: 16,
-  },
-  rememberPasswordRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  rememberPasswordContainer: {
-    flex: 1,
-  },
-  clearButton: { minHeight: 44,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-  },
-  clearButtonText: {
-    fontSize: 14,
-    color: colors.red,
-    fontWeight: '500',
-  },
-  checkboxContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.muted,
-    marginRight: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surf,
-  },
-  checkboxChecked: {
-    backgroundColor: colors.action,
-    borderColor: colors.action,
-  },
-  rememberPasswordText: {
-    fontSize: 12,
-    color: colors.muted,
-    fontFamily: fonts.regular,
-  },
-  button: { minHeight: 44,
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  signInButton: { minHeight: 44,
-    backgroundColor: colors.action,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.onAction,
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
-  forgotPasswordText: {
-    fontSize: 12,
-    color: colors.accentText,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 12,
-    color: colors.muted,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
-  },
-  socialLoginContainer: {
-    marginTop: 8,
-    alignItems: 'center',
-  },
-  socialLoginTitle: {
-    fontSize: 14,
-    color: t.color.muted,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  socialIconsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  socialIconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  socialIconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.accentShadow,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 2,
-    elevation: 0,
-  },
-  googleIconContainer: {
-    backgroundColor: colors.surf,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  appleIconContainer: {
-    backgroundColor: colors.text,
-    borderWidth: 1,
-    borderColor: colors.text,
-  },
-  signUpLinkContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  signUpLinkText: {
-    fontSize: 12,
-    color: colors.muted,
-    fontFamily: fonts.regular,
-  },
-  signUpLinkTouchable: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  signUpLinkButton: {
-    fontSize: 12,
-    color: colors.action,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
+  container: { flex: 1, backgroundColor: homeColors.canvas },
+  background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
+  // The same hill the home screen rises from, so arriving at the app and signing in
+  // to it are the same place.
+  waveBack: { position: 'absolute', top: 96, left: -19 },
+  waveFront: { position: 'absolute', top: 133, left: -19 },
+  scrollContent: { flexGrow: 1, paddingTop: 56, paddingBottom: 32 },
+  content: { flex: 1, paddingHorizontal: layout.screenInline, gap: 16 },
+
+  hero: { alignItems: 'center', gap: 6, paddingBottom: 8 },
+  mascot: { alignItems: 'center', justifyContent: 'center' },
+  tagline: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
+
+  // Every surface in this language is a coloured shell with a white face sitting on
+  // it, four points short of the bottom — that ledge is what gives the flat palette
+  // its weight, and it is the one thing a card here must not skip.
+  card: { backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
+  cardFace: { backgroundColor: homeColors.white, borderRadius: 24, padding: 16, gap: 12 },
+  field: { minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas, justifyContent: 'center', paddingHorizontal: 16 },
+  input: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest, paddingVertical: 14 },
+  passwordInput: { paddingRight: 44 },
+  eyeButton: { position: 'absolute', right: 4, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
+
+  rememberRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', minHeight: 44 },
+  remember: { flexDirection: 'row', alignItems: 'center', gap: 8, minHeight: 44 },
+  checkbox: { width: 22, height: 22, borderRadius: 7, borderWidth: 2, borderColor: homeColors.streakBorder, alignItems: 'center', justifyContent: 'center' },
+  checkboxChecked: { backgroundColor: homeColors.primary, borderColor: homeColors.primary },
+  rememberText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted },
+  forgotText: { fontFamily: 'Geist_600SemiBold', fontSize: 14, color: homeColors.primary },
+
+  signIn: { height: 61, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: 4 },
+  signInBusy: { opacity: 0.75 },
+  signInFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  signInText: { fontFamily: 'Geist_500Medium', fontSize: 24, lineHeight: 32, color: homeColors.white },
+
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: homeColors.border },
+  dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
+
+  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+  social: { width: 64, height: 60, borderRadius: 20, backgroundColor: homeColors.border, paddingBottom: 4 },
+  socialFace: { flex: 1, borderRadius: 20, backgroundColor: homeColors.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  appleFace: { backgroundColor: homeColors.darkest },
+
+  signUpRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 'auto' },
+  signUpText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted },
+  signUpLink: { fontFamily: 'Geist_600SemiBold', fontSize: 14, color: homeColors.primary },
 });
