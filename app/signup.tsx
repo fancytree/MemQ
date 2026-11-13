@@ -3,7 +3,7 @@ import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
-import { homeColors } from '@/theme/colors';
+import { homeColors, referenceColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { signInWithOAuth, startGoogleOAuthInSafari } from '@/lib/auth';
@@ -66,12 +66,14 @@ const BUTTON_MASCOT = 72;
 
 /** Placeholder ink. A hint is not content: `muted` measures 5.3:1 against the field
  * it sits in, which is body-text contrast, and that is why it read as something
- * already typed. This is 3.7:1 — clearly legible, clearly subordinate.
+ * already typed. This is 2.5:1 — a light grey, still readable, and plainly behind
+ * anything the person enters. The next lighter thing in the palette is 1.4:1, which
+ * is not readable at all.
  *
- * The token is named for a chart bar because the palette has no placeholder ink of
- * its own. The name belongs to the palette; the use is this, and it is worth giving
- * it a name of its own next time theme/colors.ts is being edited anyway. */
-const HINT = homeColors.chartBar;
+ * The palette has no placeholder ink of its own, so this borrows the lightest grey
+ * in it. The name belongs to the palette; the use is this, and it is worth giving it
+ * a name of its own next time theme/colors.ts is being edited anyway. */
+const HINT = referenceColors.planeTrail;
 
 const SUBSCRIPTION_REFRESH_TIMEOUT_MS = 4000;
 
@@ -297,8 +299,8 @@ export default function SignUpScreen() {
       <LinearGradient pointerEvents="none"
         colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
-      <Flow name="waveBack" style={styles.waveBack} seconds={17} shiftX={-13} shiftY={5} />
-      <Flow name="waveFront" style={styles.waveFront} seconds={11} shiftX={19} shiftY={-7} />
+      <Flow name="waveBack" style={styles.waveBack} seconds={13} shiftX={-15} shiftY={16} />
+      <Flow name="waveFront" style={styles.waveFront} seconds={9} shiftX={15} shiftY={-20} />
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 40 }]}
         keyboardShouldPersistTaps="handled">
@@ -460,7 +462,10 @@ const styles = StyleSheet.create({
   dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
 
   socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
-  social: { width: 64, height: 60, borderRadius: 20, backgroundColor: homeColors.border, paddingBottom: 4 },
+  // 60 wide, 64 tall: the four points at the bottom are the shell's ledge, so the
+  // white face above it is the square — sizing the shell square made the face
+  // wider than it was tall.
+  social: { width: 60, height: 64, borderRadius: 20, backgroundColor: homeColors.border, paddingBottom: 4 },
   socialFace: { flex: 1, borderRadius: 20, backgroundColor: homeColors.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   appleFace: { backgroundColor: homeColors.darkest },
 

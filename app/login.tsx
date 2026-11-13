@@ -3,7 +3,7 @@ import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
-import { homeColors } from '@/theme/colors';
+import { homeColors, referenceColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
   Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming,
@@ -37,7 +37,12 @@ import {
  * One slow sine each, on periods that do not divide into one another, so the pair
  * never returns to the same arrangement and the background reads as moving rather
  * than as looping. The near hill travels further and faster than the far one, which
- * is the whole of the parallax. */
+ * is the whole of the parallax.
+ *
+ * Sideways travel is capped by the hills' own overhang: they are 450 and 462 wide on
+ * a 402 screen at left -19, so more than 19 to the right brings their left edge into
+ * view. Most of the movement is therefore vertical, where nothing can be exposed —
+ * the gradient behind them runs the full height. */
 function Flow({ name, style, seconds, shiftX, shiftY }: {
   name: 'waveBack' | 'waveFront';
   style: object;
@@ -68,12 +73,14 @@ function Flow({ name, style, seconds, shiftX, shiftY }: {
 
 /** Placeholder ink. A hint is not content: `muted` measures 5.3:1 against the field
  * it sits in, which is body-text contrast, and that is why it read as something
- * already typed. This is 3.7:1 — clearly legible, clearly subordinate.
+ * already typed. This is 2.5:1 — a light grey, still readable, and plainly behind
+ * anything the person enters. The next lighter thing in the palette is 1.4:1, which
+ * is not readable at all.
  *
- * The token is named for a chart bar because the palette has no placeholder ink of
- * its own. The name belongs to the palette; the use is this, and it is worth giving
- * it a name of its own next time theme/colors.ts is being edited anyway. */
-const HINT = homeColors.chartBar;
+ * The palette has no placeholder ink of its own, so this borrows the lightest grey
+ * in it. The name belongs to the palette; the use is this, and it is worth giving it
+ * a name of its own next time theme/colors.ts is being edited anyway. */
+const HINT = referenceColors.planeTrail;
 
 const REMEMBER_EMAIL_KEY = 'remembered_email';
 const REMEMBER_PASSWORD_KEY = 'remembered_password';
@@ -635,8 +642,8 @@ export default function LoginScreen() {
       <LinearGradient pointerEvents="none"
         colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
-      <Flow name="waveBack" style={styles.waveBack} seconds={17} shiftX={-13} shiftY={5} />
-      <Flow name="waveFront" style={styles.waveFront} seconds={11} shiftX={19} shiftY={-7} />
+      <Flow name="waveBack" style={styles.waveBack} seconds={13} shiftX={-15} shiftY={16} />
+      <Flow name="waveFront" style={styles.waveFront} seconds={9} shiftX={15} shiftY={-20} />
       <ScrollView
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 56 }]}
         keyboardShouldPersistTaps="handled">
@@ -839,7 +846,10 @@ const styles = StyleSheet.create({
   dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
 
   socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
-  social: { width: 64, height: 60, borderRadius: 20, backgroundColor: homeColors.border, paddingBottom: 4 },
+  // 60 wide, 64 tall: the four points at the bottom are the shell's ledge, so the
+  // white face above it is the square — sizing the shell square made the face
+  // wider than it was tall.
+  social: { width: 60, height: 64, borderRadius: 20, backgroundColor: homeColors.border, paddingBottom: 4 },
   socialFace: { flex: 1, borderRadius: 20, backgroundColor: homeColors.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   appleFace: { backgroundColor: homeColors.darkest },
 
