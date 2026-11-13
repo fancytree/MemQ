@@ -52,6 +52,15 @@ const FIXES = {
   sleepy: { rename: { accent: 'zzz' } },
 };
 
+/** How far the tail is lifted from where the frames draw it, in artwork units.
+ *
+ * It is drawn low on the body, which is fine on its own and wrong the moment the
+ * character is sitting behind something: on the login card the edge crosses at the
+ * hands, and everything the tail does happened below it. Lifted, the sweep shows
+ * above the edge and the swing is visible. It moves on every surface, because it is
+ * the character that changed, not one screen's composition. */
+const TAIL_LIFT = 16;
+
 const FILL = { ink: '#4B2C78', body: '#C59AF0', gold: '#FFBA00', white: 'white', plate: '#F0E4FC' };
 
 /** The hands, which are a part of their own rather than part of an expression.
@@ -87,7 +96,7 @@ const MOCKUP = {
     // tilted character; standing it upright moved where its left hand wants to sit,
     // so that one is lifted a little.
     handL: { rect: [199, 204, 39.376, 37.466], spin: 22.1, nudge: [0, -7], file: 'handL.svg' },
-    handR: { rect: [307, 244, 32, 28], spin: 0, nudge: [0, 0], file: 'handR.svg' },
+    handR: { rect: [307, 244, 32, 28], spin: 0, nudge: [14.4, -26.1], file: 'handR.svg' },
   },
 };
 
@@ -306,7 +315,13 @@ for (const [file, state] of Object.entries(FRAMES)) {
   const f = path.join(SRC, `${file}.svg`);
   if (!fs.existsSync(f)) { console.error(`missing ${f}`); process.exit(1); }
   const { view, masks, paths } = parse(f);
-  frames[state] = { view, parts: classify(paths, view, masks) };
+  const parts = classify(paths, view, masks);
+  for (const p of parts) {
+    if (p.name !== 'tail' && p.name !== 'tailTip') continue;
+    p.d = affine(p.d, [1, 0, 0, 1, 0, -TAIL_LIFT]);
+    p.b = { ...p.b, y0: p.b.y0 - TAIL_LIFT, y1: p.b.y1 - TAIL_LIFT };
+  }
+  frames[state] = { view, parts };
 }
 
 // Apply the corrections.

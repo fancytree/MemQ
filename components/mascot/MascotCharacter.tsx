@@ -288,7 +288,7 @@ function OpenEye({ box, white, pupil, out, clipId, style }: {
   );
 }
 
-export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, behind, eyesShut = false, style }: {
+export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, calm = false, behind, eyesShut = false, style }: {
   width: number;
   mood?: MascotMood;
   /** A fixed lean, in degrees, applied inside the character rather than to the box
@@ -298,6 +298,11 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
    * looks at all day wants one face and small life inside it; a lab wants to see the
    * whole set. Off, the state wears its primary frame and nothing else. */
   drift?: boolean;
+  /** Hold one face: no drift between frames, no blink, no wink. What is left is the
+   * body's own breath, the tail it swings, and the eyes tracking wherever the
+   * character has been told to look. For a screen a person is reading and typing
+   * into, a face that keeps changing is something to watch instead of a form. */
+  calm?: boolean;
   /** Where to aim the gaze, added to whatever the state looks at: -1 is hard left,
    * +1 hard right, and the same for up and down. Which way the character should look
    * is not a property of its mood but of where the surface has put it — on Today it
@@ -501,14 +506,14 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     // may open them.
     if (eyesShut) { lidOverride.value = 0.02; return; }
     const cadence = MASCOT_STATES[mood].blink;
-    if (reduceMotion || !cadence) { lidOverride.value = null; return; }
+    if (reduceMotion || calm || !cadence) { lidOverride.value = null; return; }
     const timers: ReturnType<typeof setTimeout>[] = [];
     const schedule = () => {
       timers.push(setTimeout(() => { blink(timers); schedule(); }, randomMs(cadence)));
     };
     schedule();
     return () => { timers.forEach(clearTimeout); lidOverride.value = null; };
-  }, [blink, eyesShut, lidOverride, mood, reduceMotion]);
+  }, [blink, calm, eyesShut, lidOverride, mood, reduceMotion]);
 
   useEffect(() => {
     if (!blinkSignal || reduceMotion) return;
@@ -523,7 +528,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   // transparent at once, and swapping on an open eye pops.
   useEffect(() => {
     const hold = MASCOT_STATES[mood].frameHold;
-    if (reduceMotion || !drift || frames.length < 2 || !hold) return;
+    if (reduceMotion || calm || !drift || frames.length < 2 || !hold) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     let i = 0;
     const schedule = () => {
@@ -537,7 +542,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     };
     schedule();
     return () => timers.forEach(clearTimeout);
-  }, [blink, drift, frames, mood, reduceMotion]);
+  }, [blink, calm, drift, frames, mood, reduceMotion]);
 
   // A wink: one eye shut on its own interval, and never while the pair is blinking —
   // two overlapping closures read as a glitch, not as a wink.
@@ -545,7 +550,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   useEffect(() => {
     const cadence = MASCOT_STATES[mood].wink;
     setWinkSide(null);
-    if (reduceMotion || !cadence) return;
+    if (reduceMotion || calm || !cadence) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     const schedule = () => {
       timers.push(setTimeout(() => {
@@ -556,7 +561,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     };
     schedule();
     return () => { timers.forEach(clearTimeout); setWinkSide(null); };
-  }, [mood, reduceMotion]);
+  }, [calm, mood, reduceMotion]);
 
   useEffect(() => {
     if (!winkSignal || reduceMotion) return;

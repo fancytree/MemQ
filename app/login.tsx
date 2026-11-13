@@ -3,8 +3,12 @@ import { fonts } from '@/theme/typography';
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
+import Animated, {
+  Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming,
+} from 'react-native-reanimated';
 import { MemQTheme } from '@/constants/theme';
 import { useLoading } from '@/context/LoadingContext';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -16,6 +20,7 @@ import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -27,6 +32,40 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+
+/** Two hills that never quite keep time with each other.
+ *
+ * One slow sine each, on periods that do not divide into one another, so the pair
+ * never returns to the same arrangement and the background reads as moving rather
+ * than as looping. The near hill travels further and faster than the far one, which
+ * is the whole of the parallax. */
+function Flow({ name, style, seconds, shiftX, shiftY }: {
+  name: 'waveBack' | 'waveFront';
+  style: object;
+  seconds: number;
+  shiftX: number;
+  shiftY: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  const t = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion) { t.value = 0.5; return; }
+    t.value = withRepeat(
+      withTiming(1, { duration: seconds * 1000, easing: Easing.inOut(Easing.sin) }),
+      -1, true);
+  }, [reduceMotion, seconds, t]);
+  const drift = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: (t.value - 0.5) * 2 * shiftX },
+      { translateY: (t.value - 0.5) * 2 * shiftY },
+    ],
+  }));
+  return (
+    <Animated.View pointerEvents="none" style={[style, drift]}>
+      <HomeAsset name={name} />
+    </Animated.View>
+  );
+}
 
 const REMEMBER_EMAIL_KEY = 'remembered_email';
 const REMEMBER_PASSWORD_KEY = 'remembered_password';
@@ -578,6 +617,7 @@ export default function LoginScreen() {
   // The card is nested inside the character's box, so it has to be pulled back out
   // to the width of the content column it would have had on its own.
   const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const cardBleed = -((screenWidth - layout.screenInline * 2) - PERCH_MASCOT) / 2;
 
   return (
@@ -587,10 +627,10 @@ export default function LoginScreen() {
       <LinearGradient pointerEvents="none"
         colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
-      <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
-      <View pointerEvents="none" style={styles.waveFront}><HomeAsset name="waveFront" /></View>
+      <Flow name="waveBack" style={styles.waveBack} seconds={17} shiftX={-13} shiftY={5} />
+      <Flow name="waveFront" style={styles.waveFront} seconds={11} shiftX={19} shiftY={-7} />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 56 }]}
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <View style={styles.hero}>
@@ -601,8 +641,12 @@ export default function LoginScreen() {
           {/* The character perches on the card: its body behind, its hands over the
               front edge. The card is nested inside it so it can sit between the two,
               and ridden up over the body by its own negative margin. */}
+          {/* Calm: one face, no blink, no wink. What moves is the tail and the
+              eyes — a face that keeps changing above a form is something to watch
+              instead of something to fill in. */}
           <MascotCharacter width={PERCH_MASCOT}
             mood={busy ? 'thinking' : 'onboarding'}
+            calm
             eyesShut={typingPassword}
             style={styles.perch}
             behind={(
@@ -731,9 +775,17 @@ export default function LoginScreen() {
 }
 
 /** The character perched on the card, and the two sizes it appears at while it
- * waits. The card rides up over it by rather more than half, so what stays visible
- * above the top edge is a head, two horns and a pair of hands. */
+ * waits. What stays visible above the top edge is a head, two horns and a pair of
+ * hands resting on it. */
 const PERCH_MASCOT = 190;
+
+/** Where the card's top edge crosses the character, read off the hands rather than
+ * typed in: a little below their middle, so their lower part laps onto the card and
+ * they read as resting on the edge instead of hovering above it. Moving the hands in
+ * the artwork moves the edge with them. */
+const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
+  / MASCOT_HANDS.length / 256;
+const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH_MASCOT;
 const BUTTON_MASCOT = 72;
 const SOCIAL_MASCOT = 54;
 
@@ -744,7 +796,7 @@ const styles = StyleSheet.create({
   // to it are the same place.
   waveBack: { position: 'absolute', top: 96, left: -19 },
   waveFront: { position: 'absolute', top: 133, left: -19 },
-  scrollContent: { flexGrow: 1, paddingTop: 56, paddingBottom: 32 },
+  scrollContent: { flexGrow: 1, paddingBottom: 32 },
   content: { flex: 1, paddingHorizontal: layout.screenInline, gap: 16 },
 
   hero: { alignItems: 'center', gap: 6 },
@@ -754,11 +806,7 @@ const styles = StyleSheet.create({
   // Every surface in this language is a coloured shell with a white face sitting on
   // it, four points short of the bottom — that ledge is what gives the flat palette
   // its weight, and it is the one thing a card here must not skip.
-  // Negative, and that number is the whole effect: it is how much of the character
-  // the card swallows. The hands sit between 0.66 and 0.74 of the box, so the top
-  // edge is put at 0.70 — through the middle of them, which is what reads as a grip
-  // rather than as two paws dropped on the form.
-  card: { marginTop: -PERCH_MASCOT * 0.30,
+  card: { marginTop: CARD_LIFT,
     backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
   cardFace: { backgroundColor: homeColors.white, borderRadius: 24, padding: 16, gap: 12 },
   field: { minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas, justifyContent: 'center', paddingHorizontal: 16 },
