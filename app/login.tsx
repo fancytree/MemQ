@@ -646,11 +646,11 @@ export default function LoginScreen() {
       <Flow name="waveBack" style={styles.waveBack} seconds={13} shiftX={-15} shiftY={16} />
       <Flow name="waveFront" style={styles.waveFront} seconds={9} shiftX={15} shiftY={-20} />
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 56 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 76 }]}
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <View style={styles.hero}>
-            <Logo width={190} />
+            <Logo width={190} align="left" />
             <Text style={styles.tagline}>Smart Quiz & Memory</Text>
           </View>
 
@@ -748,36 +748,36 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <View style={styles.socialRow}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continue with Google"
-              style={styles.social}
-              onPress={handleGoogleSignIn}
-              disabled={busy}
-              activeOpacity={0.8}>
-              <View style={styles.socialFace}>
-                {oauthLoading === 'google'
-                  ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
-                  : <FontAwesome5 name="google" size={20} color={colors.google} />}
-              </View>
-            </TouchableOpacity>
-          </View>
+          <View style={styles.socialCol}>
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Apple"
+                style={[styles.social, styles.appleBtn]}
+                onPress={handleAppleSignIn} disabled={busy} activeOpacity={0.85}>
+                {oauthLoading === 'apple'
+                  ? <MascotCharacter width={BUTTON_MASCOT} mood="thinking" />
+                  : (
+                    <>
+                      <FontAwesome5 name="apple" size={20} color={homeColors.white} />
+                      <Text style={[styles.socialText, styles.appleText]}>Sign in with Apple</Text>
+                    </>
+                  )}
+              </TouchableOpacity>
+            )}
 
-          {Platform.OS === 'ios' && (
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Apple"
-              style={styles.apple}
-              onPress={handleAppleSignIn}
-              disabled={busy}
-              activeOpacity={0.85}>
-              {oauthLoading === 'apple'
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Google"
+              style={[styles.social, styles.googleBtn]}
+              onPress={handleGoogleSignIn} disabled={busy} activeOpacity={0.85}>
+              {oauthLoading === 'google'
                 ? <MascotCharacter width={BUTTON_MASCOT} mood="thinking" />
                 : (
                   <>
-                    <FontAwesome5 name="apple" size={20} color={homeColors.white} />
-                    <Text style={styles.appleText}>Sign in with Apple</Text>
+                    <FontAwesome5 name="google" size={19} color={colors.google} />
+                    <Text style={[styles.socialText, styles.googleText]}>Sign in with Google</Text>
                   </>
                 )}
             </TouchableOpacity>
-          )}
+          </View>
+
           <View style={styles.signUpRow}>
             <Text style={styles.signUpText}>Don’t have an account? </Text>
             <TouchableOpacity accessibilityRole="button"
@@ -874,23 +874,21 @@ const styles = StyleSheet.create({
   signInFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   signInText: { fontFamily: 'Geist_500Medium', fontSize: 24, lineHeight: 32, color: homeColors.white },
 
-  // Apple's own button, kept flat and black as their rules require: no coloured
-  // shell, no ledge, nothing from this app's language laid over it.
-  apple: { height: 52, borderRadius: 14, backgroundColor: homeColors.black,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    overflow: 'hidden' },
-  appleText: { fontFamily: 'Geist_500Medium', fontSize: 18, color: homeColors.white },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
   dividerLine: { flex: 1, height: 1, backgroundColor: homeColors.border },
   dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
 
-  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
-  // 60 wide, 62 tall: the two points at the bottom are the shell's ledge, so the
-  // white face above it is the square — sizing the shell square made the face
-  // wider than it was tall.
-  social: { width: 60, height: 62, borderRadius: 22, backgroundColor: homeColors.border, paddingBottom: 2 },
-  socialFace: { flex: 1, borderRadius: 22, backgroundColor: homeColors.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  appleFace: { backgroundColor: homeColors.darkest },
+  // Two doors to the same room, so they are the same door: one height, one radius,
+  // one type size, one gap between mark and words. Only the colours differ, because
+  // those belong to Apple and to Google and are not this app's to restyle.
+  socialCol: { gap: 12 },
+  social: { height: 52, borderRadius: 14, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: 8, overflow: 'hidden' },
+  appleBtn: { backgroundColor: homeColors.black },
+  googleBtn: { backgroundColor: homeColors.white, borderWidth: 1, borderColor: homeColors.border },
+  socialText: { fontFamily: 'Geist_500Medium', fontSize: 18 },
+  appleText: { color: homeColors.white },
+  googleText: { color: homeColors.darkest },
 
   signUpRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 'auto' },
   signUpText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted },
