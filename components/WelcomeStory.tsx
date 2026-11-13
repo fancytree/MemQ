@@ -132,7 +132,7 @@ const SCENES: Scene[] = [
     ],
     title: 'Practice\nand Remember',
     skip: false,
-    button: { label: 'Start learning  →', bg: homeColors.hill, ink: homeColors.deep },
+    button: { label: 'Next  →', bg: homeColors.hill, ink: homeColors.deep },
     dot: { on: homeColors.deep, off: homeColors.track },
   },
 ];
