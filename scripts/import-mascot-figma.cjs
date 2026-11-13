@@ -82,9 +82,12 @@ const MOCKUP = {
   // designer chose; the swing is small enough now to do without it.
   inset: 0,
   hands: {
-    // left, top, width, height as laid out, and the hand's own turn
-    handL: { rect: [199, 204, 39.376, 37.466], spin: 22.1, file: 'handL.svg' },
-    handR: { rect: [307, 244, 32, 28], spin: 0, file: 'handR.svg' },
+    // left, top, width, height as laid out, the hand's own turn, and a nudge in the
+    // artwork's own units applied afterwards. The mockup is one still picture of a
+    // tilted character; standing it upright moved where its left hand wants to sit,
+    // so that one is lifted a little.
+    handL: { rect: [199, 204, 39.376, 37.466], spin: 22.1, nudge: [0, -7], file: 'handL.svg' },
+    handR: { rect: [307, 244, 32, 28], spin: 0, nudge: [0, 0], file: 'handR.svg' },
   },
 };
 
@@ -132,6 +135,8 @@ function placeHands(dir) {
     const len = Math.hypot(vx, vy) || 1;
     X -= (vx / len) * MOCKUP.inset;
     Y -= (vy / len) * MOCKUP.inset;
+    X += h.nudge[0];
+    Y += h.nudge[1];
     // and how far it is turned once the drawing's own turn is taken out
     const a = ((h.spin - MOCKUP.spin) * Math.PI) / 180;
     const ca = Math.cos(a) * k, sa = Math.sin(a) * k;
@@ -143,7 +148,7 @@ function placeHands(dir) {
     console.log(`  ${name} placed at (${X.toFixed(1)}, ${Y.toFixed(1)}) `
       + `${(halfW * 2).toFixed(1)}x${(halfH * 2).toFixed(1)}, `
       + `turned ${(h.spin - MOCKUP.spin).toFixed(1)} deg against the body, `
-      + `${MOCKUP.inset} in from the outline`);
+      + `nudged ${h.nudge[0]},${h.nudge[1]}`);
   }
   return out;
 }
