@@ -349,7 +349,8 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     () => (Array.isArray(state.frame) ? state.frame : [state.frame]), [state.frame]);
   const [face, setFace] = useState<MascotFrame>(frames[0]);
   useEffect(() => { setFace(frames[0]); }, [frames]);
-  const art = useMemo(() => build(frames[0], face, !!state.arm), [frames, face, state.arm]);
+  const art = useMemo(() => build(frames[0], face, !!state.arm, !!state.bare),
+    [frames, face, state.arm, state.bare]);
 
   const moodRef = useSharedValue<MascotMood>(mood);
   const lidOverride = useSharedValue<number | null>(null);
@@ -821,7 +822,7 @@ function scaleAbout(k: number, at: { dx: number; dy: number }, box: number) {
  * horns, the tail and the decorations; the face frame carries the eyes and the mouth.
  * The body geometry is identical across every frame of the set, so the seam that
  * ought to exist does not. */
-function build(primary: MascotFrame, face: MascotFrame, hands: boolean) {
+function build(primary: MascotFrame, face: MascotFrame, hands: boolean, bare: boolean) {
   const base = MASCOT_ART[primary].parts;
   const front = MASCOT_ART[face].parts;
   const of = (src: FigmaPath[], ...names: MascotPartName[]) =>
@@ -829,8 +830,8 @@ function build(primary: MascotFrame, face: MascotFrame, hands: boolean) {
   const one = (src: FigmaPath[], name: MascotPartName) => src.find((p) => p.name === name);
   const white = { L: one(front, 'eyeWhiteL'), R: one(front, 'eyeWhiteR') };
   const closed = { L: one(front, 'eyeClosedL'), R: one(front, 'eyeClosedR') };
-  const accents = of(base, ...ACCENTS);
-  const badge = of(base, ...BADGE);
+  const accents = bare ? [] : of(base, ...ACCENTS);
+  const badge = bare ? [] : of(base, ...BADGE);
   // The borrowed lid is drawn where this frame's eye is, not where the sleeping face
   // wears it.
   const lid = { L: moveLid('eyeClosedL', white.L), R: moveLid('eyeClosedR', white.R) };

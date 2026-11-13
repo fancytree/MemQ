@@ -21,8 +21,8 @@
 export type MascotMood =
   // The six expressions.
   | 'idle' | 'happy' | 'excited' | 'thinking' | 'focused' | 'surprised' | 'sleepy'
-  // The four product moments.
-  | 'onboarding' | 'learningComplete' | 'studyReview' | 'streakReward';
+  // The product moments.
+  | 'onboarding' | 'learningComplete' | 'studyReview' | 'streakReward' | 'working';
 
 /** The drawn frames, by the name the importer gives each Figma frame. */
 export type MascotFrame =
@@ -30,7 +30,7 @@ export type MascotFrame =
 
 export const MASCOT_GROUPS: { label: string; moods: MascotMood[] }[] = [
   { label: 'Expressions', moods: ['idle', 'happy', 'excited', 'thinking', 'focused', 'surprised', 'sleepy'] },
-  { label: 'Product moments', moods: ['onboarding', 'learningComplete', 'studyReview', 'streakReward'] },
+  { label: 'Product moments', moods: ['onboarding', 'learningComplete', 'studyReview', 'streakReward', 'working'] },
 ];
 export const ALL_MASCOT_MOODS: MascotMood[] = MASCOT_GROUPS.flatMap((g) => g.moods);
 
@@ -111,6 +111,10 @@ export interface MascotState {
   wink?: [number, number];
   gaze: GazeSpec;
   beat?: BeatSpec;
+  /** Draw none of the frame's decorations — no accents, no question mark, no z's.
+   * A frame is chosen for its face, and sometimes the marks that came with it say
+   * something the surface is not saying. */
+  bare?: boolean;
   /** How the frame's decorations behave: a pop punctuates a beat, a drift rises and
    * fades, a float bobs where it is. Which decorations exist comes from the frame. */
   propMotion?: 'pop' | 'drift' | 'float';
@@ -258,6 +262,20 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     lid: 0.95, eyeScale: 1,
     blink: [3200, 7000], hornLag: 0.3, tailLag: 0.45,
     gaze: { x: 0, y: 0.3, wanderX: 0.2, wanderY: 0.1, hold: [2000, 4000] },
+  },
+
+  /** Waiting on the network, with the whole screen to itself. It wears the thinking
+   * face without the question mark that frame carries — nothing is being asked, work
+   * is being done — and it hops, because a character that holds still while a person
+   * waits looks like a picture of a stuck app. */
+  working: {
+    frame: 'thinking', bare: true,
+    roll: [0, 0, 1], tx: [0, 0, 1], ty: [0, 0, 0],
+    squash: [1, 0.02, 2], hop: { height: 0.036, rate: 1.15, crouch: 0.013, squash: 0.1 },
+    tail: [-3, 6, 1.4], arm: [0, 3, 1.4],
+    lid: 1, eyeScale: 1,
+    blink: [2600, 5200], hornLag: 0.75, tailLag: 1.1,
+    gaze: { x: 0, y: -0.05, wanderX: 0.55, wanderY: 0.25, hold: [900, 1800] },
   },
 
   /** The reward. Off the ground entirely, turning slowly — so this one floats rather

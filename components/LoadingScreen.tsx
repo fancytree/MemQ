@@ -10,9 +10,9 @@
  * and the two hills Today and the sign-in screens stand on, the wordmark, and the
  * character waiting with you. It used to be a system spinner on a flat background.
  *
- * The character is held on one face. Left to drift, the thinking state alternates
- * with a brow-down squint, and being scowled at is not what waiting should feel
- * like.
+ * The character is held on one face. Left to drift, the waiting state's frame
+ * alternates with a brow-down squint, and being scowled at is not what waiting
+ * should feel like.
  */
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
@@ -51,7 +51,7 @@ export default function LoadingScreen({ visible, label = WORKING }: LoadingScree
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           <View style={styles.content}>
             <Logo width={200} />
-            <MascotCharacter width={MASCOT} mood="thinking" calm style={styles.mascot} />
+            <MascotCharacter width={MASCOT} mood="working" calm style={styles.mascot} />
             {!!label && <Text style={styles.label}>{label}</Text>}
           </View>
         </SafeAreaView>
