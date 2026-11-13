@@ -2,7 +2,7 @@ import { layout } from '@/theme/spacing';
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
-import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
+import { MASCOT_ART, MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { homeColors, referenceColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import Animated, {
@@ -634,6 +634,7 @@ export default function LoginScreen() {
   const { width: screenWidth } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const cardBleed = -((screenWidth - layout.screenInline * 2) - PERCH_MASCOT) / 2;
+  const perchShift = screenWidth * (PERCH_AT - 0.5);
 
   return (
     <KeyboardAvoidingView
@@ -663,9 +664,9 @@ export default function LoginScreen() {
             mood={busy ? 'thinking' : 'onboarding'}
             calm
             eyesShut={typingPassword}
-            style={styles.perch}
+            style={[styles.perch, { marginLeft: (perchShift + INK_OFFSET * PERCH_MASCOT) * 2 }]}
             behind={(
-              <View style={[styles.card, { marginLeft: cardBleed - PERCH_SHIFT, marginRight: cardBleed + PERCH_SHIFT }]}>
+              <View style={[styles.card, { marginLeft: cardBleed - perchShift, marginRight: cardBleed + perchShift }]}>
                 <View style={styles.cardFace}>
                   <View style={styles.field}>
                     <TextInput accessibilityLabel="Email"
@@ -802,9 +803,32 @@ const PERCH_MASCOT = 190;
  * the artwork moves the edge with them. */
 const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
   / MASCOT_HANDS.length / 256;
-/** How far right of centre the character sits. The card is nested in its box, so
- * whatever this moves the box, the card's two margins have to give back. */
-const PERCH_SHIFT = 34;
+/** The character stands on the golden section of the screen rather than its middle:
+ * 0.618 across, which is 0.118 of the width right of centre. Off-centre by a little
+ * reads as a mistake; this is far enough to read as a decision.
+ *
+ * The card is nested in its box, so whatever this moves the box, the card's two
+ * margins give back — one loses what the other gains. */
+/** Right of the golden section rather than on it: with the header left-aligned
+ * there is weight on both sides now, and the character can sit further over
+ * without the page leaning. */
+const PERCH_AT = 0.69;
+
+/** The drawing is not centred in its own square. Taking the body and the hands —
+ * the mass the eye reads, the tail being a thin thing off to one side — their middle
+ * sits seven units left of the square's, so aiming the box at a point leaves the
+ * character short of it. Measured on screen before this correction: 0.604 across
+ * where 0.618 was asked for, which is the same seven units.
+ */
+const INK_OFFSET = (() => {
+  const boxes = [
+    ...MASCOT_ART.neutral.parts.filter((p) => p.name === 'body').map((p) => p.box),
+    ...MASCOT_HANDS.map((p) => p.box),
+  ];
+  const mid = (Math.min(...boxes.map((b) => b[0])) + Math.max(...boxes.map((b) => b[2]))) / 2;
+  return (128 - mid) / 256;
+})();
+
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH_MASCOT;
 const BUTTON_MASCOT = 72;
 const SOCIAL_MASCOT = 54;
@@ -819,8 +843,12 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingBottom: 32 },
   content: { flex: 1, paddingHorizontal: layout.screenInline, gap: 16 },
 
-  hero: { alignItems: 'center', gap: 6 },
-  perch: { alignSelf: 'center', marginLeft: PERCH_SHIFT * 2 },
+  // Left-aligned, so the page has mass on both sides: the wordmark answers the
+  // character rather than sitting above it. Nothing decorative was added to
+  // balance the composition — balancing ornament with ornament is how a screen
+  // fills up.
+  hero: { alignItems: 'flex-start', gap: 6 },
+  perch: { alignSelf: 'center' },
   tagline: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
 
   // Every surface in this language is a coloured shell with a white face sitting on
