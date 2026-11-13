@@ -25,13 +25,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 interface LoadingScreenProps {
   visible: boolean;
-  /** What is being waited for, if it is worth saying. */
+  /** What to say while waiting. One line for every wait by default: naming the
+   * particular errand — signing in, creating an account — tells the person
+   * something they already know, since they just pressed the thing that started
+   * it. What it says instead is that somebody is working. */
   label?: string;
 }
 
+const WORKING = 'Working on it\u2026';
+
 const MASCOT = 220;
 
-export default function LoadingScreen({ visible, label }: LoadingScreenProps) {
+export default function LoadingScreen({ visible, label = WORKING }: LoadingScreenProps) {
   if (!visible) return null;
 
   // A Modal so it covers everything, including the native splash screen.

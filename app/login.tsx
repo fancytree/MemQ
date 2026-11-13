@@ -642,7 +642,7 @@ export default function LoginScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
-      <LoadingScreen visible={busy} label="Signing you in" />
+      <LoadingScreen visible={busy} />
       <LinearGradient pointerEvents="none"
         colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
