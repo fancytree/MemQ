@@ -665,7 +665,7 @@ export default function LoginScreen() {
             eyesShut={typingPassword}
             style={styles.perch}
             behind={(
-              <View style={[styles.card, { marginHorizontal: cardBleed }]}>
+              <View style={[styles.card, { marginLeft: cardBleed - PERCH_SHIFT, marginRight: cardBleed + PERCH_SHIFT }]}>
                 <View style={styles.cardFace}>
                   <View style={styles.field}>
                     <TextInput accessibilityLabel="Email"
@@ -759,22 +759,24 @@ export default function LoginScreen() {
                   : <FontAwesome5 name="google" size={20} color={colors.google} />}
               </View>
             </TouchableOpacity>
-
-            {Platform.OS === 'ios' && (
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continue with Apple"
-                style={styles.social}
-                onPress={handleAppleSignIn}
-                disabled={busy}
-                activeOpacity={0.8}>
-                <View style={[styles.socialFace, styles.appleFace]}>
-                  {oauthLoading === 'apple'
-                    ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
-                    : <FontAwesome5 name="apple" size={22} color={homeColors.white} />}
-                </View>
-              </TouchableOpacity>
-            )}
           </View>
 
+          {Platform.OS === 'ios' && (
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Apple"
+              style={styles.apple}
+              onPress={handleAppleSignIn}
+              disabled={busy}
+              activeOpacity={0.85}>
+              {oauthLoading === 'apple'
+                ? <MascotCharacter width={BUTTON_MASCOT} mood="thinking" />
+                : (
+                  <>
+                    <FontAwesome5 name="apple" size={20} color={homeColors.white} />
+                    <Text style={styles.appleText}>Sign in with Apple</Text>
+                  </>
+                )}
+            </TouchableOpacity>
+          )}
           <View style={styles.signUpRow}>
             <Text style={styles.signUpText}>Don’t have an account? </Text>
             <TouchableOpacity accessibilityRole="button"
@@ -800,6 +802,9 @@ const PERCH_MASCOT = 190;
  * the artwork moves the edge with them. */
 const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
   / MASCOT_HANDS.length / 256;
+/** How far right of centre the character sits. The card is nested in its box, so
+ * whatever this moves the box, the card's two margins have to give back. */
+const PERCH_SHIFT = 34;
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH_MASCOT;
 const BUTTON_MASCOT = 72;
 const SOCIAL_MASCOT = 54;
@@ -815,15 +820,15 @@ const styles = StyleSheet.create({
   content: { flex: 1, paddingHorizontal: layout.screenInline, gap: 16 },
 
   hero: { alignItems: 'center', gap: 6 },
-  perch: { alignSelf: 'center' },
+  perch: { alignSelf: 'center', marginLeft: PERCH_SHIFT * 2 },
   tagline: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
 
   // Every surface in this language is a coloured shell with a white face sitting on
   // it, four points short of the bottom — that ledge is what gives the flat palette
   // its weight, and it is the one thing a card here must not skip.
   card: { marginTop: CARD_LIFT,
-    backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
-  cardFace: { backgroundColor: homeColors.white, borderRadius: 24, padding: 16, gap: 12 },
+    backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: 3 },
+  cardFace: { backgroundColor: homeColors.white, borderRadius: 32, padding: 16, gap: 12 },
   field: { minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas, justifyContent: 'center', paddingHorizontal: 16 },
   input: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest, paddingVertical: 14 },
   passwordInput: { paddingRight: 44 },
@@ -836,21 +841,27 @@ const styles = StyleSheet.create({
   rememberText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted },
   forgotText: { fontFamily: 'Geist_600SemiBold', fontSize: 14, color: homeColors.primary },
 
-  signIn: { height: 61, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: 4 },
+  signIn: { height: 61, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: 2 },
   signInBusy: { opacity: 0.75 },
   signInFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   signInText: { fontFamily: 'Geist_500Medium', fontSize: 24, lineHeight: 32, color: homeColors.white },
 
+  // Apple's own button, kept flat and black as their rules require: no coloured
+  // shell, no ledge, nothing from this app's language laid over it.
+  apple: { height: 52, borderRadius: 14, backgroundColor: homeColors.black,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    overflow: 'hidden' },
+  appleText: { fontFamily: 'Geist_500Medium', fontSize: 18, color: homeColors.white },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
   dividerLine: { flex: 1, height: 1, backgroundColor: homeColors.border },
   dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
 
   socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
-  // 60 wide, 64 tall: the four points at the bottom are the shell's ledge, so the
+  // 60 wide, 62 tall: the two points at the bottom are the shell's ledge, so the
   // white face above it is the square — sizing the shell square made the face
   // wider than it was tall.
-  social: { width: 60, height: 64, borderRadius: 20, backgroundColor: homeColors.border, paddingBottom: 4 },
-  socialFace: { flex: 1, borderRadius: 20, backgroundColor: homeColors.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  social: { width: 60, height: 62, borderRadius: 22, backgroundColor: homeColors.border, paddingBottom: 2 },
+  socialFace: { flex: 1, borderRadius: 22, backgroundColor: homeColors.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   appleFace: { backgroundColor: homeColors.darkest },
 
   signUpRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 'auto' },
