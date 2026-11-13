@@ -231,7 +231,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     tail: [0, 9, 1.6],
     lid: 1, eyeScale: 1,
     blink: [4000, 9000], hornLag: 0.4, tailLag: 0.7,
-    gaze: { x: 0, y: 0, wanderX: 0.4, wanderY: 0.25, hold: [2200, 4600] },
+    gaze: { x: 0, y: 0, wanderX: 0.95, wanderY: 0.3, hold: [1000, 2000] },
   },
 
   /** Holding up the finished card. A small proud lift and a settle, and the one state

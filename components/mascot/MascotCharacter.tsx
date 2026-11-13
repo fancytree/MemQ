@@ -61,7 +61,7 @@ const VIEW = 256;
  * exception because a blink has to snap — a soft blink reads as a droop. */
 const SPRING = {
   roll: [3.2, 0.62], tx: [2.6, 0.7], ty: [3, 0.68], squash: [7, 0.5],
-  lid: [26, 1], eye: [7, 0.7], gaze: [8, 0.75], arm: [4.2, 0.52],
+  lid: [26, 1], eye: [7, 0.7], gaze: [14, 0.85], arm: [4.2, 0.52],
   tail: [5, 0.42], lag: [6, 0.42], pop: [10, 0.48], mark: [4.5, 0.45],
   // Slower and looser than the horns', so the tail trails further behind the body
   // and keeps swinging after it has stopped.
@@ -251,8 +251,16 @@ function Layer({ box, parts, style }: {
  * The clip matters for more than tidiness: the focused frame draws a whole disc and
  * lets the brow cut the top off it, so an unclipped pupil there rides up over the
  * brow and the squint disappears. */
-function OpenEye({ box, white, pupil, out, clipId, style }: {
+function OpenEye({ box, white, pupil, align, out, clipId, style }: {
   box: number; white: FigmaPath; pupil?: FigmaPath;
+  /** How far this pupil has to move to rest where the other one rests, relative to
+   * its own white. The frames draw the pair converged by different amounts — in the
+   * neutral face the left pupil sits 9.5 units right of its white's middle and the
+   * right one 6.5 units left of its own — and a look adds the same offset to both,
+   * so the gap travels with them and the character reads cross-eyed wherever it
+   * looks. Both are moved to the average, which keeps whatever convergence the
+   * drawing has while making the two eyes agree about direction. */
+  align: { x: number; y: number };
   out: SharedValue<Rendered>; clipId: string; style: AnimStyle;
 }) {
   const at = pupil ? centre([pupil]) : { x: 0, y: 0 };
@@ -261,8 +269,8 @@ function OpenEye({ box, white, pupil, out, clipId, style }: {
   // look sideways perfectly and ignored every attempt to move it up or down, through
   // three rounds of blaming the reach, the sign and the artwork in turn.
   const gaze = useAnimatedProps(() => ({
-    transform: `translate(${out.value.gx * GAZE_PUPIL.x + out.value.driftX},`
-      + `${out.value.gy * GAZE_PUPIL.y + out.value.driftY})`
+    transform: `translate(${out.value.gx * GAZE_PUPIL.x + out.value.driftX + align.x},`
+      + `${out.value.gy * GAZE_PUPIL.y + out.value.driftY + align.y})`
       + ` translate(${at.x},${at.y}) scale(${out.value.pupil})`
       + ` translate(${-at.x},${-at.y})`,
   }));
@@ -740,8 +748,8 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
           if (winkSide === side) return <Layer key={side} box={box} parts={[art.lid[side]]} />;
           return (
             <View key={side} style={StyleSheet.absoluteFill}>
-              <OpenEye box={box} white={white} pupil={art.pupil[side]} out={out}
-                clipId={`${uid}-eye-${side}`} style={side === 'L' ? openL : openR} />
+              <OpenEye box={box} white={white} pupil={art.pupil[side]} align={art.align[side]}
+                out={out} clipId={`${uid}-eye-${side}`} style={side === 'L' ? openL : openR} />
               <Layer box={box} parts={[art.lid[side]]} style={shut} />
             </View>
           );
@@ -838,11 +846,30 @@ function build(primary: MascotFrame, face: MascotFrame, hands: boolean) {
     handR: hands ? MASCOT_HANDS.filter((p) => p.name === 'handR') : [],
     white, closed, lid,
     pupil: { L: one(front, 'pupilL'), R: one(front, 'pupilR') },
+    align: alignPupils(white, { L: one(front, 'pupilL'), R: one(front, 'pupilR') }),
     accents, badge,
     accentAt: accents.length ? pivotOf(accents) : { dx: 0, dy: 0 },
     badgeAt: badge.length ? pivotOf(badge) : { dx: 0, dy: 0 },
   };
 }
+/** Move both pupils to the same resting place inside their whites, so a look sends
+ * them the same way. What that place is comes from the drawing: the average of the
+ * two, so the pair keeps the convergence it was given and loses only the difference
+ * between them. */
+function alignPupils(white: { L?: FigmaPath; R?: FigmaPath },
+  pupil: { L?: FigmaPath; R?: FigmaPath }) {
+  const rest = (side: 'L' | 'R') => {
+    const w = white[side], p = pupil[side];
+    if (!w || !p) return null;
+    const wc = centre([w]), pc = centre([p]);
+    return { x: pc.x - wc.x, y: pc.y - wc.y };
+  };
+  const l = rest('L'), r = rest('R');
+  if (!l || !r) return { L: { x: 0, y: 0 }, R: { x: 0, y: 0 } };
+  const mid = { x: (l.x + r.x) / 2, y: (l.y + r.y) / 2 };
+  return { L: { x: mid.x - l.x, y: mid.y - l.y }, R: { x: mid.x - r.x, y: mid.y - r.y } };
+}
+
 /** Pivots are held as fractions here and scaled at use, so one build survives a
  * component rendered at two different widths. */
 function pivotOf(parts: FigmaPath[]) {

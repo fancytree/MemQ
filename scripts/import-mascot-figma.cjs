@@ -56,10 +56,13 @@ const FIXES = {
  *
  * It is drawn low on the body, which is fine on its own and wrong the moment the
  * character is sitting behind something: on the login card the edge crosses at the
- * hands, and everything the tail does happened below it. Lifted, the sweep shows
- * above the edge and the swing is visible. It moves on every surface, because it is
+ * hands, which sit at 162, and the tail was drawn from 182 down — the whole of its
+ * sweep happened below the edge. It has to clear the hands, not merely rise a
+ * little, so it is lifted to sit above them, and moved out from the body by as much
+ * again as the lift brought it in. It moves on every surface, because it is
  * the character that changed, not one screen's composition. */
-const TAIL_LIFT = 16;
+const TAIL_LIFT = 48;
+const TAIL_SHIFT = 10;
 
 const FILL = { ink: '#4B2C78', body: '#C59AF0', gold: '#FFBA00', white: 'white', plate: '#F0E4FC' };
 
@@ -318,8 +321,9 @@ for (const [file, state] of Object.entries(FRAMES)) {
   const parts = classify(paths, view, masks);
   for (const p of parts) {
     if (p.name !== 'tail' && p.name !== 'tailTip') continue;
-    p.d = affine(p.d, [1, 0, 0, 1, 0, -TAIL_LIFT]);
-    p.b = { ...p.b, y0: p.b.y0 - TAIL_LIFT, y1: p.b.y1 - TAIL_LIFT };
+    p.d = affine(p.d, [1, 0, 0, 1, TAIL_SHIFT, -TAIL_LIFT]);
+    p.b = { x0: p.b.x0 + TAIL_SHIFT, x1: p.b.x1 + TAIL_SHIFT,
+      y0: p.b.y0 - TAIL_LIFT, y1: p.b.y1 - TAIL_LIFT };
   }
   frames[state] = { view, parts };
 }
