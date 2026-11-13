@@ -82,23 +82,23 @@ const WINK_MS = 420;
 
 /** Idle drift of the pupils, in artwork units. */
 const EYE_DRIFT = { ax: 0.56, rx: 0.47, bx: 0.20, rx2: 1.13, ay: 0.36, ry: 0.63 } as const;
-/** How far the pupils travel for a full unit of gaze, in artwork units.
+/** How far a look moves the eye, and how far it moves the pupil inside it, in
+ * artwork units per unit of look.
  *
- * This was 3.3 by 2.6, carried over from when it was a fraction of the canvas, and it
- * could not move an eye: an eye white is 47 units across and a pupil 20, so a pupil
- * has about 13 units of room either side of centre, and a full look was moving it a
- * quarter of one of those. What the eye then showed was wherever the frame happened
- * to draw the pupil — in the aha frame, 9 units to the right of the white's middle —
- * no matter which way the character was asked to look. A full unit of gaze now spends
- * most of the room available, and the clip to the eye white stops it leaving. */
-const GAZE_REACH = { x: 12, y: 8 } as const;
-/** How much of a look the eye itself carries, the pupil carrying the rest inside it.
+ * Two reaches rather than one reach split between them. Splitting was wrong twice
+ * over: it tied the two together when the whole point is that they are separate
+ * parts, and it left the pupil with a third of a reach that was already too small.
+ * Measured off the screen afterwards, the pupil sat at -0.04 of its room across and
+ * -0.9 down — centred sideways and pinned to the top — while the face as a whole
+ * read as looking left. An eye white is about 47 units across and a pupil 20, so the
+ * pupil has roughly 13 units of room sideways and 10 up and down, and these are
+ * sized to spend it.
  *
- * All of it in the pupil is wrong, and visibly so: the frames draw the pair of eyes
- * off to one side of the face, so a pupil sliding the other way inside a white that
- * stays put reads as a squint, not as looking. An eye is a mass in a head and it
- * moves; the pupil moves further, within it. */
-const WHITE_SHARE = 0.65;
+ * The frames also draw the pupil high in its white, so the vertical is not symmetric
+ * about nothing: looking level already means pulling it down. */
+const GAZE_EYE = { x: 7, y: 4 } as const;
+const GAZE_PUPIL = { x: 11, y: 10 } as const;
+
 /** Where the character meets the ground: the bottom of the body, on its centre line.
  * Squash pivots here, not at the middle, or the body sinks into the floor as it
  * compresses. */
@@ -192,8 +192,9 @@ interface Rendered {
   horn: number; tail: number;
   /** Degrees each hand is turned about the body's centre. */
   armL: number; armR: number;
-  /** Pupil offset, in artwork units. */
-  gx: number; gy: number;
+  /** Where the character is looking, -1 to 1, and the idle wander on top of it. The
+   * eye and the pupil each turn this into their own distance. */
+  gx: number; gy: number; driftX: number; driftY: number;
   eye: number; pupil: number;
   /** Where the lid is now, and where this state rests it. */
   lid: number; lidRest: number;
@@ -250,10 +251,15 @@ function OpenEye({ box, white, pupil, out, clipId, style }: {
   out: SharedValue<Rendered>; clipId: string; style: AnimStyle;
 }) {
   const at = pupil ? centre([pupil]) : { x: 0, y: 0 };
+  // Commas, not spaces. `translate(x y)` is valid SVG and react-native-svg takes only
+  // the first number from it, leaving y at zero — which is why the pupil tracked a
+  // look sideways perfectly and ignored every attempt to move it up or down, through
+  // three rounds of blaming the reach, the sign and the artwork in turn.
   const gaze = useAnimatedProps(() => ({
-    transform: `translate(${out.value.gx * (1 - WHITE_SHARE)} ${out.value.gy * (1 - WHITE_SHARE)})`
-      + ` translate(${at.x} ${at.y}) scale(${out.value.pupil})`
-      + ` translate(${-at.x} ${-at.y})`,
+    transform: `translate(${out.value.gx * GAZE_PUPIL.x + out.value.driftX},`
+      + `${out.value.gy * GAZE_PUPIL.y + out.value.driftY})`
+      + ` translate(${at.x},${at.y}) scale(${out.value.pupil})`
+      + ` translate(${-at.x},${-at.y})`,
   }));
   return (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
@@ -344,7 +350,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   });
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, horn: 0, tail: 0,
-    gx: 0, gy: 0, eye: 1, pupil: 1, lid: 1, lidRest: 1, pop: 1, drift: 0, float: 0,
+    gx: 0, gy: 0, driftX: 0, driftY: 0, eye: 1, pupil: 1, lid: 1, lidRest: 1, pop: 1, drift: 0, float: 0,
     spark: 0, armL: 0, armR: 0, markX: 0, markY: 0, markRoll: 0,
   });
 
@@ -458,8 +464,8 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       // One raise, mirrored: the hands sit on opposite sides of the body, so the same
       // lift is a turn one way for one of them and the other way for the other.
       armL: m.arm.x, armR: -m.arm.x,
-      gx: m.gazeX.x * GAZE_REACH.x + driftX,
-      gy: m.gazeY.x * GAZE_REACH.y + driftY,
+      gx: m.gazeX.x, gy: m.gazeY.x,
+      driftX, driftY,
       eye: m.eye.x, pupil: m.pupil.x,
       lid: m.lid.x,
       lidRest: rest ? 1 : Math.max(p.lid, 0.08),
@@ -733,10 +739,10 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
 function eyeTransform(r: Rendered, at: { dx: number; dy: number }, box: number) {
   'worklet';
   const narrow = Math.min(LID_MAX, Math.max(0, r.lid));
-  // The eye's own share of the look, in pixels. It carries the pupil's clip with it,
-  // so the pupil's remaining travel is measured against an eye that has already moved.
-  const lx = (r.gx * WHITE_SHARE / VIEW) * box;
-  const ly = (r.gy * WHITE_SHARE / VIEW) * box;
+  // The eye's own travel, in pixels. It carries the pupil's clip with it, so what the
+  // pupil does next is measured against an eye that has already moved.
+  const lx = ((r.gx * GAZE_EYE.x + r.driftX) / VIEW) * box;
+  const ly = ((r.gy * GAZE_EYE.y + r.driftY) / VIEW) * box;
   return {
     opacity: r.lid < r.lidRest * LID_CLOSED ? 0 : 1,
     transform: [

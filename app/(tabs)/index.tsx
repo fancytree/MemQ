@@ -324,7 +324,7 @@ const MASCOT_WIDTH = 220.205;
  * eyes about 10 units right of the body's middle to begin with: the first unit of
  * look only undoes that, and the rest is what reads as looking left. The state's
  * wander still drifts it, and the clip keeps the pupils in their whites. */
-const MASCOT_LOOK = { x: -2.4, y: 0.9 };
+const MASCOT_LOOK = { x: -1, y: 0.75 };
 /** The lean the hero draws the character at, passed in rather than wrapped around so
  * the hill behind it stays level. It leans toward the copy, not away: the mockup's
  * own +10.1 turned the character's head away from everything it is about, and a

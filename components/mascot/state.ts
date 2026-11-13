@@ -130,7 +130,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   idle: {
     frame: ['neutral', 'neutral', 'neutral', 'happy'],
     frameHold: [6000, 13000],
-    roll: [0, -1.8, 0.5], tx: [0, -0.007, 0.31], ty: [0, 0.014, 1.15],
+    roll: [0, -1.5, 1.15], tx: [0, 0, 0.31], ty: [0, 0.02, 1.15],
     squash: [1, 0.026, 1.15], arm: [0, 3.5, 0.42],
     tail: [0, 3, 1.6],
     lid: 1, eyeScale: 1,
@@ -143,7 +143,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   happy: {
     frame: ['happy', 'aha'],
     frameHold: [2600, 5200],
-    roll: [0, -2.4, 1.05], tx: [0, -0.005, 1], ty: [0, 0, 0],
+    roll: [0, -2.4, 1.05], tx: [0, 0, 1], ty: [0, 0, 0],
     squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.010, squash: 0.06, tilt: 7 },
     arm: [4, 5, 1.0],
     tail: [-4, 6, 1.5],
@@ -158,7 +158,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   excited: {
     frame: ['aha', 'happy'],
     frameHold: [1400, 2800],
-    roll: [0, -4.5, 5.2], tx: [0, -0.008, 1.1], ty: [0, 0, 0],
+    roll: [0, -4.5, 5.2], tx: [0, 0, 1.1], ty: [0, 0, 0],
     squash: [1.008, 0.026, 2.3], hop: { height: 0.046, rate: 1.28, crouch: 0.013, squash: 0.075, tilt: 16 },
     arm: [7, 8, 2.3],
     tail: [-6, 8, 1.4],
@@ -174,7 +174,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   thinking: {
     frame: ['thinking', 'focused'],
     frameHold: [2200, 4200],
-    roll: [-8, -4.0, 0.33], tx: [0, -0.011, 0.3], ty: [0, 0.005, 0.58],
+    roll: [-8, -3.5, 0.58], tx: [0, 0, 0.3], ty: [0, 0.009, 0.58],
     squash: [1, 0.007, 0.58], tail: [3, 2.5, 1.7],
     lid: 0.92, eyeScale: 1,
     propMotion: 'float',
@@ -187,7 +187,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
    * is the point — every other state is busier, so this one reads as effort. */
   focused: {
     frame: 'focused',
-    roll: [2, -0.7, 0.5], tx: [0.002, -0.002, 0.9], ty: [0.004, 0.003, 1.2],
+    roll: [2, -0.6, 1.2], tx: [0.002, 0, 0.9], ty: [0.004, 0.005, 1.2],
     squash: [0.997, 0.005, 1.5], tail: [0, 1.5, 1.5],
     lid: 0.86, eyeScale: 0.98,
     blink: [3200, 6800], hornLag: 0.35, tailLag: 0.45,
@@ -198,7 +198,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
    * accents pop once on entry rather than repeating — a surprise happens once. */
   surprised: {
     frame: 'aha',
-    roll: [0, -1.1, 8.5], tx: [0, -0.002, 0.9], ty: [-0.013, 0.003, 0.9],
+    roll: [0, -1.1, 8.5], tx: [0, 0, 0.9], ty: [-0.013, 0.004, 0.9],
     squash: [1.035, 0.008, 1.4], shake: [0.007, 20],
     arm: [7, 1.5, 1.6],
     tail: [-8, 2, 1.3],
@@ -213,7 +213,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
    * blink is off — the frame's eyes are already shut. */
   sleepy: {
     frame: 'sleepy',
-    roll: [3, -1.6, 0.25], tx: [0, -0.004, 0.19], ty: [0.016, 0.008, 0.33],
+    roll: [3, -1.4, 0.33], tx: [0, 0, 0.19], ty: [0.016, 0.013, 0.33],
     squash: [1, 0.024, 0.33], tail: [5, 2, 1.8],
     lid: 1, eyeScale: 1,
     propMotion: 'drift',
@@ -230,7 +230,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   onboarding: {
     frame: ['neutral', 'happy'],
     frameHold: [4000, 9000],
-    roll: [0, -0.9, 0.4], tx: [0, -0.004, 0.3], ty: [0.004, 0.006, 0.62],
+    roll: [0, -0.8, 0.62], tx: [0, 0, 0.3], ty: [0.004, 0.01, 0.62],
     squash: [1, 0.009, 0.62], arm: [3, 3, 0.4],
     tail: [0, 3, 1.6],
     lid: 1, eyeScale: 1,
@@ -243,7 +243,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   learningComplete: {
     frame: ['completed', 'aha'],
     frameHold: [2400, 4600],
-    roll: [0, -1.6, 0.8], tx: [0, -0.004, 0.7], ty: [-0.004, 0.007, 1.1],
+    roll: [0, -1.5, 1.1], tx: [0, 0, 0.7], ty: [-0.004, 0.011, 1.1],
     squash: [1.01, 0.013, 1.1], arm: [5, 4, 0.9],
     tail: [-5, 4.5, 1.5],
     lid: 1, eyeScale: 1,
@@ -257,7 +257,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   studyReview: {
     frame: ['focused', 'neutral'],
     frameHold: [3000, 6500],
-    roll: [0, -0.8, 0.36], tx: [0, -0.002, 0.24], ty: [0.002, 0.005, 0.54],
+    roll: [0, -0.7, 0.54], tx: [0, 0, 0.24], ty: [0.002, 0.008, 0.54],
     squash: [1, 0.010, 0.54], tail: [2, 1.8, 1.7],
     lid: 0.95, eyeScale: 1,
     blink: [3200, 7000], hornLag: 0.3, tailLag: 0.45,
@@ -269,7 +269,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   streakReward: {
     frame: ['happy', 'aha'],
     frameHold: [1800, 3400],
-    roll: [0, -3.2, 0.62], tx: [0, -0.007, 0.5], ty: [-0.012, 0.012, 0.72],
+    roll: [0, -3.0, 0.72], tx: [0, 0, 0.5], ty: [-0.012, 0.017, 0.72],
     squash: [1.012, 0.014, 0.72], arm: [7, 5, 0.6],
     tail: [-6, 5, 1.5],
     lid: 1, eyeScale: 1.04,
@@ -304,10 +304,12 @@ export interface MascotPose {
   shake: number;
 }
 
-/** Every lean and drift amplitude is negative, so the first move off rest is to the
- * left and the sway spends its time on that side. The character is placed beside its
- * copy on every surface, with the copy on its left; a sway that leads the other way
- * reads as turning away from the thing it is about.
+/** The body hovers rather than slides. It is a round creature with no legs under it,
+ * so sideways drift read as being dragged along; every horizontal amplitude is zero
+ * now and what is left is a rise and fall, a breath, and a small rock whose rate is
+ * the rise and fall's own — so the character tips as it lifts instead of ticking from
+ * side to side on a clock of its own. The lean amplitudes stay negative, so what
+ * rocking there is leads toward the copy rather than away from it.
  *
  * Offsetting by the value at t=0 keeps the first frame in the authored rest pose. */
 function wave(t: number, rate: number, phase: number) {
