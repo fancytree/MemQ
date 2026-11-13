@@ -17,11 +17,11 @@
  */
 import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
-  Easing, FadeIn, FadeOut, interpolateColor, useAnimatedProps, useAnimatedStyle,
-  useReducedMotion, useSharedValue, withDelay, withRepeat, withSequence, withTiming,
+  Easing, interpolateColor, useAnimatedProps, useAnimatedStyle, useReducedMotion,
+  useSharedValue, withDelay, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
 
@@ -61,23 +61,45 @@ function useBob(ms: number) {
 
 // ─── Who it is for ───────────────────────────────────────────────────────────
 
-/** Three cards held in a fan, the front one naming a different thing somebody is
- * carrying every couple of seconds. The audience is said by example rather than
- * listed: a list of three bullet points is the thing this is replacing. */
+/** Three cards held in a fan, the front one naming a different thing somebody
+ * already has in hand, every couple of seconds.
+ *
+ * What rotates is the material, not the person. Naming the audience — the student,
+ * the language learner, the professional — would say who may use this; naming the
+ * half-read paper says the thing that matters, which is that what goes in here came
+ * out of your own week. Each one has a mark of use on it: got halfway, took it down,
+ * finally understood. Nothing here was packed for you. */
 const CARRYING = [
-  'An exam three weeks out',
-  'Five hundred words before the trip',
-  'The field you work in',
+  'The paper you got halfway through',
+  "Monday's meeting notes",
+  'The thing you finally understood yesterday',
 ];
 
+/** How long one line is up, and how much of that goes to its fade. */
+const SLOT_MS = 2600;
+const FADE = 0.12;
+
 export function Carry() {
-  const [i, setI] = useState(0);
   const reduce = useReducedMotion();
+  // One clock for the whole rotation, counting 0 → 3 and round again, entirely on
+  // the UI thread. The three lines are mounted and stacked; each works out its own
+  // opacity from this one number.
+  //
+  // Two earlier versions of this did not survive. Swapping the lines in and out of
+  // the layout piled the outgoing line on top of the incoming one — invisible while
+  // every line was one line long, and a heap of overlapping words as soon as one
+  // wrapped. Keeping the index in React state and mirroring it into a shared value
+  // fixed the pile-up but stopped advancing at all. A clock the UI thread owns has
+  // neither failure: nothing crosses the bridge after it starts.
+  const cycle = useSharedValue(0.5);
   useEffect(() => {
-    if (reduce) return;
-    const id = setInterval(() => setI((n) => (n + 1) % CARRYING.length), 2600);
-    return () => clearInterval(id);
-  }, [reduce]);
+    if (reduce) { cycle.value = 0.5; return; }
+    cycle.value = 0;
+    cycle.value = withRepeat(
+      withTiming(CARRYING.length, {
+        duration: SLOT_MS * CARRYING.length, easing: Easing.linear,
+      }), -1, false);
+  }, [cycle, reduce]);
 
   const left = useBob(3100);
   const right = useBob(2600);
@@ -105,13 +127,32 @@ export function Carry() {
       </Animated.View>
       <Animated.View style={[art.card, frontLift]}>
         <View style={art.face}>
-          <Animated.Text key={i} entering={FadeIn.duration(360)} exiting={FadeOut.duration(220)}
-            style={art.carrying}>
-            {CARRYING[i]}
-          </Animated.Text>
+          {CARRYING.map((line, n) => <Carried key={line} text={line} n={n} cycle={cycle} />)}
         </View>
       </Animated.View>
     </View>
+  );
+}
+
+/** One of the three lines, stacked on the others, showing only during its own
+ * slot of the clock. It fades up over the first `FADE` of its slot and back down
+ * over the last — and because the outgoing line's fade-out lands in the slot
+ * before the incoming line's fade-in begins, two sentences are never legible at
+ * once. A true cross-fade through 50% opacity turns two pieces of text into mud. */
+function Carried({ text, n, cycle }: { text: string; n: number; cycle: { value: number } }) {
+  const fade = useAnimatedStyle(() => {
+    const span = CARRYING.length;
+    const x = (((cycle.value - n) % span) + span) % span;
+    let opacity = 0;
+    if (x < FADE) opacity = x / FADE;
+    else if (x < 1 - FADE) opacity = 1;
+    else if (x < 1) opacity = (1 - x) / FADE;
+    return { opacity };
+  });
+  return (
+    <Animated.View style={[art.slot, fade]} pointerEvents="none">
+      <Text style={art.carrying}>{text}</Text>
+    </Animated.View>
   );
 }
 
@@ -297,6 +338,10 @@ const art = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center', padding: 16,
   },
   faceQuiet: { backgroundColor: homeColors.track, justifyContent: 'center' },
+  slot: {
+    position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
+  },
   carrying: {
     fontFamily: 'Geist_600SemiBold', fontSize: 16, lineHeight: 22,
     color: homeColors.darkest, textAlign: 'center',

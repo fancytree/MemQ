@@ -8,8 +8,13 @@
  * decides which ones come back.
  *
  * So three beats come first, and they are the three things a first run has to
- * answer: who this is for, why reading something once is not enough, and what the
- * daily loop actually is. Then the same three questions, now answerable.
+ * answer: whose material this is made of, why one reading is not enough, and what
+ * the daily loop actually is. Then the same three questions, now answerable.
+ *
+ * The first beat carries the claim the product stands on — that what you review
+ * here came out of your own week, not out of a deck somebody else packed. It is
+ * the one thing that separates this from a store full of finished card sets, so
+ * it is what the first screen says.
  *
  * It is drawn in the language the rest of the app is drawn in — the gradient and
  * the two drifting hills, the character, and surfaces that are a coloured shell
@@ -309,7 +314,8 @@ function Lead({ label, onPress, off }: { label: string; onPress: () => void; off
 function WhoStep({ onNext }: { onNext: () => void }) {
   return (
     <Step mood="onboarding" mascot={120} hero={<Carry />} bare
-      title="For what you still need next month"
+      title="Only the things you actually needed"
+      line="Made out of your own material, not a deck somebody else packed."
       footer={<Lead label="Why it works" onPress={onNext} />} />
   );
 }
@@ -320,7 +326,7 @@ function WhyStep({ onNext }: { onNext: () => void }) {
   return (
     <Step mood="sleepy" mascot={110}
       title="A week later, most of it is gone"
-      line="MemQ works out the day each card is about to slip, and brings it back then."
+      line="Even the parts you picked yourself. MemQ works out the day each card is about to go, and brings it back then."
       footer={<Lead label="Next" onPress={onNext} />}>
       <Forgetting />
     </Step>
@@ -333,7 +339,7 @@ function HowStep({ onNext }: { onNext: () => void }) {
   return (
     <Step mood="happy" mascot={110}
       title="Three steps. Two of them are ours."
-      line="A card takes seconds, so a day is a couple of minutes."
+      line="Notes, a PDF, a question you just looked up — whatever you were already working on."
       footer={<Lead label="Set it up" onPress={onNext} />}>
       <Loop />
     </Step>
