@@ -296,7 +296,7 @@ function OpenEye({ box, white, pupil, align, out, clipId, style }: {
   );
 }
 
-export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, calm = false, behind, handRest, eyesShut = false, style }: {
+export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, calm = false, behind, handRest, tailRest, eyesShut = false, style }: {
   width: number;
   mood?: MascotMood;
   /** A fixed lean, in degrees, applied inside the character rather than to the box
@@ -352,6 +352,21 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     left?: { out?: number; turn?: number };
     right?: { out?: number; turn?: number };
   };
+  /** Moves the tail off where the artwork sprouts it, in art units of the 256 box:
+   * x positive right, y positive down. Per screen, like handRest.
+   *
+   * The artwork already carries one global correction — the importer lifts the tail
+   * 48 units and shifts it 10 right (TAIL_LIFT / TAIL_SHIFT in
+   * scripts/import-mascot-figma.cjs) — and that lift was asked for by the sign-in
+   * screens, where the card covers the body's lower half and a tail drawn at its
+   * natural height disappears behind it. Nothing covers the body on Today, so there
+   * the same lift reads as a tail riding too high up the back.
+   *
+   * It is a translation rather than a turn because a tail is not a paw: it sprouts
+   * from a point on the body instead of resting against the outline, and the swing
+   * already pivots about that point — which moves with this, so the motion follows.
+   */
+  tailRest?: { x?: number; y?: number };
   /** Hold the eyes shut. The login screen covers them while a password is being
    * typed, which is the oldest joke in the book and the right one. */
   eyesShut?: boolean;
@@ -670,8 +685,13 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   }));
   const tailAt = art.tail.length
     ? pivot(start(art.tail[0]).x, start(art.tail[0]).y, box) : { dx: 0, dy: 0 };
+  const tailOff = {
+    x: (tailRest?.x ?? 0) / VIEW * box,
+    y: (tailRest?.y ?? 0) / VIEW * box,
+  };
   const tail = useAnimatedStyle(() => ({
     transform: [
+      { translateX: tailOff.x }, { translateY: tailOff.y },
       { translateX: tailAt.dx }, { translateY: tailAt.dy },
       { rotate: `${out.value.tail}deg` },
       { translateX: -tailAt.dx }, { translateY: -tailAt.dy },

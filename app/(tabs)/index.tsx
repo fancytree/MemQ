@@ -266,7 +266,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
         <View pointerEvents="none" style={styles.mascot}>
           <MascotCharacter width={MASCOT_WIDTH} mood={mood} tilt={MASCOT_TILT} look={MASCOT_LOOK}
-            handRest={{ right: MASCOT_RIGHT_HAND }}
+            handRest={{ right: MASCOT_RIGHT_HAND }} tailRest={MASCOT_TAIL}
             behind={<View pointerEvents="none" style={styles.waveOverMascot}><HomeAsset name="waveFront" /></View>} />
         </View>
         <View style={[styles.top, { paddingTop: insets.top + 10 }]}>
@@ -352,6 +352,14 @@ const MASCOT_TILT = 0;
  * Both numbers are this screen's, not the artwork's: the sign-in screens rest the
  * same paws on the level top edge of a card, where they are right as they are. */
 const MASCOT_RIGHT_HAND = { out: 6.31, turn: 38 } as const;
+
+/** The tail, put back down this screen's back.
+ *
+ * The artwork carries a global 48-unit lift (TAIL_LIFT in the importer) that the
+ * sign-in screens need: there the card covers the body's lower half, and a tail at
+ * its natural height is swallowed by it. Nothing covers the body here, so the same
+ * lift leaves the tail riding high up the back instead of coming off its base. */
+const MASCOT_TAIL = { y: 26 } as const;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: homeColors.canvas },
