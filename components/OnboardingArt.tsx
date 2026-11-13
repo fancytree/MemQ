@@ -15,6 +15,8 @@
  * the curve fully drawn, the fan settled, the last step lit — so a still frame is
  * the finished picture rather than an empty one.
  */
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
 import React, { useEffect } from 'react';
@@ -61,108 +63,101 @@ function useBob(ms: number) {
 
 // ─── Who it is for ───────────────────────────────────────────────────────────
 
-/** Three cards held in a fan, the front one naming a different thing somebody
- * already has in hand, every couple of seconds.
+/** The welcome scene: the character at a laptop, with what it was just doing
+ * floating above its head.
  *
- * What rotates is the material, not the person. Naming the audience — the student,
- * the language learner, the professional — would say who may use this; naming the
- * half-read paper says the thing that matters, which is that what goes in here came
- * out of your own week. Each one has a mark of use on it: got halfway, took it down,
- * finally understood. Nothing here was packed for you. */
-const CARRYING = [
-  'The paper you got halfway through',
-  "Monday's meeting notes",
-  'The thing you finally understood yesterday',
-];
+ * This is the claim the product stands on, drawn rather than stated — what you
+ * review here came out of your own week. So the picture is not a deck of cards
+ * somebody packed: it is a question you asked, a thing you looked up, a page you
+ * were reading, on their way into the machine you were already sitting at.
+ *
+ * The laptop is handed to the character as `behind`, which puts it between the
+ * body and the hands, so the paws land on the lid the way they land on the card
+ * on the sign-in screens. The right paw is pushed out 6.31 units because the two
+ * are not mirror images in the artwork — see handRest in MascotCharacter.
+ */
+const DESK_MASCOT = 146;
+const LID_W = 152;
 
-/** How long one line is up, and how much of that goes to its fade. */
-const SLOT_MS = 2600;
-const FADE = 0.12;
+/** Where the lid's top edge crosses the character, read off the hands rather than
+ * typed in: a little below their middle, so their lower part laps onto the lid and
+ * they read as resting on it instead of hovering above. Same relationship the
+ * sign-in card uses. */
+const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
+  / MASCOT_HANDS.length / 256;
+const LID_LIFT = -(1 - (HAND_LINE + 7 / 256)) * DESK_MASCOT;
 
-export function Carry() {
-  const reduce = useReducedMotion();
-  // One clock for the whole rotation, counting 0 → 3 and round again, entirely on
-  // the UI thread. The three lines are mounted and stacked; each works out its own
-  // opacity from this one number.
-  //
-  // Two earlier versions of this did not survive. Swapping the lines in and out of
-  // the layout piled the outgoing line on top of the incoming one — invisible while
-  // every line was one line long, and a heap of overlapping words as soon as one
-  // wrapped. Keeping the index in React state and mirroring it into a shared value
-  // fixed the pile-up but stopped advancing at all. A clock the UI thread owns has
-  // neither failure: nothing crosses the bridge after it starts.
-  const cycle = useSharedValue(0.5);
-  useEffect(() => {
-    if (reduce) { cycle.value = 0.5; return; }
-    cycle.value = 0;
-    cycle.value = withRepeat(
-      withTiming(CARRYING.length, {
-        duration: SLOT_MS * CARRYING.length, easing: Easing.linear,
-      }), -1, false);
-  }, [cycle, reduce]);
-
-  const left = useBob(3100);
-  const right = useBob(2600);
-  const front = useBob(2200);
-
-  const leftLift = useAnimatedStyle(() => ({
-    transform: [{ translateX: -62 }, { translateY: 20 + (left.value - 0.5) * 7 },
-      { rotate: `${-15 + (left.value - 0.5) * 2}deg` }, { scale: 0.86 }],
-  }));
-  const rightLift = useAnimatedStyle(() => ({
-    transform: [{ translateX: 62 }, { translateY: 20 + (right.value - 0.5) * 7 },
-      { rotate: `${15 - (right.value - 0.5) * 2}deg` }, { scale: 0.86 }],
-  }));
-  const frontLift = useAnimatedStyle(() => ({
-    transform: [{ translateY: -10 + (front.value - 0.5) * 9 }],
-  }));
-
+export function Desk() {
   return (
-    <View style={art.fan}>
-      <Animated.View style={[art.card, art.behind, leftLift]}>
-        <View style={[art.face, art.faceQuiet]}><Bars /></View>
+    <View style={art.desk}>
+      <Prompts />
+      <MascotCharacter width={DESK_MASCOT} mood="onboarding" calm
+        look={{ y: -0.5 }}
+        handRest={{ right: { out: 6.31 } }}
+        style={art.deskMascot}
+        behind={(
+          <View style={art.laptop}>
+            <View style={art.lid}>
+              <View style={art.lidFace}><Horned /></View>
+            </View>
+            <View style={art.base}><View style={art.baseFace} /></View>
+          </View>
+        )} />
+    </View>
+  );
+}
+
+/** The three things on their way in: something looked up, something asked,
+ * something read. They hover at their own heights and drift on their own
+ * periods, so the group never settles into a row. */
+function Prompts() {
+  const a = useBob(2600), b = useBob(3100), c = useBob(2200);
+  const useLift = (v: { value: number }, rest: number, swing: number) =>
+    useAnimatedStyle(() => ({ transform: [{ translateY: rest + (v.value - 0.5) * swing }] }));
+  return (
+    <View style={art.prompts}>
+      <Animated.View style={[art.prompt, useLift(a, 14, 9)]}>
+        <View style={art.promptFace}><Looked /></View>
       </Animated.View>
-      <Animated.View style={[art.card, art.behind, rightLift]}>
-        <View style={[art.face, art.faceQuiet]}><Bars /></View>
+      <Animated.View style={[art.prompt, useLift(b, -10, 11)]}>
+        <View style={art.promptFace}><Text style={art.asked}>?</Text></View>
       </Animated.View>
-      <Animated.View style={[art.card, frontLift]}>
-        <View style={art.face}>
-          {CARRYING.map((line, n) => <Carried key={line} text={line} n={n} cycle={cycle} />)}
-        </View>
+      <Animated.View style={[art.prompt, useLift(c, 8, 8)]}>
+        <View style={art.promptFace}><Read /></View>
       </Animated.View>
     </View>
   );
 }
 
-/** One of the three lines, stacked on the others, showing only during its own
- * slot of the clock. It fades up over the first `FADE` of its slot and back down
- * over the last — and because the outgoing line's fade-out lands in the slot
- * before the incoming line's fade-in begins, two sentences are never legible at
- * once. A true cross-fade through 50% opacity turns two pieces of text into mud. */
-function Carried({ text, n, cycle }: { text: string; n: number; cycle: { value: number } }) {
-  const fade = useAnimatedStyle(() => {
-    const span = CARRYING.length;
-    const x = (((cycle.value - n) % span) + span) % span;
-    let opacity = 0;
-    if (x < FADE) opacity = x / FADE;
-    else if (x < 1 - FADE) opacity = 1;
-    else if (x < 1) opacity = (1 - x) / FADE;
-    return { opacity };
-  });
+function Looked() {
   return (
-    <Animated.View style={[art.slot, fade]} pointerEvents="none">
-      <Text style={art.carrying}>{text}</Text>
-    </Animated.View>
+    <Svg width={26} height={26} viewBox="0 0 26 26">
+      <Circle cx={11} cy={11} r={6.5} fill="none" stroke={homeColors.primary} strokeWidth={2.4} />
+      <Line x1={15.8} y1={15.8} x2={21} y2={21} stroke={homeColors.primary}
+        strokeWidth={2.6} strokeLinecap="round" />
+    </Svg>
   );
 }
 
-function Bars() {
+function Read() {
   return (
-    <View style={art.bars}>
-      <View style={[art.bar, { width: '80%' }]} />
-      <View style={[art.bar, { width: '58%' }]} />
-      <View style={[art.bar, { width: '68%' }]} />
-    </View>
+    <Svg width={26} height={26} viewBox="0 0 26 26">
+      <Line x1={5} y1={7.5} x2={21} y2={7.5} stroke={homeColors.primary} strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={5} y1={13} x2={21} y2={13} stroke={homeColors.primary} strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={5} y1={18.5} x2={14} y2={18.5} stroke={homeColors.primary} strokeWidth={2.4} strokeLinecap="round" />
+    </Svg>
+  );
+}
+
+/** The mark on the back of the lid: the character's own silhouette. Solid, not
+ * drawn in line — at 26 points a stroked outline reads as two thin ears. */
+function Horned() {
+  return (
+    <Svg width={26} height={26} viewBox="0 0 30 30">
+      <Path d="M8.6 12.2 L5.8 4.4 L14.2 9.6 Z" fill={homeColors.streakBorder} />
+      <Path d="M21.4 12.2 L24.2 4.4 L15.8 9.6 Z" fill={homeColors.streakBorder} />
+      <Circle cx={15} cy={18} r={8.6} fill={homeColors.streakBorder} />
+    </Svg>
   );
 }
 
@@ -327,27 +322,38 @@ function Glyph({ which }: { which: number }) {
 }
 
 const art = StyleSheet.create({
-  fan: { height: 168, alignItems: 'center', justifyContent: 'center' },
-  card: {
-    position: 'absolute', width: 196, height: 112,
-    borderRadius: 22, backgroundColor: homeColors.border, paddingBottom: ledge.raised,
+  desk: { alignItems: 'center' },
+  deskMascot: { alignSelf: 'center' },
+
+  prompts: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingBottom: 6 },
+  prompt: {
+    width: 58, borderRadius: 18,
+    backgroundColor: homeColors.border, paddingBottom: ledge.control,
   },
-  behind: { width: 176, height: 104 },
-  face: {
-    flex: 1, borderRadius: 22, backgroundColor: homeColors.white,
-    alignItems: 'center', justifyContent: 'center', padding: 16,
+  promptFace: {
+    height: 54, borderRadius: 18, backgroundColor: homeColors.white,
+    alignItems: 'center', justifyContent: 'center',
   },
-  faceQuiet: { backgroundColor: homeColors.track, justifyContent: 'center' },
-  slot: {
-    position: 'absolute', top: 0, right: 0, bottom: 0, left: 0,
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16,
+  asked: { fontFamily: 'Geist_600SemiBold', fontSize: 24, color: homeColors.primary },
+
+  // The lid is wider than the character's box, so it reaches past both paws and
+  // reads as a thing being leaned on rather than held.
+  laptop: { marginTop: LID_LIFT, marginHorizontal: (DESK_MASCOT - LID_W) / 2, alignItems: 'center' },
+  lid: {
+    width: LID_W, borderRadius: 18,
+    backgroundColor: homeColors.border, paddingBottom: ledge.raised,
   },
-  carrying: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 16, lineHeight: 22,
-    color: homeColors.darkest, textAlign: 'center',
+  lidFace: {
+    height: 72, borderRadius: 18, backgroundColor: homeColors.white,
+    alignItems: 'center', justifyContent: 'center',
   },
-  bars: { width: '100%', gap: 8 },
-  bar: { height: 7, borderRadius: 4, backgroundColor: homeColors.streakBorder, opacity: 0.55 },
+  // The deck it stands on, a little wider than the lid, with its own lip so the
+  // machine has two planes rather than one flat card.
+  base: {
+    width: LID_W + 26, borderRadius: 11,
+    backgroundColor: homeColors.border, paddingBottom: ledge.control, marginTop: 4,
+  },
+  baseFace: { height: 13, borderRadius: 11, backgroundColor: homeColors.canvas },
 
   curve: { gap: 10, paddingTop: 2 },
   legend: { flexDirection: 'row', gap: 16 },

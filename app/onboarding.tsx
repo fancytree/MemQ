@@ -24,8 +24,9 @@
  */
 import { HomeAsset } from '@/components/HomeAsset';
 import LoadingScreen from '@/components/LoadingScreen';
+import Logo from '@/components/icons/Logo';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
-import { Carry, Forgetting, Loop } from '@/components/OnboardingArt';
+import { Desk, Forgetting, Loop } from '@/components/OnboardingArt';
 import type { MascotMood } from '@/components/mascot/state';
 import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notificationService';
 import { supabase } from '@/lib/supabase';
@@ -253,22 +254,35 @@ export default function OnboardingScreen() {
  * one button. The character is held on one face (`calm`): what moves is the tail
  * and the eyes. A face that keeps switching above a page that is already moving is
  * one moving thing too many. */
-function Step({ mood, mascot = 128, hero, bare, title, line, children, footer }: {
+function Step({ mood, mascot = 128, hero, bare, wordmark, title, mark, line, children, footer }: {
   mood: MascotMood;
+  /** 0 when the picture brings its own character, as the welcome scene does. */
   mascot?: number;
   hero?: React.ReactNode;
   /** No card: the words sit on the background and the picture is the screen. The
    *  first beat is a welcome, not a question, and a card under a fan of cards read
    *  as one more card in the pile. */
   bare?: boolean;
+  /** The wordmark above the words. Only the first screen says the product's name:
+   *  after that the person knows where they are. */
+  wordmark?: boolean;
   title: string;
+  /** A phrase of the title to run a highlighter through. One per screen at most —
+   *  two marks on one line is not emphasis, it is a decorated sentence. */
+  mark?: string;
   line?: string;
   children?: React.ReactNode;
   footer: React.ReactNode;
 }) {
+  const cut = mark && title.includes(mark) ? title.split(mark) : null;
   const words = (
     <>
-      <Text style={[styles.title, bare && styles.titleBare]}>{title}</Text>
+      {wordmark && <Logo width={132} style={styles.wordmark} />}
+      <Text style={[styles.title, bare && styles.titleBare]}>
+        {cut
+          ? <>{cut[0]}<Text style={styles.mark}>{mark}</Text>{cut[1]}</>
+          : title}
+      </Text>
       {!!line && <Text style={[styles.body, bare && styles.bodyBare]}>{line}</Text>}
     </>
   );
@@ -279,7 +293,7 @@ function Step({ mood, mascot = 128, hero, bare, title, line, children, footer }:
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled">
-        <MascotCharacter width={mascot} mood={mood} calm style={styles.mascot} />
+        {mascot > 0 && <MascotCharacter width={mascot} mood={mood} calm style={styles.mascot} />}
         {bare && <View style={styles.bareWords}>{words}</View>}
         {hero}
         {!bare && (
@@ -313,8 +327,9 @@ function Lead({ label, onPress, off }: { label: string; onPress: () => void; off
 
 function WhoStep({ onNext }: { onNext: () => void }) {
   return (
-    <Step mood="onboarding" mascot={120} hero={<Carry />} bare
+    <Step mood="onboarding" mascot={0} hero={<Desk />} bare wordmark
       title="Only the things you actually needed"
+      mark="actually needed"
       line="Made out of your own material, not a deck somebody else packed."
       footer={<Lead label="Why it works" onPress={onNext} />} />
   );
@@ -485,7 +500,13 @@ const styles = StyleSheet.create({
   cardFace: {
     backgroundColor: homeColors.white, borderRadius: 32, padding: 20, gap: 14,
   },
-  bareWords: { alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingBottom: 4 },
+  bareWords: { alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingBottom: 10 },
+  wordmark: { marginBottom: 2 },
+  // A highlighter run through the words that carry the claim. White, not the
+  // app's usual selected yellow: this screen's own sky is yellow, so a pale
+  // yellow band laid on it disappears. White is the colour every surface in this
+  // app is made of, and on this background it is the one that reads as marked.
+  mark: { backgroundColor: homeColors.white },
   title: {
     fontFamily: 'Geist_600SemiBold', fontSize: 24, lineHeight: 30,
     color: homeColors.darkest,
