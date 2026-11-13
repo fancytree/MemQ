@@ -355,11 +355,19 @@ const MASCOT_WIDTH = 220.205;
  * look only undoes that, and the rest is what reads as looking left. The state's
  * wander still drifts it, and the clip keeps the pupils in their whites.
  *
- * -1.8 was too far. It was set while the character was wearing the closed-eyed happy
- * face, where there are no pupils to judge it by; on the open-eyed faces it pinned
- * both pupils against the far edge of their whites and stayed there, which reads as
- * a stare rather than as attention. */
-const MASCOT_LOOK = { x: -1, y: 0.75 };
+ * Both numbers were pushed too far over an afternoon of tuning done while the
+ * character happened to be wearing the closed-eyed happy face, where there are no
+ * pupils to judge any of it by. Measured against the room a pupil actually has — an
+ * eye white is 46 units across and 48 tall, a pupil 20 by 26, so about 13 units of
+ * play sideways and 11 vertically — x of -1 spends 73% of the sideways play and the
+ * state's own wander then pins it at the edge, and y of 0.75 spent 64% of the
+ * vertical at the same time. Both at once is not a glance at the copy, it is a stare
+ * into the bottom left corner.
+ *
+ * y goes back to the 0.15 it was first given, which is all but level. x is 39% of
+ * the play: enough to read as turned toward the copy, with room left for the wander
+ * to move in rather than press against the edge. */
+const MASCOT_LOOK = { x: -0.6, y: 0.15 };
 /** No lean. The mockup draws the character at +10.1 degrees, which turned its head
  * away from everything it is about; leaning it the other way fixed that and brought
  * its own problems — the hands orbit a circle and a tilted body meets them at a
