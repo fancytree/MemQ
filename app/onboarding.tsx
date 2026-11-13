@@ -25,9 +25,7 @@
 import { HomeAsset } from '@/components/HomeAsset';
 import LoadingScreen from '@/components/LoadingScreen';
 import { WELCOME_SCENES, WelcomeStory } from '@/components/WelcomeStory';
-import Logo from '@/components/icons/Logo';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
-import type { MascotMood } from '@/components/mascot/state';
 import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notificationService';
 import { supabase } from '@/lib/supabase';
 import { homeColors } from '@/theme/colors';
@@ -76,8 +74,8 @@ const REMINDER_TIMES = [
 
 // Two phases. The first three screens are the welcome story, drawn from Figma and
 // owning the whole screen — background, waves, scene, progress and button all their
-// own. The last three are the setup questions, which keep the app's usual frame.
-const TOTAL_STEPS = WELCOME_SCENES + 3;
+// own. Then one page asks everything the app needs answered.
+const TOTAL_STEPS = WELCOME_SCENES + 1;
 
 /** The same two hills the sign-in screens and Today stand on, each on its own slow
  * sine. The periods do not divide into one another, so the pair never returns to
@@ -196,21 +194,6 @@ export default function OnboardingScreen() {
     }
   };
 
-  // Indexed from the end of the story, since the story screens render themselves.
-  const setup = [
-    <NameStep key="name" value={username} onChange={setUsername} onNext={goNext} />,
-    <GoalStep key="goal" selected={goalCards} onSelect={setGoalCards} onNext={goNext} />,
-    <ReminderStep
-      key="reminder"
-      selected={reminderTime}
-      onSelect={setReminderTime}
-      onFinish={() => void handleFinish(false)}
-      onSkip={() => void handleFinish(true)}
-    />,
-  ];
-
-  // Skip leaves the story, not the onboarding: the three questions after it are
-  // what the app actually needs answered.
   if (step < WELCOME_SCENES) {
     return (
       <RNAnimated.View style={[styles.root, { transform: [{ translateX: slideAnim }] }]}>
@@ -238,86 +221,38 @@ export default function OnboardingScreen() {
             style={[styles.back, step === 0 && styles.backHidden]}>
             <Feather name="arrow-left" size={18} color={homeColors.deep} />
           </Pressable>
-          <View style={styles.dots}>
-            {Array.from({ length: TOTAL_STEPS - WELCOME_SCENES }, (_, i) => {
-              const at = step - WELCOME_SCENES;
-              return <View key={i} style={[
-                styles.dot,
-                i === at ? styles.dotHere : i < at ? styles.dotPast : styles.dotAhead,
-              ]} />;
-            })}
-          </View>
-          {/* The back button's twin, so the dots sit on the centre of the screen
-              and not on the centre of what is left over beside it. */}
-          <View style={styles.back} />
         </View>
 
         <RNAnimated.View style={[styles.stage, { transform: [{ translateX: slideAnim }] }]}>
-          {setup[step - WELCOME_SCENES]}
+          <SetupPage
+            username={username} onName={setUsername}
+            goal={goalCards} onGoal={setGoalCards}
+            reminder={reminderTime} onReminder={setReminderTime}
+            onDone={() => void handleFinish(false)}
+          />
         </RNAnimated.View>
       </View>
     </KeyboardAvoidingView>
   );
 }
 
-// ─── The shape every step has ────────────────────────────────────────────────
+// ─── The one page the story hands over to ────────────────────────────────────
 
-/** Character, the picture, then a card with the few words that picture needs, then
- * one button. The character is held on one face (`calm`): what moves is the tail
- * and the eyes. A face that keeps switching above a page that is already moving is
- * one moving thing too many. */
-function Step({ mood, mascot = 128, hero, bare, wordmark, title, mark, line, children, footer }: {
-  mood: MascotMood;
-  /** 0 when the picture brings its own character, as the welcome scene does. */
-  mascot?: number;
-  hero?: React.ReactNode;
-  /** No card: the words sit on the background and the picture is the screen. The
-   *  first beat is a welcome, not a question, and a card under a fan of cards read
-   *  as one more card in the pile. */
-  bare?: boolean;
-  /** The wordmark above the words. Only the first screen says the product's name:
-   *  after that the person knows where they are. */
-  wordmark?: boolean;
-  title: string;
-  /** A phrase of the title to run a highlighter through. One per screen at most —
-   *  two marks on one line is not emphasis, it is a decorated sentence. */
-  mark?: string;
-  line?: string;
-  children?: React.ReactNode;
-  footer: React.ReactNode;
+/** One question: its own surface, like every other card in this app.
+ *
+ * The three used to be three screens with a Next under each. Asked together they
+ * are three short answers, and a person can see at a glance what is left — which
+ * three screens could never show them. */
+function Card({ title, line, children }: {
+  title: string; line: string; children: React.ReactNode;
 }) {
-  const cut = mark && title.includes(mark) ? title.split(mark) : null;
-  const words = (
-    <>
-      {wordmark && <Logo width={132} style={styles.wordmark} />}
-      <Text style={[styles.title, bare && styles.titleBare]}>
-        {cut
-          ? <>{cut[0]}<Text style={styles.mark}>{mark}</Text>{cut[1]}</>
-          : title}
-      </Text>
-      {!!line && <Text style={[styles.body, bare && styles.bodyBare]}>{line}</Text>}
-    </>
-  );
   return (
-    <View style={styles.step}>
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled">
-        {mascot > 0 && <MascotCharacter width={mascot} mood={mood} calm style={styles.mascot} />}
-        {bare && <View style={styles.bareWords}>{words}</View>}
-        {hero}
-        {!bare && (
-          <View style={styles.card}>
-            <View style={styles.cardFace}>
-              {words}
-              {children}
-            </View>
-          </View>
-        )}
-      </ScrollView>
-      <View style={styles.footer}>{footer}</View>
+    <View style={styles.card}>
+      <View style={styles.cardFace}>
+        <Text style={styles.title}>{title}</Text>
+        <Text style={styles.body}>{line}</Text>
+        {children}
+      </View>
     </View>
   );
 }
@@ -335,97 +270,86 @@ function Lead({ label, onPress, off }: { label: string; onPress: () => void; off
   );
 }
 
-// ─── 4: Name ─────────────────────────────────────────────────────────────────
-
-function NameStep({ value, onChange, onNext }: {
-  value: string;
-  onChange: (v: string) => void;
-  onNext: () => void;
+function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDone }: {
+  username: string;
+  onName: (v: string) => void;
+  goal: GoalCards | null;
+  onGoal: (v: GoalCards) => void;
+  reminder: string | null;
+  onReminder: (v: string) => void;
+  onDone: () => void;
 }) {
-  const ready = value.trim().length > 0;
+  // A name and a number, because the home screen and the day's count are built
+  // out of them. The reminder is the one a person can leave alone.
+  const ready = username.trim().length > 0 && goal !== null;
   return (
-    <Step mood="onboarding" mascot={112} title="What should we call you?"
-      line="It goes at the top of your home screen."
-      footer={<Lead label="Next" onPress={onNext} off={!ready} />}>
-      <View style={styles.field}>
-        <TextInput accessibilityLabel="Your name"
-          style={styles.input}
-          value={value}
-          onChangeText={onChange}
-          placeholder="Your name"
-          placeholderTextColor={homeColors.placeholder}
-          autoCorrect={false}
-          autoCapitalize="words"
-          returnKeyType="done"
-          onSubmitEditing={() => ready && onNext()}
-          maxLength={40}
-        />
+    <View style={styles.step}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled">
+        <MascotCharacter width={92} mood="onboarding" calm style={styles.mascot} />
+
+        <Card title="What should we call you?"
+          line="It goes at the top of your home screen.">
+          <View style={styles.field}>
+            <TextInput accessibilityLabel="Your name"
+              style={styles.input}
+              value={username}
+              onChangeText={onName}
+              placeholder="Your name"
+              placeholderTextColor={homeColors.placeholder}
+              autoCorrect={false}
+              autoCapitalize="words"
+              returnKeyType="done"
+              maxLength={40}
+            />
+          </View>
+        </Card>
+
+        <Card title="How many cards a day?"
+          line="Twenty is about two minutes. Pick one you would still do on a bad day.">
+          <View style={styles.chips}>
+            {GOAL_OPTIONS.map((cards) => {
+              const on = goal === cards;
+              return (
+                <Pressable accessibilityRole="button" key={cards}
+                  accessibilityState={{ selected: on }}
+                  style={[styles.chip, on && styles.chipOn]}
+                  onPress={() => onGoal(cards)}>
+                  <View style={[styles.chipFace, on && styles.chipFaceOn]}>
+                    <Text style={[styles.chipNum, on && styles.chipTextOn]}>{cards}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+
+        <Card title="When should we remind you?"
+          line="One a day, at a time you are usually free. Leave it if you would rather not.">
+          <View style={styles.times}>
+            {REMINDER_TIMES.map((t) => {
+              const on = reminder === t.value;
+              return (
+                <Pressable accessibilityRole="button" key={t.value}
+                  accessibilityState={{ selected: on }}
+                  style={[styles.time, on && styles.chipOn]}
+                  onPress={() => onReminder(t.value)}>
+                  <View style={[styles.timeFace, on && styles.chipFaceOn]}>
+                    <Text style={[styles.timeText, on && styles.chipTextOn]}>{t.label}</Text>
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+        </Card>
+      </ScrollView>
+      <View style={styles.footer}>
+        <Lead label="Done" onPress={onDone} off={!ready} />
       </View>
-    </Step>
-  );
-}
-
-// ─── 5: Daily goal ───────────────────────────────────────────────────────────
-
-function GoalStep({ selected, onSelect, onNext }: {
-  selected: GoalCards | null;
-  onSelect: (v: GoalCards) => void;
-  onNext: () => void;
-}) {
-  return (
-    <Step mood="excited" mascot={112} title="How many cards a day?"
-      line="Twenty is about two minutes. Pick one you would still do on a bad day."
-      footer={<Lead label="Next" onPress={onNext} off={selected === null} />}>
-      <View style={styles.chips}>
-        {GOAL_OPTIONS.map((cards) => {
-          const on = selected === cards;
-          return (
-            <Pressable accessibilityRole="button" key={cards}
-              style={[styles.chip, on && styles.chipOn]}
-              onPress={() => onSelect(cards)}>
-              <View style={[styles.chipFace, on && styles.chipFaceOn]}>
-                <Text style={[styles.chipNum, on && styles.chipTextOn]}>{cards}</Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-    </Step>
-  );
-}
-
-// ─── 6: Reminder ─────────────────────────────────────────────────────────────
-
-function ReminderStep({ selected, onSelect, onFinish, onSkip }: {
-  selected: string | null;
-  onSelect: (v: string) => void;
-  onFinish: () => void;
-  onSkip: () => void;
-}) {
-  return (
-    <Step mood="idle" mascot={112} title="When should we remind you?"
-      footer={(
-        <View style={styles.footerStack}>
-          <Lead label={selected ? 'Start learning' : 'Skip for now'}
-            onPress={selected ? onFinish : onSkip} />
-        </View>
-      )}
-      line="One a day, at a time you are usually free. You can change it later.">
-      <View style={styles.times}>
-        {REMINDER_TIMES.map((t) => {
-          const on = selected === t.value;
-          return (
-            <Pressable accessibilityRole="button" key={t.value}
-              style={[styles.time, on && styles.chipOn]}
-              onPress={() => onSelect(t.value)}>
-              <View style={[styles.timeFace, on && styles.chipFaceOn]}>
-                <Text style={[styles.timeText, on && styles.chipTextOn]}>{t.label}</Text>
-              </View>
-            </Pressable>
-          );
-        })}
-      </View>
-    </Step>
+    </View>
   );
 }
 
@@ -447,11 +371,6 @@ const styles = StyleSheet.create({
     alignItems: 'center', justifyContent: 'center',
   },
   backHidden: { opacity: 0 },
-  dots: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  dotHere: { width: 20, backgroundColor: homeColors.primary },
-  dotPast: { backgroundColor: homeColors.streakBorder },
-  dotAhead: { backgroundColor: homeColors.border },
 
   stage: { flex: 1 },
   step: { flex: 1 },
@@ -459,9 +378,11 @@ const styles = StyleSheet.create({
   // Centred, so a short step sits in the middle of the screen rather than pinned
   // to the top with the button a long way below it. A step taller than the screen
   // (the twelve reminder times) overflows and scrolls as usual.
+  // The button is pinned outside the scroll, so the last card needs room to clear
+  // it: 64 of button, 12 of the footer's own top, and a little air under that.
   scrollContent: {
     flexGrow: 1, justifyContent: 'center',
-    paddingHorizontal: layout.screenInline, paddingBottom: 12, gap: 4,
+    paddingHorizontal: layout.screenInline, paddingTop: 4, paddingBottom: 88, gap: 14,
   },
   mascot: { alignSelf: 'center' },
 
@@ -474,19 +395,10 @@ const styles = StyleSheet.create({
   cardFace: {
     backgroundColor: homeColors.white, borderRadius: 32, padding: 20, gap: 14,
   },
-  bareWords: { alignItems: 'center', gap: 8, paddingHorizontal: 8, paddingBottom: 10 },
-  wordmark: { marginBottom: 2 },
-  // A highlighter run through the words that carry the claim. White, not the
-  // app's usual selected yellow: this screen's own sky is yellow, so a pale
-  // yellow band laid on it disappears. White is the colour every surface in this
-  // app is made of, and on this background it is the one that reads as marked.
-  mark: { backgroundColor: homeColors.white },
   title: {
     fontFamily: 'Geist_600SemiBold', fontSize: 24, lineHeight: 30,
     color: homeColors.darkest,
   },
-  titleBare: { fontSize: 27, lineHeight: 34, textAlign: 'center' },
-  bodyBare: { textAlign: 'center' },
   body: {
     fontFamily: 'Geist_500Medium', fontSize: 15, lineHeight: 22, color: homeColors.muted,
   },
@@ -530,7 +442,6 @@ const styles = StyleSheet.create({
   timeText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.darkest },
 
   footer: { paddingHorizontal: layout.screenInline, paddingTop: 12 },
-  footerStack: { gap: 10 },
   lead: {
     height: 59 + ledge.lead, borderRadius: 42, backgroundColor: homeColors.deep,
     paddingBottom: ledge.lead,
