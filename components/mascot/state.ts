@@ -98,8 +98,9 @@ export interface MascotState {
    * hanging off an arm, because in this drawing there is no arm: a hand is a paw
    * resting on the outline, and it slides along it. The swing is small for a reason
    * measured rather than guessed: the orbit is a circle and the body is not quite
-   * one, so past about eight degrees of raise the hand slides off the outline and a
-   * gap of background opens between them.
+   * one, and the body squashes while the orbit does not, so even a few degrees of
+   * raise can slide a hand off the outline and open a gap of background behind it.
+   * The hands rest where the artwork puts them and barely move from there.
    *
    * Optional, and that is the point: the hands are a part like the eyes or the
    * accents, assembled in by the states that want them. A state with no carriage
@@ -130,8 +131,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   idle: {
     frame: ['neutral', 'neutral', 'neutral', 'happy'],
     frameHold: [6000, 13000],
-    roll: [0, -1.5, 1.15], tx: [0, 0, 0.31], ty: [0, 0.02, 1.15],
-    squash: [1, 0.026, 1.15], arm: [0, 3.5, 0.42],
+    roll: [0, 0, 1.15], tx: [0, 0, 0.31], ty: [0, 0.02, 1.15],
+    squash: [1, 0.026, 1.15], arm: [0, 1.75, 0.42],
     tail: [0, 3, 1.6],
     lid: 1, eyeScale: 1,
     blink: [4800, 11000], wink: [9000, 19000], hornLag: 0.5, tailLag: 0.8,
@@ -143,9 +144,9 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   happy: {
     frame: ['happy', 'aha'],
     frameHold: [2600, 5200],
-    roll: [0, -2.4, 1.05], tx: [0, 0, 1], ty: [0, 0, 0],
+    roll: [0, 0, 1.05], tx: [0, 0, 1], ty: [0, 0, 0],
     squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.010, squash: 0.06, tilt: 7 },
-    arm: [4, 5, 1.0],
+    arm: [0, 2.5, 1.0],
     tail: [-4, 6, 1.5],
     lid: 1, eyeScale: 1.04,
     propMotion: 'pop',
@@ -158,9 +159,9 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   excited: {
     frame: ['aha', 'happy'],
     frameHold: [1400, 2800],
-    roll: [0, -4.5, 5.2], tx: [0, 0, 1.1], ty: [0, 0, 0],
+    roll: [0, 0, 5.2], tx: [0, 0, 1.1], ty: [0, 0, 0],
     squash: [1.008, 0.026, 2.3], hop: { height: 0.046, rate: 1.28, crouch: 0.013, squash: 0.075, tilt: 16 },
-    arm: [7, 8, 2.3],
+    arm: [0, 4.0, 2.3],
     tail: [-6, 8, 1.4],
     lid: 1, eyeScale: 1.06,
     propMotion: 'pop',
@@ -174,7 +175,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   thinking: {
     frame: ['thinking', 'focused'],
     frameHold: [2200, 4200],
-    roll: [-8, -3.5, 0.58], tx: [0, 0, 0.3], ty: [0, 0.009, 0.58],
+    roll: [-8, 0, 0.58], tx: [0, 0, 0.3], ty: [0, 0.009, 0.58],
     squash: [1, 0.007, 0.58], tail: [3, 2.5, 1.7],
     lid: 0.92, eyeScale: 1,
     propMotion: 'float',
@@ -187,7 +188,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
    * is the point — every other state is busier, so this one reads as effort. */
   focused: {
     frame: 'focused',
-    roll: [2, -0.6, 1.2], tx: [0.002, 0, 0.9], ty: [0.004, 0.005, 1.2],
+    roll: [2, 0, 1.2], tx: [0.002, 0, 0.9], ty: [0.004, 0.005, 1.2],
     squash: [0.997, 0.005, 1.5], tail: [0, 1.5, 1.5],
     lid: 0.86, eyeScale: 0.98,
     blink: [3200, 6800], hornLag: 0.35, tailLag: 0.45,
@@ -198,9 +199,9 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
    * accents pop once on entry rather than repeating — a surprise happens once. */
   surprised: {
     frame: 'aha',
-    roll: [0, -1.1, 8.5], tx: [0, 0, 0.9], ty: [-0.013, 0.004, 0.9],
+    roll: [0, 0, 8.5], tx: [0, 0, 0.9], ty: [-0.013, 0.004, 0.9],
     squash: [1.035, 0.008, 1.4], shake: [0.007, 20],
-    arm: [7, 1.5, 1.6],
+    arm: [0, 0.75, 1.6],
     tail: [-8, 2, 1.3],
     lid: 1, eyeScale: 1.16, pupilScale: 1.22,
     propMotion: 'pop',
@@ -213,7 +214,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
    * blink is off — the frame's eyes are already shut. */
   sleepy: {
     frame: 'sleepy',
-    roll: [3, -1.4, 0.33], tx: [0, 0, 0.19], ty: [0.016, 0.013, 0.33],
+    roll: [3, 0, 0.33], tx: [0, 0, 0.19], ty: [0.016, 0.013, 0.33],
     squash: [1, 0.024, 0.33], tail: [5, 2, 1.8],
     lid: 1, eyeScale: 1,
     propMotion: 'drift',
@@ -230,8 +231,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   onboarding: {
     frame: ['neutral', 'happy'],
     frameHold: [4000, 9000],
-    roll: [0, -0.8, 0.62], tx: [0, 0, 0.3], ty: [0.004, 0.01, 0.62],
-    squash: [1, 0.009, 0.62], arm: [3, 3, 0.4],
+    roll: [0, 0, 0.62], tx: [0, 0, 0.3], ty: [0.004, 0.01, 0.62],
+    squash: [1, 0.009, 0.62], arm: [0, 1.5, 0.4],
     tail: [0, 3, 1.6],
     lid: 1, eyeScale: 1,
     blink: [4000, 9000], hornLag: 0.4, tailLag: 0.7,
@@ -243,8 +244,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   learningComplete: {
     frame: ['completed', 'aha'],
     frameHold: [2400, 4600],
-    roll: [0, -1.5, 1.1], tx: [0, 0, 0.7], ty: [-0.004, 0.011, 1.1],
-    squash: [1.01, 0.013, 1.1], arm: [5, 4, 0.9],
+    roll: [0, 0, 1.1], tx: [0, 0, 0.7], ty: [-0.004, 0.011, 1.1],
+    squash: [1.01, 0.013, 1.1], arm: [0, 2.0, 0.9],
     tail: [-5, 4.5, 1.5],
     lid: 1, eyeScale: 1,
     propMotion: 'pop',
@@ -257,7 +258,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   studyReview: {
     frame: ['focused', 'neutral'],
     frameHold: [3000, 6500],
-    roll: [0, -0.7, 0.54], tx: [0, 0, 0.24], ty: [0.002, 0.008, 0.54],
+    roll: [0, 0, 0.54], tx: [0, 0, 0.24], ty: [0.002, 0.008, 0.54],
     squash: [1, 0.010, 0.54], tail: [2, 1.8, 1.7],
     lid: 0.95, eyeScale: 1,
     blink: [3200, 7000], hornLag: 0.3, tailLag: 0.45,
@@ -269,8 +270,8 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   streakReward: {
     frame: ['happy', 'aha'],
     frameHold: [1800, 3400],
-    roll: [0, -3.0, 0.72], tx: [0, 0, 0.5], ty: [-0.012, 0.017, 0.72],
-    squash: [1.012, 0.014, 0.72], arm: [7, 5, 0.6],
+    roll: [0, 0, 0.72], tx: [0, 0, 0.5], ty: [-0.012, 0.017, 0.72],
+    squash: [1.012, 0.014, 0.72], arm: [0, 2.5, 0.6],
     tail: [-6, 5, 1.5],
     lid: 1, eyeScale: 1.04,
     propMotion: 'pop',
@@ -304,12 +305,16 @@ export interface MascotPose {
   shake: number;
 }
 
-/** The body hovers rather than slides. It is a round creature with no legs under it,
- * so sideways drift read as being dragged along; every horizontal amplitude is zero
- * now and what is left is a rise and fall, a breath, and a small rock whose rate is
- * the rise and fall's own — so the character tips as it lifts instead of ticking from
- * side to side on a clock of its own. The lean amplitudes stay negative, so what
- * rocking there is leads toward the copy rather than away from it.
+/** The body hovers. It is a round creature with no legs under it, so sideways drift
+ * read as being dragged and the rock that replaced it read as a metronome; both
+ * amplitudes are zero. What is left is a rise and fall and a breath. The resting
+ * lean of a pose stays — thinking still leans away, focused still sits square — but
+ * nothing swings side to side any more.
+ *
+ * That leaves the horns and the tail with nothing to trail, since they were hung off
+ * the lean. They are hung off the rise and fall instead, which is the better place
+ * for them anyway: a tail on a body that lifts swings under it, and a horn on a head
+ * that rises arrives late.
  *
  * Offsetting by the value at t=0 keeps the first frame in the authored rest pose. */
 function wave(t: number, rate: number, phase: number) {
@@ -348,8 +353,7 @@ export function mascotPose(mood: MascotMood, clock: number, out: MascotPose) {
   'worklet';
   const s = MASCOT_STATES[mood];
 
-  const lean = wave(clock, s.roll[2], 0) * s.roll[1];
-  out.roll = s.roll[0] + lean;
+  out.roll = s.roll[0] + wave(clock, s.roll[2], 0) * s.roll[1];
   out.tx = s.tx[0] + wave(clock, s.tx[2], 1.1) * s.tx[1];
   out.shake = s.shake ? Math.sin(clock * s.shake[1]) * s.shake[0] : 0;
   out.ty = s.ty[0] + wave(clock, s.ty[2], 0.4) * s.ty[1];
@@ -373,12 +377,15 @@ export function mascotPose(mood: MascotMood, clock: number, out: MascotPose) {
   // Its own rate, unrelated to anything the body does, which is the point.
   out.spark = Math.sin(clock * 1.7 + 0.9);
   out.arm = s.arm ? s.arm[0] + wave(clock, s.arm[2], 0.7) * s.arm[1] : 0;
-  // Detuned from the body, but wound by it: the phase is its own, so the tail never
-  // beats in time with the lean and read as one rigid shape, while the swing is
-  // scaled by how far the body is actually leaning — a still body has a quiet tail,
-  // and a swaying one has a tail that swings with it. The trailing lag the renderer
-  // adds on top is the third part of the link.
-  const sway = Math.min(1, Math.abs(lean) / Math.max(0.001, Math.abs(s.roll[1])));
+  // Detuned from the body but wound by it. The phase is the tail's own, so it never
+  // beats in time with the body and read as one rigid shape; the swing is scaled by
+  // how much the body is actually rising, so a still character has a quiet tail. A
+  // state that hops is driven by the hop; one that hovers, by its breath. The
+  // trailing spring the renderer adds on top is the other half of the link.
+  const rise = s.hop
+    ? out.lift / s.hop.height
+    : (s.ty[1] ? wave(clock, s.ty[2], 0.4) * s.ty[1] / s.ty[1] : 0);
+  const rate = s.hop ? s.hop.rate * 4 : s.ty[2];
   out.tail = s.tail[0]
-    + wave(clock, s.roll[2] * s.tail[2], 2.1) * s.tail[1] * (0.35 + 0.65 * sway);
+    + wave(clock, rate * s.tail[2], 2.1) * s.tail[1] * (0.35 + 0.65 * Math.min(1, Math.abs(rise)));
 }

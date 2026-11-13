@@ -98,6 +98,11 @@ const EYE_DRIFT = { ax: 0.56, rx: 0.47, bx: 0.20, rx2: 1.13, ay: 0.36, ry: 0.63 
  * about nothing: looking level already means pulling it down. */
 const GAZE_EYE = { x: 7, y: 4 } as const;
 const GAZE_PUPIL = { x: 11, y: 10 } as const;
+/** And how far the mouth goes with them. Less than the eyes, as in any turned head:
+ * the features all shift together and the ones further from the turn shift least. A
+ * mouth left where the frame drew it while the eyes move is the thing that stops a
+ * look reading as a look. */
+const GAZE_MOUTH = { x: 5, y: 2.5 } as const;
 
 /** Where the character meets the ground: the bottom of the body, on its centre line.
  * Squash pivots here, not at the middle, or the body sinks into the floor as it
@@ -393,11 +398,12 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     m.markR.t = rest ? 0 : (m.roll.x + p.tilt) * MARK_ROLL;
     m.gazeX.t = rest ? 0 : gazeAim.value.x;
     m.gazeY.t = rest ? 0 : gazeAim.value.y;
-    // The horns and tail chase the body's lean on a looser, wobblier spring; what is
-    // drawn is the gap between them, so they trail on the way out and overshoot
-    // coming back.
-    m.horn.t = m.roll.x;
-    m.tail.t = m.roll.x;
+    // The horns and tail chase the body's height on a looser, wobblier spring; what
+    // is drawn is the gap between them, so they trail on the way up and overshoot
+    // coming back down.
+    const rise = m.ty.x - (rest ? 0 : p.lift);
+    m.horn.t = rise;
+    m.tail.t = rise;
     m.arm.t = rest ? 0 : p.arm;
     m.wag.t = rest ? 0 : p.tail;
     m.pop.t = 1;
@@ -458,9 +464,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       // 16 degree lean arrived as 8.7.
       roll: m.roll.x + (rest ? 0 : p.tilt),
       sx: m.sx.x, sy: m.sy.x,
-      horn: rest ? 0 : (m.roll.x - m.horn.x) * hornLag.value * HORN_SWING,
+      horn: rest ? 0 : (rise - m.horn.x) * hornLag.value * HORN_SWING,
       // Its own sway, plus how far it is still trailing the body's lean.
-      tail: rest ? 0 : m.wag.x + (m.roll.x - m.tail.x) * tailLag.value * TAIL_SWING,
+      tail: rest ? 0 : m.wag.x + (rise - m.tail.x) * tailLag.value * TAIL_SWING,
       // One raise, mirrored: the hands sit on opposite sides of the body, so the same
       // lift is a turn one way for one of them and the other way for the other.
       armL: m.arm.x, armR: -m.arm.x,
@@ -645,6 +651,12 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   const atR = eyeAt('R');
   const openL = useAnimatedStyle(() => eyeTransform(out.value, atL, box));
   const openR = useAnimatedStyle(() => eyeTransform(out.value, atR, box));
+  const mouth = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: ((out.value.gx * GAZE_MOUTH.x + out.value.driftX) / VIEW) * box },
+      { translateY: ((out.value.gy * GAZE_MOUTH.y + out.value.driftY) / VIEW) * box },
+    ],
+  }));
   const shut = useAnimatedStyle(() => ({
     opacity: out.value.lid < out.value.lidRest * LID_CLOSED ? 1 : 0,
   }));
@@ -722,7 +734,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
           );
         })}
 
-        <Layer box={box} parts={art.mouth} />
+        <Layer box={box} parts={art.mouth} style={mouth} />
         {/* The badge stays with the body: the character is holding it. */}
         <Layer box={box} parts={art.badge} style={badgeStyle} />
       </Animated.View>
