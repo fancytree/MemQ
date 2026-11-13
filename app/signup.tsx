@@ -2,8 +2,10 @@ import { layout } from '@/theme/spacing';
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import LoadingScreen from '@/components/LoadingScreen';
 import { MASCOT_ART, MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { homeColors, referenceColors } from '@/theme/colors';
+import { ledge } from '@/theme/ledge';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { signInWithOAuth, startGoogleOAuthInSafari } from '@/lib/auth';
@@ -88,7 +90,6 @@ const INK_OFFSET = (() => {
 
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH_MASCOT;
 const SOCIAL_MASCOT = 54;
-const BUTTON_MASCOT = 72;
 
 /** Placeholder ink. A hint is not content: `muted` measures 5.3:1 against the field
  * it sits in, which is body-text contrast, and that is why it read as something
@@ -323,6 +324,7 @@ export default function SignUpScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
+      <LoadingScreen visible={busy} label="Creating your account" />
       <LinearGradient pointerEvents="none"
         colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
@@ -413,9 +415,7 @@ export default function SignUpScreen() {
             activeOpacity={0.9}
             disabled={busy}>
             <View style={styles.signUpFace}>
-              {loading
-                ? <MascotCharacter width={BUTTON_MASCOT} mood="excited" />
-                : <Text style={styles.signUpText}>Sign Up</Text>}
+              <Text style={styles.signUpText}>Sign Up</Text>
             </View>
           </TouchableOpacity>
 
@@ -476,14 +476,14 @@ const styles = StyleSheet.create({
   perch: { alignSelf: 'center' },
   tagline: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
 
-  card: { marginTop: CARD_LIFT, backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: 3 },
+  card: { marginTop: CARD_LIFT, backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: ledge.raised },
   cardFace: { backgroundColor: homeColors.white, borderRadius: 32, padding: 16, gap: 12 },
   field: { minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas, justifyContent: 'center', paddingHorizontal: 16 },
   input: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest, paddingVertical: 14 },
   passwordInput: { paddingRight: 44 },
   eyeButton: { position: 'absolute', right: 4, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
 
-  signUp: { height: 61, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: 2 },
+  signUp: { height: 59 + ledge.lead, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: ledge.lead },
   signUpBusy: { opacity: 0.75 },
   signUpFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   signUpText: { fontFamily: 'Geist_500Medium', fontSize: 24, lineHeight: 32, color: homeColors.white },
@@ -493,10 +493,10 @@ const styles = StyleSheet.create({
   dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
 
   // Side by side and identical: two doors to the same room, neither of them the
-  // main one. 60 wide and 62 tall, because the two points at the bottom are the
-  // shell's ledge — sizing the shell square leaves the face wider than it is tall.
+  // main one. The shell is the face plus its lip, so a square face needs a shell
+  // two points taller — see theme/ledge.ts.
   socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
-  social: { width: 60, height: 62, borderRadius: 22, backgroundColor: homeColors.border, paddingBottom: 2 },
+  social: { width: 60, height: 60 + ledge.control, borderRadius: 22, backgroundColor: homeColors.border, paddingBottom: ledge.control },
   socialFace: { flex: 1, borderRadius: 22, backgroundColor: homeColors.white,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
 

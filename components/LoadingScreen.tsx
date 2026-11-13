@@ -1,62 +1,67 @@
 /**
- * 启动加载页面
- * 显示Logo和loading动画，在首页数据加载完成后自动隐藏
+ * The full-screen wait.
+ *
+ * Shown while the app is working on something the person has just asked for and
+ * cannot do anything else until it finishes — signing in, signing up, the first
+ * session check at launch. It is the whole screen on purpose: there is nothing to
+ * do but wait, so there is nothing else to look at.
+ *
+ * It is the same place as the rest of the app, not a grey interstitial: the gradient
+ * and the two hills Today and the sign-in screens stand on, the wordmark, and the
+ * character waiting with you. It used to be a system spinner on a flat background.
+ *
+ * The character is held on one face. Left to drift, the thinking state alternates
+ * with a brow-down squint, and being scowled at is not what waiting should feel
+ * like.
  */
-
 import Logo from '@/components/icons/Logo';
+import { HomeAsset } from '@/components/HomeAsset';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { homeColors } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
-import { ActivityIndicator, Modal, StyleSheet, View } from 'react-native';
+import { Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { colors } from '@/theme/colors';
 
 interface LoadingScreenProps {
   visible: boolean;
+  /** What is being waited for, if it is worth saying. */
+  label?: string;
 }
 
-export default function LoadingScreen({ visible }: LoadingScreenProps) {
-  if (!visible) {
-    return null;
-  }
+const MASCOT = 220;
 
-  // 使用 Modal 确保覆盖在所有内容之上，包括 native splash screen
+export default function LoadingScreen({ visible, label }: LoadingScreenProps) {
+  if (!visible) return null;
+
+  // A Modal so it covers everything, including the native splash screen.
   return (
-    <Modal
-      visible={visible}
-      transparent={false}
-      animationType="none"
-      statusBarTranslucent={true}
-    >
-      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.content}>
-          {/* Logo - 白色版本 */}
-          <View style={styles.logoContainer}>
-            <Logo width={200} color={colors.action} />
+    <Modal visible transparent={false} animationType="fade" statusBarTranslucent>
+      <View style={styles.container}>
+        <LinearGradient pointerEvents="none"
+          colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+          locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
+        <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
+        <View pointerEvents="none" style={styles.waveFront}><HomeAsset name="waveFront" /></View>
+        <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+          <View style={styles.content}>
+            <Logo width={200} />
+            <MascotCharacter width={MASCOT} mood="thinking" calm style={styles.mascot} />
+            {!!label && <Text style={styles.label}>{label}</Text>}
           </View>
-
-          {/* Loading 动画 */}
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color={colors.action} />
-          </View>
-        </View>
-      </SafeAreaView>
+        </SafeAreaView>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  content: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  logoContainer: {
-    marginBottom: 32,
-  },
-  loadingContainer: {
-    marginTop: 24,
-  },
+  container: { flex: 1, backgroundColor: homeColors.canvas },
+  background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
+  waveBack: { position: 'absolute', top: 150, left: -19 },
+  waveFront: { position: 'absolute', top: 187, left: -19 },
+  safe: { flex: 1 },
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  mascot: { marginTop: 8 },
+  label: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
 });
