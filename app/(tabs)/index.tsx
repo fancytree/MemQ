@@ -353,8 +353,13 @@ const MASCOT_WIDTH = 220.205;
  * its left, so that is where it looks. Past -1 because the frames draw the pair of
  * eyes about 10 units right of the body's middle to begin with: the first unit of
  * look only undoes that, and the rest is what reads as looking left. The state's
- * wander still drifts it, and the clip keeps the pupils in their whites. */
-const MASCOT_LOOK = { x: -1.8, y: 0.75 };
+ * wander still drifts it, and the clip keeps the pupils in their whites.
+ *
+ * -1.8 was too far. It was set while the character was wearing the closed-eyed happy
+ * face, where there are no pupils to judge it by; on the open-eyed faces it pinned
+ * both pupils against the far edge of their whites and stayed there, which reads as
+ * a stare rather than as attention. */
+const MASCOT_LOOK = { x: -1, y: 0.75 };
 /** No lean. The mockup draws the character at +10.1 degrees, which turned its head
  * away from everything it is about; leaning it the other way fixed that and brought
  * its own problems — the hands orbit a circle and a tilted body meets them at a

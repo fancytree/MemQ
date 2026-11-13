@@ -10,7 +10,7 @@
  */
 
 import { HomeAsset } from '@/components/HomeAsset';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
 import { homeColors } from '@/theme/colors';
@@ -36,6 +36,16 @@ import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
+
+/** The thinking face looks up and to the left on its own — it is drawn for a
+ *  character working something out, with its eyes off in the middle distance. Rolled
+ *  up at someone reading the sheet that is not thought, it is the whites-of-the-eyes
+ *  look, and it is unpleasant to be on the receiving end of.
+ *
+ *  So the gaze is brought back down and centred. Its own wander is ±0.35, and this
+ *  leaves the aim far enough below level that the wander never carries it back above
+ *  the line: the eyes settle just under level, which is where the plans are. */
+const LEVEL_GAZE = { x: 0.5, y: 0.9 } as const;
 
 /** One plan: a shell with a lighter face on it, so it reads as a thing you can press
  *  rather than an outlined box. Chosen, the shell darkens and the face takes the pale
@@ -281,6 +291,9 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
   };
 
   const savingsPercent = calculateSavings();
+  const face: MascotMood = selectedPlan === 'yearly' ? 'happy'
+    : selectedPlan === 'monthly' ? 'idle'
+    : 'thinking';
 
   if (!visible) return null;
 
@@ -338,7 +351,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   paws reaching out of a frame nothing fills read as a crop. */}
               <View style={styles.logoContainer}>
                 <MascotCharacter width={168} hands={false} calm
-                  mood={selectedPlan === 'yearly' ? 'happy' : selectedPlan === 'monthly' ? 'idle' : 'thinking'} />
+                  mood={face} look={face === 'thinking' ? LEVEL_GAZE : undefined} />
               </View>
 
               {/* Plan Options + Footer */}
