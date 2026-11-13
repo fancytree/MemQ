@@ -1,14 +1,23 @@
-import { fonts } from '@/theme/typography';
 /**
- * PaywallModal — 套餐选择与购买（与全局 editorial + JetBrains Mono 一致）
+ * PaywallModal — what each plan costs, and the purchase itself.
+ *
+ * Drawn in the language the rest of the app is drawn in: the gradient and the two
+ * drifting hills behind it, and surfaces that are a coloured shell with a lighter face
+ * sitting on it, the band along the bottom edge standing in for a shadow
+ * (theme/ledge.ts). It was the older editorial style — hairline rules, outlined boxes,
+ * a flat filled button — which made the screen that asks for money the one screen that
+ * did not look like the app.
  */
 
-import Logo from '@/components/icons/Logo';
+import { HomeAsset } from '@/components/HomeAsset';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { MemQTheme } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme';
+import { homeColors } from '@/theme/colors';
+import { ledge } from '@/theme/ledge';
+import { layout } from '@/theme/spacing';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
@@ -27,7 +36,41 @@ import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage } from 're
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
-const t = MemQTheme;
+
+/** One plan: a shell with a lighter face on it, so it reads as a thing you can press
+ *  rather than an outlined box. Chosen, the shell darkens and the face takes the pale
+ *  purple — the same move a chosen chip makes on the first run. */
+function PlanCard({ title, price, unit, badge, selected, onPress }: {
+  title: string;
+  price: string;
+  unit: string;
+  badge?: string | null;
+  selected: boolean;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity accessibilityRole="button" accessibilityState={{ selected }}
+      style={[styles.plan, selected && styles.planOn]} onPress={onPress} activeOpacity={0.9}>
+      <View style={[styles.planFace, selected && styles.planFaceOn]}>
+        <View style={styles.planLeft}>
+          <View style={styles.planHead}>
+            <Text style={styles.planTitle}>{title}</Text>
+            {!!badge && (
+              <View style={styles.badge}><Text style={styles.badgeText}>{badge}</Text></View>
+            )}
+          </View>
+          <View style={styles.priceRow}>
+            <Text style={styles.price}>{price}</Text>
+            <Text style={styles.priceUnit}>{unit}</Text>
+          </View>
+        </View>
+        <View style={[styles.tick, selected ? styles.tickOn : styles.tickOff]}>
+          {selected && <Feather name="check" size={13} color={homeColors.white} />}
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 /** RevenueCat Dashboard 的 Offering ID；若改名则回退到 current 或任意含套餐的 Offering（避免审核/线上空白） */
 const PREFERRED_OFFERING_ID = 'default';
@@ -251,6 +294,14 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
     >
       <View style={styles.sheetBackdrop}>
         <StatusBar style="dark" />
+        <LinearGradient pointerEvents="none"
+          colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+          locations={[0, 0.21154, 0.44712, 1]}
+          style={styles.background} />
+        {/* Two hills, not one: a single one ends on a straight horizontal edge partway
+            down, which reads as the background stopping rather than as a landscape. */}
+        <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
+        <View pointerEvents="none" style={styles.waveFront}><HomeAsset name="waveFront" /></View>
 
         <SafeAreaView style={styles.sheet} edges={['top', 'bottom']}>
           <View style={styles.toolbar}>
@@ -258,7 +309,9 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
             <View style={styles.toolbarContent}>
               <TouchableOpacity accessibilityLabel="Close" onPress={onClose} style={styles.closeButton} accessibilityRole="button">
-                <Feather name="x" size={22} color={colors.muted} />
+                <View style={styles.closeFace}>
+                  <Feather name="x" size={22} color={homeColors.deep} />
+                </View>
               </TouchableOpacity>
 
               <View style={styles.titleContainer}>
@@ -269,96 +322,38 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={colors.accentText} />
+              <ActivityIndicator size="large" color={homeColors.primary} />
               <Text style={styles.loadingText}>Loading subscription options…</Text>
             </View>
           ) : offering ? (
             <View style={styles.contentContainer}>
-              {/* Logo - fills remaining space */}
+              {/* The character, filling the room above the plans. A black wordmark
+                  stood here, left over from the older style: the one mark on the sheet
+                  that did not belong to this palette, floating in an empty band. */}
               <View style={styles.logoContainer}>
-                <Logo width={112} />
+                <MascotCharacter width={168} mood="excited" calm />
               </View>
 
               {/* Plan Options + Footer */}
               <View style={styles.bottomSection}>
               <View style={styles.plansContainer}>
-                {/* Yearly Option */}
                 {yearlyPackage && (
-                  <TouchableOpacity accessibilityRole="button"
-                    style={[
-                      styles.planCard,
-                      styles.planCardYearly,
-                      selectedPlan === 'yearly' ? styles.planCardSelected : styles.planCardUnselected,
-                    ]}
-                    onPress={() => setSelectedPlan('yearly')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.planCardContent}>
-                      <View style={styles.planCardLeft}>
-                        <View style={styles.planCardHeader}>
-                          <Text style={styles.planCardTitle}>MemQ Pro Yearly</Text>
-                          {savingsPercent && (
-                            <View style={styles.savingsBadge}>
-                              <Text style={styles.savingsBadgeText}>Save {savingsPercent}%</Text>
-                            </View>
-                          )}
-                        </View>
-                        <View style={styles.planCardPriceRow}>
-                          <Text style={styles.planCardPrice}>
-                            {yearlyPackage.product.priceString}
-                          </Text>
-                          <Text style={styles.planCardPriceUnit}>/year</Text>
-                        </View>
-                      </View>
-
-                      {/* 选中图标 */}
-                      <View style={[
-                        styles.planCardCheckbox,
-                        selectedPlan === 'yearly' ? styles.planCardCheckboxSelected : styles.planCardCheckboxUnselected,
-                      ]}>
-                        {selectedPlan === 'yearly' && (
-                          <Feather name="check" size={12} color={colors.surf} />
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                  <PlanCard
+                    title="MemQ Pro Yearly"
+                    price={yearlyPackage.product.priceString}
+                    unit="/year"
+                    badge={savingsPercent ? `Save ${savingsPercent}%` : null}
+                    selected={selectedPlan === 'yearly'}
+                    onPress={() => setSelectedPlan('yearly')} />
                 )}
 
-                {/* Monthly Option */}
                 {monthlyPackage && (
-                  <TouchableOpacity accessibilityRole="button"
-                    style={[
-                      styles.planCard,
-                      styles.planCardMonthly,
-                      selectedPlan === 'monthly' ? styles.planCardSelectedMonthly : styles.planCardUnselected,
-                    ]}
-                    onPress={() => setSelectedPlan('monthly')}
-                    activeOpacity={0.7}
-                  >
-                    <View style={styles.planCardContent}>
-                      <View style={styles.planCardLeft}>
-                        <View style={styles.planCardHeader}>
-                          <Text style={styles.planCardTitle}>MemQ Pro Monthly</Text>
-                        </View>
-                        <View style={styles.planCardPriceRow}>
-                          <Text style={styles.planCardPrice}>
-                            {monthlyPackage.product.priceString}
-                          </Text>
-                          <Text style={styles.planCardPriceUnit}>/month</Text>
-                        </View>
-                      </View>
-
-                      {/* 选中图标 */}
-                      <View style={[
-                        styles.planCardCheckbox,
-                        selectedPlan === 'monthly' ? styles.planCardCheckboxSelected : styles.planCardCheckboxUnselected,
-                      ]}>
-                        {selectedPlan === 'monthly' && (
-                          <Feather name="check" size={12} color={colors.surf} />
-                        )}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                  <PlanCard
+                    title="MemQ Pro Monthly"
+                    price={monthlyPackage.product.priceString}
+                    unit="/month"
+                    selected={selectedPlan === 'monthly'}
+                    onPress={() => setSelectedPlan('monthly')} />
                 )}
               </View>
 
@@ -384,14 +379,16 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   disabled={!selectedPlan || !!purchasing}
                   activeOpacity={0.8}
                 >
-                  {purchasing ? (
-                    <View style={styles.subscribeButtonContent}>
-                      <ActivityIndicator size="small" color={colors.surf} />
-                      <Text style={styles.subscribeButtonText}>Processing…</Text>
-                    </View>
-                  ) : (
-                    <Text style={styles.subscribeButtonText}>Start free trial</Text>
-                  )}
+                  <View style={styles.subscribeFace}>
+                    {purchasing ? (
+                      <View style={styles.subscribeButtonContent}>
+                        <ActivityIndicator size="small" color={homeColors.white} />
+                        <Text style={styles.subscribeButtonText}>Processing…</Text>
+                      </View>
+                    ) : (
+                      <Text style={styles.subscribeButtonText}>Start free trial</Text>
+                    )}
+                  </View>
                 </TouchableOpacity>
 
                 <TouchableOpacity accessibilityRole="button"
@@ -426,7 +423,9 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{loadError || 'No subscription options available.'}</Text>
               <TouchableOpacity accessibilityRole="button" onPress={loadOfferings} style={styles.errorButton}>
-                <Text style={styles.errorButtonText}>Retry</Text>
+                <View style={styles.errorButtonFace}>
+                  <Text style={styles.errorButtonText}>Retry</Text>
+                </View>
               </TouchableOpacity>
               <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.restoreButton}>
                 <Text style={styles.restoreButtonText}>Close</Text>
@@ -440,305 +439,146 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 }
 
 const styles = StyleSheet.create({
-  sheetBackdrop: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  sheet: {
-    flex: 1,
-    backgroundColor: colors.surf,
-    borderTopLeftRadius: t.radius.xxl,
-    borderTopRightRadius: t.radius.xxl,
-    borderTopWidth: 1,
-    borderLeftWidth: 1,
-    borderRightWidth: 1,
-    borderColor: colors.border,
-    overflow: 'hidden',
-    shadowColor: colors.accentShadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0,
-    shadowRadius: 24,
-    elevation: 0,
-  },
-  toolbar: {
-    paddingTop: t.space.xs,
-    paddingBottom: t.space.sm,
-    backgroundColor: colors.surf,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.borderS,
-  },
+  sheetBackdrop: { flex: 1, backgroundColor: homeColors.canvas },
+  background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
+  waveBack: { position: 'absolute', top: 113, left: -19 },
+  waveFront: { position: 'absolute', top: 150, left: -19 },
+  // Transparent, so the hills behind it are the sheet's own background rather than
+  // something glimpsed around a white panel.
+  sheet: { flex: 1 },
+
+  toolbar: { paddingTop: 8, paddingBottom: 12 },
   grabber: {
-    width: 40,
-    height: 4,
-    backgroundColor: colors.dim,
-    borderRadius: 2,
-    alignSelf: 'center',
-    marginBottom: t.space.md,
+    width: 40, height: 4, borderRadius: 2,
+    backgroundColor: homeColors.border, alignSelf: 'center', marginBottom: 14,
   },
   toolbarContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: t.space.pageX,
-    position: 'relative',
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: layout.screenInline, position: 'relative',
   },
+  // A small control, so it carries the shallowest lip of the three.
   closeButton: {
-    width: 44,
-    minHeight: 44,
-    borderRadius: t.radius.lg,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 44, height: 42 + ledge.control, borderRadius: 22,
+    backgroundColor: homeColors.border, paddingBottom: ledge.control,
+  },
+  closeFace: {
+    flex: 1, borderRadius: 22, backgroundColor: homeColors.white,
+    alignItems: 'center', justifyContent: 'center',
   },
   titleContainer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center',
   },
   title: {
-    fontSize: 17,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    letterSpacing: -0.4,
-    color: colors.text,
+    fontFamily: 'Geist_700Bold', fontSize: 20, lineHeight: 26,
+    letterSpacing: -0.5, color: homeColors.darkest,
   },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
+
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 48 },
   loadingText: {
-    marginTop: t.space.lg,
-    fontSize: 14,
-    fontFamily: fonts.regular,
-    color: colors.muted,
-    textAlign: 'center',
+    marginTop: 20, fontFamily: 'Geist_500Medium', fontSize: 15,
+    color: homeColors.muted, textAlign: 'center',
   },
-  contentContainer: {
-    flex: 1,
-    paddingHorizontal: t.space.pageX,
+
+  contentContainer: { flex: 1, paddingHorizontal: layout.screenInline },
+  logoContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 20 },
+  bottomSection: { paddingBottom: 0 },
+  plansContainer: { gap: 12, marginBottom: 18 },
+
+  // A shell with a lighter face on it, offset so a band of the shell shows along the
+  // bottom edge. In a palette with no shadows that band is the only depth there is.
+  plan: {
+    borderRadius: 24, backgroundColor: homeColors.border, paddingBottom: ledge.raised,
   },
-  logoContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: t.space.lg,
+  planOn: { backgroundColor: homeColors.deep },
+  planFace: {
+    borderRadius: 24, backgroundColor: homeColors.white,
+    paddingVertical: 16, paddingHorizontal: 18,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
   },
-  bottomSection: {
-    paddingBottom: 0,
+  planFaceOn: { backgroundColor: homeColors.track },
+  planLeft: { flex: 1, gap: 4 },
+  planHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+  planTitle: {
+    fontFamily: 'Geist_600SemiBold', fontSize: 17, lineHeight: 24, color: homeColors.darkest,
   },
-  plansContainer: {
-    gap: t.space.md,
-    marginBottom: t.space.md,
+  // The hills' own yellow, which is what this palette shouts with.
+  badge: {
+    paddingHorizontal: 9, paddingVertical: 3, borderRadius: 100,
+    backgroundColor: homeColors.hill,
   },
-  planCard: {
-    borderRadius: t.radius.xl,
-    padding: t.space.lg,
-    borderWidth: 1,
+  badgeText: {
+    fontFamily: 'Geist_600SemiBold', fontSize: 12, lineHeight: 16, color: homeColors.darkest,
   },
-  planCardYearly: {
-    backgroundColor: colors.accentL,
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
+  price: {
+    fontFamily: 'Oswald_600SemiBold', fontSize: 26, lineHeight: 32, color: homeColors.deep,
   },
-  planCardMonthly: {
-    backgroundColor: colors.surf,
+  priceUnit: {
+    fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted,
   },
-  planCardSelected: {
-    backgroundColor: colors.accentL,
-    borderColor: colors.action,
-  },
-  planCardUnselected: {
-    backgroundColor: colors.surf,
-    borderColor: colors.controlBorder,
-  },
-  planCardSelectedMonthly: {
-    backgroundColor: colors.surf,
-    borderColor: colors.action,
-  },
-  planCardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  planCardLeft: {
-    flex: 1,
-  },
-  planCardHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-    flexWrap: 'wrap',
-  },
-  planCardTitle: {
-    fontSize: 15,
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    letterSpacing: -0.35,
-    color: colors.text,
-  },
-  savingsBadge: {
-    backgroundColor: colors.greenL,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: t.radius.pill,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  savingsBadgeText: {
-    fontSize: 12,
-    fontFamily: fonts.medium,
-    color: colors.green,
-    lineHeight: 14,
-  },
-  planCardPriceRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 4,
-  },
-  planCardPrice: {
-    fontSize: 16,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    letterSpacing: -0.35,
-    color: colors.accentText,
-  },
-  planCardPriceUnit: {
-    fontSize: 13,
-    fontFamily: fonts.medium,
-    fontWeight: '500',
-    color: colors.muted,
-    letterSpacing: -0.2,
-  },
-  planCardCheckbox: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1,
-    borderColor: colors.action,
-    backgroundColor: colors.action,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planCardCheckboxUnselected: {
-    backgroundColor: colors.transparent,
-    borderColor: colors.controlBorder,
-  },
-  planCardCheckboxSelected: {
-    backgroundColor: colors.action,
-    borderColor: colors.action,
-  },
-  footer: {
-    paddingTop: t.space.md,
-    gap: 0,
-  },
-  // 定价 + 合规：两行贴近；与下方主按钮仍用 marginBottom 拉开
-  footerCopy: {
-    marginBottom: t.space.lg,
-    gap: 3,
-    paddingHorizontal: 4,
-  },
+  tick: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  tickOn: { backgroundColor: homeColors.primary },
+  tickOff: { backgroundColor: homeColors.border },
+
+  footer: { paddingTop: 2 },
+  footerCopy: { marginBottom: 16, gap: 4 },
   footerLead: {
-    fontSize: 15,
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
-    letterSpacing: -0.35,
-    color: colors.text,
-    textAlign: 'center',
-    lineHeight: 20,
+    fontFamily: 'Geist_600SemiBold', fontSize: 16, lineHeight: 22,
+    color: homeColors.darkest, textAlign: 'center',
   },
   autoRenewText: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
-    color: colors.muted,
-    textAlign: 'center',
-    lineHeight: 14,
-    paddingHorizontal: t.space.xs,
+    fontFamily: 'Geist_400Regular', fontSize: 12, lineHeight: 17,
+    color: homeColors.muted, textAlign: 'center',
   },
-  subscribeButton: { minHeight: 44,
-    backgroundColor: colors.action,
-    borderRadius: 100,
-    paddingVertical: 16,
-    paddingHorizontal: t.space.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 0,
+
+  // The one thing the sheet wants pressed, so it carries the deepest lip.
+  subscribeButton: {
+    height: 59 + ledge.lead, borderRadius: 42,
+    backgroundColor: homeColors.deep, paddingBottom: ledge.lead,
   },
-  subscribeButtonDisabled: {
-    opacity: 0.5,
+  subscribeFace: {
+    flex: 1, borderRadius: 42, backgroundColor: homeColors.primary,
+    alignItems: 'center', justifyContent: 'center',
   },
-  subscribeButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  subscribeButtonDisabled: { opacity: 0.45 },
+  subscribeButtonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   subscribeButtonText: {
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    color: colors.onAction,
-    letterSpacing: -0.15,
+    fontFamily: 'Geist_500Medium', fontSize: 22, lineHeight: 30, color: homeColors.white,
   },
-  restoreButton: { minHeight: 44,
-    paddingVertical: 4,
-    alignItems: 'center',
-    marginTop: 2,
-    marginBottom: 0,
-  },
+
+  restoreButton: { minHeight: 44, paddingVertical: 10, alignItems: 'center' },
   restoreButtonText: {
-    fontSize: 12,
-    fontFamily: fonts.medium,
-    fontWeight: '500',
-    color: colors.muted,
-    letterSpacing: -0.15,
+    fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted,
   },
+
   legalLinks: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 8,
-    paddingTop: 10,
-    paddingBottom: 0,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingTop: 4,
   },
   legalLinkText: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
-    color: colors.muted,
+    fontFamily: 'Geist_400Regular', fontSize: 13, color: homeColors.muted,
     textDecorationLine: 'underline',
   },
   legalLinkSeparator: {
-    fontSize: 12,
-    color: colors.muted,
-    fontFamily: fonts.regular,
+    fontFamily: 'Geist_400Regular', fontSize: 13, color: homeColors.muted,
   },
+
   errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 48,
+    flex: 1, justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 48, gap: 20,
   },
   errorText: {
-    fontSize: 14,
-    fontFamily: fonts.regular,
-    color: colors.sub,
-    marginBottom: 24,
-    textAlign: 'center',
-    lineHeight: 22,
+    fontFamily: 'Geist_500Medium', fontSize: 15, lineHeight: 22,
+    color: homeColors.deep, textAlign: 'center',
   },
-  errorButton: { minHeight: 44,
-    backgroundColor: colors.action,
-    borderRadius: 100,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
+  errorButton: {
+    height: 50 + ledge.lead, borderRadius: 42, minWidth: 160,
+    backgroundColor: homeColors.deep, paddingBottom: ledge.lead,
+  },
+  errorButtonFace: {
+    flex: 1, borderRadius: 42, backgroundColor: homeColors.primary,
+    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24,
   },
   errorButtonText: {
-    color: colors.onAction,
-    fontSize: 14,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
+    fontFamily: 'Geist_500Medium', fontSize: 18, lineHeight: 24, color: homeColors.white,
   },
 });
