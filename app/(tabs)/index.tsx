@@ -1,4 +1,5 @@
 import { LessonCover } from '@/components/LessonCover';
+import LoadingScreen from '@/components/LoadingScreen';
 import { colors, homeColors } from '@/theme/colors';
 import { type } from '@/theme/typography';
 import { HomeAsset } from '@/components/HomeAsset';
@@ -58,8 +59,25 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
   const [dailyGoalCards, setDailyGoalCards] = useState(20);
   const [reviewedToday, setReviewedToday] = useState(isDemo ? 7 : 0);
   const [currentStreak, setCurrentStreak] = useState(isDemo ? 5 : 0);
+  // The character's face is read off this screen's own numbers — how many are due,
+  // whether the day's goal is met, whether there are any cards at all — so it cannot
+  // be drawn before they are all here. Drawn early it wears one expression and swaps
+  // to another a moment later, which is the screen correcting itself in front of the
+  // person. Both answers have to be in, not just the first one back: lessons alone
+  // settle it on idle and the goal arriving after that turns it happy, a second
+  // change out of the same load. So the wait stays on the loading screen, which is
+  // what the wait is for, and Today comes up already settled.
+  const arrived = useRef({ lessons: isDemo, user: isDemo });
+  const [ready, setReady] = useState(isDemo);
+  const markArrived = useCallback((which: 'lessons' | 'user') => {
+    arrived.current[which] = true;
+    if (arrived.current.lessons && arrived.current.user) setReady(true);
+  }, []);
   const heroEntrance = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
   useEffect(() => {
+    // Nothing to come in until there is something to come in: run it when the screen
+    // is first shown, not while the loading screen is still over it.
+    if (!ready) return;
     let active = true;
     let animation: Animated.CompositeAnimation | undefined;
     AccessibilityInfo.isReduceMotionEnabled().then((reduceMotion) => {
@@ -74,7 +92,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
       animation.start();
     }).catch(() => heroEntrance.forEach((value) => value.setValue(1)));
     return () => { active = false; animation?.stop(); };
-  }, [heroEntrance]);
+  }, [heroEntrance, ready]);
   const entranceStyle = (index: number) => ({
     opacity: heroEntrance[index],
     transform: [{ translateY: heroEntrance[index].interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
@@ -88,14 +106,13 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
   // The character reacts to where the learner actually stands today, off the same
   // state the heading reads. Its hands, its breath and its blink come with it.
   const goalMet = dailyGoalCards > 0 && reviewedToday >= dailyGoalCards;
-  const mood: MascotMood = lessonsLoading ? 'thinking'
-    : !hasCards ? 'onboarding'
+  const mood: MascotMood = !hasCards ? 'onboarding'
     : goalMet ? 'happy'
     : totalDue === 0 ? 'sleepy'
     : 'idle';
   const startLabel = lessonsLoading ? 'Loading…' : lessonsError ? 'Try again' : lessonsCount === 0 ? 'Create your first lesson' : !hasCards ? 'Add cards' : 'Start Learning';
   const startLearning = () => {
-    if (lessonsError) { void fetchLessons(); return; }
+    if (lessonsError) { void fetchLessons(true); return; }
     if (lessonsCount === 0) { router.push('/create'); return; }
     if (!hasCards) {
       if (lessonsCount === 1) router.push(`/lessons/${lessons[0].id}/add-terms`);
@@ -124,9 +141,17 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         setDailyGoalCards(20);
       }
   }, []);
+  const loadUser = useCallback(async () => {
+    try { await loadUserName(); } finally { markArrived('user'); }
+  }, [loadUserName, markArrived]);
 
-  const fetchLessons = useCallback(async () => {
-    setLessonsLoading(true);
+  /** `again` is a retry after a failure. An ordinary refetch is neither: coming back
+   *  to this tab re-reads the numbers, and while a fresher copy of answers already on
+   *  the screen is on its way nothing on it should fall back to saying it is waiting.
+   *  Only a screen with nothing on it yet, or one asking again after a failure, says
+   *  that. */
+  const fetchLessons = useCallback(async (again = false) => {
+    if (!arrived.current.lessons || again) setLessonsLoading(true);
     setLessonsError(false);
     try {
     const { data: authData } = await supabase.auth.getUser();
@@ -250,14 +275,18 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
     setLessons(nextLessons);
     // 保存到本地，下次打开立即可见
     void saveToCache('DASHBOARD', nextLessons, user.id);
-    } catch { setLessonsError(true); } finally { setLessonsLoading(false); }
-  }, []);
+    } catch { setLessonsError(true); } finally { setLessonsLoading(false); markArrived('lessons'); }
+  }, [markArrived]);
 
   useFocusEffect(
     useCallback(() => {
-      if (!isDemo) { void fetchLessons(); void loadUserName(); }
-    }, [fetchLessons, loadUserName, isDemo])
+      if (!isDemo) { void fetchLessons(); void loadUser(); }
+    }, [fetchLessons, loadUser, isDemo])
   );
+
+  // Until then this is the screen: the same one the sign-in and the first run hand
+  // over to, so arriving from either reads as one wait rather than two.
+  if (!ready) return <View style={styles.root}><LoadingScreen visible /></View>;
 
   return (
     <View style={styles.root}>
@@ -274,7 +303,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
           <View style={styles.streak} accessibilityLabel={`${currentStreak}-day streak`}><View style={styles.streakFace}><HomeAsset name="flame" /><Text style={styles.streakText}>{currentStreak}</Text></View></View>
         </View>
         <View style={styles.hero}>
-          <Animated.View style={[styles.focus, entranceStyle(0)]}><HomeAsset name="target" /><Text style={styles.focusText}>Today’s Focus</Text></Animated.View>
+          <Animated.View style={[styles.focus, entranceStyle(0)]}><HomeAsset name="focusTarget" height={FOCUS_ICON} /><Text style={styles.focusText}>Today’s Focus</Text></Animated.View>
           <Animated.View style={[styles.heroCopy, entranceStyle(1)]}>
             <Text accessibilityRole="header" style={styles.count}>{totalDue}<Text style={styles.countUnit}> {totalDue === 1 ? 'card' : 'cards'}</Text></Text>
             <Text style={styles.subtitle}>{lessonsError ? 'Couldn’t load your lessons' : lessonsLoading ? 'Getting your lessons ready' : lessonsCount === 0 ? 'Create a lesson to start learning' : !hasCards ? 'Add cards to a lesson to start learning' : totalDue > 0 ? 'Need your review' : 'All caught up'}</Text>
@@ -360,6 +389,14 @@ const MASCOT_RIGHT_HAND = { out: 6.31, turn: 38 } as const;
  * its natural height is swallowed by it. Nothing covers the body here, so the same
  * lift leaves the tail riding high up the back instead of coming off its base. */
 const MASCOT_TAIL = { y: 26 } as const;
+
+/** The Today's Focus icon's drawn height.
+ *
+ * Its export is 63.69 by 60, which is an icon sheet's size rather than this
+ * pill's. 16 keeps the target ring the size the ring it replaced was drawn at:
+ * both drawings give their ring about 92% of the canvas, so matching the canvas
+ * height matches the ring, and the dart is the part that is new. */
+const FOCUS_ICON = 16;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: homeColors.canvas },
