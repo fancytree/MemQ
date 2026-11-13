@@ -26,7 +26,8 @@
  * design does not have any.
  */
 import {
-  useCallback, useEffect, useId, useMemo, useRef, useState, type ComponentProps,
+  useCallback, useEffect, useId, useMemo, useRef, useState,
+  type ComponentProps, type ReactNode,
 } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {
@@ -51,10 +52,20 @@ const VIEW = 256;
 
 /** [frequency, damping] per quantity. Under-damped squash is what makes a soft body
  * read as soft; a stiff lid makes a blink snap; a loose horn trails and wobbles. */
+/** [frequency, damping] per quantity.
+ *
+ * Nothing here is critically damped except the lid. Damping of 1 is the textbook
+ * answer and the wrong one for a soft body: it arrives exactly on target and stops
+ * dead, which is what reads as mechanical. Every quantity that carries weight
+ * overshoots a little and settles, and runs slower than it did. The lid is the
+ * exception because a blink has to snap — a soft blink reads as a droop. */
 const SPRING = {
-  roll: [5, 0.9], tx: [3.5, 1], ty: [4, 1], squash: [9, 0.72],
-  lid: [26, 1], eye: [9, 0.85], gaze: [13, 1], arm: [6, 0.72],
-  lag: [7.5, 0.5], pop: [12, 0.52],
+  roll: [3.2, 0.62], tx: [2.6, 0.7], ty: [3, 0.68], squash: [7, 0.5],
+  lid: [26, 1], eye: [7, 0.7], gaze: [8, 0.75], arm: [4.2, 0.52],
+  tail: [5, 0.42], lag: [6, 0.42], pop: [10, 0.48],
+  // Slower and looser than the horns', so the tail trails further behind the body
+  // and keeps swinging after it has stopped.
+  trail: [3.4, 0.33],
 } as const;
 const SUBSTEP = 1 / 120;
 
@@ -71,8 +82,23 @@ const WINK_MS = 420;
 
 /** Idle drift of the pupils, in artwork units. */
 const EYE_DRIFT = { ax: 0.56, rx: 0.47, bx: 0.20, rx2: 1.13, ay: 0.36, ry: 0.63 } as const;
-/** How far the pupils travel for a full unit of gaze, in artwork units. */
-const GAZE_REACH = { x: 3.3, y: 2.6 } as const;
+/** How far the pupils travel for a full unit of gaze, in artwork units.
+ *
+ * This was 3.3 by 2.6, carried over from when it was a fraction of the canvas, and it
+ * could not move an eye: an eye white is 47 units across and a pupil 20, so a pupil
+ * has about 13 units of room either side of centre, and a full look was moving it a
+ * quarter of one of those. What the eye then showed was wherever the frame happened
+ * to draw the pupil — in the aha frame, 9 units to the right of the white's middle —
+ * no matter which way the character was asked to look. A full unit of gaze now spends
+ * most of the room available, and the clip to the eye white stops it leaving. */
+const GAZE_REACH = { x: 12, y: 8 } as const;
+/** How much of a look the eye itself carries, the pupil carrying the rest inside it.
+ *
+ * All of it in the pupil is wrong, and visibly so: the frames draw the pair of eyes
+ * off to one side of the face, so a pupil sliding the other way inside a white that
+ * stays put reads as a squint, not as looking. An eye is a mass in a head and it
+ * moves; the pupil moves further, within it. */
+const WHITE_SHARE = 0.5;
 /** Where the character meets the ground: the bottom of the body, on its centre line.
  * Squash pivots here, not at the middle, or the body sinks into the floor as it
  * compresses. */
@@ -83,9 +109,15 @@ const GROUND = { x: 124, y: 216 } as const;
 const LID_CLOSED = 0.3;
 /** How far the lid can open past its rest, so a blink comes back with a flick. */
 const LID_MAX = 1.15;
-/** How far the trailing horn and tail angles are amplified before they are drawn. */
+/** How far the trailing horn and tail angles are amplified before they are drawn.
+ *
+ * The tail's is the larger by a lot, and it is the main thing the tail does: what is
+ * drawn is the gap between the body's lean and a softer spring chasing it, so the
+ * tail whips out when the body turns and swings back through when it stops. Its own
+ * sway is a garnish on top of that, not the other way round — a tail running on a
+ * clock of its own looks pinned to the picture rather than hung off the animal. */
 const HORN_SWING = 2.0;
-const TAIL_SWING = 3.2;
+const TAIL_SWING = 7.0;
 /** One rise of a drifting decoration: how long it takes and how far it travels. */
 const DRIFT_MS = 2600;
 const DRIFT_RISE = 16;
@@ -141,7 +173,7 @@ function start(part: FigmaPath) {
 interface Motion {
   roll: Spring; tx: Spring; ty: Spring; sx: Spring; sy: Spring;
   lid: Spring; eye: Spring; gazeX: Spring; gazeY: Spring;
-  horn: Spring; tail: Spring; arm: Spring; pop: Spring;
+  horn: Spring; tail: Spring; wag: Spring; arm: Spring; pop: Spring; pupil: Spring;
   clock: number; driftClock: number;
   /** Everything crossing from JS arrives as a counter this worklet compares against,
    * never as a field JS writes into this object: writing into an object already
@@ -157,7 +189,7 @@ interface Rendered {
   armL: number; armR: number;
   /** Pupil offset, in artwork units. */
   gx: number; gy: number;
-  eye: number;
+  eye: number; pupil: number;
   /** Where the lid is now, and where this state rests it. */
   lid: number; lidRest: number;
   /** Scale of a popping decoration, and the rise of a drifting or bobbing one. */
@@ -206,8 +238,11 @@ function OpenEye({ box, white, pupil, out, clipId, style }: {
   box: number; white: FigmaPath; pupil?: FigmaPath;
   out: SharedValue<Rendered>; clipId: string; style: AnimStyle;
 }) {
+  const at = pupil ? centre([pupil]) : { x: 0, y: 0 };
   const gaze = useAnimatedProps(() => ({
-    transform: `translate(${out.value.gx} ${out.value.gy})`,
+    transform: `translate(${out.value.gx * (1 - WHITE_SHARE)} ${out.value.gy * (1 - WHITE_SHARE)})`
+      + ` translate(${at.x} ${at.y}) scale(${out.value.pupil})`
+      + ` translate(${-at.x} ${-at.y})`,
   }));
   return (
     <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, style]}>
@@ -215,18 +250,44 @@ function OpenEye({ box, white, pupil, out, clipId, style }: {
         <Defs><ClipPath id={clipId}><Path d={white.d} /></ClipPath></Defs>
         <Shape part={white} />
         {pupil && (
-          <AnimatedG animatedProps={gaze}>
-            <Shape part={pupil} clip={`url(#${clipId})`} />
-          </AnimatedG>
+          // The clip goes on a group OUTSIDE the one that moves. SVG resolves a
+          // clip-path in the user space that is in effect for the element
+          // referencing it — which includes that element's own transform — so a clip
+          // named on the moving pupil travelled with it and never cut anything. The
+          // eye white is the hole; the pupil slides behind it.
+          <G clipPath={`url(#${clipId})`}>
+            <AnimatedG animatedProps={gaze}>
+              <Shape part={pupil} />
+            </AnimatedG>
+          </G>
         )}
       </Svg>
     </Animated.View>
   );
 }
 
-export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, style }: {
+export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, behind, style }: {
   width: number;
   mood?: MascotMood;
+  /** A fixed lean, in degrees, applied inside the character rather than to the box
+   * around it — so scenery passed as `behind` stays upright. */
+  tilt?: number;
+  /** Whether the face may drift between the state's frames. A hero that a person
+   * looks at all day wants one face and small life inside it; a lab wants to see the
+   * whole set. Off, the state wears its primary frame and nothing else. */
+  drift?: boolean;
+  /** Where to aim the gaze, added to whatever the state looks at: -1 is hard left,
+   * +1 hard right, and the same for up and down. Which way the character should look
+   * is not a property of its mood but of where the surface has put it — on Today it
+   * sits to the right of the copy, so it looks left at it. The state's own wander
+   * still plays on top, so the eyes drift rather than stare. */
+  look?: { x?: number; y?: number };
+  /** Scenery drawn between the body and the hands: the character stands behind it and
+   * rests its hands on it. Today's hero is built that way, with a hill crossing the
+   * body low down, and a pair of hands that have to be in front of it to read as
+   * resting rather than as missing. It is placed in the character's own box and does
+   * not lean with it. */
+  behind?: ReactNode;
   /** Increment to blink right now, regardless of the state's cadence. */
   blinkSignal?: number;
   /** Increment to fire the state's beat right now. */
@@ -251,7 +312,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
 
   const moodRef = useSharedValue<MascotMood>(mood);
   const lidOverride = useSharedValue<number | null>(null);
-  const gazeAim = useSharedValue({ x: state.gaze.x, y: state.gaze.y });
+  const lookX = look?.x ?? 0;
+  const lookY = look?.y ?? 0;
+  const gazeAim = useSharedValue({ x: state.gaze.x + lookX, y: state.gaze.y + lookY });
   const kickSignal = useSharedValue(0);
   const hornLag = useSharedValue(state.hornLag);
   const tailLag = useSharedValue(state.tailLag);
@@ -262,14 +325,15 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   const motion = useSharedValue<Motion>({
     roll: spring(0), tx: spring(0), ty: spring(0), sx: spring(1), sy: spring(1),
     lid: spring(1), eye: spring(1), gazeX: spring(0), gazeY: spring(0),
-    horn: spring(0), tail: spring(0), arm: spring(0), pop: spring(1),
+    horn: spring(0), tail: spring(0), wag: spring(0), arm: spring(0), pop: spring(1),
+    pupil: spring(1),
     clock: 0, driftClock: 0,
     moodSeen: mood, kickSeen: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0, arm: 0 },
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0, arm: 0, tail: 0, pupilScale: 1 },
   });
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, horn: 0, tail: 0,
-    gx: 0, gy: 0, eye: 1, lid: 1, lidRest: 1, pop: 1, drift: 0, float: 0,
+    gx: 0, gy: 0, eye: 1, pupil: 1, lid: 1, lidRest: 1, pop: 1, drift: 0, float: 0,
     armL: 0, armR: 0,
   });
 
@@ -306,6 +370,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     m.sy.t = rest ? 1 : p.sy;
     m.lid.t = rest ? 1 : (lidOverride.value ?? p.lid);
     m.eye.t = rest ? 1 : p.eyeScale;
+    m.pupil.t = rest ? 1 : p.pupilScale;
     m.gazeX.t = rest ? 0 : gazeAim.value.x;
     m.gazeY.t = rest ? 0 : gazeAim.value.y;
     // The horns and tail chase the body's lean on a looser, wobblier spring; what is
@@ -314,6 +379,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     m.horn.t = m.roll.x;
     m.tail.t = m.roll.x;
     m.arm.t = rest ? 0 : p.arm;
+    m.wag.t = rest ? 0 : p.tail;
     m.pop.t = 1;
 
     // A beat is a velocity impulse, so it kicks and settles instead of tweening. The
@@ -342,11 +408,13 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       step(m.sy, SPRING.squash[0], SPRING.squash[1], h);
       step(m.lid, SPRING.lid[0], SPRING.lid[1], h);
       step(m.eye, SPRING.eye[0], SPRING.eye[1], h);
+      step(m.pupil, SPRING.eye[0], SPRING.eye[1], h);
       step(m.gazeX, SPRING.gaze[0], SPRING.gaze[1], h);
       step(m.gazeY, SPRING.gaze[0], SPRING.gaze[1], h);
       step(m.horn, SPRING.lag[0], SPRING.lag[1], h);
-      step(m.tail, SPRING.lag[0], SPRING.lag[1], h);
+      step(m.tail, SPRING.trail[0], SPRING.trail[1], h);
       step(m.arm, SPRING.arm[0], SPRING.arm[1], h);
+      step(m.wag, SPRING.tail[0], SPRING.tail[1], h);
       step(m.pop, SPRING.pop[0], SPRING.pop[1], h);
     }
 
@@ -368,13 +436,14 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       roll: m.roll.x + (rest ? 0 : p.tilt),
       sx: m.sx.x, sy: m.sy.x,
       horn: rest ? 0 : (m.roll.x - m.horn.x) * hornLag.value * HORN_SWING,
-      tail: rest ? 0 : (m.roll.x - m.tail.x) * tailLag.value * TAIL_SWING,
+      // Its own sway, plus how far it is still trailing the body's lean.
+      tail: rest ? 0 : m.wag.x + (m.roll.x - m.tail.x) * tailLag.value * TAIL_SWING,
       // One raise, mirrored: the hands sit on opposite sides of the body, so the same
       // lift is a turn one way for one of them and the other way for the other.
       armL: m.arm.x, armR: -m.arm.x,
       gx: m.gazeX.x * GAZE_REACH.x + driftX,
       gy: m.gazeY.x * GAZE_REACH.y + driftY,
-      eye: m.eye.x,
+      eye: m.eye.x, pupil: m.pupil.x,
       lid: m.lid.x,
       lidRest: rest ? 1 : Math.max(p.lid, 0.08),
       pop: rest ? 1 : m.pop.x,
@@ -417,7 +486,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   // transparent at once, and swapping on an open eye pops.
   useEffect(() => {
     const hold = MASCOT_STATES[mood].frameHold;
-    if (reduceMotion || frames.length < 2 || !hold) return;
+    if (reduceMotion || !drift || frames.length < 2 || !hold) return;
     const timers: ReturnType<typeof setTimeout>[] = [];
     let i = 0;
     const schedule = () => {
@@ -431,7 +500,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     };
     schedule();
     return () => timers.forEach(clearTimeout);
-  }, [blink, frames, mood, reduceMotion]);
+  }, [blink, drift, frames, mood, reduceMotion]);
 
   // A wink: one eye shut on its own interval, and never while the pair is blinking —
   // two overlapping closures read as a glitch, not as a wink.
@@ -462,21 +531,21 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   // Gaze: pick a place to look, hold it, pick another. The spring does the move.
   useEffect(() => {
     const aim = MASCOT_STATES[mood].gaze;
-    gazeAim.value = { x: aim.x, y: aim.y };
+    gazeAim.value = { x: aim.x + lookX, y: aim.y + lookY };
     if (reduceMotion) return;
     let timer: ReturnType<typeof setTimeout>;
     const schedule = () => {
       timer = setTimeout(() => {
         gazeAim.value = {
-          x: aim.x + (Math.random() * 2 - 1) * aim.wanderX,
-          y: aim.y + (Math.random() * 2 - 1) * aim.wanderY,
+          x: aim.x + lookX + (Math.random() * 2 - 1) * aim.wanderX,
+          y: aim.y + lookY + (Math.random() * 2 - 1) * aim.wanderY,
         };
         schedule();
       }, randomMs(aim.hold));
     };
     schedule();
     return () => clearTimeout(timer);
-  }, [gazeAim, mood, reduceMotion]);
+  }, [gazeAim, lookX, lookY, mood, reduceMotion]);
 
   useEffect(() => {
     const beat = MASCOT_STATES[mood].beat;
@@ -495,15 +564,23 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   }, [beatSignal, kickSignal, reduceMotion]);
 
   const ground = pivot(GROUND.x, GROUND.y, box);
-  const stage = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: out.value.tx }, { translateY: out.value.ty },
-      { translateX: ground.dx }, { translateY: ground.dy },
-      { rotate: `${out.value.roll}deg` },
-      { scaleX: out.value.sx }, { scaleY: out.value.sy },
-      { translateX: -ground.dx }, { translateY: -ground.dy },
-    ],
-  }));
+  const staged = () => {
+    'worklet';
+    return {
+      transform: [
+        { translateX: out.value.tx }, { translateY: out.value.ty },
+        { translateX: ground.dx }, { translateY: ground.dy },
+        { rotate: `${out.value.roll + tilt}deg` },
+        { scaleX: out.value.sx }, { scaleY: out.value.sy },
+        { translateX: -ground.dx }, { translateY: -ground.dy },
+      ],
+    };
+  };
+  // Two of them rather than one style on two views: Reanimated asks for a style per
+  // component, and the back half and the front half of the character move together
+  // because they read the same frame, not because they share an object.
+  const stage = useAnimatedStyle(staged);
+  const stageFront = useAnimatedStyle(staged);
 
   const hornAt = art.horns.length
     ? pivot(centre(art.horns).x, art.horns[0].box[3], box) : { dx: 0, dy: 0 };
@@ -541,8 +618,8 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   };
   const atL = eyeAt('L');
   const atR = eyeAt('R');
-  const openL = useAnimatedStyle(() => eyeTransform(out.value, atL));
-  const openR = useAnimatedStyle(() => eyeTransform(out.value, atR));
+  const openL = useAnimatedStyle(() => eyeTransform(out.value, atL, box));
+  const openR = useAnimatedStyle(() => eyeTransform(out.value, atR, box));
   const shut = useAnimatedStyle(() => ({
     opacity: out.value.lid < out.value.lidRest * LID_CLOSED ? 1 : 0,
   }));
@@ -576,8 +653,14 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       <Animated.View style={[StyleSheet.absoluteFill, stage]}>
         <Layer box={box} parts={art.plate} />
         <Layer box={box} parts={art.horns} style={horns} />
+        {/* Behind the body, where a tail belongs: it emerges from the silhouette
+            rather than lying across it. Being back here costs it nothing — it is
+            driven on its own clock either way. */}
         <Layer box={box} parts={art.tail} style={tail} />
         <Layer box={box} parts={art.body} />
+      </Animated.View>
+      {behind}
+      <Animated.View style={[StyleSheet.absoluteFill, stageFront]}>
         <Layer box={box} parts={art.handL} style={handL} />
         <Layer box={box} parts={art.handR} style={handR} />
 
@@ -606,13 +689,17 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
 }
 
 /** An eye's narrowing and sizing, as one transform about its own centre. */
-function eyeTransform(r: Rendered, at: { dx: number; dy: number }) {
+function eyeTransform(r: Rendered, at: { dx: number; dy: number }, box: number) {
   'worklet';
   const narrow = Math.min(LID_MAX, Math.max(0, r.lid));
+  // The eye's own share of the look, in pixels. It carries the pupil's clip with it,
+  // so the pupil's remaining travel is measured against an eye that has already moved.
+  const lx = (r.gx * WHITE_SHARE / VIEW) * box;
+  const ly = (r.gy * WHITE_SHARE / VIEW) * box;
   return {
     opacity: r.lid < r.lidRest * LID_CLOSED ? 0 : 1,
     transform: [
-      { translateX: at.dx }, { translateY: at.dy },
+      { translateX: at.dx + lx }, { translateY: at.dy + ly },
       { scaleX: r.eye }, { scaleY: r.eye * narrow },
       { translateX: -at.dx }, { translateY: -at.dy },
     ],
