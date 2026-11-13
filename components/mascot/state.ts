@@ -45,11 +45,6 @@ export interface HopSpec {
   rate: number;
   crouch: number;
   squash: number;
-  /** Degrees of lean at the apex. A jump that stays upright reads as an elevator; the
-   * tilt is what makes it read as thrown. It is applied on top of the roll spring
-   * rather than through it, because the spring runs at 5 rad/s and the hop drives it
-   * at about 8, which arrived measurably halved. */
-  tilt?: number;
   beats?: readonly [number, number, number, number, number];
 }
 const HOP_BEATS: readonly [number, number, number, number, number] = [0.17, 0.23, 0.26, 0.14, 0.2];
@@ -132,7 +127,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frame: ['neutral', 'neutral', 'neutral', 'happy'],
     frameHold: [6000, 13000],
     roll: [0, 0, 1.15], tx: [0, 0, 0.31], ty: [0, 0.02, 1.15],
-    squash: [1, 0.026, 1.15], arm: [0, 1.75, 0.42],
+    squash: [1, 0.034, 1.15], arm: [0, 1.75, 0.42],
     tail: [0, 3, 1.6],
     lid: 1, eyeScale: 1,
     blink: [4800, 11000], wink: [9000, 19000], hornLag: 0.5, tailLag: 0.8,
@@ -145,7 +140,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frame: ['happy', 'aha'],
     frameHold: [2600, 5200],
     roll: [0, 0, 1.05], tx: [0, 0, 1], ty: [0, 0, 0],
-    squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.010, squash: 0.06, tilt: 7 },
+    squash: [1, 0.018, 2.1], hop: { height: 0.030, rate: 1.0, crouch: 0.012, squash: 0.095 },
     arm: [0, 2.5, 1.0],
     tail: [-4, 6, 1.5],
     lid: 1, eyeScale: 1.04,
@@ -160,7 +155,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frame: ['aha', 'happy'],
     frameHold: [1400, 2800],
     roll: [0, 0, 5.2], tx: [0, 0, 1.1], ty: [0, 0, 0],
-    squash: [1.008, 0.026, 2.3], hop: { height: 0.046, rate: 1.28, crouch: 0.013, squash: 0.075, tilt: 16 },
+    squash: [1.008, 0.026, 2.3], hop: { height: 0.050, rate: 1.28, crouch: 0.016, squash: 0.125 },
     arm: [0, 4.0, 2.3],
     tail: [-6, 8, 1.4],
     lid: 1, eyeScale: 1.06,
@@ -215,7 +210,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   sleepy: {
     frame: 'sleepy',
     roll: [3, 0, 0.33], tx: [0, 0, 0.19], ty: [0.016, 0.013, 0.33],
-    squash: [1, 0.024, 0.33], tail: [5, 2, 1.8],
+    squash: [1, 0.030, 0.33], tail: [5, 2, 1.8],
     lid: 1, eyeScale: 1,
     propMotion: 'drift',
     blink: null, hornLag: 0.45, tailLag: 0.6,
@@ -232,7 +227,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frame: ['neutral', 'happy'],
     frameHold: [4000, 9000],
     roll: [0, 0, 0.62], tx: [0, 0, 0.3], ty: [0.004, 0.01, 0.62],
-    squash: [1, 0.009, 0.62], arm: [0, 1.5, 0.4],
+    squash: [1, 0.013, 0.62], arm: [0, 1.5, 0.4],
     tail: [0, 3, 1.6],
     lid: 1, eyeScale: 1,
     blink: [4000, 9000], hornLag: 0.4, tailLag: 0.7,
@@ -259,7 +254,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     frame: ['focused', 'neutral'],
     frameHold: [3000, 6500],
     roll: [0, 0, 0.54], tx: [0, 0, 0.24], ty: [0.002, 0.008, 0.54],
-    squash: [1, 0.010, 0.54], tail: [2, 1.8, 1.7],
+    squash: [1, 0.014, 0.54], tail: [2, 1.8, 1.7],
     lid: 0.95, eyeScale: 1,
     blink: [3200, 7000], hornLag: 0.3, tailLag: 0.45,
     gaze: { x: 0, y: 0.3, wanderX: 0.2, wanderY: 0.1, hold: [2000, 4000] },
@@ -287,8 +282,6 @@ export interface MascotPose {
   /** Upward displacement from a hop, applied kinematically rather than as a spring
    * target: a spring chasing it rounds off the launch and swallows the apex. */
   lift: number;
-  /** The hop's own lean, kinematic for the same reason and measured to need it. */
-  tilt: number;
   /** How far the hands are raised, in degrees of orbit about the body's centre. */
   arm: number;
   /** The tail's own sway, in degrees about where it meets the body. */
@@ -360,16 +353,14 @@ export function mascotPose(mood: MascotMood, clock: number, out: MascotPose) {
 
   let squash = s.squash[0] + wave(clock, s.squash[2], 0) * s.squash[1];
   out.lift = 0;
-  out.tilt = 0;
-  if (s.hop) {
-    squash *= hopAt(s.hop, clock, out);
-    // The lean follows how far off the ground the body is, so it gathers on the
-    // crouch, opens at the apex and closes again as it comes down.
-    out.tilt = (out.lift / s.hop.height) * (s.hop.tilt ?? 0);
-  }
+  if (s.hop) squash *= hopAt(s.hop, clock, out);
   // Volume is roughly preserved: what compresses vertically spreads horizontally.
+  // This is the whole of the hop's character now that it does not lean. A jump that
+  // keeps its shape reads as an elevator; a lean used to say it was thrown, and what
+  // says it instead is gathering before the launch, stretching thin through the rise
+  // and arriving flat — so the squash numbers are a good half larger than they were.
   out.sy = squash;
-  out.sx = 1 + (1 - squash) * 0.85;
+  out.sx = 1 + (1 - squash) * 0.9;
 
   out.lid = s.lid;
   out.eyeScale = s.eyeScale;

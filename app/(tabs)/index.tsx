@@ -325,11 +325,12 @@ const MASCOT_WIDTH = 220.205;
  * look only undoes that, and the rest is what reads as looking left. The state's
  * wander still drifts it, and the clip keeps the pupils in their whites. */
 const MASCOT_LOOK = { x: -1, y: 0.75 };
-/** The lean the hero draws the character at, passed in rather than wrapped around so
- * the hill behind it stays level. It leans toward the copy, not away: the mockup's
- * own +10.1 turned the character's head away from everything it is about, and a
- * couple of degrees of sway underneath could never argue with it. */
-const MASCOT_TILT = -10.1;
+/** No lean. The mockup draws the character at +10.1 degrees, which turned its head
+ * away from everything it is about; leaning it the other way fixed that and brought
+ * its own problems — the hands orbit a circle and a tilted body meets them at a
+ * different angle. Upright, the hands sit where they were drawn and the character
+ * faces its copy without being tipped at it. */
+const MASCOT_TILT = 0;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: homeColors.canvas },

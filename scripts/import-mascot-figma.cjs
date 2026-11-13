@@ -77,6 +77,10 @@ const MOCKUP = {
   bounds: 255.402,       // the rotated bounding box it is laid out in
   at: [163, 72],         // where that bounding box sits
   spin: 10.1,            // how far the drawing is turned inside it
+  // Zero: the hands sit exactly where the mockup places them, on the outline. Pulling
+  // them in closed the gap that a raised hand could open, and cost the placement the
+  // designer chose; the swing is small enough now to do without it.
+  inset: 0,
   hands: {
     // left, top, width, height as laid out, and the hand's own turn
     handL: { rect: [199, 204, 39.376, 37.466], spin: 22.1, file: 'handL.svg' },
@@ -101,6 +105,10 @@ function affine(str, [a, b, c, d, e, f]) {
   return out.trim();
 }
 
+/** The body's middle in the artwork's square, which every frame but the icon shares.
+ * The hands are pulled toward it and, at runtime, orbit it. */
+const BODY = { x: 124, y: 142 };
+
 function placeHands(dir) {
   const k = 256 / MOCKUP.box;
   const cx = MOCKUP.at[0] + MOCKUP.bounds / 2;
@@ -117,8 +125,13 @@ function placeHands(dir) {
     // where the hand's middle lands in the artwork's own square
     const hx = h.rect[0] + h.rect[2] / 2 - cx;
     const hy = h.rect[1] + h.rect[3] / 2 - cy;
-    const X = (MOCKUP.box / 2 + hx * cos + hy * sin) * k;
-    const Y = (MOCKUP.box / 2 - hx * sin + hy * cos) * k;
+    let X = (MOCKUP.box / 2 + hx * cos + hy * sin) * k;
+    let Y = (MOCKUP.box / 2 - hx * sin + hy * cos) * k;
+    // and in, along the line back to the body's middle
+    const vx = X - BODY.x, vy = Y - BODY.y;
+    const len = Math.hypot(vx, vy) || 1;
+    X -= (vx / len) * MOCKUP.inset;
+    Y -= (vy / len) * MOCKUP.inset;
     // and how far it is turned once the drawing's own turn is taken out
     const a = ((h.spin - MOCKUP.spin) * Math.PI) / 180;
     const ca = Math.cos(a) * k, sa = Math.sin(a) * k;
@@ -129,7 +142,8 @@ function placeHands(dir) {
       b: { x0: X - halfW, y0: Y - halfH, x1: X + halfW, y1: Y + halfH } });
     console.log(`  ${name} placed at (${X.toFixed(1)}, ${Y.toFixed(1)}) `
       + `${(halfW * 2).toFixed(1)}x${(halfH * 2).toFixed(1)}, `
-      + `turned ${(h.spin - MOCKUP.spin).toFixed(1)} deg against the body`);
+      + `turned ${(h.spin - MOCKUP.spin).toFixed(1)} deg against the body, `
+      + `${MOCKUP.inset} in from the outline`);
   }
   return out;
 }

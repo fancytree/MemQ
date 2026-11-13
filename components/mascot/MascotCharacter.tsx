@@ -351,7 +351,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     pupil: spring(1), markX: spring(0), markY: spring(0), markR: spring(0),
     clock: 0, driftClock: 0,
     moodSeen: mood, kickSeen: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0, arm: 0, tail: 0, pupilScale: 1, spark: 0 },
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, shake: 0, arm: 0, tail: 0, pupilScale: 1, spark: 0 },
   });
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, horn: 0, tail: 0,
@@ -395,7 +395,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     m.pupil.t = rest ? 1 : p.pupilScale;
     m.markX.t = rest ? 0 : (m.tx.x + p.shake) * MARK_FOLLOW;
     m.markY.t = rest ? 0 : (m.ty.x - p.lift) * MARK_FOLLOW;
-    m.markR.t = rest ? 0 : (m.roll.x + p.tilt) * MARK_ROLL;
+    m.markR.t = rest ? 0 : m.roll.x * MARK_ROLL;
     m.gazeX.t = rest ? 0 : gazeAim.value.x;
     m.gazeY.t = rest ? 0 : gazeAim.value.y;
     // The horns and tail chase the body's height on a looser, wobblier spring; what
@@ -459,10 +459,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       // The hop's lift lands here rather than on the ty spring: a spring chasing it
       // would round off the launch and swallow the apex.
       ty: (m.ty.x - (rest ? 0 : p.lift)) * box,
-      // The hop's lean rides on top of the sprung roll rather than through it, for
-      // the same reason the lift does: measured on device, fed through the spring a
-      // 16 degree lean arrived as 8.7.
-      roll: m.roll.x + (rest ? 0 : p.tilt),
+      roll: m.roll.x,
       sx: m.sx.x, sy: m.sy.x,
       horn: rest ? 0 : (rise - m.horn.x) * hornLag.value * HORN_SWING,
       // Its own sway, plus how far it is still trailing the body's lean.
