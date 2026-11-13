@@ -333,18 +333,25 @@ const MASCOT_LOOK = { x: -1.8, y: 0.75 };
  * faces its copy without being tipped at it. */
 const MASCOT_TILT = 0;
 
-/** The right paw, put back where its mirror would be.
+/** Where the right paw rests on this screen.
  *
- * The two hands are not mirror images in the artwork: about the body's own centre
- * (x 124 of the 256 box) the left paw rests at 50.17 and the right at 191.27,
- * where the mirror of the left is 197.83. The right one therefore sits 6.56 units
- * inside the outline instead of against it, which on a body this size and this
- * fully in view reads as a hand stuck to the cheek.
+ * Two corrections, measured rather than nudged by eye.
  *
- * It is corrected here and not in the artwork because the sign-in screens rest the
- * same hands on the top edge of a card, where they are placed right as they are —
- * see handRest in MascotCharacter. */
-const MASCOT_RIGHT_HAND = [6.56, 0] as const;
+ * `out` 6.31 — the paws are not mirror images in the artwork. About the body's own
+ * centre (x 124 of the 256 box) the left paw rests at radius 76.50 and the right at
+ * 70.19, so the right one sits inside the circle the left one rests on, buried in
+ * the outline rather than against it.
+ *
+ * `turn` 38 — here the character rests its hands on the hill, which this screen
+ * hands it as `behind`, so the hill is drawn between the body and the hands. The
+ * hill's edge is a slope: at the left paw it passes 8.0 points above the paw's
+ * centre, which is what resting on it looks like, and at the right paw's place it
+ * runs 28.1 points below — the paw was hanging clear of everything by 11.1 points.
+ * Sliding it 38 degrees down the outline puts it back on the edge at the same 8.0.
+ *
+ * Both numbers are this screen's, not the artwork's: the sign-in screens rest the
+ * same paws on the level top edge of a card, where they are right as they are. */
+const MASCOT_RIGHT_HAND = { out: 6.31, turn: 38 } as const;
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: homeColors.canvas },

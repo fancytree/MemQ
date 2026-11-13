@@ -326,21 +326,32 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
    * stops forcing a square when it is present, and stops swallowing touches — the
    * card it is handed may be a form. */
   behind?: ReactNode;
-  /** Moves a hand off where the artwork rests it, in art units of the 256 box:
-   * [x, y], x positive to the right. It is per screen on purpose.
+  /** Where a paw rests on the body's outline, adjusted for one screen.
    *
-   * The two hands are not mirror images in the artwork. Measured about the body's
-   * own centre (x 124, not 128 — the body is not centred in its box), the left
-   * paw rests at 50.17 and the right at 191.27, where the mirror of the left would
-   * be 197.83. So the right paw sits 6.56 units further in than the left, buried
-   * in the outline rather than resting against it.
+   * `out` pushes it away from the body's centre, in art units of the 256 box;
+   * `turn` slides it along the outline, in degrees, positive downward on the right
+   * side. Those are the two things a paw can do here, because it is not a hand on
+   * an arm — it is a paw resting against the outline, so it lives on a circle about
+   * the body's middle and the artwork is drawn tangent to it. Sliding it with a
+   * plain translation would leave it at the wrong angle to the line it rests on.
    *
-   * That is in the shared art, so every screen has it; it only reads as wrong
-   * where the body is large and fully in view. Correcting the art would move the
-   * hands on the sign-in screens too, where they are placed against a card edge
-   * and are right as they are. So the correction belongs to the screen that needs
-   * it, and this is how a screen asks for it. */
-  handRest?: { left?: readonly [number, number]; right?: readonly [number, number] };
+   * Both hands need it on Today, for different reasons, and neither correction
+   * belongs in the shared artwork:
+   *
+   * `out` — the two paws are not mirror images. About the body's own centre (x 124
+   * of the 256 box, not 128: the body is not centred in it) the left paw rests at
+   * radius 76.50 and the right at 70.19, so the right one is 6.31 units inside the
+   * circle the left one rests on, buried in the outline instead of against it.
+   *
+   * `turn` — what a paw rests on is whatever that screen puts in front of the body.
+   * Today puts a hill there and the hill's edge is a slope, so the two paws meet it
+   * at different heights; the sign-in screens put a card there and its edge is
+   * level, so they do not. A screen's own foreground is not something the artwork
+   * can know about. */
+  handRest?: {
+    left?: { out?: number; turn?: number };
+    right?: { out?: number; turn?: number };
+  };
   /** Hold the eyes shut. The login screen covers them while a password is being
    * typed, which is the oldest joke in the book and the right one. */
   eyesShut?: boolean;
@@ -671,16 +682,27 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   // the outline, and what it does is slide along it.
   const bodyAt = art.body.length
     ? pivot(centre(art.body).x, centre(art.body).y, box) : { dx: 0, dy: 0 };
-  // A screen's own correction to where a paw rests, art units scaled to this size.
-  const restL = { x: (handRest?.left?.[0] ?? 0) / VIEW * box, y: (handRest?.left?.[1] ?? 0) / VIEW * box };
-  const restR = { x: (handRest?.right?.[0] ?? 0) / VIEW * box, y: (handRest?.right?.[1] ?? 0) / VIEW * box };
+  // A screen's own correction to where a paw rests. The push is applied before the
+  // turn, so the turn carries it round: push out along the paw's own radius, then
+  // slide along the outline.
+  const pushBy = (parts: FigmaPath[], units: number | undefined) => {
+    if (!units || !parts.length || !art.body.length) return { x: 0, y: 0 };
+    const c = centre(parts), b = centre(art.body);
+    const dx = c.x - b.x, dy = c.y - b.y;
+    const r = Math.hypot(dx, dy) || 1;
+    return { x: (dx / r) * units / VIEW * box, y: (dy / r) * units / VIEW * box };
+  };
+  const pushL = pushBy(art.handL, handRest?.left?.out);
+  const pushR = pushBy(art.handR, handRest?.right?.out);
+  const turnL = handRest?.left?.turn ?? 0;
+  const turnR = handRest?.right?.turn ?? 0;
   const handL = useAnimatedStyle(() => ({
-    transform: [{ translateX: restL.x }, { translateY: restL.y },
-      ...turnAbout(out.value.armL, bodyAt).transform],
+    transform: [{ translateX: pushL.x }, { translateY: pushL.y },
+      ...turnAbout(out.value.armL + turnL, bodyAt).transform],
   }));
   const handR = useAnimatedStyle(() => ({
-    transform: [{ translateX: restR.x }, { translateY: restR.y },
-      ...turnAbout(out.value.armR, bodyAt).transform],
+    transform: [{ translateX: pushR.x }, { translateY: pushR.y },
+      ...turnAbout(out.value.armR + turnR, bodyAt).transform],
   }));
 
   // An eye narrows rather than fading: a squint is a shape, not a transparency. It
