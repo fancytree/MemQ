@@ -329,7 +329,7 @@ export default function SignUpScreen() {
       <Flow name="waveBack" style={styles.waveBack} seconds={13} shiftX={-15} shiftY={16} />
       <Flow name="waveFront" style={styles.waveFront} seconds={9} shiftX={15} shiftY={-20} />
       <ScrollView
-        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 76 }]}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 16 }]}
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <View style={styles.hero}>
@@ -473,14 +473,14 @@ const styles = StyleSheet.create({
   background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', top: 96, left: -19 },
   waveFront: { position: 'absolute', top: 133, left: -19 },
-  scrollContent: { flexGrow: 1, paddingBottom: 32 },
+  scrollContent: { flexGrow: 1 },
   content: { flex: 1, paddingHorizontal: layout.screenInline, gap: 16 },
 
   // Left-aligned, so the page has mass on both sides: the wordmark answers the
   // character rather than sitting above it. Nothing decorative was added to
   // balance the composition — balancing ornament with ornament is how a screen
   // fills up.
-  hero: { alignItems: 'flex-start', gap: 6 },
+  hero: { alignItems: 'flex-start', gap: 6, paddingTop: 28 },
   perch: { alignSelf: 'center' },
   tagline: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
 
