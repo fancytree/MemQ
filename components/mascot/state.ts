@@ -75,7 +75,8 @@ export interface MascotState {
   /** Resting scale, breath amplitude, rate. Under 1 is compressed. */
   squash: [number, number, number];
   hop?: HopSpec;
-  /** Fast jitter, for the startled state. [amplitude, rate] */
+  /** Fast jitter, for the startled state. [amplitude, rate]. Applied after the
+   * springs, not through them — see MascotPose.shake. */
   shake?: [number, number];
   /** How open the eyes rest. Under 1 narrows them; a blink drives it to nothing. */
   lid: number;
@@ -97,12 +98,16 @@ export interface MascotState {
 
 export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   /** Alive and doing nothing. Everything here is small; the state has to survive being
-   * looked at for a minute without becoming a tic. */
+   * looked at for a minute without becoming a tic — but it was too small. Measured on
+   * device at a 135pt character it moved its centre 1.0pt vertically in fourteen
+   * seconds, about 0.7% of its own height, so only the blink, the gaze and the
+   * expression drift read and the body sat still underneath them. These numbers are
+   * the smallest that put a breath on screen. */
   idle: {
     frame: ['neutral', 'neutral', 'neutral', 'happy'],
     frameHold: [6000, 13000],
-    roll: [0, 1.2, 0.44], tx: [0, 0.004, 0.27], ty: [0, 0.006, 0.78],
-    squash: [1, 0.013, 0.78], lid: 1, eyeScale: 1,
+    roll: [0, 1.8, 0.5], tx: [0, 0.007, 0.31], ty: [0, 0.014, 1.15],
+    squash: [1, 0.026, 1.15], lid: 1, eyeScale: 1,
     blink: [4800, 11000], wink: [9000, 19000], hornLag: 0.5, tailLag: 0.8,
     gaze: { x: 0, y: 0, wanderX: 0.5, wanderY: 0.35, hold: [2400, 5200] },
   },
@@ -162,7 +167,7 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
   surprised: {
     frame: 'aha',
     roll: [0, 1.1, 8.5], tx: [0, 0.002, 0.9], ty: [-0.013, 0.003, 0.9],
-    squash: [1.035, 0.008, 1.4], shake: [0.0012, 22],
+    squash: [1.035, 0.008, 1.4], shake: [0.007, 20],
     lid: 1, eyeScale: 1.16,
     propMotion: 'pop',
     blink: [2000, 3800], hornLag: 0.95, tailLag: 1.4,
@@ -241,6 +246,12 @@ export interface MascotPose {
   lift: number;
   /** The hop's own lean, kinematic for the same reason and measured to need it. */
   tilt: number;
+  /** A startled tremble, kinematic for a third time and for the sharpest version of
+   * the same reason. The translation spring runs at 3.5 rad/s and a tremble is 20, so
+   * fed through it the shake arrived at roughly (3.5/20)^2 of its size — measured on
+   * device as no movement at all, 1.7 x 2.0pt before and after a near-quadrupling of
+   * the amplitude. A spring will always eat a tremble; no number fixes that. */
+  shake: number;
 }
 
 /** Offsetting by the value at t=0 keeps the first frame in the authored rest pose. */
@@ -279,10 +290,10 @@ function hopAt(h: HopSpec, clock: number, out: MascotPose): number {
 export function mascotPose(mood: MascotMood, clock: number, out: MascotPose) {
   'worklet';
   const s = MASCOT_STATES[mood];
-  const shake = s.shake ? Math.sin(clock * s.shake[1]) * s.shake[0] : 0;
 
   out.roll = s.roll[0] + wave(clock, s.roll[2], 0) * s.roll[1];
-  out.tx = s.tx[0] + wave(clock, s.tx[2], 1.1) * s.tx[1] + shake;
+  out.tx = s.tx[0] + wave(clock, s.tx[2], 1.1) * s.tx[1];
+  out.shake = s.shake ? Math.sin(clock * s.shake[1]) * s.shake[0] : 0;
   out.ty = s.ty[0] + wave(clock, s.ty[2], 0.4) * s.ty[1];
 
   let squash = s.squash[0] + wave(clock, s.squash[2], 0) * s.squash[1];

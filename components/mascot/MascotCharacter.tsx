@@ -263,7 +263,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     horn: spring(0), tail: spring(0), pop: spring(1),
     clock: 0, driftClock: 0,
     moodSeen: mood, kickSeen: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0 },
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0 },
   });
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, horn: 0, tail: 0,
@@ -351,7 +351,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     const driftY = rest ? 0 : Math.sin(m.clock * EYE_DRIFT.ry) * EYE_DRIFT.ay;
 
     out.value = {
-      tx: m.tx.x * box,
+      // The tremble rides on top of the sprung position, like the hop's lift and
+      // lean: a spring at 3.5 rad/s cannot pass a 20 rad/s shiver.
+      tx: (m.tx.x + (rest ? 0 : p.shake)) * box,
       // The hop's lift lands here rather than on the ty spring: a spring chasing it
       // would round off the launch and swallow the apex.
       ty: (m.ty.x - (rest ? 0 : p.lift)) * box,
