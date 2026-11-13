@@ -24,9 +24,9 @@
  */
 import { HomeAsset } from '@/components/HomeAsset';
 import LoadingScreen from '@/components/LoadingScreen';
+import { WELCOME_SCENES, WelcomeStory } from '@/components/WelcomeStory';
 import Logo from '@/components/icons/Logo';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
-import { Desk, Forgetting, Loop } from '@/components/OnboardingArt';
 import type { MascotMood } from '@/components/mascot/state';
 import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notificationService';
 import { supabase } from '@/lib/supabase';
@@ -74,8 +74,10 @@ const REMINDER_TIMES = [
   { label: '10:00 PM', value: '22:00' },
 ] as const;
 
-// 0: who 1: why 2: how 3: name 4: goal 5: reminder
-const TOTAL_STEPS = 6;
+// Two phases. The first three screens are the welcome story, drawn from Figma and
+// owning the whole screen — background, waves, scene, progress and button all their
+// own. The last three are the setup questions, which keep the app's usual frame.
+const TOTAL_STEPS = WELCOME_SCENES + 3;
 
 /** The same two hills the sign-in screens and Today stand on, each on its own slow
  * sine. The periods do not divide into one another, so the pair never returns to
@@ -194,10 +196,8 @@ export default function OnboardingScreen() {
     }
   };
 
-  const steps = [
-    <WhoStep key="who" onNext={goNext} />,
-    <WhyStep key="why" onNext={goNext} />,
-    <HowStep key="how" onNext={goNext} />,
+  // Indexed from the end of the story, since the story screens render themselves.
+  const setup = [
     <NameStep key="name" value={username} onChange={setUsername} onNext={goNext} />,
     <GoalStep key="goal" selected={goalCards} onSelect={setGoalCards} onNext={goNext} />,
     <ReminderStep
@@ -208,6 +208,17 @@ export default function OnboardingScreen() {
       onSkip={() => void handleFinish(true)}
     />,
   ];
+
+  // Skip leaves the story, not the onboarding: the three questions after it are
+  // what the app actually needs answered.
+  if (step < WELCOME_SCENES) {
+    return (
+      <RNAnimated.View style={[styles.root, { transform: [{ translateX: slideAnim }] }]}>
+        <LoadingScreen visible={saving} />
+        <WelcomeStory step={step} onNext={goNext} onSkip={() => animateTo(WELCOME_SCENES)} />
+      </RNAnimated.View>
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -228,12 +239,13 @@ export default function OnboardingScreen() {
             <Feather name="arrow-left" size={18} color={homeColors.deep} />
           </Pressable>
           <View style={styles.dots}>
-            {Array.from({ length: TOTAL_STEPS }, (_, i) => (
-              <View key={i} style={[
+            {Array.from({ length: TOTAL_STEPS - WELCOME_SCENES }, (_, i) => {
+              const at = step - WELCOME_SCENES;
+              return <View key={i} style={[
                 styles.dot,
-                i === step ? styles.dotHere : i < step ? styles.dotPast : styles.dotAhead,
-              ]} />
-            ))}
+                i === at ? styles.dotHere : i < at ? styles.dotPast : styles.dotAhead,
+              ]} />;
+            })}
           </View>
           {/* The back button's twin, so the dots sit on the centre of the screen
               and not on the centre of what is left over beside it. */}
@@ -241,7 +253,7 @@ export default function OnboardingScreen() {
         </View>
 
         <RNAnimated.View style={[styles.stage, { transform: [{ translateX: slideAnim }] }]}>
-          {steps[step]}
+          {setup[step - WELCOME_SCENES]}
         </RNAnimated.View>
       </View>
     </KeyboardAvoidingView>
@@ -320,44 +332,6 @@ function Lead({ label, onPress, off }: { label: string; onPress: () => void; off
         <Text style={styles.leadText}>{label}</Text>
       </View>
     </Pressable>
-  );
-}
-
-// ─── 1: Who it is for ────────────────────────────────────────────────────────
-
-function WhoStep({ onNext }: { onNext: () => void }) {
-  return (
-    <Step mood="onboarding" mascot={0} hero={<Desk />} bare wordmark
-      title="Only the things you actually needed"
-      mark="actually needed"
-      line="Made out of your own material, not a deck somebody else packed."
-      footer={<Lead label="Why it works" onPress={onNext} />} />
-  );
-}
-
-// ─── 2: Why it is needed ─────────────────────────────────────────────────────
-
-function WhyStep({ onNext }: { onNext: () => void }) {
-  return (
-    <Step mood="sleepy" mascot={110}
-      title="A week later, most of it is gone"
-      line="Even the parts you picked yourself. MemQ works out the day each card is about to go, and brings it back then."
-      footer={<Lead label="Next" onPress={onNext} />}>
-      <Forgetting />
-    </Step>
-  );
-}
-
-// ─── 3: How it is used ───────────────────────────────────────────────────────
-
-function HowStep({ onNext }: { onNext: () => void }) {
-  return (
-    <Step mood="happy" mascot={110}
-      title="Three steps. Two of them are ours."
-      line="Notes, a PDF, a question you just looked up — whatever you were already working on."
-      footer={<Lead label="Set it up" onPress={onNext} />}>
-      <Loop />
-    </Step>
   );
 }
 

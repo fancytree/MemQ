@@ -1,0 +1,8 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="90.8" height="91.65" viewBox="0 0 90.8 91.65" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="floating-card-search">
+<path id="Vector" d="M71.3 7.475H19.5C9.28273 7.475 0.999998 15.7577 0.999998 25.975L0.999998 73.15C0.999998 83.3673 9.28273 91.65 19.5 91.65H71.3C81.5173 91.65 89.8 83.3673 89.8 73.15V25.975C89.8 15.7577 81.5173 7.475 71.3 7.475Z" fill="#DFCAF4"/>
+<path id="Vector_2" d="M19.5 1L71.3 1C83.6333 1 89.8 7.16667 89.8 19.5V60.2C89.8 71.9167 83.9417 77.775 72.225 77.775H56.5L50.025 89.8L39.85 77.775H19.5C7.16667 77.775 1 71.6083 1 59.275L1 19.5C1 7.16667 7.16667 1 19.5 1Z" fill="#FFFCFF" stroke-width="2" stroke-linejoin="round" stroke="#E5CFF7"/>
+<path id="Vector_3" d="M56.5 35.225C56.5 43.9097 49.4597 50.95 40.775 50.95C32.0903 50.95 25.05 43.9097 25.05 35.225C25.05 26.5403 32.0903 19.5 40.775 19.5C49.4597 19.5 56.5 26.5403 56.5 35.225Z" stroke-width="6" stroke="#AB47F3"/>
+<path id="Vector_4" d="M51.875 47.25L64.825 62.05" stroke-width="7" stroke-linecap="round" stroke="#AB47F3"/>
+</g>
+</svg>

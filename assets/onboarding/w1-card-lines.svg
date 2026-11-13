@@ -1,0 +1,7 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="83.4" height="93.5" viewBox="0 0 83.4 93.5" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="floating-card-lines">
+<path id="Vector" d="M17.65 6.55001L64.825 6.55001C76.5417 6.55001 82.4 12.7167 82.4 25.05V63.9C82.4 75.6167 76.5417 81.475 64.825 81.475L50.95 81.475L41.7 93.5L31.525 81.475H17.65C6.54999 81.475 0.999995 75.6167 0.999995 63.9L0.999995 25.05C0.999995 12.7167 6.54999 6.55001 17.65 6.55001Z" fill="#DEC7F3"/>
+<path id="Vector_2" d="M17.65 1L64.825 1C76.5417 1 82.4 7.16667 82.4 19.5L82.4 58.35C82.4 70.0667 76.5417 75.925 64.825 75.925H50.95L41.7 87.95L31.525 75.925L17.65 75.925C6.55 75.925 1 70.0667 1 58.35L1 19.5C1 7.16667 6.55 1 17.65 1Z" fill="#FFFAFF" stroke-width="2" stroke-linejoin="round" stroke="#E8D7F8"/>
+<path id="Vector_3" d="M20.425 23.2L60.2 23.2M20.425 37.075L60.2 37.075M20.425 50.95H42.625" stroke-width="7" stroke-linecap="round" stroke="#B451F4"/>
+</g>
+</svg>
