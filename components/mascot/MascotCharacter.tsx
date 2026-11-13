@@ -288,7 +288,7 @@ function OpenEye({ box, white, pupil, out, clipId, style }: {
   );
 }
 
-export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, behind, style }: {
+export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSignal = 0, winkSignal = 0, tilt = 0, look, drift = true, behind, eyesShut = false, style }: {
   width: number;
   mood?: MascotMood;
   /** A fixed lean, in degrees, applied inside the character rather than to the box
@@ -304,12 +304,18 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
    * sits to the right of the copy, so it looks left at it. The state's own wander
    * still plays on top, so the eyes drift rather than stare. */
   look?: { x?: number; y?: number };
-  /** Scenery drawn between the body and the hands: the character stands behind it and
-   * rests its hands on it. Today's hero is built that way, with a hill crossing the
-   * body low down, and a pair of hands that have to be in front of it to read as
-   * resting rather than as missing. It is placed in the character's own box and does
-   * not lean with it. */
+  /** What the character sits behind and puts its hands over. Today's hero passes a
+   * hill; the login screen passes the card itself, so the character perches on its
+   * top edge with its body behind and its hands over the front.
+   *
+   * It is a child in the flow, after the body and before the hands, so a card given
+   * a negative top margin rides up over the body by exactly that much. The wrapper
+   * stops forcing a square when it is present, and stops swallowing touches — the
+   * card it is handed may be a form. */
   behind?: ReactNode;
+  /** Hold the eyes shut. The login screen covers them while a password is being
+   * typed, which is the oldest joke in the book and the right one. */
+  eyesShut?: boolean;
   /** Increment to blink right now, regardless of the state's cadence. */
   blinkSignal?: number;
   /** Increment to fire the state's beat right now. */
@@ -491,6 +497,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   }, [lidOverride]);
 
   useEffect(() => {
+    // Covering the eyes outranks the blink cadence: while it is held, nothing else
+    // may open them.
+    if (eyesShut) { lidOverride.value = 0.02; return; }
     const cadence = MASCOT_STATES[mood].blink;
     if (reduceMotion || !cadence) { lidOverride.value = null; return; }
     const timers: ReturnType<typeof setTimeout>[] = [];
@@ -499,7 +508,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     };
     schedule();
     return () => { timers.forEach(clearTimeout); lidOverride.value = null; };
-  }, [blink, lidOverride, mood, reduceMotion]);
+  }, [blink, eyesShut, lidOverride, mood, reduceMotion]);
 
   useEffect(() => {
     if (!blinkSignal || reduceMotion) return;
@@ -700,8 +709,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       : state.propMotion === 'pop' ? popStyle : twinkleStyle;
 
   return (
-    <View accessible={false} pointerEvents="none" style={[{ width: box, height: box }, style]}>
-      <Animated.View style={[StyleSheet.absoluteFill, stage]}>
+    <View accessible={false} pointerEvents="box-none"
+      style={[{ width: box }, behind ? null : { height: box }, style]}>
+      <Animated.View pointerEvents="none" style={[behind ? styles.half : StyleSheet.absoluteFill, stage]}>
         <Layer box={box} parts={art.plate} />
         <Layer box={box} parts={art.horns} style={horns} />
         {/* Behind the body, where a tail belongs: it emerges from the silhouette
@@ -711,7 +721,8 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
         <Layer box={box} parts={art.body} />
       </Animated.View>
       {behind}
-      <Animated.View style={[StyleSheet.absoluteFill, stageFront]}>
+      <Animated.View pointerEvents="none"
+        style={[StyleSheet.absoluteFill, behind ? styles.frontHalf : null, stageFront]}>
         <Layer box={box} parts={art.handL} style={handL} />
         <Layer box={box} parts={art.handR} style={handR} />
 
@@ -743,6 +754,13 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     </View>
   );
 }
+
+/** When something is nested behind the character, the back half holds the box open
+ * in the flow and the front half floats over whatever came next. */
+const styles = StyleSheet.create({
+  half: { width: '100%', aspectRatio: 1 },
+  frontHalf: { bottom: undefined, aspectRatio: 1 },
+});
 
 /** An eye's narrowing and sizing, as one transform about its own centre. */
 function eyeTransform(r: Rendered, at: { dx: number; dy: number }, box: number) {

@@ -15,6 +15,7 @@ import { colors } from '@/theme';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
+import { useWindowDimensions } from 'react-native';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -573,6 +574,11 @@ export default function LoginScreen() {
   // network — the same vocabulary the rest of the app uses, rather than a spinner
   // borrowed from the system.
   const busy = loading || oauthLoading !== null;
+  const [typingPassword, setTypingPassword] = useState(false);
+  // The card is nested inside the character's box, so it has to be pulled back out
+  // to the width of the content column it would have had on its own.
+  const { width: screenWidth } = useWindowDimensions();
+  const cardBleed = -((screenWidth - layout.screenInline * 2) - PERCH_MASCOT) / 2;
 
   return (
     <KeyboardAvoidingView
@@ -588,72 +594,80 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
           <View style={styles.hero}>
-            <View pointerEvents="none" style={styles.mascot}>
-              <MascotCharacter width={HERO_MASCOT} mood={busy ? 'thinking' : 'onboarding'} />
-            </View>
             <Logo width={190} />
             <Text style={styles.tagline}>Smart Quiz & Memory</Text>
           </View>
 
-          <View style={styles.card}>
-            <View style={styles.cardFace}>
-              <View style={styles.field}>
-                <TextInput accessibilityLabel="Email"
-                  style={styles.input}
-                  placeholder="Email"
-                  placeholderTextColor={homeColors.muted}
-                  value={identifier}
-                  onChangeText={setIdentifier}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoComplete="email"
-                  editable={!loading}
-                />
-              </View>
-
-              <View style={styles.field}>
-                <TextInput accessibilityLabel="Password"
-                  style={[styles.input, styles.passwordInput]}
-                  placeholder="Password"
-                  placeholderTextColor={homeColors.muted}
-                  value={password}
-                  onChangeText={setPassword}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoComplete="password"
-                  editable={!loading}
-                />
-                <TouchableOpacity accessibilityRole="button"
-                  accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                  style={styles.eyeButton}
-                  onPress={() => setShowPassword(!showPassword)}
-                  activeOpacity={0.7}>
-                  <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.rememberRow}>
-                <TouchableOpacity accessibilityRole="checkbox"
-                  accessibilityState={{ checked: rememberPassword }}
-                  style={styles.remember}
-                  onPress={() => setRememberPassword(!rememberPassword)}
-                  activeOpacity={0.7}
-                  disabled={loading}>
-                  <View style={[styles.checkbox, rememberPassword && styles.checkboxChecked]}>
-                    {rememberPassword && <Feather name="check" size={14} color={homeColors.white} />}
+          {/* The character perches on the card: its body behind, its hands over the
+              front edge. The card is nested inside it so it can sit between the two,
+              and ridden up over the body by its own negative margin. */}
+          <MascotCharacter width={PERCH_MASCOT}
+            mood={busy ? 'thinking' : 'onboarding'}
+            eyesShut={typingPassword}
+            style={styles.perch}
+            behind={(
+              <View style={[styles.card, { marginHorizontal: cardBleed }]}>
+                <View style={styles.cardFace}>
+                  <View style={styles.field}>
+                    <TextInput accessibilityLabel="Email"
+                      style={styles.input}
+                      placeholder="Email"
+                      placeholderTextColor={homeColors.muted}
+                      value={identifier}
+                      onChangeText={setIdentifier}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      editable={!loading}
+                    />
                   </View>
-                  <Text style={styles.rememberText}>Remember password</Text>
-                </TouchableOpacity>
 
-                <TouchableOpacity accessibilityRole="button"
-                  onPress={() => router.push('/forgot-password' as any)}
-                  disabled={loading}
-                  activeOpacity={0.7}>
-                  <Text style={styles.forgotText}>Forgot password?</Text>
-                </TouchableOpacity>
+                  <View style={styles.field}>
+                    <TextInput accessibilityLabel="Password"
+                      style={[styles.input, styles.passwordInput]}
+                      placeholder="Password"
+                      placeholderTextColor={homeColors.muted}
+                      value={password}
+                      onChangeText={setPassword}
+                      onFocus={() => setTypingPassword(true)}
+                      onBlur={() => setTypingPassword(false)}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      autoComplete="password"
+                      editable={!loading}
+                    />
+                    <TouchableOpacity accessibilityRole="button"
+                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                      style={styles.eyeButton}
+                      onPress={() => setShowPassword(!showPassword)}
+                      activeOpacity={0.7}>
+                      <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
+                    </TouchableOpacity>
+                  </View>
+
+                  <View style={styles.rememberRow}>
+                    <TouchableOpacity accessibilityRole="checkbox"
+                      accessibilityState={{ checked: rememberPassword }}
+                      style={styles.remember}
+                      onPress={() => setRememberPassword(!rememberPassword)}
+                      activeOpacity={0.7}
+                      disabled={loading}>
+                      <View style={[styles.checkbox, rememberPassword && styles.checkboxChecked]}>
+                        {rememberPassword && <Feather name="check" size={14} color={homeColors.white} />}
+                      </View>
+                      <Text style={styles.rememberText}>Remember password</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity accessibilityRole="button"
+                      onPress={() => router.push('/forgot-password' as any)}
+                      disabled={loading}
+                      activeOpacity={0.7}>
+                      <Text style={styles.forgotText}>Forgot password?</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            </View>
-          </View>
+            )} />
 
           <TouchableOpacity accessibilityRole="button"
             accessibilityState={{ disabled: busy }}
@@ -716,8 +730,10 @@ export default function LoginScreen() {
   );
 }
 
-/** The character above the form, and the two sizes it appears at while it waits. */
-const HERO_MASCOT = 190;
+/** The character perched on the card, and the two sizes it appears at while it
+ * waits. The card rides up over it by rather more than half, so what stays visible
+ * above the top edge is a head, two horns and a pair of hands. */
+const PERCH_MASCOT = 190;
 const BUTTON_MASCOT = 72;
 const SOCIAL_MASCOT = 54;
 
@@ -731,14 +747,19 @@ const styles = StyleSheet.create({
   scrollContent: { flexGrow: 1, paddingTop: 56, paddingBottom: 32 },
   content: { flex: 1, paddingHorizontal: layout.screenInline, gap: 16 },
 
-  hero: { alignItems: 'center', gap: 6, paddingBottom: 8 },
-  mascot: { alignItems: 'center', justifyContent: 'center' },
+  hero: { alignItems: 'center', gap: 6 },
+  perch: { alignSelf: 'center' },
   tagline: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
 
   // Every surface in this language is a coloured shell with a white face sitting on
   // it, four points short of the bottom — that ledge is what gives the flat palette
   // its weight, and it is the one thing a card here must not skip.
-  card: { backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
+  // Negative, and that number is the whole effect: it is how much of the character
+  // the card swallows. The hands sit between 0.66 and 0.74 of the box, so the top
+  // edge is put at 0.70 — through the middle of them, which is what reads as a grip
+  // rather than as two paws dropped on the form.
+  card: { marginTop: -PERCH_MASCOT * 0.30,
+    backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
   cardFace: { backgroundColor: homeColors.white, borderRadius: 24, padding: 16, gap: 12 },
   field: { minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas, justifyContent: 'center', paddingHorizontal: 16 },
   input: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest, paddingVertical: 14 },
