@@ -1,6 +1,10 @@
 import { layout } from '@/theme/spacing';
-import { fonts } from '@/theme/typography';
 import Logo from '@/components/icons/Logo';
+import { HomeAsset } from '@/components/HomeAsset';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
+import { homeColors } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { signInWithOAuth, startGoogleOAuthInSafari } from '@/lib/auth';
 import { navigateAfterAuth } from '@/lib/navigation';
@@ -8,9 +12,13 @@ import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme';
 import { Feather, FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useWindowDimensions } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming,
+} from 'react-native-reanimated';
 import {
-    ActivityIndicator,
     Alert,
     KeyboardAvoidingView,
     Platform,
@@ -22,6 +30,40 @@ import {
     View,
 } from 'react-native';
 
+/** The same two drifting hills the login screen stands on; see Flow there. */
+function Flow({ name, style, seconds, shiftX, shiftY }: {
+  name: 'waveBack' | 'waveFront'; style: object;
+  seconds: number; shiftX: number; shiftY: number;
+}) {
+  const reduceMotion = useReducedMotion();
+  const phase = useSharedValue(0);
+  useEffect(() => {
+    if (reduceMotion) { phase.value = 0.5; return; }
+    phase.value = withRepeat(
+      withTiming(1, { duration: seconds * 1000, easing: Easing.inOut(Easing.sin) }), -1, true);
+  }, [phase, reduceMotion, seconds]);
+  const drift = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: (phase.value - 0.5) * 2 * shiftX },
+      { translateY: (phase.value - 0.5) * 2 * shiftY },
+    ],
+  }));
+  return (
+    <Animated.View pointerEvents="none" style={[style, drift]}>
+      <HomeAsset name={name} />
+    </Animated.View>
+  );
+}
+
+/** The character perched on the card, and where the card's top edge crosses it —
+ * read off the hands rather than typed, as on the login screen. */
+const PERCH_MASCOT = 190;
+const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
+  / MASCOT_HANDS.length / 256;
+const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH_MASCOT;
+const SOCIAL_MASCOT = 54;
+const BUTTON_MASCOT = 72;
+
 const SUBSCRIPTION_REFRESH_TIMEOUT_MS = 4000;
 
 export default function SignUpScreen() {
@@ -32,6 +74,11 @@ export default function SignUpScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [oauthLoading, setOauthLoading] = useState<'google' | 'apple' | null>(null);
+  const [typingPassword, setTypingPassword] = useState(false);
+  const { width: screenWidth } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const cardBleed = -((screenWidth - layout.screenInline * 2) - PERCH_MASCOT) / 2;
+  const busy = loading || oauthLoading !== null;
   const { refreshSubscriptionStatus } = useSubscription();
 
   const safeRefreshSubscription = async () => {
@@ -238,153 +285,135 @@ export default function SignUpScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
+      <LinearGradient pointerEvents="none"
+        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
+      <Flow name="waveBack" style={styles.waveBack} seconds={17} shiftX={-13} shiftY={5} />
+      <Flow name="waveFront" style={styles.waveFront} seconds={11} shiftX={19} shiftY={-7} />
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 40 }]}
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
-          {/* Logo */}
-          <View style={styles.logoContainer}>
-            <Logo width={200} />
-            <Text style={styles.tagline}>Smart Quiz & Memory</Text>
+          <View style={styles.hero}>
+            <Logo width={190} />
+            <Text style={styles.tagline}>Create your account</Text>
           </View>
 
-          <View style={styles.titleContainer}>
-          <Text style={styles.title}>Create Account</Text>
-          </View>
+          <MascotCharacter width={PERCH_MASCOT}
+            mood={busy ? 'thinking' : 'onboarding'}
+            calm
+            eyesShut={typingPassword}
+            style={styles.perch}
+            behind={(
+              <View style={[styles.card, { marginHorizontal: cardBleed }]}>
+                <View style={styles.cardFace}>
+                  <View style={styles.field}>
+                    <TextInput accessibilityLabel="Email"
+                      style={styles.input}
+                      placeholder="Email"
+                      placeholderTextColor={homeColors.muted}
+                      value={identifier}
+                      onChangeText={setIdentifier}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      autoComplete="email"
+                      editable={!loading}
+                    />
+                  </View>
 
-          {/* 邮箱输入 */}
-          <View style={[styles.inputContainer, styles.firstInputContainer]}>
-            <TextInput accessibilityLabel="Email"
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor={colors.muted}
-              value={identifier}
-              onChangeText={setIdentifier}
-              keyboardType="default"
-              autoCapitalize="none"
-              autoComplete="off"
-              editable={!loading}
-            />
-          </View>
+                  <View style={styles.field}>
+                    <TextInput accessibilityLabel="Password"
+                      style={[styles.input, styles.passwordInput]}
+                      placeholder="Password"
+                      placeholderTextColor={homeColors.muted}
+                      value={password}
+                      onChangeText={setPassword}
+                      onFocus={() => setTypingPassword(true)}
+                      onBlur={() => setTypingPassword(false)}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      editable={!loading}
+                    />
+                    <TouchableOpacity accessibilityRole="button"
+                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+                      style={styles.eyeButton}
+                      onPress={() => setShowPassword(!showPassword)}
+                      activeOpacity={0.7}>
+                      <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
+                    </TouchableOpacity>
+                  </View>
 
-          {/* 密码输入 */}
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput accessibilityLabel="Password"
-                style={styles.passwordInput}
-                placeholder="Password"
-                placeholderTextColor={colors.muted}
-                value={password}
-                onChangeText={setPassword}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoComplete="password-new"
-                editable={!loading}
-              />
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-                activeOpacity={0.7}
-              >
-                <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.muted}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* 确认密码输入 */}
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput accessibilityLabel="Confirm Password"
-                style={styles.passwordInput}
-                placeholder="Confirm Password"
-                placeholderTextColor={colors.muted}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                autoComplete="password-new"
-                editable={!loading}
-              />
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.eyeButton}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                activeOpacity={0.7}
-              >
-                <Feather
-                  name={showConfirmPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.muted}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
+                  <View style={styles.field}>
+                    <TextInput accessibilityLabel="Confirm Password"
+                      style={[styles.input, styles.passwordInput]}
+                      placeholder="Confirm Password"
+                      placeholderTextColor={homeColors.muted}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      onFocus={() => setTypingPassword(true)}
+                      onBlur={() => setTypingPassword(false)}
+                      secureTextEntry={!showConfirmPassword}
+                      autoCapitalize="none"
+                      editable={!loading}
+                    />
+                    <TouchableOpacity accessibilityRole="button"
+                      accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+                      style={styles.eyeButton}
+                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                      activeOpacity={0.7}>
+                      <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )} />
 
           <TouchableOpacity accessibilityRole="button"
-            style={[styles.button, styles.signUpButton, loading && styles.buttonDisabled]}
+            accessibilityState={{ disabled: busy }}
+            style={[styles.signUp, busy && styles.signUpBusy]}
             onPress={signUp}
-            disabled={loading}>
-            <Text style={styles.buttonText}>Sign Up</Text>
+            activeOpacity={0.9}
+            disabled={busy}>
+            <View style={styles.signUpFace}>
+              {loading
+                ? <MascotCharacter width={BUTTON_MASCOT} mood="excited" />
+                : <Text style={styles.signUpText}>Sign Up</Text>}
+            </View>
           </TouchableOpacity>
 
-          {/* 分隔线 */}
-          <View style={styles.dividerContainer}>
+          <View style={styles.divider}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>OR</Text>
             <View style={styles.dividerLine} />
           </View>
 
-          {/* 第三方登录 */}
-          <View style={styles.socialLoginContainer}>
-            <View style={styles.socialIconsRow}>
-              {/* Google 登录 */}
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.socialIconButton}
-                onPress={handleGoogleSignIn}
-                disabled={loading || oauthLoading !== null}
-                activeOpacity={0.7}
-              >
-                <View style={[styles.socialIconContainer, styles.googleIconContainer]}>
-                  {oauthLoading === 'google' ? (
-                    <ActivityIndicator size="small" color={colors.google} />
-                  ) : (
-                    <FontAwesome5 name="google" size={20} color={colors.google} />
-                  )}
+          <View style={styles.socialRow}>
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continue with Google"
+              style={styles.social} onPress={handleGoogleSignIn} disabled={busy} activeOpacity={0.8}>
+              <View style={styles.socialFace}>
+                {oauthLoading === 'google'
+                  ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
+                  : <FontAwesome5 name="google" size={20} color={colors.google} />}
+              </View>
+            </TouchableOpacity>
+
+            {Platform.OS === 'ios' && (
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Continue with Apple"
+                style={styles.social} onPress={handleAppleSignIn} disabled={busy} activeOpacity={0.8}>
+                <View style={[styles.socialFace, styles.appleFace]}>
+                  {oauthLoading === 'apple'
+                    ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
+                    : <FontAwesome5 name="apple" size={22} color={homeColors.white} />}
                 </View>
               </TouchableOpacity>
-
-              {/* Apple 登录 */}
-              {Platform.OS === 'ios' && (
-                <TouchableOpacity accessibilityRole="button"
-                  style={styles.socialIconButton}
-                  onPress={handleAppleSignIn}
-                  disabled={loading || oauthLoading !== null}
-                  activeOpacity={0.7}
-                >
-                  <View style={[styles.socialIconContainer, styles.appleIconContainer]}>
-                    {oauthLoading === 'apple' ? (
-                      <ActivityIndicator size="small" color={colors.surf} />
-                    ) : (
-                      <FontAwesome5 name="apple" size={22} color={colors.surf} />
-                    )}
-                  </View>
-                </TouchableOpacity>
-              )}
-            </View>
+            )}
           </View>
 
-          {/* 跳转到登录页面 */}
-          <View style={styles.signInLinkContainer}>
-            <Text style={styles.signInLinkText}>Already have an account? </Text>
+          <View style={styles.signInRow}>
+            <Text style={styles.signInText}>Already have an account? </Text>
             <TouchableOpacity accessibilityRole="button"
-              onPress={() => router.replace('/login')}
-              style={styles.signInLinkTouchable}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.signInLinkButton}>Sign In</Text>
+              onPress={() => router.replace('/login')} activeOpacity={0.7}>
+              <Text style={styles.signInLink}>Sign In</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -394,198 +423,39 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'space-between',
-    paddingTop: 72, // 24 + 48 = 72px (原24px + 下移48px)
-    paddingBottom: 24,
-  },
-  content: {
-    paddingHorizontal: layout.screenInline,
-    paddingVertical: 20,
-    flex: 1,
-    justifyContent: 'space-between',
-  },
-  logoContainer: {
-    alignSelf: 'center',
-    marginTop: 60,
-    marginBottom: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tagline: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '400',
-    color: colors.muted,
-    marginTop: 12,
-    textAlign: 'center',
-    fontFamily: fonts.regular,
-  },
-  logo: {
-    width: 100,
-    height: 100,
-    borderRadius: 20,
-  },
-  titleContainer: {
-    marginTop: 60,
-    marginBottom: 24,
-    alignItems: 'flex-start',
-  },
-  title: {
-    fontSize: 18,
-    lineHeight: 24,
-    fontWeight: '700',
-    color: colors.text,
-    textAlign: 'left',
-    fontFamily: fonts.bold,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  firstInputContainer: {
-    marginTop: 0,
-  },
-  input: { minHeight: 44,
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-  },
-  passwordInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-  },
-  passwordInput: { minHeight: 44,
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-  },
-  eyeButton: { minHeight: 44,
-    padding: 14,
-    paddingRight: 16,
-  },
-  button: { minHeight: 44,
-    borderRadius: 8,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  signUpButton: { minHeight: 44,
-    backgroundColor: colors.action,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.onAction,
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
-  dividerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: colors.border,
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 12,
-    color: colors.muted,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
-  },
-  socialLoginContainer: {
-    marginTop: 8,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  socialLoginTitle: {
-    fontSize: 14,
-    color: colors.muted,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  socialIconsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  socialIconButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  socialIconContainer: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.accentShadow,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 2,
-    elevation: 0,
-  },
-  googleIconContainer: {
-    backgroundColor: colors.surf,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  appleIconContainer: {
-    backgroundColor: colors.text,
-    borderWidth: 1,
-    borderColor: colors.text,
-  },
-  signInLinkContainer: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  signInLinkText: {
-    fontSize: 12,
-    color: colors.muted,
-    fontFamily: fonts.regular,
-  },
-  signInLinkTouchable: {
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  signInLinkButton: {
-    fontSize: 12,
-    color: colors.action,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
-});
+  container: { flex: 1, backgroundColor: homeColors.canvas },
+  background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
+  waveBack: { position: 'absolute', top: 96, left: -19 },
+  waveFront: { position: 'absolute', top: 133, left: -19 },
+  scrollContent: { flexGrow: 1, paddingBottom: 32 },
+  content: { flex: 1, paddingHorizontal: layout.screenInline, gap: 16 },
 
+  hero: { alignItems: 'center', gap: 6 },
+  perch: { alignSelf: 'center' },
+  tagline: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
+
+  card: { marginTop: CARD_LIFT, backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
+  cardFace: { backgroundColor: homeColors.white, borderRadius: 24, padding: 16, gap: 12 },
+  field: { minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas, justifyContent: 'center', paddingHorizontal: 16 },
+  input: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest, paddingVertical: 14 },
+  passwordInput: { paddingRight: 44 },
+  eyeButton: { position: 'absolute', right: 4, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
+
+  signUp: { height: 61, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: 4 },
+  signUpBusy: { opacity: 0.75 },
+  signUpFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  signUpText: { fontFamily: 'Geist_500Medium', fontSize: 24, lineHeight: 32, color: homeColors.white },
+
+  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: homeColors.border },
+  dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
+
+  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
+  social: { width: 64, height: 60, borderRadius: 20, backgroundColor: homeColors.border, paddingBottom: 4 },
+  socialFace: { flex: 1, borderRadius: 20, backgroundColor: homeColors.white, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  appleFace: { backgroundColor: homeColors.darkest },
+
+  signInRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 'auto' },
+  signInText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted },
+  signInLink: { fontFamily: 'Geist_600SemiBold', fontSize: 14, color: homeColors.primary },
+});

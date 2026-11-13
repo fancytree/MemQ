@@ -1,5 +1,4 @@
 import { layout } from '@/theme/spacing';
-import { fonts } from '@/theme/typography';
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
@@ -47,17 +46,17 @@ function Flow({ name, style, seconds, shiftX, shiftY }: {
   shiftY: number;
 }) {
   const reduceMotion = useReducedMotion();
-  const t = useSharedValue(0);
+  const phase = useSharedValue(0);
   useEffect(() => {
-    if (reduceMotion) { t.value = 0.5; return; }
-    t.value = withRepeat(
+    if (reduceMotion) { phase.value = 0.5; return; }
+    phase.value = withRepeat(
       withTiming(1, { duration: seconds * 1000, easing: Easing.inOut(Easing.sin) }),
       -1, true);
-  }, [reduceMotion, seconds, t]);
+  }, [phase, reduceMotion, seconds]);
   const drift = useAnimatedStyle(() => ({
     transform: [
-      { translateX: (t.value - 0.5) * 2 * shiftX },
-      { translateY: (t.value - 0.5) * 2 * shiftY },
+      { translateX: (phase.value - 0.5) * 2 * shiftX },
+      { translateY: (phase.value - 0.5) * 2 * shiftY },
     ],
   }));
   return (
