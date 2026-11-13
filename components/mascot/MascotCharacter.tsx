@@ -35,7 +35,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import Svg, { ClipPath, Defs, G, Path } from 'react-native-svg';
 
-import { MASCOT_ART, type FigmaPath, type MascotPartName } from './figma-parts';
+import { MASCOT_ART, MASCOT_HANDS, type FigmaPath, type MascotPartName } from './figma-parts';
 import {
   MASCOT_STATES, mascotPose,
   type MascotFrame, type MascotMood, type MascotPose,
@@ -53,7 +53,7 @@ const VIEW = 256;
  * read as soft; a stiff lid makes a blink snap; a loose horn trails and wobbles. */
 const SPRING = {
   roll: [5, 0.9], tx: [3.5, 1], ty: [4, 1], squash: [9, 0.72],
-  lid: [26, 1], eye: [9, 0.85], gaze: [13, 1],
+  lid: [26, 1], eye: [9, 0.85], gaze: [13, 1], arm: [6, 0.72],
   lag: [7.5, 0.5], pop: [12, 0.52],
 } as const;
 const SUBSTEP = 1 / 120;
@@ -141,7 +141,7 @@ function start(part: FigmaPath) {
 interface Motion {
   roll: Spring; tx: Spring; ty: Spring; sx: Spring; sy: Spring;
   lid: Spring; eye: Spring; gazeX: Spring; gazeY: Spring;
-  horn: Spring; tail: Spring; pop: Spring;
+  horn: Spring; tail: Spring; arm: Spring; pop: Spring;
   clock: number; driftClock: number;
   /** Everything crossing from JS arrives as a counter this worklet compares against,
    * never as a field JS writes into this object: writing into an object already
@@ -153,6 +153,8 @@ interface Rendered {
   tx: number; ty: number; roll: number; sx: number; sy: number;
   /** Degrees the horns and the tail trail the body's lean by. */
   horn: number; tail: number;
+  /** Degrees each hand is turned about the body's centre. */
+  armL: number; armR: number;
   /** Pupil offset, in artwork units. */
   gx: number; gy: number;
   eye: number;
@@ -245,7 +247,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     () => (Array.isArray(state.frame) ? state.frame : [state.frame]), [state.frame]);
   const [face, setFace] = useState<MascotFrame>(frames[0]);
   useEffect(() => { setFace(frames[0]); }, [frames]);
-  const art = useMemo(() => build(frames[0], face), [frames, face]);
+  const art = useMemo(() => build(frames[0], face, !!state.arm), [frames, face, state.arm]);
 
   const moodRef = useSharedValue<MascotMood>(mood);
   const lidOverride = useSharedValue<number | null>(null);
@@ -260,14 +262,15 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
   const motion = useSharedValue<Motion>({
     roll: spring(0), tx: spring(0), ty: spring(0), sx: spring(1), sy: spring(1),
     lid: spring(1), eye: spring(1), gazeX: spring(0), gazeY: spring(0),
-    horn: spring(0), tail: spring(0), pop: spring(1),
+    horn: spring(0), tail: spring(0), arm: spring(0), pop: spring(1),
     clock: 0, driftClock: 0,
     moodSeen: mood, kickSeen: 0,
-    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0 },
+    pose: { roll: 0, tx: 0, ty: 0, sx: 1, sy: 1, lid: 1, eyeScale: 1, lift: 0, tilt: 0, shake: 0, arm: 0 },
   });
   const out = useSharedValue<Rendered>({
     tx: 0, ty: 0, roll: 0, sx: 1, sy: 1, horn: 0, tail: 0,
     gx: 0, gy: 0, eye: 1, lid: 1, lidRest: 1, pop: 1, drift: 0, float: 0,
+    armL: 0, armR: 0,
   });
 
   useEffect(() => {
@@ -310,6 +313,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     // coming back.
     m.horn.t = m.roll.x;
     m.tail.t = m.roll.x;
+    m.arm.t = rest ? 0 : p.arm;
     m.pop.t = 1;
 
     // A beat is a velocity impulse, so it kicks and settles instead of tweening. The
@@ -342,6 +346,7 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       step(m.gazeY, SPRING.gaze[0], SPRING.gaze[1], h);
       step(m.horn, SPRING.lag[0], SPRING.lag[1], h);
       step(m.tail, SPRING.lag[0], SPRING.lag[1], h);
+      step(m.arm, SPRING.arm[0], SPRING.arm[1], h);
       step(m.pop, SPRING.pop[0], SPRING.pop[1], h);
     }
 
@@ -364,6 +369,9 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
       sx: m.sx.x, sy: m.sy.x,
       horn: rest ? 0 : (m.roll.x - m.horn.x) * hornLag.value * HORN_SWING,
       tail: rest ? 0 : (m.roll.x - m.tail.x) * tailLag.value * TAIL_SWING,
+      // One raise, mirrored: the hands sit on opposite sides of the body, so the same
+      // lift is a turn one way for one of them and the other way for the other.
+      armL: m.arm.x, armR: -m.arm.x,
       gx: m.gazeX.x * GAZE_REACH.x + driftX,
       gy: m.gazeY.x * GAZE_REACH.y + driftY,
       eye: m.eye.x,
@@ -516,6 +524,13 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
     ],
   }));
 
+  // A hand turns about the body's middle, not about itself: it is a paw resting on
+  // the outline, and what it does is slide along it.
+  const bodyAt = art.body.length
+    ? pivot(centre(art.body).x, centre(art.body).y, box) : { dx: 0, dy: 0 };
+  const handL = useAnimatedStyle(() => turnAbout(out.value.armL, bodyAt));
+  const handR = useAnimatedStyle(() => turnAbout(out.value.armR, bodyAt));
+
   // An eye narrows rather than fading: a squint is a shape, not a transparency. It
   // scales about its own centre, which is also what carries the pupil's clip with it.
   const eyeAt = (side: 'L' | 'R') => {
@@ -563,6 +578,8 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
         <Layer box={box} parts={art.horns} style={horns} />
         <Layer box={box} parts={art.tail} style={tail} />
         <Layer box={box} parts={art.body} />
+        <Layer box={box} parts={art.handL} style={handL} />
+        <Layer box={box} parts={art.handR} style={handR} />
 
         {(['L', 'R'] as const).map((side) => {
           const white = art.white[side];
@@ -601,6 +618,16 @@ function eyeTransform(r: Rendered, at: { dx: number; dy: number }) {
     ],
   };
 }
+function turnAbout(deg: number, at: { dx: number; dy: number }) {
+  'worklet';
+  return {
+    transform: [
+      { translateX: at.dx }, { translateY: at.dy },
+      { rotate: `${deg}deg` },
+      { translateX: -at.dx }, { translateY: -at.dy },
+    ],
+  };
+}
 function scaleAbout(k: number, at: { dx: number; dy: number }, box: number) {
   'worklet';
   const dx = at.dx * box, dy = at.dy * box;
@@ -618,7 +645,7 @@ function scaleAbout(k: number, at: { dx: number; dy: number }, box: number) {
  * horns, the tail and the decorations; the face frame carries the eyes and the mouth.
  * The body geometry is identical across every frame of the set, so the seam that
  * ought to exist does not. */
-function build(primary: MascotFrame, face: MascotFrame) {
+function build(primary: MascotFrame, face: MascotFrame, hands: boolean) {
   const base = MASCOT_ART[primary].parts;
   const front = MASCOT_ART[face].parts;
   const of = (src: FigmaPath[], ...names: MascotPartName[]) =>
@@ -637,6 +664,10 @@ function build(primary: MascotFrame, face: MascotFrame) {
     tail: of(base, 'tail', 'tailTip'),
     body: of(base, 'body'),
     mouth: of(front, 'mouth'),
+    // The hands come from the part library rather than from either frame, and only
+    // when the state has said how it carries them.
+    handL: hands ? MASCOT_HANDS.filter((p) => p.name === 'handL') : [],
+    handR: hands ? MASCOT_HANDS.filter((p) => p.name === 'handR') : [],
     white, closed, lid,
     pupil: { L: one(front, 'pupilL'), R: one(front, 'pupilR') },
     accents, badge,

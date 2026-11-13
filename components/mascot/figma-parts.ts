@@ -13,7 +13,8 @@ export type MascotPartName =
   | 'body' | 'horns' | 'tail' | 'tailTip' | 'plate'
   | 'eyeWhiteL' | 'eyeWhiteR' | 'pupilL' | 'pupilR'
   | 'eyeClosedL' | 'eyeClosedR'
-  | 'mouth' | 'accent' | 'question' | 'badge' | 'check' | 'zzz' | 'unknown';
+  | 'mouth' | 'accent' | 'question' | 'badge' | 'check' | 'zzz'
+  | 'handL' | 'handR' | 'unknown';
 
 export interface FigmaPath {
   name: MascotPartName;
@@ -159,3 +160,11 @@ export const MASCOT_ART: Record<string, FigmaFrame> = {
     ],
   },
 };
+
+/** The hands, held apart from the frames because they are their own part: a state
+ * that wants them assembles them in, and one that does not draws none. They are
+ * placed in the same 256 square as everything else, so no caller positions them. */
+export const MASCOT_HANDS: FigmaPath[] = [
+  { name: "handL", d: "M67.666 174.522 C65.913 182.767 56.725 186.908 46.919 184.824 C37.114 182.74 30.404 175.22 32.157 166.975 C34.605 155.458 43.823 151.177 53.629 153.261 C63.434 155.345 69.932 163.859 67.666 174.522 Z", fill: "#C59AF0", stroke: "#4B2C78", width: 8.137871528802707, box: [32.1, 152.9, 68.4, 185.2] },
+  { name: "handR", d: "M195.474 186.611 C196.965 194.982 189.821 202.362 179.707 204.164 C169.593 205.966 160.34 201.506 158.849 193.135 C156.766 181.442 163.885 173.919 173.999 172.117 C184.113 170.315 193.546 175.784 195.474 186.611 Z", fill: "#C59AF0", stroke: "#4B2C78", width: 8.137871528802707, box: [158.3, 171.9, 195.5, 204.4] },
+];

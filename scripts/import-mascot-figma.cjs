@@ -54,6 +54,86 @@ const FIXES = {
 
 const FILL = { ink: '#4B2C78', body: '#C59AF0', gold: '#FFBA00', white: 'white', plate: '#F0E4FC' };
 
+/** The hands, which are a part of their own rather than part of an expression.
+ *
+ * They are assembled in when a state wants them, the way the eyes, the mouth and the
+ * accents are: the character is the same character whether or not its hands are up,
+ * and baking a pair into all seven frames would say otherwise and cost seven copies.
+ *
+ * Figma holds them twice: as two loose vectors parked on the canvas, and placed on the
+ * home mockup beside the mascot. Only the placed pair says where they attach. They are
+ * laid out there as siblings of the drawing rather than children of it, so their
+ * positions are in the screen's space while the drawing is rotated 10.1 degrees inside
+ * it; turning each one back about the drawing's centre puts it in the artwork's own
+ * square. The numbers below are that mockup, copied, so the arithmetic stays visible
+ * rather than arriving as four magic coordinates.
+ *
+ * The same pair ships in the app as assets/home-figma/spark-left.svg and
+ * spark-right.svg — named for something they are not, and byte-identical to Figma's
+ * `hand L` and `hand R`. The export is read from Figma, not from those files, so a
+ * redesign is picked up here rather than wherever the home screen last copied them. */
+const MOCKUP = {
+  box: 220.205,          // the drawing's own square in the mockup
+  bounds: 255.402,       // the rotated bounding box it is laid out in
+  at: [163, 72],         // where that bounding box sits
+  spin: 10.1,            // how far the drawing is turned inside it
+  hands: {
+    // left, top, width, height as laid out, and the hand's own turn
+    handL: { rect: [199, 204, 39.376, 37.466], spin: 22.1, file: 'handL.svg' },
+    handR: { rect: [307, 244, 32, 28], spin: 0, file: 'handR.svg' },
+  },
+};
+
+/** Map every coordinate pair in a path through an affine transform [a,b,c,d,e,f].
+ *
+ * The export is absolute and uses only M and C, so every number is half of a point —
+ * the same assumption the borrowed lid's own move relies on, and it holds here too. */
+function affine(str, [a, b, c, d, e, f]) {
+  const toks = str.match(/[a-zA-Z]|-?\d*\.?\d+(?:e[-+]?\d+)?/gi) ?? [];
+  const r = (v) => String(Math.round(v * 1000) / 1000);
+  let out = '', pend = null;
+  for (const t of toks) {
+    if (/[a-zA-Z]/.test(t)) { out += t; continue; }
+    if (pend === null) { pend = Number(t); continue; }
+    const x = pend, y = Number(t); pend = null;
+    out += r(a * x + c * y + e) + ' ' + r(b * x + d * y + f) + ' ';
+  }
+  return out.trim();
+}
+
+function placeHands(dir) {
+  const k = 256 / MOCKUP.box;
+  const cx = MOCKUP.at[0] + MOCKUP.bounds / 2;
+  const cy = MOCKUP.at[1] + MOCKUP.bounds / 2;
+  const t = (MOCKUP.spin * Math.PI) / 180;
+  const cos = Math.cos(t), sin = Math.sin(t);
+  const out = [];
+  for (const [name, h] of Object.entries(MOCKUP.hands)) {
+    const f = path.join(dir, h.file);
+    if (!fs.existsSync(f)) { console.error(`missing ${f}`); process.exit(1); }
+    const { paths } = parse(f);
+    const p = paths[0];
+    const b = bounds(p.d);
+    // where the hand's middle lands in the artwork's own square
+    const hx = h.rect[0] + h.rect[2] / 2 - cx;
+    const hy = h.rect[1] + h.rect[3] / 2 - cy;
+    const X = (MOCKUP.box / 2 + hx * cos + hy * sin) * k;
+    const Y = (MOCKUP.box / 2 - hx * sin + hy * cos) * k;
+    // and how far it is turned once the drawing's own turn is taken out
+    const a = ((h.spin - MOCKUP.spin) * Math.PI) / 180;
+    const ca = Math.cos(a) * k, sa = Math.sin(a) * k;
+    const ox = (b.x0 + b.x1) / 2, oy = (b.y0 + b.y1) / 2;
+    const m = [ca, sa, -sa, ca, X - (ca * ox - sa * oy), Y - (sa * ox + ca * oy)];
+    const halfW = (b.x1 - b.x0) * k / 2, halfH = (b.y1 - b.y0) * k / 2;
+    out.push({ ...p, name, d: affine(p.d, m), width: (p.width ?? 0) * k,
+      b: { x0: X - halfW, y0: Y - halfH, x1: X + halfW, y1: Y + halfH } });
+    console.log(`  ${name} placed at (${X.toFixed(1)}, ${Y.toFixed(1)}) `
+      + `${(halfW * 2).toFixed(1)}x${(halfH * 2).toFixed(1)}, `
+      + `turned ${(h.spin - MOCKUP.spin).toFixed(1)} deg against the body`);
+  }
+  return out;
+}
+
 function parse(file) {
   const raw = fs.readFileSync(file, 'utf8');
   // Figma draws the focused eye by masking a whole pupil disc with the eye-white
@@ -201,6 +281,8 @@ function classify(paths, view, masks) {
 }
 
 const frames = {};
+console.log('hands:');
+const HANDS = placeHands(SRC);
 for (const [file, state] of Object.entries(FRAMES)) {
   const f = path.join(SRC, `${file}.svg`);
   if (!fs.existsSync(f)) { console.error(`missing ${f}`); process.exit(1); }
@@ -243,8 +325,7 @@ for (const [state, fr] of Object.entries(frames)) {
 if (CHECK) { console.log('\n--check: nothing written'); process.exit(0); }
 
 const esc = (s) => JSON.stringify(s);
-const body = Object.entries(frames).map(([state, fr]) => {
-  const parts = fr.parts.map((p) => '      { name: ' + esc(p.name)
+const emit = (indent) => (p) => indent + '{ name: ' + esc(p.name)
     + ', d: ' + esc(p.d)
     + (p.fill && p.fill !== 'none' ? ', fill: ' + esc(p.fill) : '')
     + (p.stroke ? ', stroke: ' + esc(p.stroke) : '')
@@ -254,7 +335,10 @@ const body = Object.entries(frames).map(([state, fr]) => {
     + ', box: [' + [p.b.x0, p.b.y0, p.b.x1, p.b.y1].map((n) => Math.round(n * 10) / 10).join(', ') + ']'
     + (p.clip ? ', clip: ' + esc(p.clip) : '')
     + (p.clipD ? ', clipD: ' + esc(p.clipD) : '')
-    + ' },').join('\n');
+    + ' },';
+const hand = emit('  ');
+const body = Object.entries(frames).map(([state, fr]) => {
+  const parts = fr.parts.map(emit('      ')).join('\n');
   return `  ${state}: {\n    view: ${esc(fr.view)},\n    parts: [\n${parts}\n    ],\n  },`;
 }).join('\n');
 
@@ -274,7 +358,8 @@ export type MascotPartName =
   | 'body' | 'horns' | 'tail' | 'tailTip' | 'plate'
   | 'eyeWhiteL' | 'eyeWhiteR' | 'pupilL' | 'pupilR'
   | 'eyeClosedL' | 'eyeClosedR'
-  | 'mouth' | 'accent' | 'question' | 'badge' | 'check' | 'zzz' | 'unknown';
+  | 'mouth' | 'accent' | 'question' | 'badge' | 'check' | 'zzz'
+  | 'handL' | 'handR' | 'unknown';
 
 export interface FigmaPath {
   name: MascotPartName;
@@ -302,5 +387,12 @@ export interface FigmaFrame { view: string; parts: FigmaPath[] }
 export const MASCOT_ART: Record<string, FigmaFrame> = {
 ${body}
 };
+
+/** The hands, held apart from the frames because they are their own part: a state
+ * that wants them assembles them in, and one that does not draws none. They are
+ * placed in the same 256 square as everything else, so no caller positions them. */
+export const MASCOT_HANDS: FigmaPath[] = [
+${HANDS.map(hand).join('\n')}
+];
 `);
 console.log(`\nwrote ${path.relative(path.resolve(__dirname, '..'), OUT)}`);
