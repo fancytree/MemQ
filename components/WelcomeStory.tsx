@@ -131,6 +131,12 @@ const SCENES: Scene[] = [
       { src: require('../assets/onboarding/w3-rays.svg'), w: 37.8945, h: 36.6811, cx: 120.92, cy: 370.36 },
     ],
     title: 'Practice\nand Remember',
+    // The screen's own graph card draws the forgetting curve; this says what it is
+    // for. Two lines like the screens before it, and the second one lands on the
+    // frame's own name — Make it stick.
+    body: 'Each card returns just before you’d forget it.\nThat curve is what makes it stick.',
+    // A two-line title, so the words below it start where screen two's do.
+    bodyTop: 250,
     skip: false,
     button: { label: 'Next  →', bg: homeColors.hill, ink: homeColors.deep },
     dot: { on: homeColors.deep, off: homeColors.track },
