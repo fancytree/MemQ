@@ -350,24 +350,22 @@ const purple = homeColors.deep;
  * puts the body on screen at the same size and the layout above is untouched. */
 const MASCOT_WIDTH = 220.205;
 /** It sits in the top right with the count, the line of copy and the button all to
- * its left, so that is where it looks. Past -1 because the frames draw the pair of
- * eyes about 10 units right of the body's middle to begin with: the first unit of
- * look only undoes that, and the rest is what reads as looking left. The state's
- * wander still drifts it, and the clip keeps the pupils in their whites.
+ * its left, so that is where it looks.
  *
- * Both numbers were pushed too far over an afternoon of tuning done while the
- * character happened to be wearing the closed-eyed happy face, where there are no
- * pupils to judge any of it by. Measured against the room a pupil actually has — an
- * eye white is 46 units across and 48 tall, a pupil 20 by 26, so about 13 units of
- * play sideways and 11 vertically — x of -1 spends 73% of the sideways play and the
- * state's own wander then pins it at the edge, and y of 0.75 spent 64% of the
- * vertical at the same time. Both at once is not a glance at the copy, it is a stare
- * into the bottom left corner.
+ * These two numbers are what the character was first given at 16:33 — translated,
+ * because the scale they were written in no longer exists. Back then one unit of look
+ * moved the pupil 12 units across and 8 down, and nothing else; at 16:37 that single
+ * reach was split in two, the eye white began to travel as well, and one unit became
+ * 7 + 11 across and 4 + 10 down. The constant lives in MascotCharacter and is shared
+ * by every screen that aims a gaze, so this screen's numbers went on meaning what
+ * they had meant while quietly driving half again as far, and an afternoon of tuning
+ * on top of that took them to -1.8 — 32 units into an eye white that has 13 to give,
+ * which pins both pupils against the rim and holds them there.
  *
- * y goes back to the 0.15 it was first given, which is all but level. x is 39% of
- * the play: enough to read as turned toward the copy, with room left for the wander
- * to move in rather than press against the edge. */
-const MASCOT_LOOK = { x: -0.6, y: 0.15 };
+ * So: -1 by 12 across and 0.15 by 8 down, divided back out by 18 and 14. The gaze
+ * lands exactly where it landed before any of it, and if that reach is ever retuned
+ * again these have to be divided out again with it. */
+const MASCOT_LOOK = { x: -0.667, y: 0.086 };
 /** No lean. The mockup draws the character at +10.1 degrees, which turned its head
  * away from everything it is about; leaning it the other way fixed that and brought
  * its own problems — the hands orbit a circle and a tilted body meets them at a
