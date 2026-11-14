@@ -1,5 +1,12 @@
+import { ManualTermFields } from '@/components/ui/ManualTermFields';
+import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
+import { homeColors } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
+import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, LanguageCardEditor } from '@/components/LanguageCardFields';
@@ -14,14 +21,33 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
+
+/** How wide the character stands over the card it is holding. */
+const PERCH = 132;
+
+/** Where the card's top edge crosses the character, read off the hands rather than
+ *  typed in: a little below their middle, so their lower part laps onto the card and
+ *  they read as resting on the edge instead of hovering above it. Every perch in the
+ *  app sits on this line. */
+const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
+  / MASCOT_HANDS.length / 256;
+const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
+
+/** The thinking face looks up and off into the middle distance on its own, which is
+ *  right for a character working something out and wrong for one sitting on a card a
+ *  person is reading. Brought down and centred, far enough below level that the
+ *  state's own wander never carries it back above the line. */
+const PROMPT_GAZE = { x: 0.5, y: 0.9 } as const;
 
 type Phase = 'idle' | 'generating' | 'done';
 
@@ -68,11 +94,18 @@ const getDocumentPicker = (): DocumentPickerModule | null => {
 };
 
 export default function CreateScreen() {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  // The card is nested inside the character's box, so it has to be pulled back out to
+  // the width it would have had on its own.
+  const bleed = -((width - layout.screenInline * 2) - PERCH) / 2;
   const { isPro, showPaywall } = useSubscription();
   const [prompt, setPrompt] = useState('');
   const [learningMode, setLearningMode] = useState<'language' | 'knowledge'>('knowledge');
   const [phase, setPhase] = useState<Phase>('idle');
   const [cards, setCards] = useState<GeneratedCard[]>([]);
+  const [generatedMode, setGeneratedMode] = useState<'language' | 'knowledge' | null>(null);
+  const visibleCards = generatedMode === learningMode ? cards : [];
   const [manualTerms, setManualTerms] = useState<ManualTermRow[]>([
     { id: '1', term: '', definition: '', explanation: '', languageData: {}, saved: false, editing: true },
   ]);
@@ -128,6 +161,7 @@ export default function CreateScreen() {
         if (error) throw new Error(error.message || 'Failed to generate terms');
         const results: Array<{ term: string; definition: string; explanation?: string; language_data?: LanguageCardData }> =
           Array.isArray(data?.results) ? data.results : [];
+        setGeneratedMode(learningMode);
         setCards(results.map((item, i) => ({
           n: String(i + 1).padStart(2, '0'),
           tag: 'AI Generated',
@@ -172,6 +206,7 @@ export default function CreateScreen() {
       if (error) throw new Error(error.message || 'Failed to process file');
       const results: Array<{ term: string; definition: string; explanation?: string; language_data?: LanguageCardData }> =
         Array.isArray(data?.results) ? data.results : [];
+      setGeneratedMode(learningMode);
       setCards(results.map((item, i) => ({
         n: String(i + 1).padStart(2, '0'),
         tag: 'AI Generated',
@@ -276,11 +311,11 @@ export default function CreateScreen() {
   // ─── Save flow ────────────────────────────────────────────────────────────
 
   const collectTerms = () => {
-    const fromGenerated = cards
+    const fromGenerated = visibleCards
       .filter((c) => c.title.trim() && (c.body || '').trim())
       .map((c) => ({ term: c.title.trim(), definition: (c.body || '').trim(), explanation: (c.ex || '').trim() || null,
         language_data: learningMode === 'language' && c.languageData && hasLanguageData(c.languageData) ? c.languageData : null }));
-    const fromManual = manualTerms
+    const fromManual = (learningMode === 'knowledge' ? manualTerms : [])
       .filter((r) => r.term.trim() && r.definition.trim())
       .map((r) => ({ term: r.term.trim(), definition: r.definition.trim(), explanation: r.explanation.trim() || null,
         language_data: learningMode === 'language' && hasLanguageData(r.languageData) ? r.languageData : null }));
@@ -290,7 +325,7 @@ export default function CreateScreen() {
   const handleSavePress = () => {
     const terms = collectTerms();
     if (terms.length === 0) {
-      Alert.alert('Empty', 'Please add at least one term and definition.');
+      Alert.alert('Empty', learningMode === 'language' ? 'Generate at least one language card first.' : 'Please add at least one term and definition.');
       return;
     }
     setPendingTerms(terms, learningMode);
@@ -301,6 +336,7 @@ export default function CreateScreen() {
 
   return (
     <EdBase bottomInset={0} scroll={false}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 150 }]} />
       {/* Top bar */}
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" onPress={() => safeBack('/(tabs)')} style={styles.topbarSideBtn}>
@@ -318,27 +354,16 @@ export default function CreateScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={{ paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 12 }}>
-          <SectionLabel style={{ marginBottom: 8 }}>Learning mode</SectionLabel>
-          <View style={{ flexDirection: 'row', gap: 8 }}>
-            {(['knowledge', 'language'] as const).map((mode) => (
-              <Pressable
-                key={mode}
-                onPress={() => setLearningMode(mode)}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: learningMode === mode }}
-                style={{ flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, borderWidth: 1,
-                  borderColor: learningMode === mode ? colors.action : colors.controlBorder,
-                  backgroundColor: learningMode === mode ? colors.accentL : colors.surf }}
-              >
-                <Text style={{ color: learningMode === mode ? colors.action : colors.text, fontWeight: '700' }}>
-                  {mode === 'language' ? 'Language' : 'Knowledge'}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
+          <SectionLabel style={styles.sectionLabel}>Learning mode</SectionLabel>
+          <LearningModeSelector value={learningMode} onChange={setLearningMode} />
         </View>
-        {/* Prompt block */}
-        <View style={styles.promptBlock}>
+        {/* Prompt block, with the character resting on its top edge. It watches the
+            box while it is empty and thinks while the cards are being written. */}
+        <MascotCharacter width={PERCH} calm style={styles.perch}
+          mood={isGenerating ? 'thinking' : 'onboarding'}
+          look={isGenerating ? PROMPT_GAZE : undefined}
+          behind={(
+        <View style={[styles.promptBlock, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
           <View style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 6 }}>
             <SectionLabel style={{ marginBottom: 10, fontSize: 12, lineHeight: 15.4, letterSpacing: -0.1, fontFamily: fonts.medium, fontWeight: '500' }}>
               What do you want to learn?
@@ -347,7 +372,7 @@ export default function CreateScreen() {
               value={prompt}
               onChangeText={setPrompt}
               placeholder="Type what you want to learn, paste text, or enter a topic."
-              placeholderTextColor={colors.muted}
+              placeholderTextColor={homeColors.placeholder}
               multiline
               style={styles.textarea}
             />
@@ -415,27 +440,29 @@ export default function CreateScreen() {
             </View>
           )}
         </View>
+          )} />
 
         {/* Generated header */}
         <View style={styles.genHead}>
           <SectionLabel>
-            {cards.length === 0 ? 'Awaiting prompt' : `Generated — ${cards.length} cards`}
+            {visibleCards.length === 0 ? 'Awaiting prompt' : `Generated — ${visibleCards.length} cards`}
           </SectionLabel>
         </View>
 
         {/* Empty state */}
-        {cards.length === 0 && (
+        {visibleCards.length === 0 && (
+          // Room held for the cards, and for the wait before them — not a poster. It
+          // carried a second character, a headline and two lines restating the box
+          // directly above it, all of it addressed to someone who had not typed yet.
           <View style={styles.empty}>
-            <MascotCharacter width={94} mood="thinking" />
-            <Text style={styles.emptyTitle}>Let’s make it memorable.</Text>
-            <Text style={styles.emptyText}>
-              Add a topic, a paragraph, or a PDF above. Your cards will land here.
-            </Text>
+            {isGenerating
+              ? <ActivityIndicator color={homeColors.primary} />
+              : <Text style={styles.emptyText}>Your cards will land here.</Text>}
           </View>
         )}
 
         {/* Generated cards */}
-        {cards.map((c) => (
+        {visibleCards.map((c) => (
           <FullCard
             key={c.n}
             card={c}
@@ -449,14 +476,14 @@ export default function CreateScreen() {
         ))}
 
         {/* Manual terms */}
-        <View style={styles.manualSection}>
+        {learningMode === 'knowledge' && <View style={styles.manualSection}>
           <View style={styles.manualList}>
             {manualTerms.map((row, index) => (
               <ManualCard
                 key={row.id}
                 index={index}
                 row={row}
-                isLanguage={learningMode === 'language'}
+                isLanguage={false}
                 disableDelete={manualTerms.length === 1}
                 onDelete={() => removeManualRow(row.id)}
                 onEdit={() => handleEditManualRow(row.id)}
@@ -482,7 +509,7 @@ export default function CreateScreen() {
               />
             ))}
           </View>
-        </View>
+        </View>}
 
         <View style={{ height: 24 }} />
       </ScrollView>
@@ -527,17 +554,17 @@ function FullCard({
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Term</Text>
               <TextInput accessibilityLabel="e.g. Renaissance" style={styles.manualInput} value={editTitle} onChangeText={setEditTitle}
-                placeholder="e.g. Renaissance" placeholderTextColor={colors.muted} />
+                placeholder="e.g. Renaissance" placeholderTextColor={homeColors.placeholder} />
             </View>
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>Definition</Text>
               <TextInput accessibilityLabel="e.g. Period of cultural revival in Europe" style={[styles.manualInput, styles.manualTextarea]} value={editBody} onChangeText={setEditBody}
-                placeholder="e.g. Period of cultural revival in Europe" placeholderTextColor={colors.muted} multiline textAlignVertical="top" />
+                placeholder="e.g. Period of cultural revival in Europe" placeholderTextColor={homeColors.placeholder} multiline textAlignVertical="top" />
             </View>
             <View style={styles.manualInputGroup}>
               <Text style={styles.manualInputLabel}>{isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}</Text>
               <TextInput accessibilityLabel="Add context, examples, or usage notes" style={[styles.manualInput, styles.manualTextarea]} value={editEx} onChangeText={setEditEx}
-                placeholder="Add context, examples, or usage notes" placeholderTextColor={colors.muted} multiline textAlignVertical="top" />
+                placeholder="Add context, examples, or usage notes" placeholderTextColor={homeColors.placeholder} multiline textAlignVertical="top" />
             </View>
             {isLanguage && <LanguageCardEditor value={editLanguage} onChange={setEditLanguage} term={editTitle} />}
           </View>
@@ -625,12 +652,11 @@ function ManualCard({
         </View>
         {row.saved && !row.editing ? (
           <Pressable accessibilityRole="button" onPress={onEdit}><Text style={styles.editLink}>Edit</Text></Pressable>
-        ) : (
-          <Pressable accessibilityRole="button" accessibilityLabel="Remove draft card" onPress={onDelete} disabled={disableDelete}
-            style={[styles.manualRemoveBtn, disableDelete && styles.manualRemoveBtnDisabled]}>
-            <Feather name="x" size={14} color={disableDelete ? colors.dim : colors.red} />
+        ) : !disableDelete ? (
+          <Pressable accessibilityRole="button" accessibilityLabel="Remove draft card" onPress={onDelete} hitSlop={10} style={styles.manualRemoveBtn}>
+            <Feather name="x" size={18} color={colors.muted} />
           </Pressable>
-        )}
+        ) : null}
       </View>
 
       <View style={styles.manualCardBody}>
@@ -647,39 +673,12 @@ function ManualCard({
           </>
         ) : (
           <>
-            <View style={styles.manualInputGroup}>
-              <View style={styles.manualInputLabelRow}>
-                <Text style={styles.manualInputLabel}>Term</Text>
-                {termDraft.trim().length > 0 && (
-                  <Pressable accessibilityRole="button" onPress={() => void handleGenerate()} disabled={isGenerating}
-                    style={isGenerating ? styles.manualGenerateButtonDisabled : undefined}>
-                    <Text style={styles.manualGenerateButtonText}>
-                      {isGenerating ? 'Generating...' : 'Generate'}
-                    </Text>
-                  </Pressable>
-                )}
-              </View>
-              <TextInput accessibilityLabel="e.g. Renaissance" style={styles.manualInput} placeholder="e.g. Renaissance"
-                placeholderTextColor={colors.muted} value={termDraft}
-                onChangeText={(t) => { setTermDraft(t); onDraftChange('term', t); }} />
-            </View>
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>Definition</Text>
-              <TextInput accessibilityLabel="e.g. Period of cultural revival in Europe" style={[styles.manualInput, styles.manualTextarea]}
-                placeholder="e.g. Period of cultural revival in Europe"
-                placeholderTextColor={colors.muted} multiline value={definitionDraft}
-                onChangeText={(t) => { setDefinitionDraft(t); onDraftChange('definition', t); }} />
-            </View>
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>{isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}</Text>
-              <TextInput accessibilityLabel="Add context, examples, or usage notes" style={[styles.manualInput, styles.manualTextarea]}
-                placeholder="Add context, examples, or usage notes"
-                placeholderTextColor={colors.muted} multiline value={explanationDraft}
-                onChangeText={(t) => { setExplanationDraft(t); onDraftChange('explanation', t); }} />
-            </View>
-            {isLanguage && <LanguageCardEditor value={languageDraft} term={termDraft} onChange={(next) => {
-              setLanguageDraft(next); onDraftChange('languageData', next);
-            }} />}
+            <ManualTermFields term={termDraft} definition={definitionDraft} explanation={explanationDraft} languageData={languageDraft}
+              isLanguage={isLanguage} isGenerating={isGenerating} onGenerate={() => void handleGenerate()}
+              onTermChange={(value) => { setTermDraft(value); onDraftChange('term', value); }}
+              onDefinitionChange={(value) => { setDefinitionDraft(value); onDraftChange('definition', value); }}
+              onExplanationChange={(value) => { setExplanationDraft(value); onDraftChange('explanation', value); }}
+              onLanguageChange={(value) => { setLanguageDraft(value); onDraftChange('languageData', value); }} />
           </>
         )}
       </View>
@@ -715,27 +714,30 @@ function ManualCard({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  headerGradient: { position: 'absolute', left: 0, right: 0 },
   topbar: {
     paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    position: 'relative', borderBottomWidth: 1, borderBottomColor: colors.border,
+    position: 'relative',
   },
-  topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2 },
+  topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2, justifyContent: 'center' },
   contentScroll: { flex: 1 },
   contentScrollBody: { paddingBottom: 24 },
-  cancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
+  cancel: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
   title: {
-    fontSize: 16, lineHeight: 22.4, fontWeight: '800', letterSpacing: -0.1,
-    color: colors.text, fontFamily: fonts.extraBold,
+    fontSize: 23, lineHeight: 32,
+    color: homeColors.deep, fontFamily: fonts.display,
     position: 'absolute', left: 0, right: 0, textAlign: 'center',
   },
   tag: {
-    fontSize: 13, lineHeight: 18, letterSpacing: -0.1, color: colors.accentText,
+    fontSize: 14, lineHeight: 20, color: homeColors.primary,
     fontWeight: '700', fontFamily: fonts.bold, textAlign: 'right',
   },
   tagDisabled: { opacity: 0.45 },
 
-  promptBlock: { marginHorizontal: layout.screenInline, marginTop: 14, backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, borderRadius: 20, overflow: 'hidden' },
+  sectionLabel: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: homeColors.darkest, marginBottom: 10 },
+  perch: { alignSelf: 'center' },
+  promptBlock: { marginHorizontal: layout.screenInline, marginTop: 8, backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card },
   textarea: {
     minHeight: 76, fontSize: 16, lineHeight: 24, letterSpacing: -0.1,
     color: colors.text, fontFamily: fonts.regular, fontWeight: '400', padding: 0,
@@ -748,7 +750,7 @@ const styles = StyleSheet.create({
   actionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionLabel: {
     fontSize: 12, lineHeight: 16.8, color: colors.muted, letterSpacing: 0.5,
-    textTransform: 'uppercase', fontWeight: '700', fontFamily: fonts.bold,
+    fontWeight: '700', fontFamily: fonts.bold,
   },
   generateLabel: { fontSize: 14, lineHeight: 19.6, fontWeight: '700', fontFamily: fonts.bold },
 
@@ -772,17 +774,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18, paddingTop: 16, paddingBottom: 2,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
+  // A slot, sized for what lands in it rather than for the words that used to fill it.
   empty: {
-    marginHorizontal: layout.screenInline, marginBottom: 16, paddingHorizontal: 20, paddingVertical: 18,
-    backgroundColor: colors.heroBg, borderWidth: 1, borderColor: colors.heroBorder, borderRadius: 20, alignItems: 'center',
+    marginHorizontal: layout.screenInline, marginBottom: 16, paddingHorizontal: 20,
+    minHeight: 104, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.heroBg, borderWidth: 1, borderColor: colors.heroBorder,
+    ...cardElevation.card,
   },
-  emptyTitle: { marginTop: 2, marginBottom: 4, fontSize: 16, color: colors.text, fontFamily: fonts.bold },
   emptyText: { maxWidth: 260, fontSize: 13, color: colors.muted, lineHeight: 19, textAlign: 'center', fontFamily: fonts.regular },
 
   fullCard: {
     marginHorizontal: layout.screenInline, marginTop: 8,
-    backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, borderRadius: 18,
-  },
+    backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card, },
   fullCardHead: {
     paddingHorizontal: 14, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: colors.border,
@@ -801,14 +804,13 @@ const styles = StyleSheet.create({
   },
   exText: { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.utility },
   fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border },
-  fullCardAction: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  fullCardActionLabel: { fontSize: 12, fontFamily: fonts.regular },
+  fullCardAction: { flex: 1, paddingVertical: 15, alignItems: 'center' },
+  fullCardActionLabel: { fontSize: 16, fontFamily: fonts.medium },
 
   manualSection: { marginTop: 8, marginHorizontal: layout.screenInline },
   manualList: { gap: 8 },
   manualCard: {
-    backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, borderRadius: 18,
-  },
+    backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card, },
   manualCardHead: {
     paddingHorizontal: 12, paddingVertical: 10,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -818,17 +820,12 @@ const styles = StyleSheet.create({
     marginTop: 4, fontSize: 15, fontWeight: '700', letterSpacing: -0.3,
     lineHeight: 20, color: colors.text, fontFamily: fonts.bold,
   },
-  manualCardBody: { padding: 12 },
+  manualCardBody: { padding: 20 },
   manualCardActions: { borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row' },
-  manualCardAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 11 },
+  manualCardAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 15 },
   manualCardActionBorder: { borderLeftWidth: 1, borderLeftColor: colors.border },
-  manualCardActionLabel: { fontSize: 12, fontFamily: fonts.medium },
-  manualRemoveBtn: {
-    width: 44, minHeight: 44, borderRadius: 6,
-    alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.bg, borderWidth: 1, borderColor: colors.controlBorder,
-  },
-  manualRemoveBtnDisabled: { opacity: 0.5 },
+  manualCardActionLabel: { fontSize: 16, fontFamily: fonts.medium },
+  manualRemoveBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.nav },
   manualInputGroup: { marginBottom: 10 },
   manualInputLabelRow: { marginBottom: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   manualInputLabel: {
@@ -838,8 +835,8 @@ const styles = StyleSheet.create({
   manualGenerateButtonDisabled: { opacity: 0.5 },
   manualGenerateButtonText: { fontSize: 12, lineHeight: 17, color: colors.action, fontFamily: fonts.bold },
   manualInput: { minHeight: 44,
-    borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 8,
-    backgroundColor: colors.surf, paddingHorizontal: 12, paddingVertical: 10,
+    borderWidth: 1, borderColor: colors.border, borderRadius: 14,
+    backgroundColor: homeColors.nav, paddingHorizontal: 12, paddingVertical: 10,
     fontSize: 14, lineHeight: 20, color: colors.text, fontFamily: fonts.regular,
   },
   manualTextarea: { minHeight: 62, textAlignVertical: 'top' },

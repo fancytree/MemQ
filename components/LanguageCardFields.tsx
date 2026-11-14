@@ -1,6 +1,7 @@
 import { LanguageCardData, normalizeLanguageData } from '@/lib/languageCard';
 import { DesignAsset, FittedDesignAsset } from '@/components/DesignAsset';
 import { colors, type } from '@/theme';
+import { homeColors } from '@/theme/colors';
 import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -43,7 +44,7 @@ export function LanguageCardEditor({
             value={String(value[field.key] || '')}
             onChangeText={(text) => update(field.key, text)}
             placeholder={field.hint}
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={homeColors.placeholder}
             style={[styles.input, field.multiline && styles.multiline]}
             multiline={field.multiline}
           />
@@ -87,7 +88,7 @@ function LanguageListInput({ value, onChange, placeholder, label }: {
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       placeholder={placeholder}
-      placeholderTextColor={colors.muted}
+      placeholderTextColor={homeColors.placeholder}
       style={styles.input}
     />
   );
@@ -130,10 +131,11 @@ export function PlayButton({ text, languageCode, label, iconOnly = false, iconSi
   );
 }
 
-export function LanguageCardDetails({ data, term, showTermPlay = true }: {
+export function LanguageCardDetails({ data, term, showTermPlay = true, variant = 'default' }: {
   data: LanguageCardData;
   term?: string;
   showTermPlay?: boolean;
+  variant?: 'default' | 'flashcard';
 }) {
   const rows: Array<[string, string]> = [
     ['Pronunciation', data.pronunciation || ''],
@@ -144,21 +146,21 @@ export function LanguageCardDetails({ data, term, showTermPlay = true }: {
     ['Common combinations', data.collocations?.join(', ') || ''],
   ];
   return (
-    <View style={styles.details}>
+    <View style={[styles.details, variant === 'flashcard' && styles.flashcardDetails]}>
       {showTermPlay && !!term && <PlayButton text={term} languageCode={data.language_code} label={`Play ${term}`} />}
       {rows.filter(([, value]) => !!value).map(([label, value]) => (
-        <View key={label} style={styles.detailRow}>
-          <Text style={styles.detailLabel}>{label}</Text>
-          <Text style={styles.detailText}>{value}</Text>
+        <View key={label} style={[styles.detailRow, variant === 'flashcard' && styles.flashcardDetailRow]}>
+          <Text style={[styles.detailLabel, variant === 'flashcard' && styles.flashcardDetailLabel]}>{label}</Text>
+          <Text style={[styles.detailText, variant === 'flashcard' && styles.flashcardDetailText]}>{value}</Text>
         </View>
       ))}
       {!!data.example && (
-        <View style={styles.exampleBox}>
+        <View style={[styles.exampleBox, variant === 'flashcard' && styles.flashcardExample]}>
           <View style={styles.exampleHeading}>
-            <Text style={styles.detailLabel}>Example</Text>
+            <Text style={[styles.detailLabel, variant === 'flashcard' && styles.flashcardDetailLabel]}>Example</Text>
             <PlayButton iconOnly iconSize={18} text={data.example} languageCode={data.language_code} label="Play example sentence" />
           </View>
-          <Text style={styles.detailText}>{data.example}</Text>
+          <Text style={[styles.detailText, variant === 'flashcard' && styles.flashcardDetailText]}>{data.example}</Text>
         </View>
       )}
     </View>
@@ -178,6 +180,11 @@ const styles = StyleSheet.create({
   playButton: { minHeight: 44, minWidth: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingRight: 8 },
   playText: { fontSize: 12, fontWeight: '700', color: colors.accentText },
   details: { gap: 20, marginTop: 20 },
+  flashcardDetails: { gap: 12, marginTop: 2 },
+  flashcardDetailRow: { paddingTop: 0, gap: 4 },
+  flashcardDetailLabel: { fontFamily: type.label.fontFamily, fontSize: 12, lineHeight: 17, color: homeColors.muted },
+  flashcardDetailText: { fontSize: 15, lineHeight: 22, color: homeColors.darkest },
+  flashcardExample: { padding: 14, borderRadius: 16, backgroundColor: homeColors.nav, gap: 4 },
   detailRow: { gap: 8, paddingTop: 16 },
   detailLabel: { ...type.detailLabel, color: colors.text },
   detailText: { ...type.body, color: colors.text },
