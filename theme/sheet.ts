@@ -25,11 +25,16 @@ export const sheet = {
     justifyContent: 'flex-end',
     backgroundColor: colors.modalScrim,
   },
-  /** The surface itself: square at the bottom, where the screen edge cuts it off. */
+  /** The surface itself: square at the bottom, where the screen edge cuts it off.
+   *
+   *  Canvas, not white — the same ground the screens stand on. A sheet is a place for
+   *  cards, and cards are white: on a white sheet their edges disappear and only the
+   *  lip underneath shows, which is the same way a white row vanished inside a white
+   *  card elsewhere in the app. */
   surface: {
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
-    backgroundColor: homeColors.white,
+    backgroundColor: homeColors.canvas,
     overflow: 'hidden' as const,
   },
   /** The grab bar. It says the sheet can be pulled down, so it belongs on sheets that

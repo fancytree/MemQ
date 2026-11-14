@@ -5,6 +5,7 @@ import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { Icon } from '@/components/Icon';
+import { Feather } from '@expo/vector-icons';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { SectionLabel } from '@/components/SectionLabel';
@@ -16,6 +17,10 @@ import { chooseSavedQuestion, type SavedPracticeQuestion } from '@/lib/practiceQ
 import { fallbackOptions } from '@/lib/quizLanguage';
 import { updateTermProgressSafe } from '@/lib/updateTermProgress';
 import { colors, fonts } from '@/theme';
+import PracticeSettingsModal, {
+  DEFAULT_PRACTICE_SETTINGS, type PracticeMode, type PracticeSettings,
+} from '@/components/PracticeSettingsModal';
+import { loadPracticeSettings, savePracticeSettings } from '@/lib/practiceSettings';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Animated, Keyboard, KeyboardAvoidingView, InteractionManager, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
@@ -76,7 +81,11 @@ const toKeywordTokens = (text: string) =>
     .split(' ')
     .filter((token) => token.length > 1 && !RECALL_STOP_WORDS.has(token));
 
-const isRecallAnswerCorrect = (userInput: string, expectedAnswer: string) => {
+const isRecallAnswerCorrect = (
+  userInput: string,
+  expectedAnswer: string,
+  grading: PracticeSettings['grading'] = 'relaxed',
+) => {
   const normalizedUser = normalizeRecallText(userInput);
   const normalizedExpected = normalizeRecallText(expectedAnswer);
   if (!normalizedUser || !normalizedExpected) return false;
@@ -86,7 +95,9 @@ const isRecallAnswerCorrect = (userInput: string, expectedAnswer: string) => {
   if (normalizedExpected.includes(normalizedUser) && normalizedUser.length >= 4) return true;
   if (normalizedUser.includes(normalizedExpected) && normalizedExpected.length >= 4) return true;
 
-  // 关键词匹配：用户关键词大部分命中即可通过，避免长句定义导致误判
+  // Keyword matching is the relaxed half of the rule: an answer that means the right
+  // thing passes. Strict stops at the exact and contained matches above.
+  if (grading === 'strict') return false;
   const userTokens = toKeywordTokens(userInput);
   const expectedTokens = new Set(toKeywordTokens(expectedAnswer));
   if (userTokens.length === 0) return false;
@@ -182,20 +193,44 @@ type TermPlan = { kind: 'full'; hasMcq: boolean } | { kind: 'spot'; singleMode: 
 
 const FULL_TERM_PLAN: TermPlan = { kind: 'full', hasMcq: true };
 
-function buildTermPlanForRound(progress: TermProgressLite | undefined, hasMcq: boolean): TermPlan {
+/** The order a term is taken through, and the only place that order is written down.
+ *  A kind the person has turned off is stepped over rather than asked. */
+const STAGE_ORDER: PracticeMode[] = ['flip', 'mcq', 'recall'];
+
+/** Whether this stage can be asked of this term at all: a term with no sensible
+ *  distractors has no multiple choice to offer, whatever the settings say. */
+const stageAvailable = (stage: PracticeMode, plan: TermPlan, modes: PracticeSettings['modes']) =>
+  modes[stage] && !(stage === 'mcq' && plan.kind === 'full' && !plan.hasMcq);
+
+/** The next stage after this one, or done. */
+function stageAfter(stage: TermStage, plan: TermPlan, modes: PracticeSettings['modes']): TermStage {
+  if (plan.kind === 'spot') return 'done';
+  const from = stage === 'done' ? STAGE_ORDER.length : STAGE_ORDER.indexOf(stage as PracticeMode) + 1;
+  for (let i = from; i < STAGE_ORDER.length; i++) {
+    if (stageAvailable(STAGE_ORDER[i], plan, modes)) return STAGE_ORDER[i];
+  }
+  return 'done';
+}
+
+function buildTermPlanForRound(
+  progress: TermProgressLite | undefined,
+  hasMcq: boolean,
+  modes: PracticeSettings['modes'],
+): TermPlan {
   const st = (progress?.status || 'New').trim();
   if (st === 'Mastered') {
-    const r = Math.random();
-    const singleMode: 'flip' | 'mcq' | 'recall' =
-      r < 1 / 3 ? 'flip' : r < 2 / 3 ? 'mcq' : 'recall';
-    return { kind: 'spot', singleMode: singleMode === 'mcq' && !hasMcq ? 'recall' : singleMode };
+    // One question at random, drawn only from the kinds that are on and possible.
+    const open = STAGE_ORDER.filter((m) => modes[m] && !(m === 'mcq' && !hasMcq));
+    const pick = open.length ? open[Math.floor(Math.random() * open.length)] : 'flip';
+    return { kind: 'spot', singleMode: pick };
   }
   return { kind: 'full', hasMcq };
 }
 
-function initialStageFromPlan(plan: TermPlan): TermStage {
+function firstStage(plan: TermPlan, modes: PracticeSettings['modes']): TermStage {
   if (plan.kind === 'spot') return plan.singleMode;
-  return 'flip';
+  for (const stage of STAGE_ORDER) if (stageAvailable(stage, plan, modes)) return stage;
+  return 'done';
 }
 
 function buildQuizQuestionForStage(
@@ -323,6 +358,18 @@ export default function QuizScreen() {
   const [allTermsForMcq, setAllTermsForMcq] = useState<QuizTermRow[]>([]);
   const [lessonTopicByLessonId, setLessonTopicByLessonId] = useState<Record<string, string>>({});
   const [stages, setStages] = useState<Record<string, TermStage>>({});
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settings, setSettings] = useState<PracticeSettings>(DEFAULT_PRACTICE_SETTINGS);
+  // The round is built out of these, so it waits for them: read a frame late, the
+  // first question would already have been picked under the defaults.
+  const [settingsReady, setSettingsReady] = useState(false);
+  useEffect(() => {
+    void loadPracticeSettings().then((saved) => { setSettings(saved); setSettingsReady(true); });
+  }, []);
+  const updateSettings = (next: PracticeSettings) => {
+    setSettings(next);
+    void savePracticeSettings(next);
+  };
   const [termPlans, setTermPlans] = useState<Record<string, TermPlan>>({});
   const [currentQ, setCurrentQ] = useState<QuizQuestion | null>(null);
   const [currentTermIdx, setCurrentTermIdx] = useState(0);
@@ -375,6 +422,7 @@ export default function QuizScreen() {
   };
 
   useEffect(() => {
+    if (!settingsReady) return;
     const clearLocalSession = () => {
       setSessionTerms([]);
       setAllTermsForMcq([]);
@@ -530,9 +578,9 @@ export default function QuizScreen() {
         termsWithQuestions.forEach((t) => {
           const hasSaved = !!chooseSavedQuestion(t.practiceQuestions || [], 'mcq');
           const hasFallback = !!fallbackOptions(t.definition || '', t.lesson_id, t.id, usableTerms);
-          const plan = buildTermPlanForRound(progressMap.get(t.id), hasSaved || hasFallback);
+          const plan = buildTermPlanForRound(progressMap.get(t.id), hasSaved || hasFallback, settings.modes);
           plans[t.id] = plan;
-          initialStages[t.id] = initialStageFromPlan(plan);
+          initialStages[t.id] = firstStage(plan, settings.modes);
         });
         const first = pickNextQuestion(termsWithQuestions, initialStages, 0, topics, usableTerms);
         if (!first) {
@@ -556,7 +604,9 @@ export default function QuizScreen() {
     };
 
     loadRealQuizData();
-  }, [entry, lessonId, quizRound]);
+    // `settings` is deliberately not a dependency: changing what a round asks should
+    // not tear down the round being answered. It takes effect on the next one.
+  }, [entry, lessonId, quizRound, settingsReady]);
 
   const q = currentQ;
   const totalSteps = Math.max(1, totalStepsForRound(sessionTerms, termPlans));
@@ -618,7 +668,7 @@ export default function QuizScreen() {
 
   const progressPct = Math.min(100, (completedSubsteps / totalSteps) * 100);
   const recallCorrect = q.mode === 'recall'
-    ? isRecallAnswerCorrect(recallText, q.answer)
+    ? isRecallAnswerCorrect(recallText, q.answer, settings.grading)
     : false;
 
   const reset = () => {
@@ -671,7 +721,7 @@ export default function QuizScreen() {
         const newStages =
           plan.kind === 'spot'
             ? { ...e.stages, [q.termId]: 'done' as TermStage }
-            : { ...e.stages, [q.termId]: 'recall' as TermStage };
+            : { ...e.stages, [q.termId]: stageAfter('mcq', plan, settings.modes) };
         const allDone = e.sessionTerms.every((t) => newStages[t.id] === 'done');
         setStages(newStages);
         if (allDone) {
@@ -732,7 +782,10 @@ export default function QuizScreen() {
           <Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} />
         </Pressable>
         <Text style={styles.roundTitle}>Practice</Text>
-        <View style={styles.navSpacer} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Practice settings"
+          onPress={() => setSettingsOpen(true)} style={styles.navButton}>
+          <Feather name="settings" size={22} color={homeColors.deep} />
+        </Pressable>
       </View>
 
       {/* Progress */}
@@ -798,7 +851,7 @@ export default function QuizScreen() {
             const newStages =
               plan.kind === 'spot'
                 ? { ...e.stages, [q.termId]: 'done' as TermStage }
-                : { ...e.stages, [q.termId]: (plan.hasMcq ? 'mcq' : 'recall') as TermStage };
+                : { ...e.stages, [q.termId]: stageAfter('flip', plan, settings.modes) };
             const allDone = e.sessionTerms.every((t) => newStages[t.id] === 'done');
             setStages(newStages);
             if (allDone) {
@@ -843,6 +896,8 @@ export default function QuizScreen() {
         <Pressable accessibilityRole="button" onPress={onCheckOrNext} disabled={checkDisabled} style={[styles.cta, checkDisabled && styles.ctaDisabled, q.mode === 'mcq' && !revealed && styles.reservedInvisible]}><Text style={styles.ctaText}>Continue →</Text></Pressable>
       </View>}
       </KeyboardAvoidingView>
+      <PracticeSettingsModal visible={settingsOpen} settings={settings}
+        onChange={updateSettings} onClose={() => setSettingsOpen(false)} />
     </EdBase>
   );
 }
@@ -1266,7 +1321,6 @@ const styles = StyleSheet.create({
     borderBottomWidth: 0, zIndex: 10,
   },
   navButton: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  navSpacer: { width: 44 },
   roundTitle: { fontFamily: fonts.semibold, fontSize: 20, color: homeColors.deep },
   navBack: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
   navCount: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
