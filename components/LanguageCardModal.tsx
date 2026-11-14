@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { sheet as sheetShape } from '@/theme/sheet';
 import { fonts } from '@/theme/typography';
 import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';
 import { hasLanguageData, languageDataFromLegacyExplanation, normalizeLanguageData } from '@/lib/languageCard';
@@ -117,11 +118,9 @@ const styles = StyleSheet.create({
   actionLabel: { ...type.controlLink, color: colors.text },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   overlay: { flex: 1, justifyContent: 'flex-end' },
-  backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.scrim },
+  backdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: colors.modalScrim },
   sheet: {
-    backgroundColor: colors.surf,
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
+    ...sheetShape.surface,
     maxHeight: '88%',
     paddingHorizontal: layout.screenInline,
     shadowColor: colors.shadow,

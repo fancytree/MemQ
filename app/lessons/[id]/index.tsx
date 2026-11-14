@@ -1,6 +1,11 @@
+import { LessonCover } from '@/components/LessonCover';
 import { fonts } from '@/theme/typography';
 import { DesignAsset } from '@/components/DesignAsset';
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { HomeAsset } from '@/components/HomeAsset';
+import { Icon } from '@/components/Icon';
+import { homeColors } from '@/theme/colors';
+import { sheet } from '@/theme/sheet';
+import { LinearGradient } from 'expo-linear-gradient';
 import TermCard from '@/components/TermCard';
 import { LanguageCardModal } from '@/components/LanguageCardModal';
 import { Button } from '@/components/ui/Button';
@@ -9,7 +14,7 @@ import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors, componentTokens, layout, radius, type } from '@/theme';
-import { Feather } from '@expo/vector-icons';
+import { Feather, MaterialIcons } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router/react-navigation';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
@@ -18,6 +23,7 @@ import {
   Alert,
   Modal,
   Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -34,6 +40,7 @@ interface Lesson {
   deadline: string | null;
   created_at: string;
   learning_mode?: 'language' | 'knowledge';
+  cover_style?: string | null;
 }
 
 // 学习阶段类型
@@ -472,6 +479,7 @@ export default function LessonDetailScreen() {
 
   return (
     <View style={styles.container}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.45, 1]} style={styles.headerGradient} />
       <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
         {/* Top nav */}
         <View style={styles.nav}>
@@ -493,19 +501,19 @@ export default function LessonDetailScreen() {
         contentContainerStyle={[styles.scrollContent, { paddingBottom: 28 + insets.bottom }]}
       >
 
-        <View style={styles.overview}>
+        <View style={styles.overview}><View style={styles.overviewFace}>
           <View style={styles.identity}>
+            <View style={styles.identityHeading}><LessonCover id={lesson.id} mode={lesson.learning_mode} coverStyle={lesson.cover_style} width={72} height={72} />
             <View style={styles.titleCopy}>
               <View style={styles.titleRow}>
                 <Text accessibilityRole="header" style={styles.lessonTitle}>{lesson.name}</Text>
                 {lesson.learning_mode === 'language' && (
                   <View accessible accessibilityLabel="Language learning" style={styles.languageTag}>
-                    <Feather name="globe" size={14} color={colors.text} />
+                    <MaterialIcons name="language" size={16} color={homeColors.white} />
                   </View>
                 )}
               </View>
-              {lesson.learning_mode !== 'language' && <Text style={styles.lessonMetadata}>Knowledge learning</Text>}
-            </View>
+            </View></View>
             {!!lesson.description && <Text style={styles.lessonDescription}>{lesson.description}</Text>}
           </View>
           <View style={styles.statsRow}>
@@ -526,9 +534,8 @@ export default function LessonDetailScreen() {
             </View>
             <View style={styles.barTrack}><View style={[styles.barFill, { width: `${progressPct}%` }]} /></View>
           </View>
-          <PrimaryButton label="Start review" onPress={handleStartStudy} disabled={totalCards === 0}
-            endIcon={<View style={styles.reviewArrow}><DesignAsset name="reviewArrow" /></View>} />
-        </View>
+          <Pressable accessibilityRole="button" accessibilityState={{ disabled: totalCards === 0 }} disabled={totalCards === 0} onPress={handleStartStudy} style={[styles.reviewButton, totalCards === 0 && styles.reviewDisabled]}><View style={styles.reviewButtonFace}><View style={styles.playIcon}><HomeAsset name="play" /></View><Text style={styles.reviewButtonText}>Start review</Text></View></Pressable>
+        </View></View>
 
         <View style={styles.termsSection}>
           <View style={styles.controls}>
@@ -539,7 +546,7 @@ export default function LessonDetailScreen() {
               </Button>
             </View>
             <View style={styles.searchContainer}>
-              <DesignAsset name="termSearch" />
+              <Icon name="search" size={20} color={homeColors.muted} strokeWidth={1.8} />
               <TextInput accessibilityLabel="Search terms" style={styles.searchInput} placeholder="Search terms"
                 placeholderTextColor={colors.muted} value={searchQuery} onChangeText={setSearchQuery}
                 autoCorrect={false} returnKeyType="search" />
@@ -621,7 +628,7 @@ export default function LessonDetailScreen() {
             onPress={() => setShowFilterModal(false)}
           />
           <View style={styles.filterModalContainer}>
-            <View style={styles.filterModalContent}>
+            <View style={[styles.filterModalContent, { paddingBottom: Math.max(20, insets.bottom) }]}>
                 <View style={styles.filterModalHeader}>
                   <View style={styles.filterModalHeaderRow}>
                     <Text style={styles.filterModalTitle}>Filter by Level</Text>
@@ -842,6 +849,7 @@ export default function LessonDetailScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   safeAreaTop: { flex: 1 },
+  headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 450 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { ...type.bodySmall, color: colors.muted, marginTop: 12 },
   errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
@@ -850,39 +858,45 @@ const styles = StyleSheet.create({
   backButton: { backgroundColor: colors.action, paddingHorizontal: 20, paddingVertical: 12, borderRadius: radius.pill },
   backButtonText: { ...type.controlLink, color: colors.onAction },
   nav: { paddingHorizontal: layout.screenInline, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  navBack: { ...type.controlLink, color: colors.text },
-  navEdit: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  navBack: { ...type.controlLink, color: homeColors.deep },
+  navEdit: { width: 44, height: 44, borderRadius: 22, backgroundColor: homeColors.focus, alignItems: 'center', justifyContent: 'center' },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: layout.screenInline, paddingTop: 12, gap: componentTokens.lessonDetail.sectionGap },
-  overview: { gap: componentTokens.lessonDetail.gap, padding: componentTokens.lessonDetail.overviewPadding, borderRadius: componentTokens.lessonDetail.overviewRadius, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg },
+  overview: { borderRadius: 24, paddingBottom: 4, backgroundColor: homeColors.border },
+  overviewFace: { gap: 20, padding: 16, borderRadius: 24, backgroundColor: homeColors.white },
   identity: { gap: 12 },
-  titleCopy: { gap: 5 },
+  identityHeading: { flexDirection: 'row', alignItems: 'center', gap: 14 },
+  titleCopy: { gap: 5, flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lessonTitle: { ...type.lessonTitle, color: colors.text, flexShrink: 1 },
+  lessonTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, flexShrink: 1 },
   lessonMetadata: { ...type.meta, color: colors.supporting },
-  languageTag: { flexShrink: 0, minWidth: 28, height: 24, paddingHorizontal: 7, borderRadius: radius.pill, backgroundColor: colors.surfaceSubtle, alignItems: 'center', justifyContent: 'center' },
+  languageTag: { width: 22, height: 22, borderRadius: 11, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], boxShadow: `0px 2px 0px ${homeColors.border}` },
   lessonDescription: { ...type.bodyReading, color: colors.supporting },
-  statsRow: { flexDirection: 'row', gap: 12 },
-  statCell: { flex: 1, gap: 2 },
-  statVal: { ...type.lessonStatistic, color: colors.text },
-  statLabel: { ...type.meta, color: colors.supporting },
+  statsRow: { flexDirection: 'row', borderRadius: 16, backgroundColor: homeColors.nav, paddingVertical: 12, paddingHorizontal: 8 },
+  statCell: { flex: 1, gap: 2, alignItems: 'center' },
+  statVal: { fontFamily: fonts.display, fontSize: 24, color: homeColors.deep },
+  statLabel: { ...type.meta, color: homeColors.muted },
   mastery: { gap: 10 },
   masteryLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
   masteryLabel: { ...type.controlLink, color: colors.text },
   masteryValue: { ...type.courseTitle, color: colors.text },
   barTrack: { height: componentTokens.progress.height, borderRadius: radius.pill, backgroundColor: colors.progressTrack, overflow: 'hidden' },
   barFill: { height: '100%', backgroundColor: colors.action, borderRadius: radius.pill },
-  reviewArrow: { width: 18, height: 18, alignItems: 'center', justifyContent: 'center' },
+  reviewButton: { height: 56, borderRadius: 42, paddingBottom: 4, backgroundColor: homeColors.deep },
+  reviewButtonFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  reviewButtonText: { fontFamily: fonts.semibold, fontSize: 18, color: homeColors.white },
+  reviewDisabled: { opacity: 0.45 },
+  playIcon: { transform: [{ rotate: '90deg' }, { scale: 0.7 }] },
   termsSection: { gap: 16 },
   controls: { gap: 10 },
   sectionHead: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { ...type.section, color: colors.text },
   addTerm: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   sectionAction: { ...type.controlLink, color: colors.text },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.surfaceSubtle, borderRadius: componentTokens.lessonDetail.controlRadius, paddingHorizontal: 14, minHeight: componentTokens.lessonDetail.searchHeight, gap: 10 },
+  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: homeColors.white, borderWidth: 1, borderColor: homeColors.border, borderRadius: 26, paddingHorizontal: 16, minHeight: 52, gap: 10 },
   searchInput: { ...type.input, color: colors.text, flex: 1, minHeight: 46, paddingVertical: 10 },
   filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
-  filterButton: { minHeight: 44, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.controlBorder, backgroundColor: colors.surfaceSubtle, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  filterButton: { minHeight: 44, borderRadius: radius.pill, borderWidth: 1, borderColor: homeColors.border, backgroundColor: homeColors.white, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
   filterButtonText: { ...type.streak, color: colors.text },
   resultCount: { ...type.meta, color: colors.supporting },
   emptyTermsContainer: { alignItems: 'center', paddingVertical: 24, gap: 12 },
@@ -902,7 +916,7 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.scrim,
+    backgroundColor: colors.modalScrim,
   },
   filterModalContainer: {
     width: '100%',
@@ -910,11 +924,7 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   filterModalContent: {
-    backgroundColor: colors.surf,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    borderTopWidth: 1,
-    borderColor: colors.border,
+    ...sheet.surface,
     paddingBottom: Platform.OS === 'ios' ? 0 : 20,
     maxHeight: '90%',
   },

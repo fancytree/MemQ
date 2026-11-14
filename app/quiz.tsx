@@ -1,16 +1,25 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { homeColors } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { Icon } from '@/components/Icon';
+import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';
 import { LanguageCardData, normalizeLanguageData } from '@/lib/languageCard';
 import { supabase } from '@/lib/supabase';
+import { loadCurrentPracticeQuestions } from '@/lib/loadPracticeQuestions';
+import { chooseSavedQuestion, type SavedPracticeQuestion } from '@/lib/practiceQuestions';
+import { fallbackOptions } from '@/lib/quizLanguage';
 import { updateTermProgressSafe } from '@/lib/updateTermProgress';
 import { colors, fonts } from '@/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Animated, Keyboard, KeyboardAvoidingView, InteractionManager, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput } from 'react-native';
 
 interface MCQ {
@@ -86,52 +95,6 @@ const isRecallAnswerCorrect = (userInput: string, expectedAnswer: string) => {
   return overlap >= 2 && overlap / userTokens.length >= 0.75;
 };
 
-// 单课 term 数量少时，用占位错误项补足 MCQ 的 3 个干扰项（共 4 个选项）
-const MCQ_PLACEHOLDER_DISTRACTORS = [
-  'Unrelated idea — not the right definition.',
-  'A partial or misleading paraphrase.',
-  'Opposite or contradictory meaning.',
-  'Too vague to be a precise definition.',
-  'Mixes up two different concepts.',
-] as const;
-
-/** 构造 MCQ 选项并打乱顺序，返回正确答案下标 */
-function buildMcqOptions(
-  correctDef: string,
-  allTerms: { id: string; definition: string | null }[],
-  selfId: string,
-): { opts: string[]; correctIndex: number } {
-  const correct = correctDef.trim();
-  const used = new Set<string>([correct.toLowerCase()]);
-  const distractors: string[] = [];
-
-  for (const t of allTerms) {
-    if (t.id === selfId || distractors.length >= 3) continue;
-    const d = (t.definition || '').trim();
-    if (!d || used.has(d.toLowerCase())) continue;
-    used.add(d.toLowerCase());
-    distractors.push(d);
-  }
-
-  let pi = 0;
-  while (distractors.length < 3 && pi < MCQ_PLACEHOLDER_DISTRACTORS.length) {
-    const ph = MCQ_PLACEHOLDER_DISTRACTORS[pi++];
-    if (!used.has(ph.toLowerCase())) {
-      used.add(ph.toLowerCase());
-      distractors.push(ph);
-    }
-  }
-
-  const opts = [correct, ...distractors.slice(0, 3)];
-  const shuffled = [...opts];
-  for (let i = shuffled.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-  }
-  const correctIndex = shuffled.findIndex((o) => o === correct);
-  return { opts: shuffled, correctIndex: correctIndex >= 0 ? correctIndex : 0 };
-}
-
 /** Supabase terms 行（quiz 用） */
 type QuizTermRow = {
   id: string;
@@ -140,6 +103,7 @@ type QuizTermRow = {
   definition: string | null;
   explanation: string | null;
   language_data?: unknown;
+  practiceQuestions?: SavedPracticeQuestion[];
 };
 
 type TermProgressLite = {
@@ -211,22 +175,22 @@ type TermStage = 'flip' | 'mcq' | 'recall' | 'done';
 
 /**
  * 单轮内每个词的计划（中文流程）：
- * - full：必须按闪卡 → MCQ → Recall 顺序学习；轮询混排多词，但同一词未完成当前步不会进入该词下一步。
+ * - full：按闪卡 → 可用时选择题 → Recall 顺序学习；没有合适选项时跳过选择题。
  * - spot：已掌握（Mastered）抽查，本只出现 1 道题，题型在三种中随机，做完该词即结束当轮中该词。
  */
-type TermPlan = { kind: 'full' } | { kind: 'spot'; singleMode: 'flip' | 'mcq' | 'recall' };
+type TermPlan = { kind: 'full'; hasMcq: boolean } | { kind: 'spot'; singleMode: 'flip' | 'mcq' | 'recall' };
 
-const FULL_TERM_PLAN: TermPlan = { kind: 'full' };
+const FULL_TERM_PLAN: TermPlan = { kind: 'full', hasMcq: true };
 
-function buildTermPlanForRound(progress: TermProgressLite | undefined): TermPlan {
+function buildTermPlanForRound(progress: TermProgressLite | undefined, hasMcq: boolean): TermPlan {
   const st = (progress?.status || 'New').trim();
   if (st === 'Mastered') {
     const r = Math.random();
     const singleMode: 'flip' | 'mcq' | 'recall' =
       r < 1 / 3 ? 'flip' : r < 2 / 3 ? 'mcq' : 'recall';
-    return { kind: 'spot', singleMode };
+    return { kind: 'spot', singleMode: singleMode === 'mcq' && !hasMcq ? 'recall' : singleMode };
   }
-  return { kind: 'full' };
+  return { kind: 'full', hasMcq };
 }
 
 function initialStageFromPlan(plan: TermPlan): TermStage {
@@ -257,28 +221,34 @@ function buildQuizQuestionForStage(
     };
   }
   if (stage === 'mcq') {
-    const explainText = term.explanation || `Review: ${term.term} → ${definition}`;
-    const { opts, correctIndex } = buildMcqOptions(definition, allTermsForMcq, term.id);
+    const saved = chooseSavedQuestion(term.practiceQuestions || [], 'mcq');
+    if (saved && saved.mode === 'mcq') return { ...saved, termId: term.id, topic, languageData, termText: term.term };
+    const explainText = term.explanation?.trim() || undefined;
+    const fallback = fallbackOptions(definition, term.lesson_id, term.id, allTermsForMcq);
+    if (!fallback) return null;
+    const { opts, correctIndex } = fallback;
     return {
       termId: term.id,
       mode: 'mcq',
       topic,
       languageData,
       termText: term.term,
-      q: `What is the best definition of "${term.term}"?`,
+      q: term.term,
       opts,
       correct: correctIndex,
       explain: explainText,
     };
   }
-  const explainText = term.explanation || `Review: ${term.term} → ${definition}`;
+  const saved = chooseSavedQuestion(term.practiceQuestions || [], 'recall');
+  if (saved && saved.mode === 'recall') return { ...saved, termId: term.id, topic, languageData, termText: term.term };
+  const explainText = term.explanation?.trim() || undefined;
   return {
     termId: term.id,
     mode: 'recall',
     topic,
     languageData,
     termText: term.term,
-    q: `Define "${term.term}" in your own words.`,
+    q: term.term,
     answer: definition,
     explain: explainText,
   };
@@ -320,8 +290,8 @@ function countCompletedSubsteps(
       return acc + (s === 'done' ? 1 : 0);
     }
     if (s === 'mcq') return acc + 1;
-    if (s === 'recall') return acc + 2;
-    if (s === 'done') return acc + 3;
+    if (s === 'recall') return acc + (plan.hasMcq ? 2 : 1);
+    if (s === 'done') return acc + (plan.hasMcq ? 3 : 2);
     return acc;
   }, 0);
 }
@@ -329,7 +299,7 @@ function countCompletedSubsteps(
 function totalStepsForRound(terms: QuizTermRow[], plans: Record<string, TermPlan>): number {
   return terms.reduce((acc, t) => {
     const plan = plans[t.id] ?? FULL_TERM_PLAN;
-    return acc + (plan.kind === 'spot' ? 1 : 3);
+    return acc + (plan.kind === 'spot' ? 1 : plan.hasMcq ? 3 : 2);
   }, 0);
 }
 
@@ -342,6 +312,10 @@ function totalStepsForRound(terms: QuizTermRow[], plans: Record<string, TermPlan
  * is a UI port. Wire your real quiz engine on top.
  */
 export default function QuizScreen() {
+  const { height: windowHeight, fontScale } = useWindowDimensions();
+  const swipeProgress = useRef(new Animated.Value(0)).current;
+  const insets = useSafeAreaInsets();
+  const [navHeight, setNavHeight] = useState(72);
   const { entry, lessonId } = useLocalSearchParams<{ entry?: string; lessonId?: string }>();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -356,8 +330,14 @@ export default function QuizScreen() {
   const [revealed, setRevealed]       = useState(false);
   const [recallText, setRecallText]   = useState('');
   const [flipped, setFlipped]         = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const recallInputRef = useRef<TextInput>(null);
+  const explanationAngle = useRef(new Animated.Value(0)).current;
+  const explanationTurning = useRef(false);
   /** 首页 quiz：首轮仅「到期」池；之后递增，从全量词加权抽题（含 Mastered 抽查） */
   const [quizRound, setQuizRound]     = useState(0);
+  const [practiceComplete, setPracticeComplete] = useState(false);
 
   const engineRef = useRef({
     sessionTerms: [] as QuizTermRow[],
@@ -377,6 +357,18 @@ export default function QuizScreen() {
       currentTermIdx,
     };
   });
+
+  useEffect(() => {
+    const show = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow', () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener(Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide', () => setKeyboardVisible(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+
+  useEffect(() => {
+    if (loading || practiceComplete || currentQ?.mode !== 'recall' || revealed) return;
+    const task = InteractionManager.runAfterInteractions(() => recallInputRef.current?.focus());
+    return () => task.cancel();
+  }, [loading, practiceComplete, currentQ?.mode, currentQ?.termId, revealed]);
 
   const updateTermProgress = async (termId: string, isCorrect: boolean) => {
     await updateTermProgressSafe(termId, isCorrect);
@@ -411,8 +403,12 @@ export default function QuizScreen() {
           .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
-        if (lessonsError || !lessonsData || lessonsData.length === 0) {
-          setLoadError('No lessons found. Please create one first.');
+        if (lessonsError || !lessonsData) {
+          setLoadError('Could not load your lessons. Please try again.');
+          return;
+        }
+        if (lessonsData.length === 0) {
+          router.replace('/create');
           return;
         }
 
@@ -486,17 +482,11 @@ export default function QuizScreen() {
           return;
         }
 
-        // 中文：仅首页「第一轮」要求至少 4 张到期卡；后续轮次用全量词池 + 权重（含已掌握抽查）
-        if (entryType === 'home' && quizRound === 0 && filteredTerms.length < 4) {
-          setLoadError('Not enough cards due for review right now.');
-          return;
-        }
-
         const isHomeFollowUp = entryType === 'home' && quizRound > 0;
         const selectionPool: QuizTermRow[] = isHomeFollowUp ? usableTerms : entryType === 'home' ? filteredTerms : usableTerms;
 
         if (selectionPool.length === 0) {
-          setLoadError('No terms available for this quiz round.');
+          setLoadError('You’re all caught up. Choose a lesson to keep practicing.');
           return;
         }
 
@@ -508,14 +498,28 @@ export default function QuizScreen() {
         );
         const orderedTerms = orderPickedTermsForQuizPhases(pickedRaw, progressMap);
 
+        // Load the LLM-authored questions for selected cards; older cards may have none.
+        const { data: practiceRows, error: practiceError } = await loadCurrentPracticeQuestions(orderedTerms.map((term) => term.id));
+        if (practiceError) {
+          setLoadError('Could not load practice questions. Please try again.');
+          return;
+        }
+        const questionsByTerm = new Map<string, SavedPracticeQuestion[]>();
+        for (const row of practiceRows || []) {
+          const entries = questionsByTerm.get(row.term_id) || [];
+          entries.push(row);
+          questionsByTerm.set(row.term_id, entries);
+        }
+        const termsWithQuestions = orderedTerms.map((term) => ({ ...term, practiceQuestions: questionsByTerm.get(term.id) || [] }));
+
         /*
          * ─── Quiz 当轮总流程（中文）───
          * 1）选词：首页首轮仅从「到期 / New」池加权抽；后续轮从全课 term 加权抽（Mastered 权重低但仍可入轮）。
          * 2）分词计划（buildTermPlanForRound）：
-         *    - 非 Mastered：full，必须闪卡 → MCQ → Recall；同一词未完成当前步不会进入该词下一步。
+         *    - 非 Mastered：full，闪卡 → 可用时选择题 → Recall。
          *    - Mastered：spot，本只 1 题，题型在 flip / mcq / recall 中随机，不强制走满三步。
          * 3）混排：多词之间按轮询指针环形取「下一个还有待办」的词；full 词可与其他词的任意阶段交错出现。
-         * 4）进度：总步数 = 各词 3（full）或 1（spot）之和；答错仍记 updateTermProgress，点 Continue 推进（不卡关）。
+         * 4）进度：full 为 2 或 3 步，spot 为 1 步；答错仍推进。
          */
         const topics: Record<string, string> = {};
         lessonMap.forEach((name, id) => {
@@ -523,18 +527,20 @@ export default function QuizScreen() {
         });
         const plans: Record<string, TermPlan> = {};
         const initialStages: Record<string, TermStage> = {};
-        orderedTerms.forEach((t) => {
-          const plan = buildTermPlanForRound(progressMap.get(t.id));
+        termsWithQuestions.forEach((t) => {
+          const hasSaved = !!chooseSavedQuestion(t.practiceQuestions || [], 'mcq');
+          const hasFallback = !!fallbackOptions(t.definition || '', t.lesson_id, t.id, usableTerms);
+          const plan = buildTermPlanForRound(progressMap.get(t.id), hasSaved || hasFallback);
           plans[t.id] = plan;
           initialStages[t.id] = initialStageFromPlan(plan);
         });
-        const first = pickNextQuestion(orderedTerms, initialStages, 0, topics, usableTerms);
+        const first = pickNextQuestion(termsWithQuestions, initialStages, 0, topics, usableTerms);
         if (!first) {
           setLoadError('Could not build quiz session.');
           return;
         }
 
-        setSessionTerms(orderedTerms);
+        setSessionTerms(termsWithQuestions);
         setAllTermsForMcq(usableTerms);
         setLessonTopicByLessonId(topics);
         setTermPlans(plans);
@@ -556,9 +562,19 @@ export default function QuizScreen() {
   const totalSteps = Math.max(1, totalStepsForRound(sessionTerms, termPlans));
   const completedSubsteps = countCompletedSubsteps(sessionTerms, stages, termPlans);
 
+  const handleClose = () => {
+    const destination = entry === 'lesson' && lessonId
+      ? { pathname: '/lessons/[id]' as const, params: { id: lessonId } }
+      : '/(tabs)' as const;
+    // Dismiss every stacked practice screen, returning to the entry screen in one action.
+    if (router.canDismiss()) router.dismissTo(destination);
+    else router.replace(destination);
+  };
+
   if (loading) {
     return (
       <EdBase bottomInset={0}>
+        <View style={styles.nav}><Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={handleClose} style={styles.navButton}><Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="small" color={colors.accentText} />
           <Text style={styles.loadingText}>Loading quiz...</Text>
@@ -569,17 +585,32 @@ export default function QuizScreen() {
   if (loadError) {
     return (
       <EdBase bottomInset={0}>
+        <View style={styles.nav}><Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={handleClose} style={styles.navButton}><Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
         <View style={styles.loadingWrap}>
           <Text style={styles.loadingText}>{loadError}</Text>
+          <Pressable accessibilityRole="button" onPress={() => {
+            if (entry === 'lesson' && lessonId && loadError.startsWith('No terms')) router.replace(`/lessons/${lessonId}/add-terms`);
+            else if (entry === 'home' && (loadError.startsWith('No cards') || loadError.startsWith('You’re all caught up'))) router.replace('/(tabs)/library');
+            else handleClose();
+          }} style={styles.emptyAction}><Text style={styles.emptyActionText}>{entry === 'lesson' && lessonId && loadError.startsWith('No terms') ? 'Add cards' : entry === 'home' && (loadError.startsWith('No cards') || loadError.startsWith('You’re all caught up')) ? 'View lessons' : 'Go back'}</Text></Pressable>
         </View>
       </EdBase>
     );
   }
+  if (practiceComplete) {
+    return <PracticeComplete cards={sessionTerms.length} steps={totalSteps} onClose={handleClose} onContinue={() => {
+      setLoading(true);
+      setPracticeComplete(false);
+      setQuizRound((round) => round + 1);
+    }} />;
+  }
   if (!q || sessionTerms.length === 0) {
     return (
       <EdBase bottomInset={0}>
+        <View style={styles.nav}><Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={handleClose} style={styles.navButton}><Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
         <View style={styles.loadingWrap}>
           <Text style={styles.loadingText}>No quiz data available.</Text>
+          <Pressable accessibilityRole="button" onPress={handleClose} style={styles.emptyAction}><Text style={styles.emptyActionText}>Go back</Text></Pressable>
         </View>
       </EdBase>
     );
@@ -595,6 +626,10 @@ export default function QuizScreen() {
     setRevealed(false);
     setRecallText('');
     setFlipped(false);
+    explanationAngle.stopAnimation();
+    explanationAngle.setValue(0);
+    explanationTurning.current = false;
+    setShowExplanation(false);
   };
 
   const checkDisabled =
@@ -602,15 +637,17 @@ export default function QuizScreen() {
     ((q.mode === 'mcq' && selected === null) ||
       (q.mode === 'recall' && !recallText.trim()));
 
-  const planForCurrent = termPlans[q.termId] ?? FULL_TERM_PLAN;
-  const othersAllDone = sessionTerms
-    .filter((t) => t.id !== q.termId)
-    .every((t) => stages[t.id] === 'done');
-  // 中文：全轮最后一题揭晓后点继续即下一轮（full 最后一题必是 Recall；spot 可能是 MCQ/Recall）
-  const finishingRound =
-    revealed &&
-    othersAllDone &&
-    (q.mode === 'recall' || (planForCurrent.kind === 'spot' && q.mode === 'mcq'));
+  const flipExplanation = () => {
+    if (explanationTurning.current) return;
+    explanationTurning.current = true;
+    Animated.timing(explanationAngle, { toValue: 90, duration: 150, useNativeDriver: true }).start(({ finished }) => {
+      if (!finished) { explanationTurning.current = false; return; }
+      setShowExplanation((current) => !current);
+      explanationAngle.setValue(-90);
+      Animated.timing(explanationAngle, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => { explanationTurning.current = false; });
+    });
+  };
+  const explanationRotation = explanationAngle.interpolate({ inputRange: [-90, 0, 90], outputRange: ['-90deg', '0deg', '90deg'] });
 
   const onCheckOrNext = () => {
     if (!revealed) {
@@ -620,6 +657,7 @@ export default function QuizScreen() {
         updateTermProgress(q.termId, selected === q.correct);
       }
       if (q.mode === 'recall') {
+        Keyboard.dismiss();
         updateTermProgress(q.termId, isRecallAnswerCorrect(recallText, q.answer));
       }
       setRevealed(true);
@@ -638,7 +676,7 @@ export default function QuizScreen() {
         setStages(newStages);
         if (allDone) {
           reset();
-          setQuizRound((r) => r + 1);
+          setPracticeComplete(true);
           return;
         }
         const picked = pickNextQuestion(
@@ -659,7 +697,7 @@ export default function QuizScreen() {
         setStages(newStages);
         if (allDone) {
           reset();
-          setQuizRound((r) => r + 1);
+          setPracticeComplete(true);
           return;
         }
         const picked = pickNextQuestion(
@@ -678,68 +716,73 @@ export default function QuizScreen() {
     }
   };
 
-  const handleBack = () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
-    // 兜底：如果当前是深链/首屏进入，没有可回退历史，则回到首页 Tab。
-    router.replace('/(tabs)');
-  };
+
 
   return (
-    <EdBase bottomInset={0}>
+    <EdBase bottomInset={0} scroll={false} style={{ paddingBottom: keyboardVisible ? 0 : insets.bottom }}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={[styles.headerGradient, { top: -insets.top }]} />
+      {q.mode === 'flip' && <View pointerEvents="none" style={[styles.pageSwipeBackground, { top: -insets.top, height: windowHeight }]}>
+        <Animated.View style={[styles.pageSwipeGradient, { opacity: swipeProgress.interpolate({ inputRange: [0, 24, 110], outputRange: [0, 0.2, 1], extrapolate: 'clamp' }) }]}><LinearGradient colors={[homeColors.swipeGreen, homeColors.swipeGreenLight, homeColors.canvas]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /></Animated.View>
+        <Animated.View style={[styles.pageSwipeGradient, { opacity: swipeProgress.interpolate({ inputRange: [-110, -24, 0], outputRange: [1, 0.2, 0], extrapolate: 'clamp' }) }]}><LinearGradient colors={[homeColors.swipeRed, homeColors.swipeRedLight, homeColors.canvas]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} /></Animated.View>
+      </View>}
+      <KeyboardAvoidingView style={styles.practiceLayout} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Nav */}
-      <View style={styles.nav}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Go back" onPress={handleBack}>
-          <Text style={styles.navBack}>← Back</Text>
+      <View style={styles.nav} onLayout={(event) => setNavHeight(event.nativeEvent.layout.height)}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={handleClose} style={styles.navButton}>
+          <Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} />
         </Pressable>
-        <Text style={styles.navCount}>
-          {completedSubsteps} / {totalSteps} steps
-        </Text>
+        <Text style={styles.roundTitle}>Practice</Text>
+        <View style={styles.navSpacer} />
       </View>
 
       {/* Progress */}
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${progressPct}%` }]} />
+      <View style={styles.progressRow} accessibilityRole="progressbar" accessibilityLabel="Practice progress" accessibilityValue={{ min: 0, max: totalSteps, now: completedSubsteps }}>
+        <Text style={styles.progressCount}>{completedSubsteps}</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progressPct}%` }]} /></View><Text style={styles.progressCount}>{totalSteps}</Text>
       </View>
 
-      {/* Topic + question */}
-      <View style={styles.qBlock}>
-        <View style={styles.topicRow}>
-          <SectionLabel size={10.5} color={colors.accentText}>{q.topic}</SectionLabel>
-          <View style={styles.modeChip}>
-            <Text style={styles.modeChipText}>
-              {q.mode === 'mcq' ? 'Choose' : q.mode === 'recall' ? 'Recall' : 'Flashcard'}
-            </Text>
+      <ScrollView style={styles.practiceScroll} contentContainerStyle={[styles.practiceScrollContent, q.mode !== 'flip' && styles.fixedCardContent]} scrollEnabled={q.mode === 'flip'} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      {q.mode !== 'flip' ? (
+        <Animated.View style={[styles.fixedQuestionCard, { transform: [{ perspective: 1000 }, { rotateY: explanationRotation }] }]}>
+        <View style={[styles.questionCard, styles.fixedQuestionCard]}>
+          <View style={[styles.questionArea, styles.compactQuestionArea]}>
+            <View style={styles.topicRow}><Text numberOfLines={2} style={styles.cardTopic}>{q.topic}</Text><View style={styles.modeChip}><Text style={styles.modeChipText}>{q.mode === 'mcq' ? 'Choose' : 'Recall'}</Text></View></View>
+            <View style={styles.questionCenter}>
+              {q.mode === 'mcq' && <View style={styles.retryBadgeSlot}>{revealed && selected !== q.correct && <Text style={styles.retryBadge}>Let’s try again</Text>}</View>}
+              <ScrollView style={[styles.questionTextScroll, q.mode !== 'mcq' && { maxHeight: 120 * fontScale }]} nestedScrollEnabled showsVerticalScrollIndicator><Text style={styles.qText}>{q.q}</Text></ScrollView>
+              {q.languageData && !!q.termText && <PlayButton text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />}
+            </View>
           </View>
+          {showExplanation && revealed ? <View style={styles.answerArea}>
+            <ScrollView style={styles.backExplanationScroll} nestedScrollEnabled showsVerticalScrollIndicator>
+              <View style={styles.backExplanationContent}>
+                <View style={styles.correctAnswerBox}><Text style={styles.explanationTitle}>Correct answer</Text><Text style={styles.correctAnswerText}>{q.mode === 'mcq' ? q.opts[q.correct] : q.answer}</Text></View>
+                <View style={styles.explanation}><Text style={styles.explanationTitle}>Explanation</Text><Text style={styles.explanationText}>{q.explain?.trim() || 'No explanation available for this card yet.'}</Text></View>
+                {q.languageData && <LanguageCardDetails data={q.languageData} />}
+              </View>
+            </ScrollView>
+            <Pressable accessibilityRole="button" accessibilityLabel="Return to answers" onPress={flipExplanation} hitSlop={10} style={styles.explanationToggle}><Text style={styles.explanationLink}>Tap to see your answer again</Text></Pressable>
+          </View> : <View style={[styles.answerArea, q.mode === 'mcq' && styles.mcqAnswerArea]}>
+            {q.mode === 'mcq' ? <>
+              <Text style={[styles.answerPrompt, revealed && { color: selected === q.correct ? colors.green : colors.warn }]}>{revealed ? (selected === q.correct ? 'You got it!' : 'Keep going — learning takes practice.') : 'Choose the answer'}</Text>
+              <MCQView q={q} selected={selected} revealed={revealed} onSelect={(i) => {
+                if (revealed) return;
+                setSelected(i);
+                setRevealed(true);
+                void updateTermProgress(q.termId, i === q.correct);
+              }} />
+            </> : revealed ? <RecallResult q={q} recallText={recallText} recallCorrect={recallCorrect} /> : null}
+            {(q.mode === 'mcq' || revealed) && <View pointerEvents={revealed ? 'auto' : 'none'} style={styles.explanationSlot}>
+              {revealed && <Pressable accessibilityRole="button" accessibilityLabel="Reveal explanation" onPress={flipExplanation} hitSlop={10} style={styles.explanationToggle}><Text style={styles.explanationLink}>Tap to reveal explanation</Text></Pressable>}
+            </View>}
+          </View>}
         </View>
-        <Text style={styles.qText}>{q.q}</Text>
-        {q.languageData && !!q.termText && (
-          <PlayButton text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />
-        )}
-      </View>
+        </Animated.View>
+      ) : null}
 
-      {/* Body — per mode */}
-      {q.mode === 'mcq' && (
-        <MCQView
-          q={q}
-          selected={selected}
-          revealed={revealed}
-          onSelect={(i) => !revealed && setSelected(i)}
-        />
-      )}
-      {q.mode === 'recall' && (
-        <RecallView
-          q={q}
-          recallText={recallText}
-          revealed={revealed}
-          recallCorrect={recallCorrect}
-          onChange={setRecallText}
-        />
-      )}
       {q.mode === 'flip' && (
         <FlipView
+          swipeProgress={swipeProgress}
+          cardMinHeight={Math.max(200, windowHeight - insets.top - insets.bottom - navHeight - 78 - (flipped ? 80 : 0))}
           q={q}
           flipped={flipped}
           onFlip={() => setFlipped(!flipped)}
@@ -751,11 +794,11 @@ export default function QuizScreen() {
             if (n === 0) return;
             const nextRR = (e.currentTermIdx + 1) % n;
             const plan = e.termPlans[q.termId] ?? FULL_TERM_PLAN;
-            // 中文：full 则进入 MCQ；spot 仅闪卡一题，结束后该词当轮完成
+            // 有合适的选择题时进入 MCQ，否则直接进入 Recall。
             const newStages =
               plan.kind === 'spot'
                 ? { ...e.stages, [q.termId]: 'done' as TermStage }
-                : { ...e.stages, [q.termId]: 'mcq' as TermStage };
+                : { ...e.stages, [q.termId]: (plan.hasMcq ? 'mcq' : 'recall') as TermStage };
             const allDone = e.sessionTerms.every((t) => newStages[t.id] === 'done');
             setStages(newStages);
             if (allDone) {
@@ -763,7 +806,7 @@ export default function QuizScreen() {
               setSelected(null);
               setRevealed(false);
               setRecallText('');
-              setQuizRound((r) => r + 1);
+              setPracticeComplete(true);
               return;
             }
             const picked = pickNextQuestion(
@@ -785,38 +828,64 @@ export default function QuizScreen() {
         />
       )}
 
-      {/* Feedback (mcq + recall) */}
-      {revealed && q.mode !== 'flip' && (
-        <FeedbackBlock
-          q={q}
-          recallCorrect={recallCorrect}
-          mcqCorrect={q.mode === 'mcq' && selected === q.correct}
-        />
-      )}
-      {revealed && q.mode !== 'flip' && q.languageData && (
-        <View style={{ marginHorizontal: layout.screenInline }}>
-          <LanguageCardDetails data={q.languageData} />
-        </View>
-      )}
-
-      {/* CTA — flip uses confidence buttons instead */}
-      {q.mode !== 'flip' && (
-        <View style={{ paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 24 }}>
-          <Pressable accessibilityRole="button"
-            onPress={onCheckOrNext}
-            disabled={checkDisabled}
-            style={[styles.cta, checkDisabled && { backgroundColor: colors.dim }]}
-          >
-            <Text style={styles.ctaText}>
-              {revealed
-                ? (finishingRound ? 'Next round →' : 'Continue →')
-                : 'Check answer'}
-            </Text>
-          </Pressable>
-        </View>
-      )}
+      </ScrollView>
+      {/* The recall composer stays above the keyboard; feedback uses the fixed Continue action. */}
+      {q.mode === 'recall' && !revealed ? <View style={styles.recallComposer}>
+        <TextInput ref={recallInputRef} accessibilityLabel="Type your answer" value={recallText} onChangeText={setRecallText} placeholder="Type your answer" placeholderTextColor={homeColors.muted} multiline style={styles.recallComposerInput} />
+        <Pressable accessibilityRole="button" accessibilityLabel="Don't know" onPress={() => {
+          Keyboard.dismiss();
+          setRecallText(RECALL_DONT_KNOW_FILL);
+          setRevealed(true);
+          void updateTermProgress(q.termId, false);
+        }} style={styles.recallSkip}><Text style={styles.recallSkipText}>Don’t know</Text></Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Submit answer" accessibilityState={{ disabled: checkDisabled }} disabled={checkDisabled} onPress={onCheckOrNext} style={[styles.recallSubmit, checkDisabled && styles.recallSubmitDisabled]}><Icon name="arrowRight" size={20} color={homeColors.white} strokeWidth={2} /></Pressable>
+      </View> : q.mode !== 'flip' && <View style={styles.practiceFooter} pointerEvents={q.mode === 'mcq' && !revealed ? 'none' : 'auto'} accessibilityElementsHidden={q.mode === 'mcq' && !revealed} importantForAccessibility={q.mode === 'mcq' && !revealed ? 'no-hide-descendants' : 'auto'}>
+        <Pressable accessibilityRole="button" onPress={onCheckOrNext} disabled={checkDisabled} style={[styles.cta, checkDisabled && styles.ctaDisabled, q.mode === 'mcq' && !revealed && styles.reservedInvisible]}><Text style={styles.ctaText}>Continue →</Text></Pressable>
+      </View>}
+      </KeyboardAvoidingView>
     </EdBase>
   );
+}
+
+function PracticeComplete({ cards, steps, onClose, onContinue }: { cards: number; steps: number; onClose: () => void; onContinue: () => void }) {
+  const insets = useSafeAreaInsets();
+  const entrance = useRef(new Animated.Value(0)).current;
+  const mascotCelebrate = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    let active = true;
+    AccessibilityInfo.isReduceMotionEnabled().then((reduceMotion) => {
+      if (!active) return;
+      if (reduceMotion) { entrance.setValue(1); mascotCelebrate.setValue(1); return; }
+      Animated.parallel([
+        Animated.spring(entrance, { toValue: 1, useNativeDriver: true, friction: 7, tension: 65 }),
+        Animated.sequence([Animated.delay(120), Animated.spring(mascotCelebrate, { toValue: 1, useNativeDriver: true, friction: 4, tension: 90 })]),
+      ]).start();
+    }).catch(() => { if (active) { entrance.setValue(1); mascotCelebrate.setValue(1); } });
+    return () => { active = false; entrance.stopAnimation(); mascotCelebrate.stopAnimation(); };
+  }, [entrance, mascotCelebrate]);
+  return <EdBase bottomInset={0} scroll={false}>
+    <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.38, 1]} style={[styles.completeGradient, { top: -insets.top }]} />
+    <View style={styles.nav}><Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={onClose} style={styles.navButton}><Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
+    <ScrollView contentContainerStyle={styles.completeContent} showsVerticalScrollIndicator={false}>
+      <Animated.View style={[styles.completeCardBase, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }, { scale: entrance.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
+        <View style={styles.completeCard}>
+          <View style={styles.completeMascot}><Animated.View style={{ transform: [{ translateY: mascotCelebrate.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }, { scale: mascotCelebrate.interpolate({ inputRange: [0, 1], outputRange: [0.48, 0.65] }) }, { rotate: mascotCelebrate.interpolate({ inputRange: [0, 1], outputRange: ['-12deg', '0deg'] }) }] }}><HomeAsset name="happy" /></Animated.View></View>
+          <View style={styles.completeBadge}><Icon name="check" size={16} color={homeColors.deep} strokeWidth={2.5} /><Text style={styles.completeBadgeText}>Practice complete</Text></View>
+          <Text accessibilityRole="header" style={styles.completeTitle}>You did it!</Text>
+          <Text style={styles.completeCopy}>A little practice goes a long way.</Text>
+          <View style={styles.completeStats}>
+            <View style={styles.completeStat}><Text style={styles.completeNumber}>{cards}</Text><Text style={styles.completeStatLabel}>{cards === 1 ? 'Card' : 'Cards'}</Text></View>
+            <View style={styles.completeDivider} />
+            <View style={styles.completeStat}><Text style={styles.completeNumber}>{steps}</Text><Text style={styles.completeStatLabel}>{steps === 1 ? 'Step' : 'Steps'} completed</Text></View>
+          </View>
+        </View>
+      </Animated.View>
+      <View style={styles.completeActions}>
+        <Pressable accessibilityRole="button" onPress={onContinue} style={styles.completePrimaryBase}><View style={styles.completePrimary}><Text style={styles.completePrimaryText}>Keep practicing</Text></View></Pressable>
+        <Pressable accessibilityRole="button" onPress={onClose} style={styles.completeDone}><Text style={styles.completeDoneText}>Done</Text></Pressable>
+      </View>
+    </ScrollView>
+  </EdBase>;
 }
 
 // ── MCQ ─────────────────────────────────────────────────────────
@@ -828,278 +897,196 @@ interface MCQViewProps {
 }
 
 function MCQView({ q, selected, revealed, onSelect }: MCQViewProps) {
+  const answeredIncorrectly = revealed && selected !== q.correct;
   return (
-    <View style={mcqStyles.wrap}>
+    <ScrollView style={mcqStyles.scroll} contentContainerStyle={mcqStyles.wrap} nestedScrollEnabled showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
       {q.opts.map((opt, i) => {
         const isSelected = selected === i;
         const isCorrect = i === q.correct;
-
-        let leftColor: string = colors.transparent;
-        let bg: string = colors.transparent;
-        let textColor: string = colors.text;
-        let labelColor: string = colors.muted;
-        let labelBg: string = colors.bg;
-        let labelBorderColor: string = colors.border;
-
-        if (revealed && isCorrect) {
-          leftColor = colors.green;
-          bg = colors.greenL;
-          textColor = colors.green;
-          labelColor = colors.surf;
-          labelBg = colors.green;
-          labelBorderColor = colors.transparent;
-        } else if (revealed && isSelected && !isCorrect) {
-          leftColor = colors.red;
-          bg = colors.redL;
-          textColor = colors.red;
-          labelColor = colors.surf;
-          labelBg = colors.red;
-          labelBorderColor = colors.transparent;
-        } else if (!revealed && isSelected) {
-          leftColor = colors.action;
-          labelColor = colors.surf;
-          labelBg = colors.action;
-          labelBorderColor = colors.transparent;
-        }
-
-        return (
-          <Pressable
-            key={i}
-            accessibilityRole="radio"
-            accessibilityState={{ checked: isSelected, disabled: revealed }}
-            accessibilityLabel={`${String.fromCharCode(65 + i)}. ${opt}${revealed && isCorrect ? ', correct answer' : revealed && isSelected ? ', incorrect answer' : ''}`}
-            disabled={revealed}
-            onPress={() => onSelect(i)}
-            style={[
-              mcqStyles.row,
-              { backgroundColor: bg },
-              i < q.opts.length - 1 && { borderBottomWidth: 1, borderBottomColor: colors.border },
-            ]}
-          >
-            <View style={[mcqStyles.leftRule, { backgroundColor: leftColor }]} />
-            <View style={mcqStyles.body}>
-              <View
-                style={[
-                  mcqStyles.labelBox,
-                  { backgroundColor: labelBg, borderColor: labelBorderColor },
-                ]}
-              >
-                {revealed && isCorrect ? (
-                  <Icon name="check" color={colors.surf} size={12} strokeWidth={3} />
-                ) : revealed && isSelected && !isCorrect ? (
-                  <Icon name="close" color={colors.surf} size={11} strokeWidth={3} />
-                ) : (
-                  <Text style={[mcqStyles.labelChar, { color: labelColor }]}>
-                    {String.fromCharCode(65 + i)}
-                  </Text>
-                )}
-              </View>
-              <Text
-                style={[
-                  mcqStyles.optText,
-                  {
-                    color: textColor,
-                    fontWeight:
-                      revealed && (isCorrect || (isSelected && !isCorrect)) ? '500' : '400',
-                  },
-                ]}
-              >
-                {opt}
-              </Text>
-            </View>
-          </Pressable>
-        );
+        const showCorrect = revealed && isCorrect;
+        const showWrong = answeredIncorrectly && isSelected;
+        return <Pressable key={i} accessibilityRole="radio"
+          accessibilityState={{ checked: isSelected, disabled: revealed }}
+          accessibilityLabel={`${String.fromCharCode(65 + i)}. ${opt}${showCorrect ? ', correct answer' : showWrong ? ', incorrect answer' : ''}`}
+          disabled={revealed} onPress={() => onSelect(i)}
+          style={[mcqStyles.row, showCorrect && mcqStyles.correct, showCorrect && answeredIncorrectly && mcqStyles.correctDashed, showWrong && mcqStyles.wrong]}>
+          <Text style={mcqStyles.optText}>{opt}</Text>
+        </Pressable>;
       })}
-    </View>
+    </ScrollView>
   );
 }
 
 const mcqStyles = StyleSheet.create({
-  wrap: {
-    marginHorizontal: layout.screenInline, marginTop: 20,
-    backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    overflow: 'hidden',
-  },
-  row: { flexDirection: 'row' },
-  leftRule: { width: 3 },
-  body: { flexDirection: 'row', gap: 11, paddingHorizontal: 14, paddingVertical: 13, flex: 1, alignItems: 'flex-start' },
-  labelBox: {
-    width: 22, height: 22, borderRadius: 5, borderWidth: 1,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  labelChar: { fontSize: 12, fontWeight: '700', fontFamily: fonts.bold },
-  optText:   { fontSize: 14, lineHeight: 21, flex: 1, paddingTop: 1, fontFamily: fonts.regular },
+  scroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
+  wrap: { gap: 8, paddingBottom: 5 },
+  row: { minHeight: 52, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: homeColors.border, backgroundColor: homeColors.white },
+  correct: { borderColor: colors.green, borderWidth: 1.5 },
+  correctDashed: { borderStyle: 'dashed' },
+  wrong: { borderColor: homeColors.quizWrongOutline, borderWidth: 1.5 },
+  optText: { fontSize: 16, lineHeight: 23, color: homeColors.darkest, fontFamily: fonts.regular },
 });
 
 // ── Recall ──────────────────────────────────────────────────────
-interface RecallViewProps {
-  q: RecallQuestion;
-  recallText: string;
-  revealed: boolean;
-  recallCorrect: boolean;
-  onChange: (s: string) => void;
-}
-
-function RecallView({ q, recallText, revealed, recallCorrect, onChange }: RecallViewProps) {
-  const borderColor = revealed
-    ? recallCorrect
-      ? `${colors.green}80`
-      : `${colors.red}80`
-    : colors.border;
-
-  return (
-    <View style={{ marginHorizontal: layout.screenInline, marginTop: 20 }}>
-      <View
-        style={{
-          backgroundColor: colors.surf,
-          borderWidth: 1, borderColor, borderRadius: 10, overflow: 'hidden',
-        }}
-      >
-        {/* Use TextInput from RN — keep it inline so styles co-locate */}
-        <RecallInput value={recallText} onChange={onChange} disabled={revealed} />
-        <View style={recallStyles.footer}>
-          <Text style={recallStyles.charCount}>{recallText.length} characters</Text>
-          {revealed && (
-            <Text
-              style={[
-                recallStyles.statusText,
-                { color: recallCorrect ? colors.green : colors.red },
-              ]}
-            >
-              {recallCorrect ? '✓ Match' : '✗ No match'}
-            </Text>
-          )}
-        </View>
-      </View>
-      {revealed && (
-        <View style={recallStyles.answerCard}>
-          <SectionLabel style={{ marginBottom: 5 }}>Answer</SectionLabel>
-          <Text style={recallStyles.answerText}>{q.answer}</Text>
-        </View>
-      )}
-    </View>
-  );
-}
-
-// 用户主动表示不会：填入固定句，便于走判分逻辑（视为错误）
 const RECALL_DONT_KNOW_FILL = "I don't know";
 
-function RecallInput({ value, onChange, disabled }: { value: string; onChange: (s: string) => void; disabled: boolean }) {
-  return (
-    <View style={recallStyles.inputShell}>
-      <TextInput accessibilityLabel="Type your answer…"
-        value={value}
-        onChangeText={onChange}
-        editable={!disabled}
-        multiline
-        placeholder="Type your answer…"
-        placeholderTextColor={colors.muted}
-        style={recallStyles.textarea}
-      />
-      {!disabled && (
-        <Pressable
-          style={({ pressed }) => [recallStyles.dontKnowChip, pressed && recallStyles.dontKnowChipPressed]}
-          onPress={() => onChange(RECALL_DONT_KNOW_FILL)}
-          accessibilityRole="button"
-          accessibilityLabel="Don't know"
-          hitSlop={6}
-        >
-          <Text style={recallStyles.dontKnowChipText}>Don't know</Text>
-        </Pressable>
-      )}
-    </View>
-  );
+function RecallResult({ q, recallText, recallCorrect }: { q: RecallQuestion; recallText: string; recallCorrect: boolean }) {
+  const skipped = recallText === RECALL_DONT_KNOW_FILL;
+  return <View style={recallStyles.result}>
+    <Text style={[recallStyles.resultLabel, { color: recallCorrect ? colors.green : colors.warn }]}>{skipped ? 'Give this one another try later' : recallCorrect ? 'You got it!' : 'Keep going — learning takes practice.'}</Text>
+    <View style={[recallStyles.resultAnswer, { borderColor: recallCorrect ? colors.green : homeColors.quizWrongOutline }]}><Text style={recallStyles.resultText}>{skipped ? 'Skipped' : recallText}</Text></View>
+    {!recallCorrect && <><Text style={[recallStyles.resultLabel, { color: colors.green }]}>Correct answer</Text><View style={[recallStyles.resultAnswer, { borderColor: colors.green }]}><Text style={recallStyles.resultText}>{q.answer}</Text></View></>}
+  </View>;
 }
-
 const recallStyles = StyleSheet.create({
-  inputShell: {
-    position: 'relative',
-    minHeight: 80,
-  },
-  textarea: {
-    minHeight: 80,
-    padding: 14,
-    paddingRight: 108,
-    paddingBottom: 44,
-    color: colors.text,
-    fontSize: 15,
-    lineHeight: 23,
-    fontFamily: fonts.regular,
-  },
-  dontKnowChip: { minHeight: 44,
-    position: 'absolute',
-    right: 10,
-    bottom: 10,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  dontKnowChipPressed: {
-    backgroundColor: colors.borderS,
-  },
-  dontKnowChipText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.muted,
-    fontFamily: fonts.semibold,
-  },
-  footer: {
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderTopWidth: 1, borderTopColor: colors.border,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: colors.bg,
-  },
-  charCount: { fontSize: 12, color: colors.muted, fontFamily: fonts.regular },
-  statusText: {
-    fontSize: 12, fontWeight: '700',
-    letterSpacing: 0.5, textTransform: 'uppercase',
-    fontFamily: fonts.bold,
-  },
-  answerCard: {
-    marginTop: 12, paddingHorizontal: 14, paddingVertical: 12,
-    backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 8,
-  },
-  answerText: { fontSize: 14, fontWeight: '600', color: colors.text, fontFamily: fonts.semibold },
+  result: { gap: 8 },
+  resultLabel: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20 },
+  resultAnswer: { minHeight: 52, justifyContent: 'center', borderWidth: 1.5, borderRadius: 16, backgroundColor: homeColors.white, paddingHorizontal: 16, paddingVertical: 10 },
+  resultText: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, color: homeColors.darkest },
 });
 
 // ── Flip ────────────────────────────────────────────────────────
 interface FlipViewProps {
+  swipeProgress: Animated.Value;
+  cardMinHeight: number;
   q: FlipQuestion;
   flipped: boolean;
   onFlip: () => void;
   onConfidence: (level: 'Need review' | 'I got it') => void;
 }
 
+const FLASHCARD_GUIDE_KEY = 'memq.flashcard-guide.v1';
+let flashcardGuideDismissedThisSession = false;
+
 const CONFIDENCE_BUTTONS = [
   { label: 'Need review', color: colors.red },
   { label: 'I got it',  color: colors.accentText },
 ] as const;
 
-function FlipView({ q, flipped, onFlip, onConfidence }: FlipViewProps) {
+function FlipView({ q, flipped, onFlip, onConfidence, cardMinHeight, swipeProgress }: FlipViewProps) {
+  const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const [showGuide, setShowGuide] = useState(false);
+  const [cardHeight, setCardHeight] = useState(cardMinHeight);
+  const [shownBack, setShownBack] = useState(flipped);
+  const flipAngle = useRef(new Animated.Value(0)).current;
+  const flipping = useRef(false);
+  const translateX = swipeProgress;
+  const submitting = useRef(false);
+  const onConfidenceRef = useRef(onConfidence);
+  const widthRef = useRef(width);
+  onConfidenceRef.current = onConfidence;
+  widthRef.current = width;
+
+  useEffect(() => {
+    let active = true;
+    if (!flashcardGuideDismissedThisSession) {
+      AsyncStorage.getItem(FLASHCARD_GUIDE_KEY)
+        .then((seen) => { if (active && !seen && !flashcardGuideDismissedThisSession) setShowGuide(true); })
+        .catch(() => { if (active && !flashcardGuideDismissedThisSession) setShowGuide(true); });
+    }
+    return () => { active = false; };
+  }, []);
+
+  const dismissGuide = () => {
+    flashcardGuideDismissedThisSession = true;
+    setShowGuide(false);
+    void AsyncStorage.setItem(FLASHCARD_GUIDE_KEY, '1').catch(() => {});
+  };
+
+  useEffect(() => {
+    translateX.setValue(0);
+    submitting.current = false;
+  }, [q, translateX]);
+
+  useEffect(() => {
+    if (flipped === shownBack) return;
+    flipping.current = true;
+    let cancelled = false;
+    Animated.timing(flipAngle, { toValue: 90, duration: 150, useNativeDriver: true }).start(({ finished }) => {
+      if (!finished || cancelled) return;
+      setShownBack(flipped);
+      flipAngle.setValue(-90);
+      Animated.timing(flipAngle, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => { flipping.current = false; });
+    });
+    return () => { cancelled = true; flipAngle.stopAnimation(); flipping.current = false; };
+  }, [flipped, flipAngle]);
+
+  const swipe = useRef(PanResponder.create({
+    onMoveShouldSetPanResponder: (_, gesture) => !submitting.current && Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
+    onPanResponderMove: (_, gesture) => translateX.setValue(gesture.dx),
+    onPanResponderRelease: (_, gesture) => {
+      const threshold = Math.min(110, widthRef.current * 0.25);
+      const accepted = Math.abs(gesture.dx) > threshold || (Math.abs(gesture.dx) > 35 && Math.abs(gesture.vx) > 0.8);
+      if (!accepted) {
+        Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start();
+        return;
+      }
+      submitting.current = true;
+      const right = gesture.dx > 0;
+      Animated.timing(translateX, { toValue: right ? widthRef.current * 1.2 : -widthRef.current * 1.2, duration: 200, useNativeDriver: true }).start(({ finished }) => {
+        if (finished) onConfidenceRef.current(right ? 'I got it' : 'Need review');
+        else { translateX.setValue(0); submitting.current = false; }
+      });
+    },
+    onPanResponderTerminate: () => Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start(),
+  })).current;
+  const flipRotation = flipAngle.interpolate({ inputRange: [-90, 0, 90], outputRange: ['-90deg', '0deg', '90deg'] });
+  const rotate = translateX.interpolate({ inputRange: [-width, 0, width], outputRange: ['-10deg', '0deg', '10deg'], extrapolate: 'clamp' });
+  const rememberedOpacity = translateX.interpolate({ inputRange: [0, 24, 80], outputRange: [0, 0.25, 1], extrapolate: 'clamp' });
+  const reviewOpacity = translateX.interpolate({ inputRange: [-100, -15, 0], outputRange: [1, 0.15, 0], extrapolate: 'clamp' });
+  const rememberedOffset = translateX.interpolate({ inputRange: [0, 100], outputRange: [18, 0], extrapolate: 'clamp' });
+  const reviewOffset = translateX.interpolate({ inputRange: [-100, 0], outputRange: [0, 18], extrapolate: 'clamp' });
+  const rememberedScale = translateX.interpolate({ inputRange: [0, 100], outputRange: [0.92, 1], extrapolate: 'clamp' });
+  const reviewScale = translateX.interpolate({ inputRange: [-100, 0], outputRange: [1, 0.92], extrapolate: 'clamp' });
+
   return (
     <View style={flipStyles.wrap}>
-      <Pressable accessibilityRole="button" onPress={onFlip} style={flipStyles.card}>
-        <SectionLabel style={{ marginBottom: 10 }}>
-          {flipped ? 'Back' : 'Front'}
-        </SectionLabel>
-        {flipped ? (
-          <View>
-            <Text style={flipStyles.answerLabel}>Meaning</Text>
-            <Text style={flipStyles.definition}>{q.back}</Text>
-            {!!q.explain && <Text style={flipStyles.back}>{q.explain}</Text>}
-            {q.languageData && <LanguageCardDetails data={q.languageData} />}
+      <View pointerEvents="none" style={[flipStyles.swipeBackdrop, { height: Math.max(cardMinHeight, cardHeight) }]}>
+        <Animated.View style={[flipStyles.swipeFeedback, flipStyles.rememberedFeedback, { opacity: rememberedOpacity, transform: [{ translateY: rememberedOffset }, { scale: rememberedScale }] }]}><View style={flipStyles.feedbackIcon}><Icon name="check" size={22} color={colors.green} strokeWidth={2.5} /></View><Text style={[flipStyles.swipeFeedbackText, { color: colors.green }]}>I got it</Text></Animated.View>
+        <Animated.View style={[flipStyles.swipeFeedback, flipStyles.reviewFeedback, { opacity: reviewOpacity, transform: [{ translateY: reviewOffset }, { scale: reviewScale }] }]}><View style={flipStyles.feedbackIcon}><Icon name="close" size={22} color={colors.red} strokeWidth={2.5} /></View><Text style={[flipStyles.swipeFeedbackText, { color: colors.red }]}>Need review</Text></Animated.View>
+      </View>
+      <Animated.View {...swipe.panHandlers} style={{ transform: [{ translateX }, { rotate }] }}>
+      <Animated.View style={{ transform: [{ perspective: 1000 }, { rotateY: flipRotation }] }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={shownBack ? "Show front of card" : "Reveal answer"} accessibilityHint="Swipe right if you remember, or left if you need review." accessibilityActions={[{ name: 'remembered', label: 'I got it' }, { name: 'review', label: 'Need review' }]} onAccessibilityAction={(event) => { if (event.nativeEvent.actionName === 'remembered') onConfidence('I got it'); else if (event.nativeEvent.actionName === 'review') onConfidence('Need review'); }} onPress={() => { if (!flipping.current) onFlip(); }} onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)} style={[flipStyles.card, { minHeight: cardMinHeight }, shownBack && flipStyles.cardRevealed]}>
+        <View style={flipStyles.cardHeader}><Text numberOfLines={2} style={flipStyles.topic}>{q.topic}</Text><View style={flipStyles.typeBadge}><Text style={flipStyles.typeBadgeText}>Flashcard</Text></View></View>
+        {shownBack ? <View style={flipStyles.backLayout}>
+          <View style={flipStyles.backQuestion}>
+            <Text style={flipStyles.backTermLabel}>Term</Text>
+            <Text style={flipStyles.termRevealed}>{q.q}</Text>
+            {q.languageData && !!q.termText && <PlayButton text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />}
           </View>
-        ) : (
-          <Text style={flipStyles.front}>Think of the meaning, then tap to reveal.</Text>
-        )}
-        <Text style={flipStyles.cornerHint}>{flipped ? '← Front' : 'Tap to reveal'}</Text>
+          <View style={flipStyles.answer}>
+            <View style={flipStyles.correctAnswer}><Text style={flipStyles.meaningLabel}>Meaning</Text><Text style={flipStyles.definition}>{q.back}</Text></View>
+            {!!q.explain && <View style={flipStyles.explanationBlock}><Text style={flipStyles.answerLabel}>Explanation</Text><Text style={flipStyles.back}>{q.explain}</Text></View>}
+            {q.languageData && <LanguageCardDetails data={q.languageData} variant="flashcard" />}
+          </View>
+        </View> : <View style={flipStyles.cardContent}>
+          <Text style={flipStyles.frontLabel}>Term</Text>
+          <Text style={flipStyles.term}>{q.q}</Text>
+          {!!q.languageData?.pronunciation && <Text style={flipStyles.pronunciation}>{q.languageData.pronunciation}</Text>}
+          {!!q.languageData?.part_of_speech && <View style={flipStyles.wordType}><Text style={flipStyles.wordTypeText}>{q.languageData.part_of_speech}</Text></View>}
+          {q.languageData && !!q.termText && <View style={flipStyles.audioControl}><PlayButton text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} /></View>}
+        </View>}
+        <View style={flipStyles.cornerHint}><Text style={flipStyles.hintText}>{shownBack ? 'Tap to see question again' : 'Tap to reveal answer'}</Text></View>
       </Pressable>
+      </Animated.View>
+      </Animated.View>
 
+      <Modal visible={showGuide} transparent animationType="fade" onRequestClose={dismissGuide}>
+        <View style={[flipStyles.guideOverlay, { paddingBottom: Math.max(insets.bottom, 20) + 12 }]}>
+          <View style={flipStyles.guideCard} accessibilityViewIsModal>
+            <View style={flipStyles.guideHeadingRow}><View style={flipStyles.guideIcon}><Icon name="library" size={22} color={homeColors.deep} strokeWidth={2} /></View><Pressable accessibilityRole="button" accessibilityLabel="Close flashcard guide" hitSlop={8} onPress={dismissGuide} style={flipStyles.guideClose}><Icon name="close" size={20} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
+            <Text accessibilityRole="header" style={flipStyles.guideTitle}>Study with flashcards</Text>
+            <Text style={flipStyles.guideDescription}>Tap the card to reveal the answer. When you’re ready, swipe to continue.</Text>
+            <View style={flipStyles.guideDirections}>
+              <View style={flipStyles.guideDirection}><Text style={flipStyles.guideArrow}>←</Text><View style={flipStyles.guideDirectionCopy}><Text style={flipStyles.guideDirectionTitle}>Need review</Text><Text style={flipStyles.guideDirectionHint}>Swipe left</Text></View></View>
+              <View style={flipStyles.guideDirection}><Text style={flipStyles.guideArrow}>→</Text><View style={flipStyles.guideDirectionCopy}><Text style={flipStyles.guideDirectionTitle}>I got it</Text><Text style={flipStyles.guideDirectionHint}>Swipe right</Text></View></View>
+            </View>
+            <Pressable accessibilityRole="button" onPress={dismissGuide} style={flipStyles.guideButton}><Text style={flipStyles.guideButtonText}>Got it</Text></Pressable>
+          </View>
+        </View>
+      </Modal>
       {flipped && (
         <View style={flipStyles.confRow}>
           {CONFIDENCE_BUTTONS.map((b) => (
@@ -1118,29 +1105,64 @@ const flipStyles = StyleSheet.create({
     marginHorizontal: layout.screenInline,
     marginTop: 20,
   },
-  card: {
-    backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    paddingHorizontal: 20, paddingVertical: 24,
-    minHeight: 340, position: 'relative',
-  },
-  front: { fontSize: 18, fontWeight: '700', letterSpacing: -0.4, lineHeight: 25, color: colors.text, fontFamily: fonts.bold },
-  answerLabel: { fontSize: 12, color: colors.muted, fontWeight: '700', textTransform: 'uppercase', marginBottom: 6 },
-  definition: { fontSize: 19, fontWeight: '700', lineHeight: 27, color: colors.text, fontFamily: fonts.bold, marginBottom: 12 },
-  back:  { fontSize: 14, lineHeight: 22, color: colors.sub, fontFamily: fonts.regular },
+  swipeBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, borderRadius: 24, overflow: 'hidden' },
+  swipeFeedback: { position: 'absolute', bottom: 28, paddingHorizontal: 16, gap: 8 },
+  rememberedFeedback: { left: 0, alignItems: 'flex-start' },
+  reviewFeedback: { right: 0, alignItems: 'flex-end' },
+  feedbackIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.white },
+  swipeFeedbackText: { fontFamily: fonts.display, fontSize: 20 },
+  card: { backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 24, paddingTop: 76, paddingBottom: 64, position: 'relative', alignItems: 'center', justifyContent: 'center', ...cardElevation.card },
+  cardRevealed: { alignItems: 'stretch', justifyContent: 'flex-start' },
+  cardHeader: { position: 'absolute', top: 20, left: 20, right: 20, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  topic: { flexShrink: 1, fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
+  typeBadge: { borderRadius: 16, backgroundColor: homeColors.selected, paddingHorizontal: 10, paddingVertical: 5 },
+  typeBadgeText: { fontFamily: fonts.semibold, fontSize: 12, color: homeColors.deep },
+  cardContent: { width: '100%', alignItems: 'center', gap: 12 },
+  frontLabel: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.muted },
+  pronunciation: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, color: homeColors.muted, textAlign: 'center' },
+  wordType: { borderRadius: 16, backgroundColor: homeColors.nav, paddingHorizontal: 10, paddingVertical: 5 },
+  wordTypeText: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.deep },
+  audioControl: { alignItems: 'center', marginTop: 4 },
+  backTermLabel: { fontFamily: fonts.medium, fontSize: 13, color: homeColors.muted },
+  backLayout: { width: '100%', flexGrow: 1, gap: 20 },
+  backQuestion: { flexGrow: 1, minHeight: 120, justifyContent: 'center', alignItems: 'flex-start', gap: 8 },
+  term: { fontFamily: fonts.display, fontSize: 36, lineHeight: 46, color: homeColors.darkest, textAlign: 'center' },
+  termRevealed: { fontFamily: fonts.display, fontSize: 26, lineHeight: 36, color: homeColors.deep, textAlign: 'left' },
+  answer: { flexGrow: 1, alignSelf: 'stretch', gap: 16 },
+  correctAnswer: { borderRadius: 18, backgroundColor: homeColors.selected, padding: 16, gap: 8 },
+  meaningLabel: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.deep },
+  explanationBlock: { gap: 6 },
+  front: { fontSize: 14, lineHeight: 21, color: homeColors.muted, fontFamily: fonts.medium, textAlign: 'center', maxWidth: 280 },
+  answerLabel: { fontSize: 13, color: homeColors.muted, fontFamily: fonts.medium },
+  definition: { fontSize: 20, lineHeight: 29, color: homeColors.darkest, fontFamily: fonts.semibold },
+  back:  { fontSize: 15, lineHeight: 23, color: homeColors.deep, fontFamily: fonts.regular },
   cornerHint: {
-    position: 'absolute', top: 14, right: 14,
-    fontSize: 12, color: colors.muted,
-    letterSpacing: 0.7, textTransform: 'uppercase', fontWeight: '600',
-    fontFamily: fonts.semibold,
+    position: 'absolute', bottom: 16, left: 20, right: 20, alignItems: 'center', gap: 5,
   },
-  confRow: { flexDirection: 'row', gap: 6, marginTop: 12, marginBottom: 10 },
-  confBtn: { minHeight: 44,
-    flex: 1, paddingVertical: 10, alignItems: 'center',
+  hintText: { fontSize: 13, color: homeColors.muted, fontFamily: fonts.medium,
+  },
+  guideOverlay: { flex: 1, backgroundColor: colors.modalScrim, justifyContent: 'flex-end', paddingHorizontal: 16 },
+  guideCard: { backgroundColor: homeColors.white, borderRadius: 24, padding: 20, gap: 14, boxShadow: `0px 4px 0px ${homeColors.border}` },
+  guideHeadingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  guideIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: homeColors.selected, alignItems: 'center', justifyContent: 'center' },
+  guideClose: { width: 44, height: 44, borderRadius: 22, backgroundColor: homeColors.nav, alignItems: 'center', justifyContent: 'center' },
+  guideTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 34, color: homeColors.darkest },
+  guideDescription: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: homeColors.deep },
+  guideDirections: { flexDirection: 'row', gap: 10 },
+  guideDirection: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 16, backgroundColor: homeColors.nav, padding: 12 },
+  guideDirectionCopy: { flex: 1, gap: 2 },
+  guideArrow: { fontFamily: fonts.semibold, fontSize: 22, color: homeColors.primary },
+  guideDirectionTitle: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.darkest },
+  guideDirectionHint: { fontFamily: fonts.regular, fontSize: 12, color: homeColors.muted },
+  guideButton: { minHeight: 52, borderRadius: 26, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
+  guideButtonText: { fontFamily: fonts.semibold, fontSize: 16, color: homeColors.white },
+  confRow: { flexDirection: 'row', gap: 12, marginTop: 18, marginBottom: 10 },
+  confBtn: {
+    flex: 1, minHeight: 52, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
     backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 8,
+    borderWidth: 1, borderColor: colors.border, borderRadius: 26, boxShadow: `0px 4px 0px ${homeColors.border}`,
   },
-  confLabel: { fontSize: 12, fontWeight: '700', fontFamily: fonts.bold },
+  confLabel: { fontSize: 15, fontFamily: fonts.semibold },
 });
 
 // ── Feedback ────────────────────────────────────────────────────
@@ -1179,12 +1201,48 @@ const fbStyles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', gap: 8,
   },
   copy: { flex: 1, minWidth: 0 },
-  heading: { fontSize: 12, fontWeight: '700', marginBottom: 3, letterSpacing: 0.3, fontFamily: fonts.bold },
-  body:    { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.regular },
+  heading: { fontSize: 15, fontWeight: '700', marginBottom: 3, letterSpacing: 0.3, fontFamily: fonts.bold },
+  body:    { fontSize: 14, color: colors.sub, lineHeight: 21, fontFamily: fonts.regular },
 });
 
 // ── Host styles ─────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 340 },
+  completeGradient: { position: 'absolute', left: 0, right: 0, height: 680 },
+  completeContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 16, justifyContent: 'center', gap: 20 },
+  completeCardBase: { backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
+  completeCard: { alignItems: 'center', backgroundColor: homeColors.white, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 24, gap: 10 },
+  completeMascot: { width: 150, height: 130, alignItems: 'center', justifyContent: 'center' },
+  completeBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: homeColors.selected, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
+  completeBadgeText: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.deep },
+  completeTitle: { fontFamily: fonts.display, fontSize: 36, lineHeight: 46, color: homeColors.darkest, textAlign: 'center' },
+  completeCopy: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: homeColors.muted, textAlign: 'center' },
+  completeStats: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', backgroundColor: homeColors.nav, borderRadius: 18, paddingVertical: 14, marginTop: 10 },
+  completeStat: { flex: 1, alignItems: 'center', gap: 2 },
+  completeNumber: { fontFamily: fonts.display, fontSize: 24, color: homeColors.deep },
+  completeStatLabel: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.muted },
+  completeDivider: { width: 1, height: 34, backgroundColor: homeColors.border },
+  completeActions: { gap: 8 },
+  completePrimaryBase: { height: 56, paddingBottom: 4, borderRadius: 28, backgroundColor: homeColors.deep },
+  completePrimary: { flex: 1, borderRadius: 28, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
+  completePrimaryText: { fontFamily: fonts.semibold, fontSize: 16, color: homeColors.white },
+  completeDone: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  completeDoneText: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.deep },
+  pageSwipeBackground: { position: 'absolute', top: 0, left: 0, right: 0 },
+  pageSwipeGradient: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 },
+  practiceLayout: { flex: 1 },
+  practiceScroll: { flex: 1 },
+  practiceScrollContent: { flexGrow: 1, paddingBottom: 8 },
+  fixedCardContent: { flexShrink: 1 },
+  practiceFooter: { paddingHorizontal: layout.screenInline, paddingTop: 10, paddingBottom: 8 },
+  recallComposer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: layout.screenInline, marginTop: 8, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: homeColors.border, borderRadius: 24, backgroundColor: homeColors.white, boxShadow: `0px 4px 0px ${homeColors.border}` },
+  recallComposerInput: { flex: 1, minHeight: 40, maxHeight: 100, paddingVertical: 8, fontFamily: fonts.regular, fontSize: 16, lineHeight: 22, color: homeColors.darkest },
+  recallSkip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
+  recallSkipText: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.primary },
+  recallSubmit: { width: 40, height: 40, borderRadius: 20, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
+  recallSubmitDisabled: { opacity: 0.4 },
+  emptyAction: { minHeight: 44, paddingHorizontal: 20, borderRadius: 22, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
+  emptyActionText: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.white },
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
@@ -1197,34 +1255,55 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontFamily: fonts.regular,
   },
-  progressTrack: { height: 5, backgroundColor: colors.borderS, borderRadius: 3, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: colors.accent },
+  progressRow: { marginHorizontal: layout.screenInline, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  progressCount: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.deep },
+  progressTrack: { flex: 1, height: 10, backgroundColor: homeColors.track, borderRadius: 6, overflow: 'hidden' },
+  progressFill:  { height: '100%', backgroundColor: colors.accent, borderRadius: 5 },
 
   nav: {
     paddingHorizontal: layout.screenInline, paddingVertical: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 0,
+    borderBottomWidth: 0, zIndex: 10,
   },
-  navBack:  { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
-  navCount: { fontSize: 12, color: colors.muted, fontFamily: fonts.utility },
+  navButton: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
+  navSpacer: { width: 44 },
+  roundTitle: { fontFamily: fonts.semibold, fontSize: 20, color: homeColors.deep },
+  navBack: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
+  navCount: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
 
-  qBlock: { paddingHorizontal: layout.screenInline, paddingTop: 20 },
-  topicRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
-  modeChip: { minHeight: 44,
-    paddingHorizontal: 7, paddingVertical: 2,
-    backgroundColor: colors.bg,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 9,
-  },
-  modeChipText: {
-    fontSize: 12, color: colors.muted,
-    letterSpacing: 0.5, textTransform: 'uppercase', fontWeight: '600',
-    fontFamily: fonts.semibold,
-  },
+  questionCard: { marginHorizontal: layout.screenInline, marginTop: 16, padding: 20, paddingBottom: 8, borderRadius: 24, backgroundColor: homeColors.white, gap: 20, boxShadow: `0px 4px 0px ${homeColors.border}` },
+  fixedQuestionCard: { flex: 1, minHeight: 0 },
+  questionArea: { flexGrow: 1, flexShrink: 0, minHeight: 70, justifyContent: 'flex-start', gap: 10, paddingTop: 0, paddingBottom: 12 },
+  compactQuestionArea: { flexGrow: 1, flexShrink: 1, minHeight: 100, gap: 6, paddingTop: 0, paddingBottom: 0 },
+  questionCenter: { flex: 1, minHeight: 0, justifyContent: 'center', gap: 6 },
+  questionTextScroll: { flexGrow: 0, flexShrink: 1 },
+  retryBadgeSlot: { height: 20, alignItems: 'flex-start', justifyContent: 'center' },
+  retryBadge: { overflow: 'hidden', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, fontFamily: fonts.medium, fontSize: 12, color: colors.warn, backgroundColor: colors.warnL },
+  cardTopic: { flexShrink: 1, fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
+  answerArea: { flexShrink: 1, minHeight: 0, gap: 10 },
+  mcqAnswerArea: { flexGrow: 0 },
+  answerPrompt: { fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
+  explanationSlot: { height: 44, marginTop: -14, marginBottom: -6, justifyContent: 'center' },
+  explanationToggle: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
+  explanationLink: { fontFamily: fonts.medium, fontSize: 13, color: homeColors.muted },
+  backExplanationScroll: { flexShrink: 1, minHeight: 0 },
+  backExplanationContent: { gap: 16, paddingBottom: 4 },
+  correctAnswerBox: { padding: 16, borderRadius: 16, backgroundColor: homeColors.nav, gap: 8 },
+  correctAnswerText: { fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: homeColors.deep },
+  explanation: { gap: 8 },
+  explanationTitle: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.deep },
+  explanationText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: homeColors.darkest },
+  qBlock: { paddingHorizontal: layout.screenInline, paddingTop: 24, gap: 8 },
+  topicRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  topicText: { flexShrink: 1, fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
+  modeChip: { paddingHorizontal: 10, paddingVertical: 5, backgroundColor: homeColors.nav, borderRadius: 16 },
+  modeChipText: { fontSize: 12, color: homeColors.deep, fontFamily: fonts.semibold },
   qText: {
-    fontSize: 19, fontWeight: '700', letterSpacing: -0.5, lineHeight: 26,
-    color: colors.text, fontFamily: fonts.bold,
+    fontSize: 30, lineHeight: 40, color: homeColors.deep, fontFamily: fonts.display,
   },
 
-  cta: { minHeight: 44, paddingVertical: 15, borderRadius: 100, backgroundColor: colors.action, alignItems: 'center', shadowColor: colors.actionShadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0, shadowRadius: 8, elevation: 0 },
-  ctaText: { color: colors.onAction, fontSize: 15, fontWeight: '700', fontFamily: fonts.bold },
+  cta: { minHeight: 56, paddingVertical: 15, borderRadius: 100, backgroundColor: colors.action, alignItems: 'center', justifyContent: 'center', boxShadow: `0px 4px 0px ${homeColors.deep}` },
+  ctaDisabled: { opacity: 0.45 },
+  reservedInvisible: { opacity: 0 },
+  ctaText: { color: colors.onAction, fontSize: 17, fontFamily: fonts.semibold },
 });

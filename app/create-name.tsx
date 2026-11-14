@@ -7,6 +7,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { elevation as cardElevation } from '@/theme';
 import { ledge } from '@/theme/ledge';
+import { sheet } from '@/theme/sheet';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
@@ -409,29 +410,15 @@ const styles = StyleSheet.create({
     fontFamily: 'Geist_500Medium', fontSize: 22, lineHeight: 30, color: homeColors.white,
   },
 
-  // Date picker modal
-  modalOverlay: {
-    flex: 1, backgroundColor: colors.scrim, justifyContent: 'flex-end',
-  },
-  modalContent: {
-    backgroundColor: colors.surf,
-    borderTopLeftRadius: 16, borderTopRightRadius: 16,
-    borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1,
-    borderColor: colors.border, paddingBottom: 24,
-  },
-  modalHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: layout.screenInline, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
-  modalBtn: { minHeight: 44, paddingVertical: 8, paddingHorizontal: 12 },
+  // Date picker sheet. Shape and scrim come from theme/sheet.ts, which every sheet
+  // in the app now reads, so they stop disagreeing about their own corners.
+  modalOverlay: sheet.scrim,
+  modalContent: { ...sheet.surface, paddingTop: 18, paddingBottom: 24 },
+  modalHeader: sheet.head,
+  modalBtn: { minHeight: 44, paddingVertical: 8, justifyContent: 'center' },
   modalTitle: {
-    fontSize: 13, color: colors.text,
-    fontWeight: '700', fontFamily: fonts.bold,
+    fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: homeColors.darkest,
   },
-  modalCancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.medium },
-  modalDone: {
-    fontSize: 13, color: colors.accentText,
-    fontWeight: '700', fontFamily: fonts.bold,
-  },
+  modalCancel: { fontFamily: fonts.medium, fontSize: 16, color: homeColors.muted },
+  modalDone: { fontFamily: fonts.semibold, fontSize: 16, color: homeColors.primary },
 });

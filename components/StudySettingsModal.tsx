@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { sheet } from '@/theme/sheet';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
 import CloseIcon from '@/components/icons/CloseIcon';
@@ -248,13 +249,7 @@ export default function StudySettingsModal({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.surf,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
-  },
+  container: { flex: 1, ...sheet.surface },
   toolbar: {
     flexDirection: 'column',
     alignItems: 'center',

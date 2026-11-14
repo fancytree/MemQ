@@ -2,6 +2,7 @@ import { DesignAsset } from '@/components/DesignAsset';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { calendarCells, sameCalendarDay, shiftCalendarMonth } from '@/lib/calendar';
 import { colors, componentTokens, layout, radius, type } from '@/theme';
+import { sheet as sheetShape } from '@/theme/sheet';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -70,7 +71,7 @@ export function DeadlineSheet({ visible, value, onClose, onConfirm }: {
 const t = componentTokens.lessonEditor;
 const styles = StyleSheet.create({
   overlay: { flex: 1, justifyContent: 'flex-end', backgroundColor: colors.modalScrim },
-  sheet: { maxHeight: '92%', borderTopLeftRadius: t.sheetRadius, borderTopRightRadius: t.sheetRadius, backgroundColor: colors.bg, paddingTop: 10 },
+  sheet: { ...sheetShape.surface, maxHeight: '92%', paddingTop: 10 },
   handle: { width: 36, height: 4, borderRadius: radius.pill, backgroundColor: colors.sheetHandle, alignSelf: 'center', marginBottom: 14 },
   content: { paddingHorizontal: layout.screenInline, gap: 16 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },

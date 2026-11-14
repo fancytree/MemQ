@@ -1,6 +1,9 @@
+import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
+import { sheet } from '@/theme/sheet';
 import { fonts } from '@/theme/typography';
-import { colors } from '@/theme/colors';
+import { colors, homeColors } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
 import MenuItem from '@/components/MenuItem';
 import { MemQTheme } from '@/constants/theme';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -696,7 +699,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accentText} />
         </View>
@@ -705,7 +708,8 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -717,11 +721,11 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             {isTab ? (
               <Text style={styles.navBack}>Profile</Text>
             ) : (
-              <TouchableOpacity accessibilityRole="button" onPress={() => safeBack('/(tabs)')} activeOpacity={0.7}>
-                <Text style={styles.navBack}>← Profile</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => safeBack('/you')} activeOpacity={0.7}>
+                <Text style={styles.navBack}>← Back</Text>
               </TouchableOpacity>
             )}
-            <View style={styles.navRightSpacer} />
+            <Text accessibilityRole="header" style={styles.pageTitle}>Profile</Text><View style={styles.navRightSpacer} />
           </View>
 
           {/* 用户信息头部 */}
@@ -774,7 +778,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
         {/* PERSONAL INFO Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PERSONAL INFO</Text>
+          <Text style={styles.sectionTitle}>Personal info</Text>
           <View style={styles.menuCard}>
             <MenuItem
               icon="user"
@@ -805,14 +809,18 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               onPress={() => {
                 router.push('/profile/password' as any);
               }}
-              showDivider={false}
+              showDivider={process.env.EXPO_PUBLIC_MCP_ENABLED === 'true'}
             />
+            {process.env.EXPO_PUBLIC_MCP_ENABLED === 'true' && <MenuItem
+              icon="link" iconColor={t.color.muted} iconBgColor={t.color.bg} title="Connected apps"
+              subtitle="Manage AI and other connections" onPress={() => router.push('/profile/connections')} showDivider={false}
+            />}
           </View>
         </View>
 
         {/* PREFERENCE Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>PREFERENCE</Text>
+          <Text style={styles.sectionTitle}>Preferences</Text>
           <View style={styles.menuCard}>
             <MenuItem
               icon="bell"
@@ -933,7 +941,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
         {/* STORAGE Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>STORAGE</Text>
+          <Text style={styles.sectionTitle}>Storage</Text>
           <View style={styles.menuCard}>
             <View style={styles.cacheItem}>
               <View style={styles.cacheItemLeft}>
@@ -960,7 +968,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
         {/* ABOUT Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ABOUT</Text>
+          <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.menuCard}>
             <MenuItem
               icon="shield"
@@ -1114,6 +1122,8 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: t.color.bg,
   },
+  pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 300 },
+  pageTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 34, color: homeColors.deep },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -1123,7 +1133,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: 56,
   },
   header: {
     flexDirection: 'row',
@@ -1136,12 +1146,10 @@ const styles = StyleSheet.create({
   topHeaderBlock: {
   },
   navBack: {
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.1,
-    color: t.color.muted,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
+    fontSize: 15,
+    lineHeight: 22,
+    color: homeColors.deep,
+    fontFamily: fonts.semibold,
   },
   navRightSpacer: {
     width: 52,
@@ -1189,22 +1197,19 @@ const styles = StyleSheet.create({
     borderColor: t.color.surface,
   },
   userName: {
-    fontSize: 20,
-    lineHeight: 28,
-    letterSpacing: -0.1,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-    color: t.color.textHigh,
+    fontSize: 28,
+    lineHeight: 36,
+    fontFamily: fonts.display,
+    color: homeColors.deep,
     flex: 1,
   },
   premiumBanner: {
     marginHorizontal: layout.screenInline,
     marginBottom: 22,
-    borderRadius: 10,
-    padding: 18,
-    backgroundColor: t.color.surface,
-    borderWidth: 1,
-    borderColor: t.color.border,
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: homeColors.white,
+    boxShadow: `0px 4px 0px ${homeColors.border}`,
   },
   premiumHeader: {
     flexDirection: 'row',
@@ -1248,22 +1253,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenInline,
   },
   sectionTitle: {
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
-    color: t.color.muted,
-    textTransform: 'uppercase',
-    letterSpacing: -0.1,
+    fontSize: 18,
+    lineHeight: 25,
+    fontFamily: fonts.semibold,
+    color: homeColors.darkest,
     marginBottom: 10,
   },
   menuCard: {
     backgroundColor: t.color.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: t.color.border,
-    overflow: 'hidden',
-  },
+    overflow: 'hidden', ...cardElevation.card, },
   footerActions: {
     paddingHorizontal: layout.screenInline,
     marginTop: 4,
@@ -1273,9 +1271,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: t.color.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
+    borderRadius: 20,
+    boxShadow: `0px 4px 0px ${homeColors.border}`,
     paddingVertical: 14,
     paddingHorizontal: 16,
     marginBottom: 10,
@@ -1284,9 +1281,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: t.color.bg,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
+    backgroundColor: homeColors.nav,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1371,14 +1366,14 @@ const styles = StyleSheet.create({
   inlineOptionChip: { minHeight: 44,
     paddingHorizontal: 10,
     paddingVertical: 8,
-    borderRadius: 8,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: colors.controlBorder,
-    backgroundColor: t.color.bg,
+    borderColor: homeColors.border,
+    backgroundColor: homeColors.white,
   },
   inlineOptionChipActive: {
     borderColor: colors.action,
-    backgroundColor: t.color.accentLight,
+    backgroundColor: homeColors.selected,
   },
   inlineOptionChipText: {
     fontSize: 12,
@@ -1398,15 +1393,10 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: colors.scrim,
+    backgroundColor: colors.modalScrim,
     justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: t.color.surface,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 40,
-  },
+  modalContent: { ...sheet.surface, paddingBottom: 40 },
   modalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1445,7 +1435,6 @@ const styles = StyleSheet.create({
   },
   statsCard: {
     backgroundColor: t.color.surface,
-    borderRadius: t.radius.lg,
     borderWidth: 1,
     borderColor: t.color.border,
     padding: 20,
@@ -1456,8 +1445,7 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0,
     shadowRadius: 2,
-    elevation: 0,
-  },
+    elevation: 0, ...cardElevation.card, },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
