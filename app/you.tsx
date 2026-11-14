@@ -1,6 +1,7 @@
 import { layout } from '@/theme/spacing';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { RoundAction } from '@/components/ui/RoundButtons';
+import { ledge } from '@/theme/ledge';
 import { safeBack } from '@/lib/safeBack';
 import { EdBase } from '@/components/EdBase';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -132,8 +133,21 @@ export default function ProfileScreen() {
     <EdBase bottomInset={0} scroll={false}>
       <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.45, 1]} style={styles.pageGradient} />
       <SecondaryPageNav backLabel="← Today" onBack={() => safeBack('/(tabs)')}
-        right={<RoundAction icon="settings" label="Open profile settings"
-          onPress={() => router.push('/profile/settings' as any)} />} />
+        right={
+          <View style={styles.navActions}>
+            {!isPro && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Go Pro"
+                onPress={showPaywall} style={styles.goPro}>
+                <View style={styles.goProFace}>
+                  <Feather name="zap" size={15} color={homeColors.white} />
+                  <Text style={styles.goProText}>Go Pro</Text>
+                </View>
+              </Pressable>
+            )}
+            <RoundAction icon="settings" label="Open profile settings"
+              onPress={() => router.push('/profile/settings' as any)} />
+          </View>
+        } />
       {/* Avatar row */}
       <View style={styles.avatarRow}>
         {avatarUrl ? (
@@ -145,17 +159,13 @@ export default function ProfileScreen() {
         )}
         <View style={{ flex: 1 }}>
           <Text style={styles.avName}>{displayName}</Text>
-          <View style={styles.memberRow}>
-            {isPro ? (
+          {isPro && (
+            <View style={styles.memberRow}>
               <View style={styles.proBadge}>
                 <Text style={styles.proBadgeText}>PRO</Text>
               </View>
-            ) : (
-              <Pressable accessibilityRole="button" onPress={showPaywall} style={styles.upgradeEntry}>
-                <Text style={styles.upgradeEntryText}>Go Pro</Text>
-              </Pressable>
-            )}
-          </View>
+            </View>
+          )}
         </View>
       </View>
 
@@ -233,13 +243,19 @@ const styles = StyleSheet.create({
     fontSize: 12, lineHeight: 14, letterSpacing: 0.4, color: colors.accentText,
     fontFamily: fonts.bold, fontWeight: '700',
   },
-  upgradeEntry: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: 999,
-    paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.bg,
+  navActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  // The filled button of the set, at the shallow depth the bar's discs carry: it is
+  // the only thing on this page asking for something, so it is the only filled one.
+  goPro: {
+    height: 42 + ledge.control, borderRadius: 22,
+    backgroundColor: homeColors.deep, paddingBottom: ledge.control,
   },
-  upgradeEntryText: {
-    fontSize: 12, lineHeight: 14, letterSpacing: 0.2, color: colors.muted,
-    fontFamily: fonts.medium, fontWeight: '500',
+  goProFace: {
+    flex: 1, borderRadius: 22, backgroundColor: homeColors.primary,
+    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14,
+  },
+  goProText: {
+    fontFamily: fonts.semibold, fontSize: 15, color: homeColors.white,
   },
   editLink: {
     fontSize: 13, letterSpacing: -0.1, color: colors.action,
