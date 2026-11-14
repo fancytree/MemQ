@@ -49,10 +49,12 @@ const getStatusWeight = (status: string | null | undefined): number => {
  * 30 box, a radius of 13 and a 4-unit stroke, the white track underneath, starting
  * at twelve o'clock and going clockwise.
  *
- * The arc is the action purple, not the hills' yellow the asset drew it in. That
- * yellow sat on a white track on a tile filled with 36% of the same yellow — three
- * layers of one hue, and the arc disappeared into them. The tile beside it pairs a
- * pale ground with a saturated mark the same way.
+ * Tile and arc are one colour at two strengths, which is the rule the other two
+ * tiles on this card already follow: a pale ground under a saturated mark. The asset
+ * broke it — the hills' yellow on a white track on a tile filled with 36% of that
+ * same yellow, three layers of one hue with no strength between them, so the arc
+ * went missing. Green here, pale under deep, and green is what finishing something
+ * means everywhere else in the app.
  *
  * Past the goal it stays full rather than wrapping: the number beside it already says
  * 70/20, and a ring that laps itself would show 10/20's worth of arc on a day that
@@ -65,7 +67,7 @@ function GoalRing({ done, goal }: { done: number; goal: number }) {
     <Svg width={30} height={30} viewBox="0 0 30 30">
       <Circle cx={15} cy={15} r={r} fill="none" stroke={homeColors.white} strokeWidth={4} />
       {at > 0 && (
-        <Circle cx={15} cy={15} r={r} fill="none" stroke={homeColors.primary} strokeWidth={4}
+        <Circle cx={15} cy={15} r={r} fill="none" stroke={colors.green} strokeWidth={4}
           strokeLinecap="round"
           strokeDasharray={`${circumference * at} ${circumference}`}
           transform="rotate(-90 15 15)" />
@@ -508,7 +510,7 @@ const styles = StyleSheet.create({
   statLabel: { fontFamily: 'Geist_500Medium', fontSize: 12, color: homeColors.muted },
   chartIcon: { width: 42, height: 42, backgroundColor: homeColors.chartBackground, borderRadius: 12, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 9, gap: 3 },
   bar: { width: 6, borderRadius: 2, backgroundColor: homeColors.chartBar },
-  goalIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: homeColors.goalBackground, alignItems: 'center', justifyContent: 'center' },
+  goalIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: homeColors.swipeGreen, alignItems: 'center', justifyContent: 'center' },
   courses: { marginTop: 16, borderRadius: 24, backgroundColor: homeColors.border, paddingBottom: 4 },
   coursesFace: { paddingHorizontal: 12, paddingVertical: 24, borderRadius: 24, backgroundColor: homeColors.white, gap: 24 },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
