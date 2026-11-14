@@ -30,10 +30,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
  *  The paths are deliberately shallow. Every one of these menus has been renamed at
  *  least once, and what a given plan is allowed to add differs between them, so the
  *  copy says where to start looking and admits it moves. */
-const CLIENTS: { name: string; where: string }[] = [
-  { name: 'Claude', where: 'Settings › Connectors › Add custom connector' },
-  { name: 'ChatGPT', where: 'Settings › Apps & Connectors › Developer mode › Create' },
-  { name: 'Cursor, VS Code and others', where: 'Add it as a remote (HTTP) MCP server' },
+const CLIENTS: { name: string; initial: string; where: string }[] = [
+  { name: 'Claude', initial: 'C', where: 'Settings › Connectors › Add custom connector' },
+  { name: 'ChatGPT', initial: 'G', where: 'Settings › Apps & Connectors › Developer mode › Create' },
+  { name: 'Cursor, VS Code and others', initial: '⌘', where: 'Add it as a remote (HTTP) MCP server' },
 ];
 
 const STEPS: { title: string; body: string }[] = [
@@ -84,8 +84,14 @@ export function McpSetupSheet({ visible, onClose, offerDismiss = false }: {
               <Text style={styles.cardLabel}>Apps that can connect</Text>
               {CLIENTS.map((client, i) => (
                 <View key={client.name} style={[styles.client, i > 0 && styles.clientGap]}>
-                  <Text style={styles.clientName}>{client.name}</Text>
-                  <Text style={styles.clientWhere}>{client.where}</Text>
+                  {/* Each app's own mark belongs here. Until the real ones are in
+                      assets, a lettered tile in the app's own colours — a drawn
+                      approximation of somebody's logo would be worse than none. */}
+                  <View style={styles.mark}><Text style={styles.markText}>{client.initial}</Text></View>
+                  <View style={styles.clientCopy}>
+                    <Text style={styles.clientName}>{client.name}</Text>
+                    <Text style={styles.clientWhere}>{client.where}</Text>
+                  </View>
                 </View>
               ))}
               <Text style={styles.clientNote}>
@@ -158,8 +164,14 @@ const styles = StyleSheet.create({
   cardLabel: {
     fontFamily: fonts.semibold, fontSize: 14, color: homeColors.darkest, marginBottom: 14,
   },
-  client: { gap: 2 },
-  clientGap: { marginTop: 12 },
+  client: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  clientGap: { marginTop: 14 },
+  mark: {
+    width: 38, height: 38, borderRadius: 12, backgroundColor: homeColors.selected,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  markText: { fontFamily: fonts.display, fontSize: 17, color: homeColors.deep },
+  clientCopy: { flex: 1, gap: 2 },
   clientName: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: homeColors.darkest },
   clientWhere: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: homeColors.muted },
   clientNote: {
