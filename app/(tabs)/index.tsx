@@ -477,9 +477,12 @@ const styles = StyleSheet.create({
   streak: { height: 40, borderRadius: 27, backgroundColor: homeColors.streakBorder, paddingBottom: 2 },
   streakFace: { flex: 1, borderRadius: 27, backgroundColor: homeColors.white, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
   streakText: { fontFamily: 'Geist_600SemiBold', fontSize: 22, color: homeColors.black },
-  profile: { width: 40, height: 40, borderRadius: 20, backgroundColor: homeColors.placeholder, alignItems: 'center', justifyContent: 'center' },
+  // The same disc the profile page gives someone with no photo: deep, with the
+  // initial reversed out of it. It was the one flat grey on a screen made of lime
+  // and purple, and next to the streak it read as something still loading.
+  profile: { width: 40, height: 40, borderRadius: 20, backgroundColor: homeColors.deep, alignItems: 'center', justifyContent: 'center' },
   profileImage: { width: 40, height: 40, borderRadius: 20 },
-  profileText: { fontFamily: 'Geist_600SemiBold', color: purple, fontSize: 15 },
+  profileText: { fontFamily: 'Geist_600SemiBold', color: homeColors.white, fontSize: 15 },
   hero: { gap: 8 },
   focus: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 36, backgroundColor: homeColors.focus },
   focusText: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.black },
