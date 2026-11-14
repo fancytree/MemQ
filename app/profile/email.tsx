@@ -1,3 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { dialog } from '@/lib/dialog';
+import { homeColors } from '@/theme/colors';
+import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
 import { supabase } from '@/lib/supabase';
@@ -9,7 +13,6 @@ import { colors } from '@/theme';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -114,13 +117,13 @@ export default function EmailEditScreen() {
   const handleSave = async () => {
     if (!email.trim()) {
       setError('Email cannot be empty');
-      Alert.alert('Error', 'Please enter an email address');
+      dialog('Error', 'Please enter an email address');
       return;
     }
 
     if (!isValidEmail(email.trim())) {
       setError('Please enter a valid email address');
-      Alert.alert('Error', 'Please enter a valid email address');
+      dialog('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -138,7 +141,7 @@ export default function EmailEditScreen() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setError('User not authenticated');
-        Alert.alert('Error', 'User not authenticated');
+        dialog('Error', 'User not authenticated');
         setSaving(false);
         return;
       }
@@ -146,7 +149,7 @@ export default function EmailEditScreen() {
       // 再次验证邮箱（在发送请求前）
       if (!isValidEmail(trimmedEmail)) {
         setError('Please enter a valid email address');
-        Alert.alert('Error', 'Please enter a valid email address');
+        dialog('Error', 'Please enter a valid email address');
         setSaving(false);
         return;
       }
@@ -154,7 +157,7 @@ export default function EmailEditScreen() {
       // 检查邮箱是否与当前邮箱相同
       if (user.email && trimmedEmail.toLowerCase() === user.email.toLowerCase()) {
         setError('New email must be different from current email');
-        Alert.alert('Error', 'New email must be different from current email');
+        dialog('Error', 'New email must be different from current email');
         setSaving(false);
         return;
       }
@@ -199,7 +202,7 @@ export default function EmailEditScreen() {
         }
 
         setError(errorMessage);
-        Alert.alert('Error', errorMessage);
+        dialog('Error', errorMessage);
         setSaving(false);
         return;
       }
@@ -208,13 +211,13 @@ export default function EmailEditScreen() {
       console.log('Email update successful:', updateData);
 
       // 成功：返回
-      Alert.alert(
+      dialog(
         'Success',
         'Email update request sent. Please check your new email inbox for a confirmation link.',
         [
           {
             text: 'OK',
-            onPress: () => safeBack('/you'),
+            onPress: () => safeBack('/profile/settings'),
           },
         ]
       );
@@ -222,14 +225,15 @@ export default function EmailEditScreen() {
       console.error('Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
       setError(errorMessage);
-      Alert.alert('Error', errorMessage);
+      dialog('Error', errorMessage);
       setSaving(false);
     }
   };
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container} edges={['top']}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.accentText} />
         </View>
@@ -238,7 +242,8 @@ export default function EmailEditScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -249,9 +254,10 @@ export default function EmailEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <SecondaryPageNav onBack={() => safeBack('/you')} />
+          <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
 
           <View style={styles.bodyContent}>
+            <Text accessibilityRole="header" style={styles.pageTitle}>Edit email</Text>
             {/* 错误提示 */}
             {error && (
               <View style={styles.errorBanner}>
@@ -309,6 +315,8 @@ export default function EmailEditScreen() {
 }
 
 const styles = StyleSheet.create({
+  pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 250 },
+  pageTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, marginHorizontal: layout.screenInline, marginBottom: 20 },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -349,13 +357,11 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: colors.surf,
-    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 16,
+    padding: 20,
     marginHorizontal: layout.screenInline,
-    marginBottom: 24,
-  },
+    marginBottom: 24, ...cardElevation.card, },
   inputGroup: {
     marginBottom: 16,
   },
@@ -372,10 +378,10 @@ const styles = StyleSheet.create({
     color: colors.red,
   },
   input: { minHeight: 44,
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: colors.controlBorder,
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: 16,
     paddingHorizontal: 16,
     paddingVertical: 13,
     fontSize: 16,
@@ -404,7 +410,8 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginLeft: 8,
   },
-  saveButton: { minHeight: 44,
+  saveButton: { minHeight: 56,
+    boxShadow: `0px 4px 0px ${homeColors.deep}`, 
     backgroundColor: colors.action,
     borderWidth: 1,
     borderColor: colors.action,

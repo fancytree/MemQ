@@ -1,3 +1,7 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { dialog } from '@/lib/dialog';
+import { homeColors } from '@/theme/colors';
+import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
 import { supabase } from '@/lib/supabase';
@@ -9,7 +13,6 @@ import { colors } from '@/theme';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -53,31 +56,31 @@ export default function PasswordEditScreen() {
   const handleSave = async () => {
     if (!currentPassword) {
       setError('Please enter your current password');
-      Alert.alert('Error', 'Please enter your current password');
+      dialog('Error', 'Please enter your current password');
       return;
     }
 
     if (!newPassword) {
       setError('Please enter a new password');
-      Alert.alert('Error', 'Please enter a new password');
+      dialog('Error', 'Please enter a new password');
       return;
     }
 
     if (!isValidPassword(newPassword)) {
       setError('Password must be at least 6 characters long');
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      dialog('Error', 'Password must be at least 6 characters long');
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setError('New passwords do not match');
-      Alert.alert('Error', 'New passwords do not match');
+      dialog('Error', 'New passwords do not match');
       return;
     }
 
     if (currentPassword === newPassword) {
       setError('New password must be different from current password');
-      Alert.alert('Error', 'New password must be different from current password');
+      dialog('Error', 'New password must be different from current password');
       return;
     }
 
@@ -87,7 +90,7 @@ export default function PasswordEditScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        Alert.alert('Error', 'User not authenticated');
+        dialog('Error', 'User not authenticated');
         setSaving(false);
         return;
       }
@@ -100,7 +103,7 @@ export default function PasswordEditScreen() {
 
       if (signInError) {
         console.error('Error verifying current password:', signInError);
-        Alert.alert('Error', 'Current password is incorrect');
+        dialog('Error', 'Current password is incorrect');
         setSaving(false);
         return;
       }
@@ -112,7 +115,7 @@ export default function PasswordEditScreen() {
 
       if (updateError) {
         console.error('Error updating password:', updateError);
-        Alert.alert('Error', updateError.message || 'Failed to update password');
+        dialog('Error', updateError.message || 'Failed to update password');
         setSaving(false);
         return;
       }
@@ -121,22 +124,23 @@ export default function PasswordEditScreen() {
       setCurrentPassword('');
       setNewPassword('');
       setConfirmPassword('');
-      Alert.alert('Success', 'Password updated successfully', [
+      dialog('Success', 'Password updated successfully', [
         {
           text: 'OK',
-          onPress: () => safeBack('/you'),
+          onPress: () => safeBack('/profile/settings'),
         },
       ]);
     } catch (err) {
       console.error('Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', errorMessage);
+      dialog('Error', errorMessage);
       setSaving(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -147,9 +151,10 @@ export default function PasswordEditScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Header */}
-          <SecondaryPageNav onBack={() => safeBack('/you')} />
+          <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
 
           <View style={styles.bodyContent}>
+            <Text accessibilityRole="header" style={styles.pageTitle}>Change password</Text>
             {/* 错误提示 */}
             {error && (
               <View style={styles.errorBanner}>
@@ -287,6 +292,8 @@ export default function PasswordEditScreen() {
 }
 
 const styles = StyleSheet.create({
+  pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 250 },
+  pageTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, marginHorizontal: layout.screenInline, marginBottom: 20 },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -322,13 +329,11 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: colors.surf,
-    borderRadius: 10,
     borderWidth: 1,
     borderColor: colors.border,
-    padding: 16,
+    padding: 20,
     marginHorizontal: layout.screenInline,
-    marginBottom: 24,
-  },
+    marginBottom: 24, ...cardElevation.card, },
   inputGroup: {
     marginBottom: 16,
   },
@@ -347,10 +352,10 @@ const styles = StyleSheet.create({
   passwordInputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.bg,
+    backgroundColor: colors.surfaceSubtle,
     borderWidth: 1,
-    borderColor: colors.controlBorder,
-    borderRadius: 8,
+    borderColor: colors.border,
+    borderRadius: 16,
   },
   passwordInput: { minHeight: 44,
     flex: 1,
@@ -386,7 +391,8 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginLeft: 8,
   },
-  saveButton: { minHeight: 44,
+  saveButton: { minHeight: 56,
+    boxShadow: `0px 4px 0px ${homeColors.deep}`, 
     backgroundColor: colors.action,
     borderWidth: 1,
     borderColor: colors.action,
