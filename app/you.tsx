@@ -133,21 +133,8 @@ export default function ProfileScreen() {
     <EdBase bottomInset={0} scroll={false}>
       <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.45, 1]} style={styles.pageGradient} />
       <SecondaryPageNav backLabel="← Today" onBack={() => safeBack('/(tabs)')}
-        right={
-          <View style={styles.navActions}>
-            {!isPro && (
-              <Pressable accessibilityRole="button" accessibilityLabel="Go Pro"
-                onPress={showPaywall} style={styles.goPro}>
-                <View style={styles.goProFace}>
-                  <Feather name="zap" size={15} color={homeColors.white} />
-                  <Text style={styles.goProText}>Go Pro</Text>
-                </View>
-              </Pressable>
-            )}
-            <RoundAction icon="settings" label="Open profile settings"
-              onPress={() => router.push('/profile/settings' as any)} />
-          </View>
-        } />
+        right={<RoundAction icon="settings" label="Open profile settings"
+          onPress={() => router.push('/profile/settings' as any)} />} />
       {/* Avatar row */}
       <View style={styles.avatarRow}>
         {avatarUrl ? (
@@ -158,7 +145,18 @@ export default function ProfileScreen() {
           </View>
         )}
         <View style={{ flex: 1 }}>
-          <Text style={styles.avName}>{displayName}</Text>
+          <View style={styles.nameRow}>
+            <Text numberOfLines={1} style={styles.avName}>{displayName}</Text>
+            {!isPro && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Go Pro"
+                onPress={showPaywall} style={styles.goPro}>
+                <View style={styles.goProFace}>
+                  <Feather name="zap" size={14} color={homeColors.white} />
+                  <Text style={styles.goProText}>Go Pro</Text>
+                </View>
+              </Pressable>
+            )}
+          </View>
           {isPro && (
             <View style={styles.memberRow}>
               <View style={styles.proBadge}>
@@ -231,6 +229,7 @@ const styles = StyleSheet.create({
   avatarImage: { width: 64, height: 64, borderRadius: 32 },
   avatarChar: { color: homeColors.white, fontSize: 24, fontWeight: '700', fontFamily: fonts.bold },
   avName: {
+    flexShrink: 1,
     fontSize: 27, fontFamily: fonts.display,
     lineHeight: 36, color: homeColors.deep,
   },
@@ -243,19 +242,20 @@ const styles = StyleSheet.create({
     fontSize: 12, lineHeight: 14, letterSpacing: 0.4, color: colors.accentText,
     fontFamily: fonts.bold, fontWeight: '700',
   },
-  navActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  // The filled button of the set, at the shallow depth the bar's discs carry: it is
-  // the only thing on this page asking for something, so it is the only filled one.
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  // The filled button of the set, sized to sit on the name's own line. It is the one
+  // thing on this page asking for something, so it is the only filled control here —
+  // which is what makes it read as an offer rather than as another control.
   goPro: {
-    height: 42 + ledge.control, borderRadius: 22,
+    height: 36 + ledge.control, borderRadius: 19,
     backgroundColor: homeColors.deep, paddingBottom: ledge.control,
   },
   goProFace: {
-    flex: 1, borderRadius: 22, backgroundColor: homeColors.primary,
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14,
+    flex: 1, borderRadius: 19, backgroundColor: homeColors.primary,
+    flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12,
   },
   goProText: {
-    fontFamily: fonts.semibold, fontSize: 15, color: homeColors.white,
+    fontFamily: fonts.semibold, fontSize: 14, color: homeColors.white,
   },
   editLink: {
     fontSize: 13, letterSpacing: -0.1, color: colors.action,
