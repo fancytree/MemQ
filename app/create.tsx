@@ -121,6 +121,9 @@ export default function CreateScreen() {
 
 
   const isGenerating = phase === 'generating';
+  // What these cards were made from, handed to the naming screen so it can open with
+  // a title already in the box rather than an empty one.
+  const [sourceName, setSourceName] = useState('');
 
   useEffect(() => {
     if (!isGenerating) { setGenerateDots('.'); return; }
@@ -191,6 +194,9 @@ export default function CreateScreen() {
       if (picked.canceled || !picked.assets?.length) return;
       const asset = picked.assets[0];
       if (!asset.uri) { Alert.alert('Error', 'Invalid file'); return; }
+      // The file's own name, minus its extension: on a PDF run there is nothing else
+      // to call the lesson, and it is usually what the person would have typed.
+      if (asset.name) setSourceName(asset.name.replace(/\.[^.]+$/, '').trim());
       setPhase('generating');
       const { data: authData } = await supabase.auth.getUser();
       const userId = authData.user?.id ?? 'anonymous';
@@ -328,7 +334,7 @@ export default function CreateScreen() {
       Alert.alert('Empty', learningMode === 'language' ? 'Generate at least one language card first.' : 'Please add at least one term and definition.');
       return;
     }
-    setPendingTerms(terms, learningMode);
+    setPendingTerms(terms, learningMode, prompt.trim() || sourceName);
     router.push('/create-name' as any);
   };
 

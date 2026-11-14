@@ -10,7 +10,9 @@ import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
 import { clearCache } from '@/lib/cache';
-import { clearPendingTerms, getPendingLearningMode, getPendingTerms } from '@/lib/createStore';
+import {
+  clearPendingTerms, getPendingLearningMode, getPendingSource, getPendingTerms, lessonFromSource,
+} from '@/lib/createStore';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts } from '@/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -49,8 +51,12 @@ export default function CreateNameScreen() {
   // The card is nested inside the character's box, so it has to be pulled back out to
   // the width it would have had on its own. `body` insets it by 16 a side.
   const bleed = -((width - 32) - PERCH) / 2;
-  const [lessonName, setLessonName] = useState('');
-  const [description, setDescription] = useState('');
+  // Opened with a suggestion rather than two empty boxes: the person already said
+  // what they wanted to learn one screen ago, or picked a file that says it. Both
+  // stay editable, and a wrong guess costs a keystroke.
+  const [suggested] = useState(() => lessonFromSource(getPendingSource()));
+  const [lessonName, setLessonName] = useState(suggested.name);
+  const [description, setDescription] = useState(suggested.description);
   // Chosen on the previous screen and carried here with the cards. This page only
   // has to write it onto the lesson; asking for it a second time, one screen later
   // and with the answer already filled in, is asking the same question twice.
