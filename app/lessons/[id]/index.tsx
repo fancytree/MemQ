@@ -928,12 +928,11 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 0 : 20,
     maxHeight: '90%',
   },
+  // No rule under the title: the gap does that work, as on every other sheet.
   filterModalHeader: {
     paddingHorizontal: layout.screenInline,
-    paddingTop: 14,
+    paddingTop: 18,
     paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   filterModalHeaderRow: {
     flexDirection: 'row',

@@ -1397,15 +1397,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   modalContent: { ...sheet.surface, paddingBottom: 40 },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenInline,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: t.color.border,
-  },
+  // No rule under the title: the gap does that work, as on every other sheet.
+  modalHeader: { ...sheet.head, paddingTop: 18 },
   modalButton: { minHeight: 44,
     paddingVertical: 8,
     paddingHorizontal: 12,

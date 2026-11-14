@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { sheet } from '@/theme/sheet';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -265,13 +266,7 @@ export default function AIStudyAssistantModal({
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.surf,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    overflow: 'hidden',
-  },
+  container: { flex: 1, ...sheet.surface },
   header: {
     alignItems: 'center',
     paddingTop: 10,

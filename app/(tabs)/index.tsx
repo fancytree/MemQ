@@ -2,6 +2,7 @@ import { LessonCover } from '@/components/LessonCover';
 import LoadingScreen from '@/components/LoadingScreen';
 import { colors, homeColors } from '@/theme/colors';
 import { type } from '@/theme/typography';
+import { sheet } from '@/theme/sheet';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
 import { loadFromCache, saveToCache } from '@/lib/cache';
@@ -491,8 +492,8 @@ const styles = StyleSheet.create({
   startText: { fontFamily: 'Geist_500Medium', fontSize: 24, lineHeight: 32, color: homeColors.white },
   createAlternative: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   createAlternativeText: { fontFamily: 'Geist_600SemiBold', fontSize: 15, color: homeColors.deep },
-  pickerOverlay: { flex: 1, backgroundColor: colors.modalScrim, justifyContent: 'flex-end' },
-  picker: { maxHeight: '75%', backgroundColor: homeColors.canvas, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: 20, paddingTop: 10 },
+  pickerOverlay: sheet.scrim,
+  picker: { ...sheet.surface, maxHeight: '75%', paddingHorizontal: 20, paddingTop: 10 },
   pickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: homeColors.border, alignSelf: 'center', marginBottom: 18 },
   pickerHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 16 },
   pickerCopy: { flex: 1, gap: 4 },
