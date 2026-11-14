@@ -1,6 +1,8 @@
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
 import { dialog } from '@/lib/dialog';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
+import { McpSetupSheet } from '@/components/McpSetupSheet';
+import { mcpEnabled, mcpGuidanceDismissed } from '@/lib/mcp';
 import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -97,6 +99,15 @@ const getDocumentPicker = (): DocumentPickerModule | null => {
 export default function CreateScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
+  // Said once, the first time someone comes to make a lesson, because that is the
+  // moment it is about — and not again unless they ask for it.
+  const [showMcp, setShowMcp] = useState(false);
+  useEffect(() => {
+    if (!mcpEnabled) return;
+    let alive = true;
+    void mcpGuidanceDismissed().then((dismissed) => { if (alive && !dismissed) setShowMcp(true); });
+    return () => { alive = false; };
+  }, []);
   // The card is nested inside the character's box, so it has to be pulled back out to
   // the width it would have had on its own.
   const bleed = -((width - layout.screenInline * 2) - PERCH) / 2;
@@ -517,6 +528,7 @@ export default function CreateScreen() {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+      <McpSetupSheet visible={showMcp} offerDismiss onClose={() => setShowMcp(false)} />
 
     </EdBase>
   );

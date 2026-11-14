@@ -1,6 +1,7 @@
 import { elevation as cardElevation } from '@/theme';
 import { dialog } from '@/lib/dialog';
 import { BackButton } from '@/components/ui/RoundButtons';
+import { mcpEnabled } from '@/lib/mcp';
 import { layout } from '@/theme/spacing';
 import { sheet } from '@/theme/sheet';
 import { fonts } from '@/theme/typography';
@@ -808,9 +809,9 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               onPress={() => {
                 router.push('/profile/password' as any);
               }}
-              showDivider={process.env.EXPO_PUBLIC_MCP_ENABLED === 'true'}
+              showDivider={mcpEnabled}
             />
-            {process.env.EXPO_PUBLIC_MCP_ENABLED === 'true' && <MenuItem
+            {mcpEnabled && <MenuItem
               icon="link" iconColor={t.color.muted} iconBgColor={t.color.bg} title="Connected apps"
               subtitle="Manage AI and other connections" onPress={() => router.push('/profile/connections')} showDivider={false}
             />}
