@@ -1,8 +1,10 @@
 import { fonts } from '@/theme/typography';
 import { colors } from '@/theme';
+import { homeColors } from '@/theme/colors';
 import { Feather } from '@expo/vector-icons';
 import React from 'react';
-import { StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
+import { Toggle } from '@/components/ui/Toggle';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface MenuItemProps {
   icon: keyof typeof Feather.glyphMap;
@@ -42,8 +44,8 @@ export default function MenuItem({
       >
         {/* 左侧图标和文字 */}
         <View style={styles.leftSection}>
-          <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
-            <Feather name={icon} size={20} color={iconColor} />
+          <View style={styles.iconContainer}>
+            <Feather name={icon} size={20} color={homeColors.deep} />
           </View>
           <View style={styles.textContainer}>
             <Text style={styles.title}>{title}</Text>
@@ -55,14 +57,7 @@ export default function MenuItem({
         {/* 右侧操作 */}
         <View style={styles.rightSection}>
           {type === 'toggle' ? (
-            <Switch
-              accessibilityLabel={title}
-              value={toggleValue}
-              onValueChange={onToggle}
-              trackColor={{ false: colors.switchTrack, true: colors.action }}
-              thumbColor={colors.surf}
-              ios_backgroundColor={colors.switchTrack}
-            />
+            <Toggle label={title} value={!!toggleValue} onValueChange={onToggle ?? (() => {})} />
           ) : (
             <Feather name="chevron-right" size={20} color={colors.muted} />
           )}
@@ -90,9 +85,8 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderRadius: 14,
+    backgroundColor: homeColors.nav,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -101,8 +95,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   title: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
     fontWeight: '500',
     fontFamily: fonts.medium,
     color: colors.text,

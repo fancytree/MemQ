@@ -1,3 +1,4 @@
+import { Toggle } from '@/components/ui/Toggle';
 import { layout } from '@/theme/spacing';
 import { sheet } from '@/theme/sheet';
 import { StatusBar } from 'expo-status-bar';
@@ -112,25 +113,11 @@ export default function StudySettingsModal({
               <Text style={styles.sectionTitle}>Answer with</Text>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Term</Text>
-                <Switch
-                  accessibilityLabel="Answer with term"
-                  value={settings.answerWith.term}
-                  onValueChange={(value) => handleUpdateAnswerWith('term', value)}
-                  trackColor={{ false: colors.switchTrack, true: colors.action }}
-                  thumbColor={colors.surf}
-                  ios_backgroundColor={colors.switchTrack}
-                />
+                <Toggle label="Answer with term" value={settings.answerWith.term} onValueChange={(value) => handleUpdateAnswerWith('term', value)} />
               </View>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Definition</Text>
-                <Switch
-                  accessibilityLabel="Answer with definition"
-                  value={settings.answerWith.definition}
-                  onValueChange={(value) => handleUpdateAnswerWith('definition', value)}
-                  trackColor={{ false: colors.switchTrack, true: colors.action }}
-                  thumbColor={colors.surf}
-                  ios_backgroundColor={colors.switchTrack}
-                />
+                <Toggle label="Answer with definition" value={settings.answerWith.definition} onValueChange={(value) => handleUpdateAnswerWith('definition', value)} />
               </View>
             </View>
 
@@ -139,36 +126,15 @@ export default function StudySettingsModal({
               <Text style={styles.sectionTitle}>Question types</Text>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>True/False</Text>
-                <Switch
-                  accessibilityLabel="True or false questions"
-                  value={settings.questionTypes.trueFalse}
-                  onValueChange={(value) => handleUpdateQuestionTypes('trueFalse', value)}
-                  trackColor={{ false: colors.switchTrack, true: colors.action }}
-                  thumbColor={colors.surf}
-                  ios_backgroundColor={colors.switchTrack}
-                />
+                <Toggle label="True or false questions" value={settings.questionTypes.trueFalse} onValueChange={(value) => handleUpdateQuestionTypes('trueFalse', value)} />
               </View>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Multiple choice</Text>
-                <Switch
-                  accessibilityLabel="Multiple choice questions"
-                  value={settings.questionTypes.mcq}
-                  onValueChange={(value) => handleUpdateQuestionTypes('mcq', value)}
-                  trackColor={{ false: colors.switchTrack, true: colors.action }}
-                  thumbColor={colors.surf}
-                  ios_backgroundColor={colors.switchTrack}
-                />
+                <Toggle label="Multiple choice questions" value={settings.questionTypes.mcq} onValueChange={(value) => handleUpdateQuestionTypes('mcq', value)} />
               </View>
               <View style={styles.toggleRow}>
                 <Text style={styles.toggleLabel}>Written</Text>
-                <Switch
-                  accessibilityLabel="Written questions"
-                  value={settings.questionTypes.written}
-                  onValueChange={(value) => handleUpdateQuestionTypes('written', value)}
-                  trackColor={{ false: colors.switchTrack, true: colors.action }}
-                  thumbColor={colors.surf}
-                  ios_backgroundColor={colors.switchTrack}
-                />
+                <Toggle label="Written questions" value={settings.questionTypes.written} onValueChange={(value) => handleUpdateQuestionTypes('written', value)} />
               </View>
             </View>
 
