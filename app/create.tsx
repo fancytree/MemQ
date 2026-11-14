@@ -3,9 +3,10 @@ import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
 import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { elevation as cardElevation } from '@/theme';
+import { ledge } from '@/theme/ledge';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
+import { HomeAsset } from '@/components/HomeAsset';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { SectionLabel } from '@/components/SectionLabel';
@@ -16,7 +17,7 @@ import { safeBack } from '@/lib/safeBack';
 import { setPendingTerms } from '@/lib/createStore';
 import { supabase } from '@/lib/supabase';
 import { LanguageCardData, hasLanguageData, normalizeLanguageData } from '@/lib/languageCard';
-import { colors, fonts } from '@/theme';
+import { fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
@@ -335,7 +336,18 @@ export default function CreateScreen() {
 
   return (
     <EdBase bottomInset={0} scroll={false}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 150 }]} />
+      <LinearGradient pointerEvents="none"
+        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        locations={[0, 0.21154, 0.44712, 1]}
+        style={[styles.background, { top: -insets.top }]} />
+      {/* Two hills, not one: a single one ends on a straight horizontal edge partway
+          down, which reads as the background stopping rather than as a landscape. */}
+      <View pointerEvents="none" style={[styles.waveBack, { top: 113 - insets.top }]}>
+        <HomeAsset name="waveBack" />
+      </View>
+      <View pointerEvents="none" style={[styles.waveFront, { top: 150 - insets.top }]}>
+        <HomeAsset name="waveFront" />
+      </View>
       {/* Top bar */}
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" onPress={() => safeBack('/(tabs)')} style={styles.topbarSideBtn}>
@@ -388,13 +400,13 @@ export default function CreateScreen() {
                 disabled={isGenerating}
                 style={[
                   styles.actionBtn,
-                  i < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
+                  i < arr.length - 1 && { borderRightWidth: 1, borderRightColor: homeColors.border },
                   isGenerating && styles.actionDisabled,
                 ]}
               >
                 {label === 'Attach' ? (
                   <View style={styles.actionLabelRow}>
-                    <Feather name="paperclip" size={13} color={colors.muted} />
+                    <Feather name="paperclip" size={13} color={homeColors.muted} />
                     <Text style={styles.actionLabel}>Attach</Text>
                   </View>
                 ) : (
@@ -410,13 +422,13 @@ export default function CreateScreen() {
               <View style={styles.generateActionWrap}>
                 {isGenerating ? (
                   <>
-                    <Text style={[styles.generateLabel, { color: colors.muted }]}>Generating</Text>
-                    <Text style={[styles.generateLabel, styles.generateDots, { color: colors.muted }]}>{generateDots}</Text>
+                    <Text style={[styles.generateLabel, { color: homeColors.muted }]}>Generating</Text>
+                    <Text style={[styles.generateLabel, styles.generateDots, { color: homeColors.muted }]}>{generateDots}</Text>
                   </>
                 ) : genExhausted ? (
-                  <Text style={[styles.generateLabel, { color: colors.muted }]}>🔒 Upgrade →</Text>
+                  <Text style={[styles.generateLabel, { color: homeColors.muted }]}>🔒 Upgrade →</Text>
                 ) : (
-                  <Text style={[styles.generateLabel, { color: colors.accentText }]}>Generate →</Text>
+                  <Text style={[styles.generateLabel, { color: homeColors.primary }]}>Generate →</Text>
                 )}
               </View>
             </Pressable>
@@ -574,7 +586,7 @@ function FullCard({
               <Pressable accessibilityRole="button" key={key} onPress={key === 'save' ? saveEdit : cancelEdit}
                 style={[styles.manualCardAction, j > 0 && styles.manualCardActionBorder]}>
                 <Text style={[styles.manualCardActionLabel,
-                  key === 'save' ? { color: colors.accentText, fontFamily: fonts.bold } : { color: colors.muted }]}>
+                  key === 'save' ? { color: homeColors.primary, fontFamily: fonts.semibold } : { color: homeColors.muted }]}>
                   {key === 'save' ? 'Save' : 'Cancel'}
                 </Text>
               </Pressable>
@@ -582,10 +594,11 @@ function FullCard({
           : (['discard', 'regen'] as const).map((key, j, arr) => (
               <Pressable accessibilityRole="button" key={key} onPress={key === 'discard' ? onDiscard : onRegenerate}
                 disabled={isRegenerating}
-                style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
+                style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: homeColors.border },
                   isRegenerating && key === 'regen' && { opacity: 0.6 }]}>
                 <Text style={[styles.fullCardActionLabel,
-                  { color: key === 'regen' ? colors.action : colors.muted, fontWeight: key === 'regen' ? '700' : '400' }]}>
+                  { color: key === 'regen' ? homeColors.primary : homeColors.muted,
+                    fontFamily: key === 'regen' ? fonts.semibold : fonts.medium }]}>
                   {key === 'discard' ? 'Discard' : isRegenerating ? `Regenerating${regenerateDots}` : 'Regenerate'}
                 </Text>
               </Pressable>
@@ -643,7 +656,7 @@ function ManualCard({
           <Pressable accessibilityRole="button" onPress={onEdit}><Text style={styles.editLink}>Edit</Text></Pressable>
         ) : !disableDelete ? (
           <Pressable accessibilityRole="button" accessibilityLabel="Remove draft card" onPress={onDelete} hitSlop={10} style={styles.manualRemoveBtn}>
-            <Feather name="x" size={18} color={colors.muted} />
+            <Feather name="x" size={18} color={homeColors.muted} />
           </Pressable>
         ) : null}
       </View>
@@ -675,10 +688,10 @@ function ManualCard({
       {!row.saved || row.editing ? (
         <View style={styles.manualCardActions}>
           <Pressable accessibilityRole="button" style={styles.manualCardAction} onPress={handleCancelEdit}>
-            <Text style={[styles.manualCardActionLabel, { color: colors.muted }]}>Cancel</Text>
+            <Text style={[styles.manualCardActionLabel, { color: homeColors.muted }]}>Cancel</Text>
           </Pressable>
           <Pressable accessibilityRole="button" style={[styles.manualCardAction, styles.manualCardActionBorder]} onPress={handleSaveEdit}>
-            <Text style={[styles.manualCardActionLabel, { color: colors.accentText, fontFamily: fonts.bold }]}>Save</Text>
+            <Text style={[styles.manualCardActionLabel, { color: homeColors.primary, fontFamily: fonts.semibold }]}>Save</Text>
           </Pressable>
         </View>
       ) : (
@@ -686,10 +699,11 @@ function ManualCard({
           {(['discard', 'regen'] as const).map((key, j, arr) => (
             <Pressable accessibilityRole="button" key={key} onPress={key === 'discard' ? onDiscard : onRegenerate}
               disabled={isGenerating}
-              style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
+              style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: homeColors.border },
                 isGenerating && key === 'regen' && { opacity: 0.6 }]}>
               <Text style={[styles.fullCardActionLabel,
-                { color: key === 'regen' ? colors.action : colors.muted, fontWeight: key === 'regen' ? '700' : '400' }]}>
+                { color: key === 'regen' ? homeColors.primary : homeColors.muted,
+                    fontFamily: key === 'regen' ? fonts.semibold : fonts.medium }]}>
                 {key === 'discard' ? 'Discard' : isGenerating ? `Regenerating${regenerateDots}` : 'Regenerate'}
               </Text>
             </Pressable>
@@ -702,8 +716,14 @@ function ManualCard({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
+/** The lip every raised surface here carries, drawn as a solid offset rather than a
+ *  blur: in a palette with no shadows that band is the only depth there is. */
+const lip = (depth: number) => ({ boxShadow: `0px ${depth}px 0px ${homeColors.border}` });
+
 const styles = StyleSheet.create({
-  headerGradient: { position: 'absolute', left: 0, right: 0 },
+  background: { position: 'absolute', left: 0, right: 0, height: 874 },
+  waveBack: { position: 'absolute', left: -19 },
+  waveFront: { position: 'absolute', left: -19 },
   topbar: {
     paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 14,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -712,116 +732,130 @@ const styles = StyleSheet.create({
   topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2, justifyContent: 'center' },
   contentScroll: { flex: 1 },
   contentScrollBody: { paddingBottom: 24 },
-  cancel: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
+  cancel: { fontFamily: fonts.medium, fontSize: 15, color: homeColors.deep },
   title: {
-    fontSize: 23, lineHeight: 32,
-    color: homeColors.deep, fontFamily: fonts.display,
+    fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep,
     position: 'absolute', left: 0, right: 0, textAlign: 'center',
   },
   tag: {
-    fontSize: 14, lineHeight: 20, color: homeColors.primary,
-    fontWeight: '700', fontFamily: fonts.bold, textAlign: 'right',
+    fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20,
+    color: homeColors.primary, textAlign: 'right',
   },
   tagDisabled: { opacity: 0.45 },
 
-  sectionLabel: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: homeColors.darkest, marginBottom: 10 },
+  sectionLabel: {
+    fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24,
+    color: homeColors.darkest, marginBottom: 10,
+  },
   perch: { alignSelf: 'center' },
+
   // Every card here carries a 4-unit lip that sits outside its layout box, so a
   // margin of 8 between two of them leaves 4 on screen. These are set so the gaps
   // read as 12 between cards and 20 between the prompt and the cards it makes.
-  promptBlock: { marginHorizontal: layout.screenInline, marginTop: 8, marginBottom: 8, backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card },
-  textarea: {
-    minHeight: 76, fontSize: 16, lineHeight: 24, letterSpacing: -0.1,
-    color: colors.text, fontFamily: fonts.regular, fontWeight: '400', padding: 0,
+  promptBlock: {
+    marginHorizontal: layout.screenInline, marginTop: 8, marginBottom: 8,
+    backgroundColor: homeColors.white, borderRadius: 28, ...lip(ledge.raised),
   },
-  promptActions: { flexDirection: 'row', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.border },
-  actionBtn: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 13 },
+  textarea: {
+    minHeight: 76, fontFamily: fonts.regular, fontSize: 16, lineHeight: 24,
+    color: homeColors.darkest, padding: 0,
+  },
+  // The one row of controls that still needs rules: four targets on one line, and
+  // without them the labels read as loose words rather than as separate buttons.
+  promptActions: {
+    flexDirection: 'row', alignItems: 'center',
+    borderTopWidth: 1, borderTopColor: homeColors.border,
+  },
+  actionBtn: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 14 },
   actionDisabled: { opacity: 0.5 },
   generateActionWrap: { flexDirection: 'row', alignItems: 'center' },
   generateDots: { width: 32, textAlign: 'left', flexShrink: 0 },
   actionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   actionLabel: {
-    fontSize: 12, lineHeight: 16.8, color: colors.muted, letterSpacing: 0.5,
-    fontWeight: '700', fontFamily: fonts.bold,
+    fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: homeColors.deep,
   },
-  generateLabel: { fontSize: 14, lineHeight: 19.6, fontWeight: '700', fontFamily: fonts.bold },
+  generateLabel: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20 },
 
   quotaBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderTopWidth: 1, borderTopColor: colors.border,
-    backgroundColor: colors.bg,
+    paddingHorizontal: 18, paddingVertical: 10,
+    borderTopWidth: 1, borderTopColor: homeColors.border,
   },
-  quotaBarText: {
-    fontSize: 12, lineHeight: 15, color: colors.muted,
-    fontFamily: fonts.regular, fontWeight: '400',
-  },
-  quotaUpgradeBtn: { minHeight: 44, paddingVertical: 2, paddingHorizontal: 4 },
+  quotaBarText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: homeColors.muted },
+  quotaUpgradeBtn: { minHeight: 44, paddingVertical: 2, paddingHorizontal: 4, justifyContent: 'center' },
   quotaUpgradeBtnText: {
-    fontSize: 12, lineHeight: 15, color: colors.action,
-    fontFamily: fonts.bold, fontWeight: '700',
+    fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: homeColors.primary,
   },
 
   genHead: {
-    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 2,
+    paddingHorizontal: layout.screenInline, paddingTop: 16, paddingBottom: 2,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   fullCard: {
     marginHorizontal: layout.screenInline, marginTop: 16,
-    backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card, },
+    backgroundColor: homeColors.white, borderRadius: 28, ...lip(ledge.raised),
+  },
   fullCardHead: {
-    paddingHorizontal: 14, paddingVertical: 14,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
+    paddingHorizontal: 18, paddingVertical: 16,
     flexDirection: 'row', alignItems: 'flex-start',
   },
   fullCardHeadEditing: { flexDirection: 'column', alignItems: 'stretch' },
   fullCardTitle: {
-    fontSize: 15, fontWeight: '700', letterSpacing: -0.3, lineHeight: 20,
-    color: colors.text, fontFamily: fonts.bold,
+    fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: homeColors.darkest,
   },
-  editLink: { fontSize: 12, color: colors.action, fontWeight: '600', marginLeft: 10, fontFamily: fonts.semibold },
-  fullCardBody: { fontSize: 13, color: colors.sub, lineHeight: 21, marginBottom: 12, fontFamily: fonts.regular },
-  exBlock: {
-    borderWidth: 1, borderColor: colors.border, borderRadius: 6,
-    paddingHorizontal: 12, paddingVertical: 12, backgroundColor: colors.bg,
+  editLink: {
+    fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary, marginLeft: 10,
   },
-  exText: { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.utility },
-  fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border },
-  fullCardAction: { flex: 1, paddingVertical: 15, alignItems: 'center' },
-  fullCardActionLabel: { fontSize: 16, fontFamily: fonts.medium },
+  fullCardBody: {
+    fontFamily: fonts.regular, fontSize: 15, lineHeight: 22,
+    color: homeColors.muted, marginBottom: 12,
+  },
+  // A well sunk into the card's face, the way every other quoted block is drawn.
+  exBlock: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: homeColors.canvas },
+  exText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: homeColors.muted },
+  fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: homeColors.border },
+  fullCardAction: { flex: 1, paddingVertical: 16, alignItems: 'center' },
+  fullCardActionLabel: { fontFamily: fonts.medium, fontSize: 16 },
 
   manualSection: { marginTop: 16, marginHorizontal: layout.screenInline },
-  manualList: { gap: 8 },
+  manualList: { gap: 12 },
   manualCard: {
-    backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card, },
+    backgroundColor: homeColors.white, borderRadius: 28, ...lip(ledge.raised),
+  },
   manualCardHead: {
-    paddingHorizontal: 12, paddingVertical: 10,
+    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   manualSavedTitle: {
-    marginTop: 4, fontSize: 15, fontWeight: '700', letterSpacing: -0.3,
-    lineHeight: 20, color: colors.text, fontFamily: fonts.bold,
+    marginTop: 4, fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24,
+    color: homeColors.darkest,
   },
-  manualCardBody: { padding: 20 },
-  manualCardActions: { borderTopWidth: 1, borderTopColor: colors.border, flexDirection: 'row' },
-  manualCardAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 15 },
-  manualCardActionBorder: { borderLeftWidth: 1, borderLeftColor: colors.border },
-  manualCardActionLabel: { fontSize: 16, fontFamily: fonts.medium },
-  manualRemoveBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.nav },
-  manualInputGroup: { marginBottom: 10 },
-  manualInputLabelRow: { marginBottom: 6, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  manualCardBody: { paddingHorizontal: 18, paddingBottom: 18 },
+  manualCardActions: { borderTopWidth: 1, borderTopColor: homeColors.border, flexDirection: 'row' },
+  manualCardAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
+  manualCardActionBorder: { borderLeftWidth: 1, borderLeftColor: homeColors.border },
+  manualCardActionLabel: { fontFamily: fonts.medium, fontSize: 16 },
+  // A small control, so it carries the shallowest lip.
+  manualRemoveBtn: {
+    width: 30, height: 28 + ledge.control, borderRadius: 15,
+    backgroundColor: homeColors.border, paddingBottom: ledge.control,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  manualInputGroup: { marginBottom: 14 },
+  manualInputLabelRow: {
+    marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
   manualInputLabel: {
-    fontSize: 12, lineHeight: 15.4, color: colors.muted,
-    letterSpacing: -0.1, fontFamily: fonts.medium,
+    fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: homeColors.muted,
   },
   manualGenerateButtonDisabled: { opacity: 0.5 },
-  manualGenerateButtonText: { fontSize: 12, lineHeight: 17, color: colors.action, fontFamily: fonts.bold },
-  manualInput: { minHeight: 44,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 14,
-    backgroundColor: homeColors.nav, paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 14, lineHeight: 20, color: colors.text, fontFamily: fonts.regular,
+  manualGenerateButtonText: {
+    fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: homeColors.primary,
   },
-  manualTextarea: { minHeight: 62, textAlignVertical: 'top' },
-
+  manualInput: {
+    minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas,
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontFamily: fonts.medium, fontSize: 16, lineHeight: 22, color: homeColors.darkest,
+  },
+  manualTextarea: { minHeight: 72, textAlignVertical: 'top' },
 });
