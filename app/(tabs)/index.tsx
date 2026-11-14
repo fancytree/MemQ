@@ -106,10 +106,12 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
   // The character reacts to where the learner actually stands today, off the same
   // state the heading reads. Its hands, its breath and its blink come with it.
   const goalMet = dailyGoalCards > 0 && reviewedToday >= dailyGoalCards;
+  // `todayIdle`, not `idle`: this screen's resting motion is its own, so retuning the
+  // general-purpose one for a lab or another screen cannot reach it. See state.ts.
   const mood: MascotMood = !hasCards ? 'onboarding'
     : goalMet ? 'happy'
     : totalDue === 0 ? 'sleepy'
-    : 'idle';
+    : 'todayIdle';
   const startLabel = lessonsLoading ? 'Loading…' : lessonsError ? 'Try again' : lessonsCount === 0 ? 'Create your first lesson' : !hasCards ? 'Add cards' : 'Start Learning';
   const startLearning = () => {
     if (lessonsError) { void fetchLessons(true); return; }

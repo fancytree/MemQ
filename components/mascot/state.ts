@@ -22,7 +22,9 @@ export type MascotMood =
   // The six expressions.
   | 'idle' | 'happy' | 'excited' | 'thinking' | 'focused' | 'surprised' | 'sleepy'
   // The product moments.
-  | 'onboarding' | 'learningComplete' | 'studyReview' | 'streakReward' | 'working';
+  | 'onboarding' | 'learningComplete' | 'studyReview' | 'streakReward' | 'working'
+  // Today's own resting state. See todayIdle below for why it is not just `idle`.
+  | 'todayIdle';
 
 /** The drawn frames, by the name the importer gives each Figma frame. */
 export type MascotFrame =
@@ -30,7 +32,7 @@ export type MascotFrame =
 
 export const MASCOT_GROUPS: { label: string; moods: MascotMood[] }[] = [
   { label: 'Expressions', moods: ['idle', 'happy', 'excited', 'thinking', 'focused', 'surprised', 'sleepy'] },
-  { label: 'Product moments', moods: ['onboarding', 'learningComplete', 'studyReview', 'streakReward', 'working'] },
+  { label: 'Product moments', moods: ['todayIdle', 'onboarding', 'learningComplete', 'studyReview', 'streakReward', 'working'] },
 ];
 export const ALL_MASCOT_MOODS: MascotMood[] = MASCOT_GROUPS.flatMap((g) => g.moods);
 
@@ -63,6 +65,14 @@ export interface MascotState {
   frame: MascotFrame | MascotFrame[];
   /** How long each frame is held before the next, when there is more than one. */
   frameHold?: [number, number];
+  /** Multiplies every spring frequency for this state, the lid excepted — a blink has
+   *  to snap at the same speed whatever the body is doing.
+   *
+   *  It is here, on the state, rather than in the shared SPRING table, because the
+   *  table is one set of numbers for every character on every screen: retuning it for
+   *  one screen silently retunes the rest, which is exactly how Today ended up slow.
+   *  A state that needs its own pace carries it. */
+  tempo?: number;
   /** [resting, amplitude, rate] for each quantity. */
   roll: [number, number, number];
   tx: [number, number, number];
@@ -136,6 +146,36 @@ export const MASCOT_STATES: Record<MascotMood, MascotState> = {
     lid: 1, eyeScale: 1,
     blink: [4800, 11000], wink: [9000, 19000], hornLag: 0.5, tailLag: 0.8,
     gaze: { x: 0, y: 0, wanderX: 0.5, wanderY: 0.35, hold: [2400, 5200] },
+  },
+
+  /** Today's resting state, and Today's alone.
+   *
+   * `idle` is the general-purpose one and it is deliberately the quietest thing in
+   * here — it has to survive being stared at in a motion lab without becoming a tic.
+   * Today is not that: it is the screen a person opens first and looks at for a
+   * second before pressing a button, and on it that quietness reads as a character
+   * that has not noticed them. Everything below is the same shape as idle, moving
+   * more often and arriving sooner.
+   *
+   * The eyes close about every four and a half seconds rather than every eight,
+   * which is roughly what a person's do. The face changes every four to eight
+   * seconds instead of every six to thirteen. The body gets a slow lean it did not
+   * have, and the arms swing nearly twice as far.
+   *
+   * `tempo` undoes, for this screen only, the across-the-board slowing the shared
+   * spring table took at 16:29 on 13 November: frequencies there went down by 20 to
+   * 36% at once, which is what made the motion look heavy. 1.35 is the average of
+   * what those ratios were, so this lands back where the motion was tuned to be. */
+  todayIdle: {
+    frame: ['neutral', 'neutral', 'neutral', 'happy'],
+    frameHold: [4000, 8000],
+    tempo: 1.35,
+    roll: [0, 1.1, 0.46], tx: [0, 0, 0.31], ty: [0, 0.028, 1.3],
+    squash: [1, 0.042, 1.3], arm: [0, 3.2, 0.62],
+    tail: [0, 3, 1.6],
+    lid: 1, eyeScale: 1,
+    blink: [2800, 6200], wink: [8000, 16000], hornLag: 0.5, tailLag: 0.8,
+    gaze: { x: 0, y: 0, wanderX: 0.5, wanderY: 0.35, hold: [1800, 4000] },
   },
 
   /** Pleased. The hop is small and lands softly — this is contentment, not a party.

@@ -493,25 +493,30 @@ export function MascotCharacter({ width, mood = 'idle', blinkSignal = 0, beatSig
 
     const steps = Math.max(1, Math.ceil(dt / SUBSTEP));
     const h = dt / steps;
+    // The state's own pace. The shared table is one set of numbers for every character
+    // on every screen, so a state that wants to move faster scales it here rather than
+    // retuning the table under everyone else. The lid is left out: a blink has to snap
+    // at the same speed whatever the body is doing, and a fast one reads as a twitch.
+    const pace = MASCOT_STATES[moodRef.value].tempo ?? 1;
     for (let i = 0; i < steps; i++) {
-      step(m.roll, SPRING.roll[0], SPRING.roll[1], h);
-      step(m.tx, SPRING.tx[0], SPRING.tx[1], h);
-      step(m.ty, SPRING.ty[0], SPRING.ty[1], h);
-      step(m.sx, SPRING.squash[0], SPRING.squash[1], h);
-      step(m.sy, SPRING.squash[0], SPRING.squash[1], h);
+      step(m.roll, SPRING.roll[0] * pace, SPRING.roll[1], h);
+      step(m.tx, SPRING.tx[0] * pace, SPRING.tx[1], h);
+      step(m.ty, SPRING.ty[0] * pace, SPRING.ty[1], h);
+      step(m.sx, SPRING.squash[0] * pace, SPRING.squash[1], h);
+      step(m.sy, SPRING.squash[0] * pace, SPRING.squash[1], h);
       step(m.lid, SPRING.lid[0], SPRING.lid[1], h);
-      step(m.eye, SPRING.eye[0], SPRING.eye[1], h);
-      step(m.pupil, SPRING.eye[0], SPRING.eye[1], h);
-      step(m.markX, SPRING.mark[0], SPRING.mark[1], h);
-      step(m.markY, SPRING.mark[0], SPRING.mark[1], h);
-      step(m.markR, SPRING.mark[0], SPRING.mark[1], h);
-      step(m.gazeX, SPRING.gaze[0], SPRING.gaze[1], h);
-      step(m.gazeY, SPRING.gaze[0], SPRING.gaze[1], h);
-      step(m.horn, SPRING.lag[0], SPRING.lag[1], h);
-      step(m.tail, SPRING.trail[0], SPRING.trail[1], h);
-      step(m.arm, SPRING.arm[0], SPRING.arm[1], h);
-      step(m.wag, SPRING.tail[0], SPRING.tail[1], h);
-      step(m.pop, SPRING.pop[0], SPRING.pop[1], h);
+      step(m.eye, SPRING.eye[0] * pace, SPRING.eye[1], h);
+      step(m.pupil, SPRING.eye[0] * pace, SPRING.eye[1], h);
+      step(m.markX, SPRING.mark[0] * pace, SPRING.mark[1], h);
+      step(m.markY, SPRING.mark[0] * pace, SPRING.mark[1], h);
+      step(m.markR, SPRING.mark[0] * pace, SPRING.mark[1], h);
+      step(m.gazeX, SPRING.gaze[0] * pace, SPRING.gaze[1], h);
+      step(m.gazeY, SPRING.gaze[0] * pace, SPRING.gaze[1], h);
+      step(m.horn, SPRING.lag[0] * pace, SPRING.lag[1], h);
+      step(m.tail, SPRING.trail[0] * pace, SPRING.trail[1], h);
+      step(m.arm, SPRING.arm[0] * pace, SPRING.arm[1], h);
+      step(m.wag, SPRING.tail[0] * pace, SPRING.tail[1], h);
+      step(m.pop, SPRING.pop[0] * pace, SPRING.pop[1], h);
     }
 
     const driftX = rest ? 0
