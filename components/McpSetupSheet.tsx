@@ -10,6 +10,7 @@
  * hides Connected apps, so it appears only in a build where connecting works.
  */
 
+import { BrandMark, type BrandName } from '@/components/ui/BrandMark';
 import { CloseButton } from '@/components/ui/RoundButtons';
 import { mcpServerUrl as serverUrl, setMcpGuidanceDismissed } from '@/lib/mcp';
 import { fonts } from '@/theme';
@@ -30,10 +31,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
  *  The paths are deliberately shallow. Every one of these menus has been renamed at
  *  least once, and what a given plan is allowed to add differs between them, so the
  *  copy says where to start looking and admits it moves. */
-const CLIENTS: { name: string; initial: string; where: string }[] = [
-  { name: 'Claude', initial: 'C', where: 'Settings › Connectors › Add custom connector' },
-  { name: 'ChatGPT', initial: 'G', where: 'Settings › Apps & Connectors › Developer mode › Create' },
-  { name: 'Cursor, VS Code and others', initial: '⌘', where: 'Add it as a remote (HTTP) MCP server' },
+const CLIENTS: { name: string; mark: BrandName; where: string }[] = [
+  { name: 'Claude', mark: 'claude', where: 'Settings › Connectors › Add custom connector' },
+  { name: 'ChatGPT', mark: 'openai', where: 'Settings › Apps & Connectors › Developer mode › Create' },
+  { name: 'Cursor, VS Code and others', mark: 'editors', where: 'Add it as a remote (HTTP) MCP server' },
 ];
 
 const STEPS: { title: string; body: string }[] = [
@@ -84,10 +85,7 @@ export function McpSetupSheet({ visible, onClose, offerDismiss = false }: {
               <Text style={styles.cardLabel}>Apps that can connect</Text>
               {CLIENTS.map((client, i) => (
                 <View key={client.name} style={[styles.client, i > 0 && styles.clientGap]}>
-                  {/* Each app's own mark belongs here. Until the real ones are in
-                      assets, a lettered tile in the app's own colours — a drawn
-                      approximation of somebody's logo would be worse than none. */}
-                  <View style={styles.mark}><Text style={styles.markText}>{client.initial}</Text></View>
+                  <View style={styles.mark}><BrandMark name={client.mark} /></View>
                   <View style={styles.clientCopy}>
                     <Text style={styles.clientName}>{client.name}</Text>
                     <Text style={styles.clientWhere}>{client.where}</Text>
@@ -170,7 +168,6 @@ const styles = StyleSheet.create({
     width: 38, height: 38, borderRadius: 12, backgroundColor: homeColors.selected,
     alignItems: 'center', justifyContent: 'center',
   },
-  markText: { fontFamily: fonts.display, fontSize: 17, color: homeColors.deep },
   clientCopy: { flex: 1, gap: 2 },
   clientName: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: homeColors.darkest },
   clientWhere: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: homeColors.muted },
