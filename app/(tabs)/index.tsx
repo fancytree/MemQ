@@ -12,6 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface LessonSummary {
@@ -41,6 +42,33 @@ const getStatusWeight = (status: string | null | undefined): number => {
   return LEARNING_STAGE_WEIGHTS[status] ?? LEARNING_STAGE_WEIGHTS.New;
 };
 
+/** The ring over Today's goal, drawn rather than imported.
+ *
+ * The exported asset was one fixed arc — a picture of a progress ring, sitting above
+ * a number that was already telling the truth. Same geometry as that asset: a 30 by
+ * 30 box, a radius of 13 and a 4-unit stroke, the white track underneath and the
+ * hills' yellow over it, starting at twelve o'clock and going clockwise.
+ *
+ * Past the goal it stays full rather than wrapping: the number beside it already says
+ * 70/20, and a ring that laps itself would show 10/20's worth of arc on a day that
+ * went well. */
+function GoalRing({ done, goal }: { done: number; goal: number }) {
+  const r = 13;
+  const circumference = 2 * Math.PI * r;
+  const at = goal > 0 ? Math.max(0, Math.min(1, done / goal)) : 0;
+  return (
+    <Svg width={30} height={30} viewBox="0 0 30 30">
+      <Circle cx={15} cy={15} r={r} fill="none" stroke={homeColors.white} strokeWidth={4} />
+      {at > 0 && (
+        <Circle cx={15} cy={15} r={r} fill="none" stroke={homeColors.hill} strokeWidth={4}
+          strokeLinecap="round"
+          strokeDasharray={`${circumference * at} ${circumference}`}
+          transform="rotate(-90 15 15)" />
+      )}
+    </Svg>
+  );
+}
+
 /** Implementation extension: the reference frame reads 23min for 37 due cards. */
 const SECONDS_PER_CARD = 37;
 
@@ -58,6 +86,9 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [dailyGoalCards, setDailyGoalCards] = useState(20);
   const [reviewedToday, setReviewedToday] = useState(isDemo ? 7 : 0);
+  // How far the whole library has been carried, on the same scale the lesson bars
+  // use. Null until there is a card to measure, which is not the same as 0%.
+  const [mastery, setMastery] = useState<number | null>(isDemo ? 64 : null);
   const [currentStreak, setCurrentStreak] = useState(isDemo ? 5 : 0);
   // The character's face is read off this screen's own numbers — how many are due,
   // whether the day's goal is met, whether there are any cards at all — so it cannot
@@ -206,6 +237,17 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
       : { data: [] as { term_id: string; status: string | null; last_reviewed_at: string | null }[] };
 
     const progressMap = buildLatestProgressMap(progressData || []);
+
+    // The middle stat. It was a hardcoded dash: the app has never recorded whether an
+    // answer was right — `is_correct` goes to update-term-progress, moves the card a
+    // stage, and is dropped — so there is no accuracy to show and nothing to compute
+    // one from. What the app does know is how far each card has been carried, and
+    // that is real: every one of these weights comes from a review the person sat
+    // through. Averaged over the library it is the same number the lesson bars show,
+    // on the same scale, so the two agree.
+    const carried = (termsData || []).reduce(
+      (sum, term) => sum + getStatusWeight(progressMap.get(term.id)), 0);
+    setMastery(termIds.length ? Math.round((carried / termIds.length) * 100) : null);
     const activityDays = activityDaysFromProgressUpdates(progressData || []);
     setCurrentStreak(computeCurrentStreak(activityDays));
 
@@ -317,8 +359,8 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         </View>
         <View style={styles.stats}><View style={styles.statsFace}>
           <View style={styles.stat}><HomeAsset name="time" /><Text style={styles.statValue}>{totalDue ? `${estimateMinutes}min` : '—'}</Text><Text style={styles.statLabel}>Estimated</Text></View>
-          <View style={styles.stat}><View style={styles.chartIcon}><View style={[styles.bar, { height: 11, opacity: 0.5 }]} /><View style={[styles.bar, { height: 17 }]} /><View style={[styles.bar, { height: 23, opacity: 0.65 }]} /></View><Text style={styles.statValue}>—</Text><Text style={styles.statLabel}>Accuracy</Text></View>
-          <View style={styles.stat}><View style={styles.goalIcon}><HomeAsset name="goal" /></View><Text style={styles.statValue}>{reviewedToday}/{dailyGoalCards}</Text><Text style={styles.statLabel}>Today’s goal</Text></View>
+          <View style={styles.stat}><View style={styles.chartIcon}><View style={[styles.bar, { height: 11, opacity: 0.5 }]} /><View style={[styles.bar, { height: 17 }]} /><View style={[styles.bar, { height: 23, opacity: 0.65 }]} /></View><Text style={styles.statValue}>{mastery === null ? '—' : `${mastery}%`}</Text><Text style={styles.statLabel}>Mastery</Text></View>
+          <View style={styles.stat}><View style={styles.goalIcon}><GoalRing done={reviewedToday} goal={dailyGoalCards} /></View><Text style={styles.statValue}>{reviewedToday}/{dailyGoalCards}</Text><Text style={styles.statLabel}>Today’s goal</Text></View>
         </View></View>
         <View style={styles.courses}><View style={styles.coursesFace}>
           <View style={styles.heading}><Text accessibilityRole="header" style={styles.sectionTitle}>Continue Learning</Text><Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.seeAll}><Text style={styles.seeAllText}>See All</Text><HomeAsset name="chevron" /></Pressable></View>
