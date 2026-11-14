@@ -19,8 +19,15 @@ if ('IntersectionObserver' in window && !reduceMotion.matches) {
 // the happy face's eyes are already closed — so the swap itself is the eyes opening.
 // It is a cut, not a crossfade: fading one face into the other morphs it, which is
 // the thing the app's blink exists to avoid.
+//
+// The second face is `hidden` in the markup and only brought in once the rule that
+// stacks it is actually here. A stale stylesheet against new markup would otherwise
+// lay the two drawings out one above the other down the whole hero, which is exactly
+// what a cached site.css did — better to show one face and no swap than that.
 const mascot = document.querySelector('.mascot');
-if (mascot && !reduceMotion.matches) {
+const openFace = mascot && mascot.querySelector('.mascot-face-open');
+if (openFace && !reduceMotion.matches && getComputedStyle(openFace).position === 'absolute') {
+  openFace.hidden = false;
   const hold = () => 2600 + Math.random() * 2600;
   const swap = () => { mascot.classList.toggle('is-open'); window.setTimeout(swap, hold()); };
   window.setTimeout(swap, hold());

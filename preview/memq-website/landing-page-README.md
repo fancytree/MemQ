@@ -4,6 +4,16 @@ This folder contains the static website preview. Serve it from an HTTP server an
 
 The home page uses `site.css` and `site.js`, Geist and Oswald, the current lime and purple palette, and the Today screen capture in `img/current/today-demo.png`. The capture uses example course content. Animations respect the visitor's reduced-motion setting, and page content remains available without JavaScript.
 
+## Stylesheets and markup travel together
+
+`site.css`, `site.js` and `secondary.css` are requested with a `?v=` query. Bump it
+in every page whenever one of them changes shape alongside the markup. Without it a
+visitor holding a cached stylesheet gets it against new HTML, and the static server
+here sends no `Cache-Control`, so browsers keep one for a long time: the hero laid
+its two mascot drawings out one above the other down the whole page that way. The
+second drawing is also `hidden` in the markup and only revealed once the rule that
+stacks it is present, so the worst case is one face and no swap rather than that.
+
 ## Keeping it current
 
 `img/current/today-demo.png` is a simulator capture of the app's own `website-preview` route, which renders the Today screen with example content and no personal data. Retake it whenever that screen changes: open `memq://website-preview`, capture with `xcrun simctl io <udid> screenshot`, and crop above the dev-client's floating button — the mock frame shows more of the image than its CSS height suggests, so the button lands inside it otherwise.
