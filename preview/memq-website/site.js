@@ -17,30 +17,42 @@ if ('IntersectionObserver' in window && !reduceMotion.matches) {
 // `todayIdle`), rather than animated as one picture: the body leans and breathes on
 // two clocks that never line up, the tail keeps its own and arrives late, the horns
 // trail the lean, and the sparks are attached to nothing. Those live in CSS. What
-// needs a timer lives here — where it looks, when it blinks, and which face it wears.
+// needs a timer or a pointer lives here.
 const mascot = document.querySelector('.mascot');
 if (mascot && !reduceMotion.matches) {
-  // Today's own gaze: it looks left and a little down, and wanders around that.
-  // The eye travels one distance and the pupil inside it another — GAZE_EYE and
-  // GAZE_PUPIL in MascotCharacter — which is what makes it a look and not a slide.
-  const LOOK = { x: -0.667, y: 0.086 };
-  const WANDER = { x: 0.5, y: 0.35 };
+  // The app aims the gaze at a wandering point; on a page there is something better
+  // to look at. The travel is still the app's: the eye moves one distance and the
+  // pupil inside it another (GAZE_EYE 7/4, GAZE_PUPIL 11/10 in MascotCharacter),
+  // which is the difference between a look and a pair of sliding dots.
   const EYE = { x: 7, y: 4 }, PUPIL = { x: 11, y: 10 };
-  const between = (a, b) => a + Math.random() * (b - a);
-  const clamp = (v) => Math.max(-1, Math.min(1, v));
+  // Where it looks when there is no pointer: Today's own MASCOT_LOOK.
+  const RESTING = { x: -0.667, y: 0.086 };
+  // How far the pointer has to be from it to pull the gaze all the way over.
+  const REACH = 420;
 
-  const lookAt = () => {
-    const x = clamp(LOOK.x + between(-WANDER.x, WANDER.x) * 0.5);
-    const y = clamp(LOOK.y + between(-WANDER.y, WANDER.y) * 0.5);
+  const clamp = (v) => Math.max(-1, Math.min(1, v));
+  const aim = (x, y) => {
     mascot.style.setProperty('--eye-x', (x * EYE.x).toFixed(2) + 'px');
     mascot.style.setProperty('--eye-y', (y * EYE.y).toFixed(2) + 'px');
     mascot.style.setProperty('--pupil-x', (x * PUPIL.x).toFixed(2) + 'px');
     mascot.style.setProperty('--pupil-y', (y * PUPIL.y).toFixed(2) + 'px');
-    window.setTimeout(lookAt, between(1800, 4000));   // todayIdle gaze.hold
   };
-  window.setTimeout(lookAt, between(1800, 4000));
+
+  let idle = 0;
+  const follow = (event) => {
+    const art = mascot.getBoundingClientRect();
+    // the eyes sit a little above the middle of the drawing, so aim from there
+    const from = { x: art.left + art.width / 2, y: art.top + art.height * 0.49 };
+    aim(clamp((event.clientX - from.x) / REACH), clamp((event.clientY - from.y) / REACH));
+    window.clearTimeout(idle);
+    // a pointer that has stopped moving is not worth staring at
+    idle = window.setTimeout(() => aim(RESTING.x, RESTING.y), 2600);
+  };
+  window.addEventListener('pointermove', follow, { passive: true });
+  window.addEventListener('pointerleave', () => aim(RESTING.x, RESTING.y));
 
   // The lid shuts at about 60ms and is back up by 320 — BLINK_KEYS.
+  const between = (a, b) => a + Math.random() * (b - a);
   const blink = () => {
     mascot.classList.add('is-blinking');
     window.setTimeout(() => mascot.classList.remove('is-blinking'), 170);

@@ -23,15 +23,18 @@ inline SVG in `index.html` with the parts in their own groups — sparks, tail, 
 body, eyes, pupils — each on its own clock, because what made the old version wrong
 was that everything moved together. The numbers come from `todayIdle` in
 `components/mascot/state.ts`: roll ±1.1° at 0.46, breath ±0.028/±0.042 at 1.3, tail
-±3° at 1.6× the lean, gaze `MASCOT_LOOK` (−0.667, 0.086) with `GAZE_EYE` and
-`GAZE_PUPIL` moving the eye and the pupil by different distances, blink 2800–6200ms,
-and neutral three times per happy on a 4000–8000ms hold. The lags (`hornLag`,
+±3° at 1.6× the lean, blink 2800–6200ms, and neutral three times per
+happy on a 4000–8000ms hold. The drawing itself is lifted part for part out of
+`components/mascot/figma-parts.ts` — the same paths Today renders — rather than from
+the icon set, whose eyes are drawn touching.
+
+The gaze follows the pointer instead of wandering, since a page has something worth
+looking at. The travel is still the app's: `GAZE_EYE` 7/4 moves the eye and
+`GAZE_PUPIL` 11/10 moves the pupil inside it, and the aim is clamped to those. With
+no pointer, or once it has sat still for a while, it returns to Today's own
+`MASCOT_LOOK` (−0.667, 0.086). The lags (`hornLag`,
 `tailLag`) are springs in the app and animation delays here, which is an
 approximation, not the same thing.
-
-The closed-eye face is struck over this drawing's own eye centres rather than
-borrowed from the happy artwork: that drawing sits its face left of its body centre
-and this one sits it right, so mapping by the body put the smile beside the eyes.
 
 An earlier version used the app's hop for the `happy` mood, which was the wrong mood
 for this screen — Today does not hop: the keyframes in `@keyframes mascot-hop` were generated from the trajectory in `components/mascot/state.ts` (height 0.030, crouch 0.012, squash 0.095, beats 0.17/0.23/0.26/0.14/0.2) with the breath from `squash: [1, 0.018, 2.1]` on top. One loop is three seconds: three hops, and one breath to within 0.3%. If those numbers change in the app, regenerate rather than nudge by eye.
