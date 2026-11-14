@@ -12,3 +12,16 @@ if ('IntersectionObserver' in window && !reduceMotion.matches) {
   }, { threshold: 0.12, rootMargin: '0px 0px -24px 0px' });
   items.forEach((item) => { item.classList.add('reveal'); observer.observe(item); });
 }
+
+// The character changes expression, the way it does in the app: it holds a face for
+// 2600-5200ms and then swaps (components/mascot/state.ts, `happy.frameHold`). There
+// the swap is hidden inside a blink; here the two drawings *are* the blink, because
+// the happy face's eyes are already closed — so the swap itself is the eyes opening.
+// It is a cut, not a crossfade: fading one face into the other morphs it, which is
+// the thing the app's blink exists to avoid.
+const mascot = document.querySelector('.mascot');
+if (mascot && !reduceMotion.matches) {
+  const hold = () => 2600 + Math.random() * 2600;
+  const swap = () => { mascot.classList.toggle('is-open'); window.setTimeout(swap, hold()); };
+  window.setTimeout(swap, hold());
+}
