@@ -131,7 +131,9 @@ export default function ProfileScreen() {
   return (
     <EdBase bottomInset={0} scroll={false}>
       <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.45, 1]} style={styles.pageGradient} />
-      <SecondaryPageNav backLabel="← Today" onBack={() => safeBack('/(tabs)')} />
+      <SecondaryPageNav backLabel="← Today" onBack={() => safeBack('/(tabs)')}
+        right={<RoundAction icon="settings" label="Open profile settings"
+          onPress={() => router.push('/profile/settings' as any)} />} />
       {/* Avatar row */}
       <View style={styles.avatarRow}>
         {avatarUrl ? (
@@ -155,8 +157,6 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
-        <RoundAction icon="settings" label="Open profile settings"
-          onPress={() => router.push('/profile/settings' as any)} />
       </View>
 
       <ScrollView

@@ -1,10 +1,14 @@
 import { BackButton } from '@/components/ui/RoundButtons';
 import { layout } from '@/theme/spacing';
+import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
 interface SecondaryPageNavProps {
   onBack: () => void;
   backLabel?: string;
+  /** A page's own action for this bar — the gear, say. It sits opposite the arrow,
+   *  where the eye already looks for it, rather than down in the page's first row. */
+  right?: ReactNode;
 }
 
 /** The back bar on a second-level page.
@@ -17,6 +21,7 @@ interface SecondaryPageNavProps {
 export function SecondaryPageNav({
   onBack,
   backLabel = '← Profile',
+  right,
 }: SecondaryPageNavProps) {
   // The arrow is the button now, so the destination is no longer written on the
   // screen — but it is still worth saying out loud, so the label each page already
@@ -26,7 +31,7 @@ export function SecondaryPageNav({
     <View style={styles.header}>
       <BackButton onPress={onBack}
         label={where && where.toLowerCase() !== 'back' ? `Back to ${where}` : 'Back'} />
-      <View style={styles.navRightSpacer} />
+      {right ?? <View style={styles.navRightSpacer} />}
     </View>
   );
 }
