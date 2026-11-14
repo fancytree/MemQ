@@ -12,12 +12,21 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /** Whether this build connects to anything. Anything but exactly "true" is off. */
 export const mcpEnabled = process.env.EXPO_PUBLIC_MCP_ENABLED === 'true';
 
+/** A value counts as configured only if it looks like a URL. An unset name does
+ *  arrive here as undefined — checked, not assumed — but an empty or half-written
+ *  one would otherwise reach `new URL()` and throw, which a screen then reports as
+ *  a failure to retry rather than as nothing being set up. */
+function configuredUrl(value: string | undefined): string | undefined {
+  const trimmed = value?.trim().replace(/\/$/, '');
+  return trimmed && /^https?:\/\/[^\s]+$/i.test(trimmed) ? trimmed : undefined;
+}
+
 /** Where the app manages the connections that already exist. */
-export const mcpBrokerUrl = process.env.EXPO_PUBLIC_MCP_BROKER_URL?.replace(/\/$/, '');
+export const mcpBrokerUrl = configuredUrl(process.env.EXPO_PUBLIC_MCP_BROKER_URL);
 
 /** The address a person enters in the other app. Only a build that was given one
  *  can show one, so the guidance never names a server this app cannot point at. */
-export const mcpServerUrl = process.env.EXPO_PUBLIC_MCP_SERVER_URL?.trim() || undefined;
+export const mcpServerUrl = configuredUrl(process.env.EXPO_PUBLIC_MCP_SERVER_URL);
 
 /** Whether the guidance has been waved away.
  *

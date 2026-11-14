@@ -41,6 +41,9 @@ export default function ConnectionsScreen() {
   const loadSequence = useRef(0);
   const load = useCallback(async () => {
     const sequence = ++loadSequence.current;
+    // No broker means this build cannot list anything — which is not a failure to
+    // retry, so it does not get the error that asks people to try again.
+    if (!brokerBaseUrl) { setLoading(false); setError(null); setGrants([]); return; }
     setLoading(true); setError(null); setGrants([]);
     try {
       const connections: Connection[] = [];
@@ -87,7 +90,7 @@ export default function ConnectionsScreen() {
         <Feather name="chevron-right" size={18} color={homeColors.muted} />
       </Pressable>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      {loading ? <ActivityIndicator color={homeColors.primary} style={styles.loading} /> : error && grants.length === 0 ? <Pressable accessibilityRole="button" onPress={load} style={styles.retry}><Text style={styles.retryText}>Try again</Text></Pressable> : grants.length === 0 ? <View style={styles.empty}><Feather name="link" size={24} color={homeColors.deep} /><Text style={styles.emptyTitle}>No connected apps</Text><Text style={styles.emptyText}>Apps you authorize will appear here.</Text></View> : grants.map((grant) => <View key={grant.id} style={styles.card}>
+      {loading ? <ActivityIndicator color={homeColors.primary} style={styles.loading} /> : error && grants.length === 0 ? <Pressable accessibilityRole="button" onPress={load} style={styles.retry}><Text style={styles.retryText}>Try again</Text></Pressable> : grants.length === 0 ? <View style={styles.empty}><Feather name="link" size={24} color={homeColors.deep} /><Text style={styles.emptyTitle}>{brokerBaseUrl ? 'No connected apps' : 'Not available yet'}</Text><Text style={styles.emptyText}>{brokerBaseUrl ? 'Apps you authorize will appear here.' : 'Connecting isn’t switched on in this build. The steps above are what it will look like.'}</Text></View> : grants.map((grant) => <View key={grant.id} style={styles.card}>
         <View style={styles.cardTop}><View style={styles.icon}><Feather name="link" size={20} color={homeColors.deep} /></View><View style={styles.copy}><Text style={styles.name}>{grant.name || 'Connected app'}</Text><Text style={styles.meta}>Connected {new Date(grant.createdAt * 1000).toLocaleDateString()}</Text></View></View>
         <Pressable accessibilityRole="button" accessibilityLabel={`Disconnect ${grant.name || 'connected app'}`} onPress={() => setSelected(grant)} style={styles.disconnect}><Text style={styles.disconnectText}>Disconnect</Text></Pressable>
       </View>)}
