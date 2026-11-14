@@ -1,9 +1,13 @@
 import { layout } from '@/theme/spacing';
+import { fonts } from '@/theme';
+import { homeColors } from '@/theme/colors';
 import AnswerBackCard from '@/components/AnswerBackCard';
 import FlipCard from '@/components/FlipCard';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import StudySettingsModal, { StudySettings } from '@/components/StudySettingsModal';
 import { supabase } from '@/lib/supabase';
+import { loadCurrentPracticeQuestions } from '@/lib/loadPracticeQuestions';
+import { chooseSavedQuestion } from '@/lib/practiceQuestions';
 import { updateTermProgressSafe } from '@/lib/updateTermProgress';
 import { Feather } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
@@ -234,10 +238,7 @@ export default function StudySessionScreen() {
         // 第二步：并行获取所有 questions 和 user_term_progress
         const [questionsResult, progressResult] = await Promise.all([
           // 获取所有 questions
-          supabase
-            .from('questions')
-            .select('*')
-            .in('term_id', termIds),
+          loadCurrentPracticeQuestions(termIds),
           // 获取用户进度
           supabase
             .from('user_term_progress')
@@ -260,7 +261,7 @@ export default function StudySessionScreen() {
         }
 
         // 根据 questionTypes 和 answerWith 设置过滤题目
-        const filteredQuestions = questionsResult.data.filter((question) => {
+        const matchingQuestions = questionsResult.data.filter((question) => {
           // 1. 根据 questionTypes 过滤
           if (question.question_type === 'true_false' && !studySettings.questionTypes.trueFalse) {
             return false;
@@ -314,6 +315,14 @@ export default function StudySessionScreen() {
           }
 
           return true;
+        });
+
+        // Sample once per session so option order cannot change during a rerender.
+        const filteredQuestions: Question[] = matchingQuestions.flatMap((question) => {
+          if (question.question_type !== 'mcq' && question.question_type !== 'true_false') return [question as Question];
+          const sampled = chooseSavedQuestion([question], 'mcq');
+          if (!sampled || sampled.mode !== 'mcq') return [];
+          return [{ ...question, options: sampled.opts, correct_answer: sampled.opts[sampled.correct] } as Question];
         });
 
         if (filteredQuestions.length === 0) {
@@ -950,7 +959,7 @@ export default function StudySessionScreen() {
                     <Text style={styles.chooseAnswerText}>Choose the answer</Text>
                   )}
                   <View style={styles.optionsContainer}>
-                    {['True', 'False'].map((option) => {
+                    {(currentQuestion.options || []).map((option) => {
                       const isSelected = selectedAnswer === option;
                       const isCorrectOption = option === currentQuestion.correct_answer;
                       const isWrongSelected = isSelected && !isCorrectOption && showFeedback;
@@ -1329,56 +1338,33 @@ const styles = StyleSheet.create({
   optionsContainer: {
     gap: 8,
   },
+  // An answer is a filled surface, not an outlined one: this palette separates things
+  // by colour, and the state an option is in is exactly what its fill says. It was a
+  // 0.62-wide border in the muted purple at a radius of 10, which belonged to neither
+  // the old style nor this one.
   optionButton: {
-    backgroundColor: colors.surf,
-    borderRadius: 10,
+    backgroundColor: homeColors.canvas,
+    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
     minHeight: 64,
-    borderWidth: 0.62,
-    borderColor: colors.muted,
     justifyContent: 'center',
-    marginBottom: 0,
   },
   optionText: {
-    fontSize: 14,
-    color: colors.text,
-    fontWeight: '400',
-    lineHeight: 20,
+    fontFamily: fonts.medium, fontSize: 16, lineHeight: 22, color: homeColors.darkest,
   },
-  optionButtonSelected: {
-    borderColor: colors.action,
-    backgroundColor: colors.accentL,
-  },
-  optionTextSelected: {
-    color: colors.accentText,
-  },
-  optionButtonCorrect: {
-    borderColor: colors.green,
-    borderWidth: 1.5,
-    backgroundColor: colors.surf,
-    borderStyle: 'solid',
-  },
+  optionButtonSelected: { backgroundColor: homeColors.track },
+  optionTextSelected: { color: homeColors.deep },
+  optionButtonCorrect: { backgroundColor: colors.greenL },
+  // The answer that was right when a different one was picked. The dashes are the only
+  // thing separating "you were right" from "this was right", so they stay.
   optionButtonCorrectDashed: {
-    borderColor: colors.green,
-    borderWidth: 1.5,
-    backgroundColor: colors.surf,
-    borderStyle: 'dashed',
+    backgroundColor: colors.greenL,
+    borderWidth: 1.5, borderColor: colors.green, borderStyle: 'dashed',
   },
-  optionTextCorrect: {
-    color: colors.text,
-    fontWeight: '400',
-  },
-  optionButtonWrong: {
-    borderColor: colors.red,
-    borderWidth: 1.5,
-    backgroundColor: colors.surf,
-    borderStyle: 'solid',
-  },
-  optionTextWrong: {
-    color: colors.text,
-    fontWeight: '400',
-  },
+  optionTextCorrect: { color: colors.green },
+  optionButtonWrong: { backgroundColor: colors.redL },
+  optionTextWrong: { color: colors.red },
   // True/False - 现在使用与 MCQ 相同的样式
   // Fill Blank - 固定在键盘上方的输入栏
   fillBlankInputBarContainer: {

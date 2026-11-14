@@ -1,5 +1,7 @@
 import { Toggle } from '@/components/ui/Toggle';
 import { layout } from '@/theme/spacing';
+import { homeColors } from '@/theme/colors';
+import { fonts } from '@/theme';
 import { sheet } from '@/theme/sheet';
 import { StatusBar } from 'expo-status-bar';
 import React from 'react';
@@ -152,7 +154,7 @@ export default function StudySettingsModal({
                   activeOpacity={0.7}
                 >
                   <Text style={styles.radioLabel}>Relaxed</Text>
-                  <View style={styles.radioButton}>
+                  <View style={[styles.radioButton, settings.grading === 'relaxed' && styles.radioButtonOn]}>
                     {settings.grading === 'relaxed' && (
                       <View style={styles.radioButtonInner} />
                     )}
@@ -174,7 +176,7 @@ export default function StudySettingsModal({
                   activeOpacity={0.7}
                 >
                   <Text style={styles.radioLabel}>Moderate</Text>
-                  <View style={styles.radioButton}>
+                  <View style={[styles.radioButton, settings.grading === 'moderate' && styles.radioButtonOn]}>
                     {settings.grading === 'moderate' && (
                       <View style={styles.radioButtonInner} />
                     )}
@@ -196,7 +198,7 @@ export default function StudySettingsModal({
                   activeOpacity={0.7}
                 >
                   <Text style={styles.radioLabel}>Strict</Text>
-                  <View style={styles.radioButton}>
+                  <View style={[styles.radioButton, settings.grading === 'strict' && styles.radioButtonOn]}>
                     {settings.grading === 'strict' && (
                       <View style={styles.radioButtonInner} />
                     )}
@@ -291,25 +293,29 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   radioLabel: {
-    fontSize: 18,
-    fontWeight: '500',
-    color: colors.muted,
-    letterSpacing: 0.4063,
+    fontFamily: fonts.medium,
+    fontSize: 17,
+    lineHeight: 24,
+    color: homeColors.darkest,
   },
+  // A round one. It was a 44 by 44 rounded square — square because nothing said
+  // otherwise, and 44 because the tap target was being built out of the mark itself.
+  // The row is the tap target, so the mark is only a mark.
   radioButton: {
-    width: 44,
-    minHeight: 44,
+    width: 24,
+    height: 24,
     borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: colors.muted,
+    borderWidth: 2,
+    borderColor: homeColors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
+  radioButtonOn: { borderColor: homeColors.primary },
   radioButtonInner: {
     width: 12,
     height: 12,
-    borderRadius: 100,
-    backgroundColor: colors.action,
+    borderRadius: 6,
+    backgroundColor: homeColors.primary,
   },
   radioDescription: {
     fontSize: 14,
