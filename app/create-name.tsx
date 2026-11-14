@@ -2,6 +2,7 @@ import { HomeAsset } from '@/components/HomeAsset';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { homeColors } from '@/theme/colors';
+import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { elevation as cardElevation } from '@/theme';
@@ -245,6 +246,11 @@ export default function CreateNameScreen() {
                 <Text style={[styles.dateText, !deadline && styles.datePlaceholder]}>
                   {deadline ? formatDate(deadline) : 'Select deadline (optional)'}
                 </Text>
+                {/* The one field here that opens something instead of taking typing,
+                    and nothing else said so: it looked like the two text boxes above
+                    it and read as a third one that would not accept a cursor. */}
+                <Feather name="calendar" size={18}
+                  color={deadline ? homeColors.deep : homeColors.muted} />
               </TouchableOpacity>
             </View>
             </View>
@@ -365,7 +371,10 @@ const styles = StyleSheet.create({
   singleLineInput: { minHeight: 52, paddingVertical: 14 },
   textarea: { minHeight: 96, paddingVertical: 14, textAlignVertical: 'top' },
 
-  dateBtn: { minHeight: 52, justifyContent: 'center' },
+  dateBtn: {
+    minHeight: 52, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', gap: 12,
+  },
   dateText: { fontFamily: 'Geist_500Medium', fontSize: 16, lineHeight: 22, color: homeColors.darkest },
   datePlaceholder: { color: homeColors.placeholder },
 
