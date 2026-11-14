@@ -6,7 +6,7 @@ The home page uses `site.css` and `site.js`, Geist and Oswald, the current lime 
 
 ## Stylesheets and markup travel together
 
-`site.css`, `site.js` and `secondary.css` are requested with a `?v=` query. Bump it
+`site.css`, `site.js`, `secondary.css` and the Today capture are requested with a `?v=` query. Bump it
 in every page whenever one of them changes shape alongside the markup. Without it a
 visitor holding a cached stylesheet gets it against new HTML, and the static server
 here sends no `Cache-Control`, so browsers keep one for a long time: the hero laid
