@@ -726,7 +726,10 @@ const styles = StyleSheet.create({
 
   sectionLabel: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: homeColors.darkest, marginBottom: 10 },
   perch: { alignSelf: 'center' },
-  promptBlock: { marginHorizontal: layout.screenInline, marginTop: 8, backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card },
+  // Every card here carries a 4-unit lip that sits outside its layout box, so a
+  // margin of 8 between two of them leaves 4 on screen. These are set so the gaps
+  // read as 12 between cards and 20 between the prompt and the cards it makes.
+  promptBlock: { marginHorizontal: layout.screenInline, marginTop: 8, marginBottom: 8, backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card },
   textarea: {
     minHeight: 76, fontSize: 16, lineHeight: 24, letterSpacing: -0.1,
     color: colors.text, fontFamily: fonts.regular, fontWeight: '400', padding: 0,
@@ -764,7 +767,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   fullCard: {
-    marginHorizontal: layout.screenInline, marginTop: 8,
+    marginHorizontal: layout.screenInline, marginTop: 16,
     backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card, },
   fullCardHead: {
     paddingHorizontal: 14, paddingVertical: 14,
@@ -787,7 +790,7 @@ const styles = StyleSheet.create({
   fullCardAction: { flex: 1, paddingVertical: 15, alignItems: 'center' },
   fullCardActionLabel: { fontSize: 16, fontFamily: fonts.medium },
 
-  manualSection: { marginTop: 8, marginHorizontal: layout.screenInline },
+  manualSection: { marginTop: 16, marginHorizontal: layout.screenInline },
   manualList: { gap: 8 },
   manualCard: {
     backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card, },
