@@ -352,8 +352,8 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
             behind={<View pointerEvents="none" style={styles.waveOverMascot}><HomeAsset name="waveFront" /></View>} />
         </View>
         <View style={[styles.top, { paddingTop: insets.top + 10 }]}>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`} onPress={() => router.push('/you')} style={styles.profile}>{avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.profileImage} onError={() => setAvatarUrl(null)} /> : <Text style={styles.profileText}>{initial}</Text>}</Pressable>
           <View style={styles.streak} accessibilityLabel={`${currentStreak}-day streak`}><View style={styles.streakFace}><HomeAsset name="flame" /><Text style={styles.streakText}>{currentStreak}</Text></View></View>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`} onPress={() => router.push('/you')} style={styles.profile}>{avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.profileImage} onError={() => setAvatarUrl(null)} /> : <Text style={styles.profileText}>{initial}</Text>}</Pressable>
         </View>
         <View style={styles.hero}>
           <Animated.View style={[styles.focus, entranceStyle(0)]}><HomeAsset name="focusTarget" height={FOCUS_ICON} /><Text style={styles.focusText}>Today’s Focus</Text></Animated.View>
