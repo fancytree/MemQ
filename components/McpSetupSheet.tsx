@@ -24,12 +24,24 @@ import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 
+/** Where to look in each app, not a claim that each one has been tested against
+ *  this server — docs/mcp/README.md is explicit that no such claim is made yet.
+ *
+ *  The paths are deliberately shallow. Every one of these menus has been renamed at
+ *  least once, and what a given plan is allowed to add differs between them, so the
+ *  copy says where to start looking and admits it moves. */
+const CLIENTS: { name: string; where: string }[] = [
+  { name: 'Claude', where: 'Settings › Connectors › Add custom connector' },
+  { name: 'ChatGPT', where: 'Settings › Apps & Connectors › Developer mode › Create' },
+  { name: 'Cursor, VS Code and others', where: 'Add it as a remote (HTTP) MCP server' },
+];
+
 const STEPS: { title: string; body: string }[] = [
   {
-    title: 'Add MemQ in the other app',
+    title: 'Add MemQ where that app keeps its connectors',
     body: serverUrl
-      ? 'Open where it keeps its connectors and add MemQ using the address below.'
-      : 'Open where it keeps its connectors and add MemQ.',
+      ? 'Use the address below. It has to be an app that can reach a server over the web.'
+      : 'It has to be an app that can reach a server over the web.',
   },
   {
     title: 'Sign in and approve',
@@ -67,6 +79,21 @@ export function McpSetupSheet({ visible, onClose, offerDismiss = false }: {
               MemQ can be connected to an app that writes lessons for you — one that speaks
               MCP, like Claude. Ask it for a lesson there and the cards land here.
             </Text>
+
+            <View style={styles.card}><View style={styles.cardFace}>
+              <Text style={styles.cardLabel}>Apps that can connect</Text>
+              {CLIENTS.map((client, i) => (
+                <View key={client.name} style={[styles.client, i > 0 && styles.clientGap]}>
+                  <Text style={styles.clientName}>{client.name}</Text>
+                  <Text style={styles.clientWhere}>{client.where}</Text>
+                </View>
+              ))}
+              <Text style={styles.clientNote}>
+                These menus get renamed, and some plans don&apos;t allow adding your own.
+                If the wording has moved, look for connectors, apps or MCP in that app&apos;s
+                settings.
+              </Text>
+            </View></View>
 
             <View style={styles.card}><View style={styles.cardFace}>
               {STEPS.map((step, i) => (
@@ -127,6 +154,18 @@ const styles = StyleSheet.create({
 
   card: { borderRadius: 28, backgroundColor: homeColors.border, paddingBottom: ledge.raised },
   cardFace: { borderRadius: 28, backgroundColor: homeColors.white, padding: 18 },
+
+  cardLabel: {
+    fontFamily: fonts.semibold, fontSize: 14, color: homeColors.darkest, marginBottom: 14,
+  },
+  client: { gap: 2 },
+  clientGap: { marginTop: 12 },
+  clientName: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: homeColors.darkest },
+  clientWhere: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: homeColors.muted },
+  clientNote: {
+    marginTop: 16, fontFamily: fonts.regular, fontSize: 13, lineHeight: 19,
+    color: homeColors.muted,
+  },
 
   step: { flexDirection: 'row', gap: 14 },
   stepGap: { marginTop: 18 },
