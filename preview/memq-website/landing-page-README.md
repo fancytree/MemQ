@@ -18,7 +18,23 @@ stacks it is present, so the worst case is one face and no swap rather than that
 
 `img/current/today-demo.png` is a simulator capture of the app's own `website-preview` route, which renders the Today screen with example content and no personal data. Retake it whenever that screen changes: open `memq://website-preview`, capture with `xcrun simctl io <udid> screenshot`, and crop above the dev-client's floating button — the mock frame shows more of the image than its CSS height suggests, so the button lands inside it otherwise.
 
-The hero character's animation is the app's own hop for the `happy` mood, not a hand-made float: the keyframes in `@keyframes mascot-hop` were generated from the trajectory in `components/mascot/state.ts` (height 0.030, crouch 0.012, squash 0.095, beats 0.17/0.23/0.26/0.14/0.2) with the breath from `squash: [1, 0.018, 2.1]` on top. One loop is three seconds: three hops, and one breath to within 0.3%. If those numbers change in the app, regenerate rather than nudge by eye.
+The hero character is rigged like Today's, not animated as one picture. It is an
+inline SVG in `index.html` with the parts in their own groups — sparks, tail, horns,
+body, eyes, pupils — each on its own clock, because what made the old version wrong
+was that everything moved together. The numbers come from `todayIdle` in
+`components/mascot/state.ts`: roll ±1.1° at 0.46, breath ±0.028/±0.042 at 1.3, tail
+±3° at 1.6× the lean, gaze `MASCOT_LOOK` (−0.667, 0.086) with `GAZE_EYE` and
+`GAZE_PUPIL` moving the eye and the pupil by different distances, blink 2800–6200ms,
+and neutral three times per happy on a 4000–8000ms hold. The lags (`hornLag`,
+`tailLag`) are springs in the app and animation delays here, which is an
+approximation, not the same thing.
+
+The closed-eye face is struck over this drawing's own eye centres rather than
+borrowed from the happy artwork: that drawing sits its face left of its body centre
+and this one sits it right, so mapping by the body put the smile beside the eyes.
+
+An earlier version used the app's hop for the `happy` mood, which was the wrong mood
+for this screen — Today does not hop: the keyframes in `@keyframes mascot-hop` were generated from the trajectory in `components/mascot/state.ts` (height 0.030, crouch 0.012, squash 0.095, beats 0.17/0.23/0.26/0.14/0.2) with the breath from `squash: [1, 0.018, 2.1]` on top. One loop is three seconds: three hops, and one breath to within 0.3%. If those numbers change in the app, regenerate rather than nudge by eye.
 
 The `oauth/` pages are local authorization prototypes. Their presence here does not mean the MCP service or authorization flow is deployed or ready for production. See `docs/mcp/README.md` in the MemQ repository for the current testing and release limitations.
 

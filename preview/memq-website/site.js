@@ -13,22 +13,52 @@ if ('IntersectionObserver' in window && !reduceMotion.matches) {
   items.forEach((item) => { item.classList.add('reveal'); observer.observe(item); });
 }
 
-// The character changes expression, the way it does in the app: it holds a face for
-// 2600-5200ms and then swaps (components/mascot/state.ts, `happy.frameHold`). There
-// the swap is hidden inside a blink; here the two drawings *are* the blink, because
-// the happy face's eyes are already closed — so the swap itself is the eyes opening.
-// It is a cut, not a crossfade: fading one face into the other morphs it, which is
-// the thing the app's blink exists to avoid.
-//
-// The second face is `hidden` in the markup and only brought in once the rule that
-// stacks it is actually here. A stale stylesheet against new markup would otherwise
-// lay the two drawings out one above the other down the whole hero, which is exactly
-// what a cached site.css did — better to show one face and no swap than that.
+// The character is rigged the way Today's is (components/mascot/state.ts,
+// `todayIdle`), rather than animated as one picture: the body leans and breathes on
+// two clocks that never line up, the tail keeps its own and arrives late, the horns
+// trail the lean, and the sparks are attached to nothing. Those live in CSS. What
+// needs a timer lives here — where it looks, when it blinks, and which face it wears.
 const mascot = document.querySelector('.mascot');
-const openFace = mascot && mascot.querySelector('.mascot-face-open');
-if (openFace && !reduceMotion.matches && getComputedStyle(openFace).position === 'absolute') {
-  openFace.hidden = false;
-  const hold = () => 2600 + Math.random() * 2600;
-  const swap = () => { mascot.classList.toggle('is-open'); window.setTimeout(swap, hold()); };
-  window.setTimeout(swap, hold());
+if (mascot && !reduceMotion.matches) {
+  // Today's own gaze: it looks left and a little down, and wanders around that.
+  // The eye travels one distance and the pupil inside it another — GAZE_EYE and
+  // GAZE_PUPIL in MascotCharacter — which is what makes it a look and not a slide.
+  const LOOK = { x: -0.667, y: 0.086 };
+  const WANDER = { x: 0.5, y: 0.35 };
+  const EYE = { x: 7, y: 4 }, PUPIL = { x: 11, y: 10 };
+  const between = (a, b) => a + Math.random() * (b - a);
+  const clamp = (v) => Math.max(-1, Math.min(1, v));
+
+  const lookAt = () => {
+    const x = clamp(LOOK.x + between(-WANDER.x, WANDER.x) * 0.5);
+    const y = clamp(LOOK.y + between(-WANDER.y, WANDER.y) * 0.5);
+    mascot.style.setProperty('--eye-x', (x * EYE.x).toFixed(2) + 'px');
+    mascot.style.setProperty('--eye-y', (y * EYE.y).toFixed(2) + 'px');
+    mascot.style.setProperty('--pupil-x', (x * PUPIL.x).toFixed(2) + 'px');
+    mascot.style.setProperty('--pupil-y', (y * PUPIL.y).toFixed(2) + 'px');
+    window.setTimeout(lookAt, between(1800, 4000));   // todayIdle gaze.hold
+  };
+  window.setTimeout(lookAt, between(1800, 4000));
+
+  // The lid shuts at about 60ms and is back up by 320 — BLINK_KEYS.
+  const blink = () => {
+    mascot.classList.add('is-blinking');
+    window.setTimeout(() => mascot.classList.remove('is-blinking'), 170);
+    window.setTimeout(blink, between(2800, 6200));    // todayIdle blink
+  };
+  window.setTimeout(blink, between(2800, 6200));
+
+  // Today wears neutral three times for every happy, and swaps behind the blink.
+  const faces = ['neutral', 'neutral', 'neutral', 'happy'];
+  let at = 0;
+  const nextFace = () => {
+    mascot.classList.add('is-blinking');
+    at = (at + 1) % faces.length;
+    window.setTimeout(() => {
+      mascot.classList.toggle('is-smiling', faces[at] === 'happy');
+    }, 110);                                          // SWAP_AT
+    window.setTimeout(() => mascot.classList.remove('is-blinking'), 170);
+    window.setTimeout(nextFace, between(4000, 8000)); // todayIdle frameHold
+  };
+  window.setTimeout(nextFace, between(4000, 8000));
 }
