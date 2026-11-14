@@ -10,7 +10,7 @@
  */
 
 import { HomeAsset } from '@/components/HomeAsset';
-import { CloseButton } from '@/components/ui/CloseButton';
+import { CloseButton } from '@/components/ui/RoundButtons';
 import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { supabase } from '@/lib/supabase';

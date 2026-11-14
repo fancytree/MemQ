@@ -1,5 +1,5 @@
 import { layout } from '@/theme/spacing';
-import { CloseButton } from '@/components/ui/CloseButton';
+import { CloseButton } from '@/components/ui/RoundButtons';
 import { sheet as sheetShape } from '@/theme/sheet';
 import { fonts } from '@/theme/typography';
 import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';

@@ -1,3 +1,7 @@
+import { homeColors } from '@/theme/colors';
+import { BackButton, CloseButton, RoundAction } from '@/components/ui/RoundButtons';
+import { LinearGradient } from 'expo-linear-gradient';
+import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
 // import EditIcon from '@/components/icons/EditIcon';
@@ -205,6 +209,7 @@ const cibStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: 24,
+    boxShadow: `0px 4px 0px ${homeColors.border}`,
     paddingLeft: CIB_H_PAD,
     // 右侧留出按钮宽度 + 间距，文字不会被遮住
     paddingRight: CIB_SEND_RIGHT + CIB_SEND_SIZE + CIB_BTN_GAP,
@@ -217,6 +222,7 @@ const cibStyles = StyleSheet.create({
     minHeight: CIB_MIN_H,
     maxHeight: CIB_MAX_H,
     fontSize: 16,
+    fontFamily: fonts.regular,
     lineHeight: CIB_LINE_HEIGHT,
     letterSpacing: -0.3125,
     color: colors.text,
@@ -1765,24 +1771,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         ]}
         edges={['left', 'right']}
       >
+        <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={styles.headerGradient} />
         {mode === 'chat' && (
           <View style={styles.toolbar}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
-              style={styles.toolbarButton}
-              onPress={() => {
-                setMode('initial');
-              }}
-              activeOpacity={0.7}
-            >
-              <Feather name="arrow-left" size={20} color={colors.text} />
-            </TouchableOpacity>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete"
-              style={styles.toolbarButton}
-              onPress={handleClearChat}
-              activeOpacity={0.7}
-            >
-              <Feather name="trash-2" size={20} color={colors.text} />
-            </TouchableOpacity>
+            <BackButton onPress={() => setMode('initial')} label="Back to the assistant" />
+            <RoundAction icon="trash-2" onPress={handleClearChat} label="Delete this conversation" />
           </View>
         )}
 
@@ -1804,14 +1797,12 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       <View style={styles.assistantHeaderTextWrap}>
                         <View style={styles.assistantTitleRow}>
                           <Text style={styles.assistantTitle}>Assistant</Text>
-                          <View style={styles.assistantOnlineDot} />
                         </View>
-                        <Text style={styles.assistantSubtitle}>grounded in your decks</Text>
+                        <Text style={styles.assistantSubtitle}>Your learning companion</Text>
                       </View>
                     </View>
-                    <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close" style={styles.assistantRefreshBtn} onPress={onClose} activeOpacity={0.7}>
-                      <Feather name="x" size={16} color={colors.muted} />
-                    </TouchableOpacity>
+                    {currentTabHasConversation && <RoundAction icon="trash-2" onPress={handleClearCurrentTabConversation} label="Clear conversation" />}
+                    <CloseButton onPress={onClose} label="Close the assistant" />
                   </View>
 
                   <View style={styles.modeTabs}>
@@ -1824,7 +1815,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       }}
                     >
                       <Text style={[styles.modeTabTitle, initialTab === 'qa' && styles.modeTabTitleActive]}>Q&A</Text>
-                      <Text style={styles.modeTabSub}>ASK</Text>
                     </Pressable>
                     <Pressable
                       accessibilityRole="tab"
@@ -1835,7 +1825,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       }}
                     >
                       <Text style={[styles.modeTabTitle, initialTab === 'vocabulary' && styles.modeTabTitleActive]}>Vocabulary</Text>
-                      <Text style={styles.modeTabSub}>LOOK UP</Text>
                     </Pressable>
                     <Pressable
                       accessibilityRole="tab"
@@ -1846,23 +1835,11 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
                       }}
                     >
                       <Text style={[styles.modeTabTitle, initialTab === 'quiz' && styles.modeTabTitleActive]}>Quiz me</Text>
-                      <Text style={styles.modeTabSub}>TEST</Text>
                     </Pressable>
                   </View>
                 </View>
 
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete"
-                  style={styles.clearFloatingBtn}
-                  onPress={handleClearCurrentTabConversation}
-                  activeOpacity={0.7}
-                  disabled={!currentTabHasConversation}
-                >
-                  <Feather
-                    name="trash-2"
-                    size={15}
-                    color={currentTabHasConversation ? colors.muted : colors.disabledText}
-                  />
-                </TouchableOpacity>
+
 
                 <View style={styles.initialMessageArea}>
                 <ScrollView
@@ -2333,25 +2310,12 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 }
 
 const styles = StyleSheet.create({
+  headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 240 },
   container: {
-    flex: 1,
-    backgroundColor: colors.surfaceSubtle,
+    flex: 1, backgroundColor: homeColors.canvas,
   },
   toolbar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    paddingBottom: 16,
-    minHeight: 60,
-    backgroundColor: colors.surf,
-  },
-  toolbarButton: {
-    width: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 8, minHeight: 60,
   },
   toolbarCloseButton: {
     width: 44,
@@ -2378,23 +2342,12 @@ const styles = StyleSheet.create({
   },
   initialScreen: {
     flex: 1,
-    backgroundColor: colors.surfaceSubtle,
   },
   initialTopFixed: {
-    backgroundColor: colors.surfaceSubtle,
     zIndex: 20,
-    elevation: 0,
   },
   assistantHeader: {
-    paddingHorizontal: layout.screenInline,
-    paddingTop: 8,
-    paddingBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surfaceSubtle,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8,
   },
   assistantHeaderLeft: {
     flexDirection: 'row',
@@ -2403,13 +2356,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   assistantBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: colors.text,
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
+    width: 44, height: 44, borderRadius: 22, backgroundColor: homeColors.deep, alignItems: 'center', justifyContent: 'center',
   },
   assistantHeaderTextWrap: {
     flex: 1,
@@ -2420,12 +2367,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   assistantTitle: {
-    fontSize: 15,
-    lineHeight: 20,
-    color: colors.text,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    letterSpacing: -0.2,
+    fontSize: 26, lineHeight: 34, color: homeColors.deep, fontFamily: fonts.display,
   },
   assistantOnlineDot: {
     width: 6,
@@ -2434,48 +2376,22 @@ const styles = StyleSheet.create({
     backgroundColor: colors.accent,
   },
   assistantSubtitle: {
-    fontSize: 12,
-    lineHeight: 15,
-    color: colors.muted,
-    fontFamily: fonts.medium,
-    fontWeight: '500',
-    letterSpacing: -0.1,
-  },
-  assistantRefreshBtn: {
-    width: 44,
-    minHeight: 44,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-    backgroundColor: colors.surfaceSubtle,
-    alignItems: 'center',
-    justifyContent: 'center',
+    fontSize: 12, lineHeight: 17, color: homeColors.deep, fontFamily: fonts.medium,
   },
   modeTabs: {
-    flexDirection: 'row',
-    backgroundColor: colors.surf,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    flexDirection: 'row', marginHorizontal: 16, padding: 4, gap: 4, backgroundColor: homeColors.white, borderRadius: 28, boxShadow: `0px 4px 0px ${homeColors.border}`,
   },
   modeTab: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: colors.transparent,
+    flex: 1, minHeight: 42, alignItems: 'center', justifyContent: 'center', borderRadius: 24,
   },
   modeTabActive: {
-    borderBottomColor: colors.text,
+    backgroundColor: homeColors.selected,
   },
   modeTabTitle: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.muted,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
+    fontSize: 14, lineHeight: 20, color: homeColors.deep, fontFamily: fonts.medium,
   },
   modeTabTitleActive: {
-    color: colors.text,
+    color: homeColors.deep, fontFamily: fonts.semibold,
   },
   modeTabSub: {
     fontSize: 12,
@@ -2501,8 +2417,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   initialBody: {
-    paddingHorizontal: 16,
-    paddingTop: 14,
+    paddingHorizontal: 16, paddingTop: 28,
   },
   // 对话内容区（不含底部输入条）：用于左下角悬浮 AI 状态
   initialMessageArea: {
@@ -2524,9 +2439,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   initialPromptRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12, backgroundColor: homeColors.white, borderRadius: 24, padding: 16, boxShadow: `0px 4px 0px ${homeColors.border}`,
   },
   initialPromptIcon: {
     width: 28,
@@ -2539,13 +2452,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   initialPromptText: {
-    flex: 1,
-    fontSize: 13,
-    lineHeight: 20,
-    color: colors.text,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    letterSpacing: -0.1,
+    flex: 1, fontSize: 15, lineHeight: 23, color: homeColors.darkest, fontFamily: fonts.regular,
   },
   tryLabel: {
     marginTop: 16,
@@ -2559,18 +2466,14 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
   },
   quickPrompts: {
-    gap: 6,
-    marginLeft: 38,
-    marginTop: 10,
+    gap: 10, marginTop: 20,
   },
   initialChatPreview: {
     marginTop: 10,
     gap: 6,
   },
   quizScopeWrap: {
-    marginTop: 14,
-    marginLeft: 44,
-    gap: 8,
+    marginTop: 20, gap: 10,
   },
   quizScopeLabel: {
     fontSize: 12,
@@ -2585,17 +2488,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: 8,
   },
-  quizScopeChip: { minHeight: 44,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 8,
-    backgroundColor: colors.surf,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
+  quizScopeChip: {
+    minHeight: 44, borderWidth: 1, borderColor: homeColors.border, borderRadius: 22, backgroundColor: homeColors.white, paddingHorizontal: 14, paddingVertical: 9,
   },
   quizScopeChipActive: {
-    borderColor: colors.action,
-    backgroundColor: colors.greenL,
+    borderColor: homeColors.selected, backgroundColor: homeColors.selected,
   },
   quizScopeChipText: {
     fontSize: 12,
@@ -2670,32 +2567,14 @@ const styles = StyleSheet.create({
     color: colors.muted,
     fontFamily: fonts.regular,
   },
-  quickPromptBtn: { minHeight: 44,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-    borderRadius: 6,
-    backgroundColor: colors.surf,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
+  quickPromptBtn: {
+    minHeight: 48, borderWidth: 1, borderColor: homeColors.border, borderRadius: 18, backgroundColor: homeColors.white, paddingHorizontal: 16, paddingVertical: 12, justifyContent: 'center',
   },
   quickPromptText: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: colors.text,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    letterSpacing: -0.1,
+    fontSize: 14, lineHeight: 20, color: homeColors.deep, fontFamily: fonts.medium,
   },
   initialComposerWrap: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 10,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    backgroundColor: colors.surfaceSubtle,
-    position: 'relative',
-    zIndex: 10,
-    elevation: 0,
+    paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, backgroundColor: homeColors.canvas, position: 'relative', zIndex: 10,
   },
   aiStatusWrap: {
     flexDirection: 'row',
@@ -2739,41 +2618,13 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   initialComposer: {
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 12,
-    backgroundColor: colors.surf,
-    // 左侧正常 padding；右侧与 ChatInputBar 一致：10 + 32 + 8
-    paddingLeft: 16,
-    paddingRight: 50,
-    paddingTop: 10,
-    paddingBottom: 10,
+    borderWidth: 1, borderColor: homeColors.border, borderRadius: 24, backgroundColor: homeColors.white, paddingLeft: 16, paddingRight: 58, paddingTop: 14, paddingBottom: 14, boxShadow: `0px 4px 0px ${homeColors.border}`,
   },
   initialComposerInput: {
-    // 不设固定 height，由原生布局自然伸缩
-    minHeight: 22,
-    maxHeight: 66,  // 3 行 × lineHeight 18 ≈ 66px
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.text,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    letterSpacing: -0.1,
-    paddingTop: 0,
-    paddingBottom: 0,
+    minHeight: 22, maxHeight: 66, fontSize: 15, lineHeight: 22, color: homeColors.darkest, fontFamily: fonts.regular, paddingTop: 0, paddingBottom: 0,
   },
   initialComposerSend: {
-    position: 'absolute',
-    right: 10,
-    // (paddingTop 10 + minHeight 22 + paddingBottom 10 - buttonHeight 32) / 2 = 5
-    // 单行时按钮垂直居中；多行时随 bar 增高自然贴向底部
-    bottom: 5,
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: colors.action,
-    alignItems: 'center',
-    justifyContent: 'center',
+    position: 'absolute', right: 9, bottom: 9, width: 34, height: 34, borderRadius: 17, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center',
   },
   initialComposerSendDisabled: {
     opacity: 0.4,
@@ -2870,35 +2721,20 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   aiInlineText: {
-    fontSize: 13,
-    lineHeight: 19,
-    letterSpacing: -0.1,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    color: colors.text,
+    fontSize: 15, lineHeight: 23, fontFamily: fonts.regular, color: homeColors.darkest,
   },
   messageBubble: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingHorizontal: 16, paddingVertical: 11, borderRadius: 20, borderWidth: 1, borderColor: homeColors.border,
   },
   userBubble: {
-    backgroundColor: colors.text,
-    borderColor: colors.text,
-    borderBottomRightRadius: 4,
+    backgroundColor: homeColors.primary, borderColor: homeColors.primary, borderBottomRightRadius: 6,
   },
   aiBubble: {
     backgroundColor: colors.surf,
     borderBottomLeftRadius: 4,
   },
   messageText: {
-    fontSize: 13,
-    lineHeight: 19,
-    letterSpacing: -0.1,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
+    fontSize: 15, lineHeight: 23, fontFamily: fonts.regular,
   },
   userMessageText: {
     color: colors.onAction,
@@ -2986,12 +2822,10 @@ const styles = StyleSheet.create({
   },
   suggestionCard: {
     backgroundColor: colors.surf,
-    borderRadius: 8,
     padding: 14,
     borderWidth: 1,
     borderColor: colors.border,
-    marginTop: 8,
-  },
+    marginTop: 8, ...cardElevation.card, },
   suggestionHeader: {
     flexDirection: 'row',
     marginBottom: 8,

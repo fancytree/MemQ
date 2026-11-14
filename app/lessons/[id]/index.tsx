@@ -5,7 +5,7 @@ import { HomeAsset } from '@/components/HomeAsset';
 import { Icon } from '@/components/Icon';
 import { homeColors } from '@/theme/colors';
 import { sheet } from '@/theme/sheet';
-import { CloseButton } from '@/components/ui/CloseButton';
+import { BackButton, CloseButton, RoundAction } from '@/components/ui/RoundButtons';
 import { LinearGradient } from 'expo-linear-gradient';
 import TermCard from '@/components/TermCard';
 import { LanguageCardModal } from '@/components/LanguageCardModal';
@@ -484,17 +484,9 @@ export default function LessonDetailScreen() {
       <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
         {/* Top nav */}
         <View style={styles.nav}>
-          <Button accessibilityLabel="Back to Library" onPress={handleGoBack} activeOpacity={0.7}>
-            <Text style={styles.navBack}>← Library</Text>
-          </Button>
-          <Button
-            accessibilityLabel="Edit lesson"
-            style={styles.navEdit}
-            onPress={() => router.push(`/lessons/${id}/settings` as any)}
-            activeOpacity={0.7}
-          >
-            <Feather name="edit-2" size={20} color={colors.text} />
-          </Button>
+          <BackButton onPress={handleGoBack} label="Back to Library" />
+          <RoundAction icon="edit-2" label="Edit lesson"
+            onPress={() => router.push(`/lessons/${id}/settings` as any)} />
         </View>
 
       <ScrollView
@@ -853,8 +845,6 @@ const styles = StyleSheet.create({
   backButton: { backgroundColor: colors.action, paddingHorizontal: 20, paddingVertical: 12, borderRadius: radius.pill },
   backButtonText: { ...type.controlLink, color: colors.onAction },
   nav: { paddingHorizontal: layout.screenInline, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  navBack: { ...type.controlLink, color: homeColors.deep },
-  navEdit: { width: 44, height: 44, borderRadius: 22, backgroundColor: homeColors.focus, alignItems: 'center', justifyContent: 'center' },
   scrollView: { flex: 1 },
   scrollContent: { paddingHorizontal: layout.screenInline, paddingTop: 12, gap: componentTokens.lessonDetail.sectionGap },
   overview: { borderRadius: 24, paddingBottom: 4, backgroundColor: homeColors.border },

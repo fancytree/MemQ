@@ -1,5 +1,6 @@
 import { layout } from '@/theme/spacing';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
+import { RoundAction } from '@/components/ui/RoundButtons';
 import { safeBack } from '@/lib/safeBack';
 import { EdBase } from '@/components/EdBase';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -154,9 +155,8 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
-        <Pressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={() => router.push('/profile/settings' as any)} style={styles.editButton}>
-          <Feather name="settings" size={20} color={homeColors.deep} />
-        </Pressable>
+        <RoundAction icon="settings" label="Open profile settings"
+          onPress={() => router.push('/profile/settings' as any)} />
       </View>
 
       <ScrollView
@@ -241,7 +241,6 @@ const styles = StyleSheet.create({
     fontSize: 12, lineHeight: 14, letterSpacing: 0.2, color: colors.muted,
     fontFamily: fonts.medium, fontWeight: '500',
   },
-  editButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: homeColors.focus, alignItems: 'center', justifyContent: 'center' },
   editLink: {
     fontSize: 13, letterSpacing: -0.1, color: colors.action,
     fontFamily: fonts.bold, fontWeight: '700',

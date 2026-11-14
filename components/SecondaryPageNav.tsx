@@ -1,7 +1,6 @@
+import { BackButton } from '@/components/ui/RoundButtons';
 import { layout } from '@/theme/spacing';
-import { fonts } from '@/theme/typography';
-import { colors } from '@/theme';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 interface SecondaryPageNavProps {
   onBack: () => void;
@@ -19,11 +18,14 @@ export function SecondaryPageNav({
   onBack,
   backLabel = '← Profile',
 }: SecondaryPageNavProps) {
+  // The arrow is the button now, so the destination is no longer written on the
+  // screen — but it is still worth saying out loud, so the label each page already
+  // passes becomes the spoken one.
+  const where = backLabel.replace(/^[\s←]+/, '').trim();
   return (
     <View style={styles.header}>
-      <TouchableOpacity accessibilityLabel="Go back" onPress={onBack} activeOpacity={0.7} accessibilityRole="button" style={styles.backButton}>
-        <Text style={styles.navBack}>{backLabel}</Text>
-      </TouchableOpacity>
+      <BackButton onPress={onBack}
+        label={where && where.toLowerCase() !== 'back' ? `Back to ${where}` : 'Back'} />
       <View style={styles.navRightSpacer} />
     </View>
   );
@@ -37,15 +39,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenInline,
     paddingTop: 14,
     paddingBottom: 14,
-  },
-  backButton: { minHeight: 44, justifyContent: 'center' },
-  navBack: {
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.1,
-    color: colors.muted,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
   },
   navRightSpacer: {
     width: 52,

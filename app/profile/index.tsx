@@ -1,4 +1,5 @@
 import { elevation as cardElevation } from '@/theme';
+import { BackButton } from '@/components/ui/RoundButtons';
 import { layout } from '@/theme/spacing';
 import { sheet } from '@/theme/sheet';
 import { fonts } from '@/theme/typography';
@@ -721,9 +722,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             {isTab ? (
               <Text style={styles.navBack}>Profile</Text>
             ) : (
-              <TouchableOpacity accessibilityRole="button" onPress={() => safeBack('/you')} activeOpacity={0.7}>
-                <Text style={styles.navBack}>← Back</Text>
-              </TouchableOpacity>
+              <BackButton onPress={() => safeBack('/you')} />
             )}
             <Text accessibilityRole="header" style={styles.pageTitle}>Profile</Text><View style={styles.navRightSpacer} />
           </View>

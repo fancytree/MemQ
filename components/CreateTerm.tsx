@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { BackButton } from '@/components/ui/RoundButtons';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
@@ -125,20 +126,14 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
         {/* 顶部导航栏 */}
         <View style={styles.header}>
-          <TouchableOpacity accessibilityRole="button" accessibilityLabel="Go back"
-            onPress={() => safeBack('/(tabs)/library')}
-            style={styles.backButton}
-            activeOpacity={0.7}
-          >
-            <Feather name="arrow-left" size={24} color={colors.text} />
-          </TouchableOpacity>
+          <BackButton onPress={() => safeBack('/(tabs)/library')} label="Back to Library" />
           <Text style={styles.headerTitle}>Add Terms</Text>
           <View style={styles.placeholder} />
         </View>
@@ -265,9 +260,6 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-  },
-  backButton: { minHeight: 44,
-    padding: 8,
   },
   headerTitle: {
     fontSize: 18,

@@ -1,6 +1,6 @@
 import { layout } from '@/theme/spacing';
 import { sheet } from '@/theme/sheet';
-import { CloseButton } from '@/components/ui/CloseButton';
+import { CloseButton } from '@/components/ui/RoundButtons';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';

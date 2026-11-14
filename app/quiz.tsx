@@ -5,7 +5,7 @@ import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { Icon } from '@/components/Icon';
-import { CloseButton } from '@/components/ui/CloseButton';
+import { CloseButton } from '@/components/ui/RoundButtons';
 import { Feather } from '@expo/vector-icons';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';

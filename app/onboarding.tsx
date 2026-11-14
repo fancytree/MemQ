@@ -23,6 +23,7 @@
  * the whole argument for the product and a sentence makes it sound like an opinion.
  */
 import { HomeAsset } from '@/components/HomeAsset';
+import { BackButton } from '@/components/ui/RoundButtons';
 import LoadingScreen from '@/components/LoadingScreen';
 import { WELCOME_SCENES, WelcomeStory } from '@/components/WelcomeStory';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
@@ -32,7 +33,6 @@ import { supabase } from '@/lib/supabase';
 import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
 import { layout } from '@/theme/spacing';
-import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -237,11 +237,10 @@ export default function OnboardingScreen() {
 
       <View style={[styles.frame, { paddingTop: insets.top + 12, paddingBottom: insets.bottom + 12 }]}>
         <View style={styles.topRow}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Go back"
-            onPress={goBack} disabled={step === 0}
+          <View pointerEvents={step === 0 ? 'none' : 'auto'}
             style={[styles.back, step === 0 && styles.backHidden]}>
-            <Feather name="arrow-left" size={18} color={homeColors.deep} />
-          </Pressable>
+            <BackButton onPress={goBack} label="Back a step" />
+          </View>
         </View>
 
         <RNAnimated.View style={[styles.stage, { transform: [{ translateX: slideAnim }] }]}>
@@ -415,10 +414,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: layout.screenInline, paddingBottom: 4,
   },
-  back: {
-    width: 40, height: 40, borderRadius: 20,
-    alignItems: 'center', justifyContent: 'center',
-  },
+  back: { alignItems: 'flex-start' },
   backHidden: { opacity: 0 },
 
   stage: { flex: 1 },

@@ -3,7 +3,7 @@ import { ActionButton } from '@/components/ui/ActionButton';
 import { calendarCells, sameCalendarDay, shiftCalendarMonth } from '@/lib/calendar';
 import { colors, componentTokens, layout, radius, type } from '@/theme';
 import { sheet as sheetShape } from '@/theme/sheet';
-import { CloseButton } from '@/components/ui/CloseButton';
+import { CloseButton } from '@/components/ui/RoundButtons';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

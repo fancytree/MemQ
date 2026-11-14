@@ -1,6 +1,6 @@
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
-import { CloseButton, ConfirmButton } from '@/components/ui/CloseButton';
+import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';

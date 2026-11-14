@@ -9,7 +9,7 @@
  */
 
 import { Toggle } from '@/components/ui/Toggle';
-import { CloseButton } from '@/components/ui/CloseButton';
+import { CloseButton } from '@/components/ui/RoundButtons';
 import { fonts } from '@/theme';
 import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';

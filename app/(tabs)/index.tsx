@@ -3,7 +3,7 @@ import LoadingScreen from '@/components/LoadingScreen';
 import { colors, homeColors } from '@/theme/colors';
 import { type } from '@/theme/typography';
 import { sheet } from '@/theme/sheet';
-import { CloseButton } from '@/components/ui/CloseButton';
+import { CloseButton } from '@/components/ui/RoundButtons';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
 import { loadFromCache, saveToCache } from '@/lib/cache';

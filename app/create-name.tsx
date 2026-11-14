@@ -1,4 +1,5 @@
 import { HomeAsset } from '@/components/HomeAsset';
+import { BackButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { homeColors } from '@/theme/colors';
@@ -164,19 +165,10 @@ export default function CreateNameScreen() {
       </View>
       {/* Top bar */}
       <View style={styles.topbar}>
-        <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.topbarSideBtn}>
-          <Text style={styles.cancel}>← Back</Text>
-        </Pressable>
+        <BackButton onPress={() => router.back()} label="Back to the first step" />
         <Text style={styles.title}>New Lesson</Text>
-        <Pressable accessibilityRole="button"
-          onPress={() => void handleCreate()}
-          disabled={!canCreate || saving}
-          style={styles.topbarSideBtn}
-        >
-          <Text style={[styles.tag, (!canCreate || saving) && styles.tagDisabled]}>
-            {saving ? 'Creating…' : 'Create'}
-          </Text>
-        </Pressable>
+        <ConfirmButton onPress={() => void handleCreate()} label="Create lesson"
+          disabled={!canCreate} busy={saving} />
       </View>
 
       <KeyboardAvoidingView
@@ -323,18 +315,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     position: 'relative',
   },
-  topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2, justifyContent: 'center' },
-  cancel: { fontFamily: 'Geist_500Medium', fontSize: 15, color: homeColors.deep },
   title: {
     fontSize: 23, lineHeight: 32,
     color: homeColors.deep, fontFamily: fonts.display,
-    position: 'absolute', left: 0, right: 0, textAlign: 'center',
+    // Centred on the bar rather than between the buttons, so it lies across both —
+    // and a label has no business taking their taps.
+    position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none',
   },
-  tag: {
-    fontSize: 14, lineHeight: 20, color: homeColors.primary,
-    fontWeight: '700', fontFamily: fonts.bold, textAlign: 'right',
-  },
-  tagDisabled: { opacity: 0.45 },
 
   body: { padding: 16, gap: 12 },
 
