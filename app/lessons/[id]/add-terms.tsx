@@ -1,4 +1,14 @@
+import { ManualTermFields } from '@/components/ui/ManualTermFields';
+import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
+import { HomeAsset } from '@/components/HomeAsset';
+import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { homeColors } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
+import { ledge } from '@/theme/ledge';
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, LanguageCardEditor } from '@/components/LanguageCardFields';
@@ -12,7 +22,15 @@ import { colors, fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+
+/** The same perch as New Lesson's: this screen is that screen's twin, so the
+ *  character stands at the same width and crosses the card on the same hand line. */
+const PERCH = 132;
+const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
+  / MASCOT_HANDS.length / 256;
+const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
+const PROMPT_GAZE = { x: 0.5, y: 0.9 } as const;
 
 type Phase = 'idle' | 'generating' | 'done';
 
@@ -60,6 +78,11 @@ const getDocumentPicker = (): DocumentPickerModule | null => {
 };
 
 export default function AddTermsScreen() {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  /** The card runs wider than the content column so the character, which is narrower
+   *  than the card, still has card under both hands. */
+  const bleed = -((width - layout.screenInline * 2) - PERCH) / 2;
   const { isPro, showPaywall } = useSubscription();
   const { id, termId } = useLocalSearchParams<{ id: string; termId?: string }>();
   const [prompt, setPrompt] = useState('');
@@ -553,15 +576,21 @@ export default function AddTermsScreen() {
 
     return (
     <EdBase bottomInset={0} scroll={false}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 150 }]} />
+      {/* Two hills, not one: a single one ends on a straight horizontal edge partway
+          down, which reads as the background stopping rather than as a landscape. */}
+      <View pointerEvents="none" style={[styles.waveBack, { top: 113 - insets.top }]}>
+        <HomeAsset name="waveBack" />
+      </View>
+      <View pointerEvents="none" style={[styles.waveFront, { top: 150 - insets.top }]}>
+        <HomeAsset name="waveFront" />
+      </View>
       {/* Top bar */}
       <View style={styles.topbar}>
-        <Pressable accessibilityRole="button" onPress={handleCancel} style={styles.topbarSideBtn}>
-          <Text style={styles.cancel}>Cancel</Text>
-        </Pressable>
+        <CloseButton onPress={handleCancel} label="Cancel" />
         <Text style={styles.title}>{isSingleTermEdit ? 'Edit Term' : 'Add Terms'}</Text>
-        <Pressable accessibilityRole="button" onPress={handleSave} disabled={saving || loadingMode || modeLoadFailed} style={styles.topbarSideBtn}>
-          <Text style={[styles.tag, (saving || loadingMode || modeLoadFailed) && styles.tagDisabled]}>{saving ? 'Saving...' : 'Save'}</Text>
-        </Pressable>
+        <ConfirmButton onPress={handleSave} label="Save terms"
+          disabled={loadingMode || modeLoadFailed} busy={saving} />
         </View>
 
       {!isSingleTermEdit && (
@@ -570,8 +599,13 @@ export default function AddTermsScreen() {
         contentContainerStyle={styles.contentScrollBody}
         showsVerticalScrollIndicator={false}
       >
-      {/* Prompt block */}
-      <View style={styles.promptBlock}>
+      {/* Prompt block, with the character resting on its top edge. It watches the
+          box while it is empty and thinks while the cards are being written. */}
+      <MascotCharacter width={PERCH} calm style={styles.perch} hands
+        mood={isGenerating ? 'thinking' : 'onboarding'}
+        look={isGenerating ? PROMPT_GAZE : undefined}
+        behind={(
+      <View style={[styles.promptBlock, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
         <View style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 6 }}>
           <SectionLabel
             style={{
@@ -589,7 +623,7 @@ export default function AddTermsScreen() {
             value={prompt}
             onChangeText={setPrompt}
             placeholder="Type what you want to learn, paste text, or enter a topic."
-            placeholderTextColor={colors.muted}
+            placeholderTextColor={homeColors.placeholder}
             multiline
             style={styles.textarea}
           />
@@ -662,23 +696,15 @@ export default function AddTermsScreen() {
           </View>
         )}
         </View>
+      )} />
 
-      {/* Generated header */}
-      <View style={styles.genHead}>
-        <SectionLabel>
-          {cards.length === 0 ? 'Awaiting prompt' : `Generated - ${cards.length} cards`}
-        </SectionLabel>
-      </View>
-
-      {/* Empty state */}
-      {cards.length === 0 && (
-        <View style={styles.empty}>
-          <Text style={styles.emptyText}>
-            Cards will appear here.{'\n'}
-            Try: "Verb conjugation in Spanish," or paste a paragraph.
-              </Text>
-          </View>
-          )}
+      {/* Nothing is said while the box is empty: the character is already watching
+          it, and a heading over an empty dashed box only names the emptiness. */}
+      {cards.length > 0 && (
+        <View style={styles.genHead}>
+          <SectionLabel>{`Generated — ${cards.length} cards`}</SectionLabel>
+        </View>
+      )}
 
       {/* Generated cards */}
       {cards.map((c) => (
@@ -1071,13 +1097,9 @@ function ManualCard({
             <Pressable accessibilityRole="button" onPress={onEdit}>
               <Text style={styles.editLink}>Edit</Text>
             </Pressable>
-          ) : !hideDeleteButton ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Remove draft card"
-              onPress={onDelete}
-              disabled={disableDelete}
-              style={[styles.manualRemoveBtn, disableDelete && styles.manualRemoveBtnDisabled]}
-            >
-              <Feather name="x" size={14} color={disableDelete ? colors.dim : colors.red} />
+          ) : !hideDeleteButton && !disableDelete ? (
+            <Pressable accessibilityRole="button" accessibilityLabel="Remove draft card" onPress={onDelete} hitSlop={10} style={styles.manualRemoveBtn}>
+              <Feather name="x" size={18} color={colors.muted} />
             </Pressable>
           ) : null}
                       </View>
@@ -1097,73 +1119,13 @@ function ManualCard({
                       </>
                     ) : (
                       <>
-            <View style={styles.manualInputGroup}>
-              <View style={styles.manualInputLabelRow}>
-                <Text style={styles.manualInputLabel}>Term</Text>
-                {termDraft.trim().length > 0 && (
-                  <Pressable accessibilityRole="button"
-                    onPress={handleGenerate}
-                    disabled={isGenerating}
-                    style={isGenerating ? styles.manualGenerateButtonDisabled : undefined}
-                  >
-                    <Text style={styles.manualGenerateButtonText}>
-                      {isGenerating ? 'Generating...' : 'Generate'}
-                      </Text>
-                  </Pressable>
-                  )}
-                </View>
-                          <TextInput accessibilityLabel="e.g. Renaissance"
-                style={styles.manualInput}
-                placeholder="e.g. Renaissance"
-                placeholderTextColor={colors.muted}
-                value={termDraft}
-                onChangeText={(text) => {
-                  setTermDraft(text);
-                  onDraftChange('term', text);
-                }}
-                          />
-              </View>
-
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>Definition</Text>
-                          <TextInput accessibilityLabel="e.g. Period of cultural revival in Europe"
-                style={[styles.manualInput, styles.manualTextarea]}
-                placeholder="e.g. Period of cultural revival in Europe"
-                placeholderTextColor={colors.muted}
-                            multiline
-                value={definitionDraft}
-                onChangeText={(text) => {
-                  setDefinitionDraft(text);
-                  onDraftChange('definition', text);
-                }}
-                          />
-          </View>
-
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>{isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}</Text>
-                  <TextInput accessibilityLabel="Add context, examples, or usage notes"
-                style={[styles.manualInput, styles.manualTextarea]}
-                placeholder="Add context, examples, or usage notes"
-                placeholderTextColor={colors.muted}
-                multiline
-                value={explanationDraft}
-                onChangeText={(text) => {
-                  setExplanationDraft(text);
-                  onDraftChange('explanation', text);
-                }}
-                  />
-                  </View>
-            {isLanguage && (
-              <LanguageCardEditor
-                value={languageDraft}
-                term={termDraft}
-                onChange={(next) => {
-                  setLanguageDraft(next);
-                  onDraftChange('languageData', next);
-                }}
-              />
-            )}
-                    </>
+            <ManualTermFields term={termDraft} definition={definitionDraft} explanation={explanationDraft} languageData={languageDraft}
+              isLanguage={isLanguage} isGenerating={isGenerating} onGenerate={() => void handleGenerate()}
+              onTermChange={(value) => { setTermDraft(value); onDraftChange('term', value); }}
+              onDefinitionChange={(value) => { setDefinitionDraft(value); onDraftChange('definition', value); }}
+              onExplanationChange={(value) => { setExplanationDraft(value); onDraftChange('explanation', value); }}
+              onLanguageChange={(value) => { setLanguageDraft(value); onDraftChange('languageData', value); }} />
+          </>
                   )}
               </View>
       {!hideInlineEditActions && (!row.saved || row.editing) ? (
@@ -1210,7 +1172,13 @@ function ManualCard({
   );
 }
 
+/** The lip every raised surface here carries, drawn as a solid offset rather than a
+ *  blur: in a palette with no shadows that band is the only depth there is. The same
+ *  helper New Lesson uses, since these two screens are the same card twice. */
+const lip = (depth: number) => ({ boxShadow: `0px ${depth}px 0px ${homeColors.border}` });
+
 const styles = StyleSheet.create({
+  headerGradient: { position: 'absolute', left: 0, right: 0 },
   topbar: {
     paddingHorizontal: layout.screenInline,
     paddingTop: 20,
@@ -1219,12 +1187,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     position: 'relative',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  topbarSideBtn: { minHeight: 44,
-    minWidth: 64,
-    zIndex: 2,
   },
   contentScroll: {
     flex: 1,
@@ -1246,31 +1208,15 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingTop: 8,
   },
-  cancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
-  title: {
-    fontSize: 16,
-    lineHeight: 22.4,
-    fontWeight: '800',
-    letterSpacing: -0.1,
-    color: colors.text,
-    fontFamily: fonts.extraBold,
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    textAlign: 'center',
-  },
-  tag: {
-    fontSize: 13,
-    lineHeight: 18,
-    letterSpacing: -0.1,
-    color: colors.accentText,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-    textAlign: 'right',
-  },
-  tagDisabled: { opacity: 0.6 },
+  title: { fontSize: 23, lineHeight: 32, color: homeColors.deep, fontFamily: fonts.display, position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' },
 
-  promptBlock: { backgroundColor: colors.surf, borderBottomWidth: 1, borderBottomColor: colors.border },
+  perch: { alignSelf: 'center' },
+  waveBack: { position: 'absolute', left: -19 },
+  waveFront: { position: 'absolute', left: -19 },
+  promptBlock: {
+    marginHorizontal: layout.screenInline, marginTop: 8, marginBottom: 8,
+    backgroundColor: homeColors.white, borderRadius: 28, ...lip(ledge.raised),
+  },
   textarea: {
     minHeight: 76,
     fontSize: 16,
@@ -1312,7 +1258,6 @@ const styles = StyleSheet.create({
     lineHeight: 16.8,
     color: colors.muted,
     letterSpacing: 0.5,
-    textTransform: 'uppercase',
     fontWeight: '700',
     fontFamily: fonts.bold,
   },
@@ -1331,18 +1276,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  empty: {
-    marginHorizontal: layout.screenInline,
-    marginBottom: 16,
-    paddingHorizontal: 18,
-    paddingVertical: 28,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: colors.dim,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  emptyText: { fontSize: 13, color: colors.muted, lineHeight: 21, textAlign: 'center', fontFamily: fonts.regular },
 
   skeletonCard: {
     backgroundColor: colors.surf,
@@ -1360,8 +1293,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surf,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-  },
+    ...cardElevation.card, },
   fullCardHead: {
     paddingHorizontal: 14,
     paddingVertical: 14,
@@ -1396,8 +1328,8 @@ const styles = StyleSheet.create({
   exText: { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.utility },
 
   fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border },
-  fullCardAction: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  fullCardActionLabel: { fontSize: 12, fontFamily: fonts.regular },
+  fullCardAction: { flex: 1, paddingVertical: 15, alignItems: 'center' },
+  fullCardActionLabel: { fontSize: 16, fontFamily: fonts.medium },
 
   manualSection: {
     marginTop: 8,
@@ -1416,8 +1348,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surf,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 10,
-  },
+    ...cardElevation.card, },
   manualCardHead: {
     paddingHorizontal: 12,
     paddingVertical: 10,
@@ -1437,7 +1368,7 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bold,
   },
   manualCardBody: {
-    padding: 12,
+    padding: 20,
   },
   manualCardActions: {
     borderTopWidth: 1,
@@ -1448,14 +1379,14 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 11,
+    paddingVertical: 15,
   },
   manualCardActionBorder: {
     borderLeftWidth: 1,
     borderLeftColor: colors.border,
   },
   manualCardActionLabel: {
-    fontSize: 12,
+    fontSize: 16,
     fontFamily: fonts.medium,
   },
   manualCardIndex: {
@@ -1463,19 +1394,7 @@ const styles = StyleSheet.create({
     color: colors.accentText,
     fontFamily: fonts.bold,
   },
-  manualRemoveBtn: {
-    width: 44,
-    minHeight: 44,
-    borderRadius: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-  },
-  manualRemoveBtnDisabled: {
-    opacity: 0.5,
-  },
+  manualRemoveBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.nav },
   manualInputGroup: {
     marginBottom: 10,
   },
@@ -1503,9 +1422,9 @@ const styles = StyleSheet.create({
   },
   manualInput: { minHeight: 44,
     borderWidth: 1,
-    borderColor: colors.controlBorder,
-    borderRadius: 8,
-    backgroundColor: colors.surf,
+    borderColor: colors.border,
+    borderRadius: 14,
+    backgroundColor: homeColors.nav,
     paddingHorizontal: 12,
     paddingVertical: 10,
     fontSize: 14,

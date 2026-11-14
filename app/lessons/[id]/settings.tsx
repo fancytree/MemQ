@@ -1,8 +1,8 @@
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { CloseButton, RoundAction } from '@/components/ui/RoundButtons';
 import { LessonCover } from '@/components/LessonCover';
 import { encodeLessonCover, getStoredLessonCover, knowledgeSymbols, languageSymbols, removeStoredLessonCover, resolveLessonCover, setStoredLessonCover } from '@/lib/lessonCover';
 import { lessonCoverPalettes } from '@/theme/colors';
-import { Feather } from '@expo/vector-icons';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
 import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
@@ -113,8 +113,10 @@ export default function LessonSettingsScreen() {
     <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 170 }]} />
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.navigation}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Cancel lesson editing" disabled={busy} onPress={goBack} style={styles.cancel}><Text style={styles.link}>Cancel</Text></Pressable>
-        <Text accessibilityRole="header" style={styles.navTitle}>Edit lesson</Text><Pressable accessibilityRole="button" accessibilityLabel="Delete lesson" disabled={busy} onPress={() => { Keyboard.dismiss(); setShowDelete(true); }} style={styles.navDelete}><Feather name="trash-2" size={20} color={homeColors.deep} /></Pressable>
+        <CloseButton onPress={goBack} label="Cancel lesson editing" />
+        <Text accessibilityRole="header" style={styles.navTitle}>Edit lesson</Text>
+        <RoundAction icon="trash-2" label="Delete lesson" disabled={busy}
+          onPress={() => { Keyboard.dismiss(); setShowDelete(true); }} />
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}>
@@ -189,8 +191,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   navigation: { paddingHorizontal: layout.screenInline, paddingTop: 12, minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   navTitle: { fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep },
-  navDelete: { width: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 4 },
-  cancel: { minHeight: 44, minWidth: 64, justifyContent: 'center' },
   link: { ...type.controlLink, color: colors.text },
   save: { width: 80, paddingHorizontal: 0 },
   content: { paddingHorizontal: layout.screenInline, paddingTop: 12, paddingBottom: 24, gap: 16 },
