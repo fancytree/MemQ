@@ -1,3 +1,4 @@
+import { HomeAsset } from '@/components/HomeAsset';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
@@ -5,6 +6,7 @@ import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { elevation as cardElevation } from '@/theme';
+import { ledge } from '@/theme/ledge';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
@@ -138,7 +140,18 @@ export default function CreateNameScreen() {
 
   return (
     <EdBase bottomInset={0} scroll={false}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 150 }]} />
+      <LinearGradient pointerEvents="none"
+        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        locations={[0, 0.21154, 0.44712, 1]}
+        style={[styles.background, { top: -insets.top }]} />
+      {/* Two hills, not one: a single one ends on a straight horizontal edge partway
+          down, which reads as the background stopping rather than as a landscape. */}
+      <View pointerEvents="none" style={[styles.waveBack, { top: 113 - insets.top }]}>
+        <HomeAsset name="waveBack" />
+      </View>
+      <View pointerEvents="none" style={[styles.waveFront, { top: 150 - insets.top }]}>
+        <HomeAsset name="waveFront" />
+      </View>
       {/* Top bar */}
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.topbarSideBtn}>
@@ -171,6 +184,7 @@ export default function CreateNameScreen() {
           <MascotCharacter width={PERCH} mood="onboarding" calm style={styles.perch}
             behind={(
           <View style={[styles.formCard, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
+            <View style={styles.formFace}>
 
             {/* Lesson Name */}
             <View style={styles.inputGroup}>
@@ -231,6 +245,7 @@ export default function CreateNameScreen() {
                 </Text>
               </TouchableOpacity>
             </View>
+            </View>
           </View>
             )} />
 
@@ -240,9 +255,11 @@ export default function CreateNameScreen() {
             onPress={() => void handleCreate()}
             disabled={!canCreate || saving}
           >
-            <Text style={styles.ctaText}>
-              {saving ? 'Creating…' : 'Create Lesson →'}
-            </Text>
+            <View style={styles.ctaFace}>
+              <Text style={styles.ctaText}>
+                {saving ? 'Creating…' : 'Create Lesson →'}
+              </Text>
+            </View>
           </Pressable>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -288,7 +305,9 @@ export default function CreateNameScreen() {
 }
 
 const styles = StyleSheet.create({
-  headerGradient: { position: 'absolute', left: 0, right: 0 },
+  background: { position: 'absolute', left: 0, right: 0, height: 874 },
+  waveBack: { position: 'absolute', left: -19 },
+  waveFront: { position: 'absolute', left: -19 },
   perch: { alignSelf: 'center' },
   topbar: {
     paddingHorizontal: layout.screenInline, paddingTop: 20, paddingBottom: 16,
@@ -296,7 +315,7 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2, justifyContent: 'center' },
-  cancel: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
+  cancel: { fontFamily: 'Geist_500Medium', fontSize: 15, color: homeColors.deep },
   title: {
     fontSize: 23, lineHeight: 32,
     color: homeColors.deep, fontFamily: fonts.display,
@@ -310,16 +329,22 @@ const styles = StyleSheet.create({
 
   body: { padding: 16, gap: 12 },
 
+  // A shell with a lighter face on it, offset so a band of the shell shows along the
+  // bottom edge — the same depth every other raised surface in the app carries. It was
+  // a hairline outline and a boxShadow, which is the older style.
   formCard: {
-    backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, ...cardElevation.card, },
+    backgroundColor: homeColors.border, borderRadius: 28, paddingBottom: ledge.raised,
+  },
+  formFace: {
+    backgroundColor: homeColors.white, borderRadius: 28,
+    paddingHorizontal: 18, paddingTop: 18, paddingBottom: 10,
+  },
   inputGroup: { marginBottom: 20 },
   inputGroupLast: { marginBottom: 8 },
 
   label: {
-    fontSize: 12, lineHeight: 15.4, letterSpacing: -0.1,
-    fontFamily: fonts.medium, fontWeight: '500',
-    marginBottom: 8,
+    fontFamily: 'Geist_600SemiBold', fontSize: 15, lineHeight: 20,
+    letterSpacing: 0, color: homeColors.muted, marginBottom: 8,
   },
   required: { color: colors.red },
 
@@ -328,21 +353,22 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between', marginBottom: 8,
   },
 
-  input: { minHeight: 44,
-    backgroundColor: homeColors.nav, borderRadius: 14,
-    paddingHorizontal: 14, fontSize: 15, lineHeight: 22,
-    color: colors.text, fontFamily: fonts.regular,
-    borderWidth: 1, borderColor: colors.border,
+  // Canvas, not a bordered box: the field is a well sunk into the card's white face,
+  // which is how every other input in the app is drawn.
+  input: {
+    minHeight: 52, backgroundColor: homeColors.canvas, borderRadius: 16,
+    paddingHorizontal: 16, fontSize: 16, lineHeight: 22,
+    color: homeColors.darkest, fontFamily: 'Geist_500Medium',
   },
-  singleLineInput: { minHeight: 44, paddingVertical: 12 },
-  textarea: { minHeight: 90, paddingVertical: 12, textAlignVertical: 'top' },
+  singleLineInput: { minHeight: 52, paddingVertical: 14 },
+  textarea: { minHeight: 96, paddingVertical: 14, textAlignVertical: 'top' },
 
-  dateBtn: { minHeight: 44, justifyContent: 'center' },
-  dateText: { fontSize: 15, lineHeight: 22, color: colors.text, fontFamily: fonts.regular },
-  datePlaceholder: { color: colors.muted },
+  dateBtn: { minHeight: 52, justifyContent: 'center' },
+  dateText: { fontFamily: 'Geist_500Medium', fontSize: 16, lineHeight: 22, color: homeColors.darkest },
+  datePlaceholder: { color: homeColors.placeholder },
 
   clearBtn: { minHeight: 44, paddingVertical: 4, paddingHorizontal: 8 },
-  clearBtnText: { fontSize: 12, color: colors.red, fontFamily: fonts.semibold },
+  clearBtnText: { fontFamily: 'Geist_600SemiBold', fontSize: 13, color: colors.red },
 
   switchRow: { flexDirection: 'row', alignItems: 'center' },
   switchDesc: {
@@ -358,12 +384,19 @@ const styles = StyleSheet.create({
     width: 26, height: 26, borderRadius: 13, backgroundColor: colors.surf,
   },
 
-  cta: { minHeight: 44,
-    backgroundColor: colors.action, borderRadius: 100,
-    paddingVertical: 14, alignItems: 'center', boxShadow: `0px 4px 0px ${homeColors.deep}`,
+  // The one thing this screen wants pressed, so it carries the deepest lip.
+  cta: {
+    height: 59 + ledge.lead, borderRadius: 42,
+    backgroundColor: homeColors.deep, paddingBottom: ledge.lead,
+  },
+  ctaFace: {
+    flex: 1, borderRadius: 42, backgroundColor: homeColors.primary,
+    alignItems: 'center', justifyContent: 'center',
   },
   ctaDisabled: { opacity: 0.45 },
-  ctaText: { fontFamily: fonts.bold, fontSize: 15, color: colors.onAction, fontWeight: '700' },
+  ctaText: {
+    fontFamily: 'Geist_500Medium', fontSize: 22, lineHeight: 30, color: homeColors.white,
+  },
 
   // Date picker modal
   modalOverlay: {
