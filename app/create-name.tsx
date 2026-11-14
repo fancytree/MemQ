@@ -1,3 +1,10 @@
+import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
+import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
+import { homeColors } from '@/theme/colors';
+import { LinearGradient } from 'expo-linear-gradient';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
@@ -20,10 +27,27 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
+/** How wide the character stands over the card it is holding. */
+const PERCH = 138;
+
+/** Where the card's top edge crosses the character, read off the hands rather than
+ *  typed in: a little below their middle, so their lower part laps onto the card and
+ *  they read as resting on the edge instead of hovering above it. The sign-in screens
+ *  and the first run perch on the same line. */
+const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
+  / MASCOT_HANDS.length / 256;
+const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
+
 export default function CreateNameScreen() {
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  // The card is nested inside the character's box, so it has to be pulled back out to
+  // the width it would have had on its own. `body` insets it by 16 a side.
+  const bleed = -((width - 32) - PERCH) / 2;
   const [lessonName, setLessonName] = useState('');
   const [description, setDescription] = useState('');
   const [learningMode, setLearningMode] = useState<'language' | 'knowledge'>(getPendingLearningMode());
@@ -114,6 +138,7 @@ export default function CreateNameScreen() {
 
   return (
     <EdBase bottomInset={0} scroll={false}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 150 }]} />
       {/* Top bar */}
       <View style={styles.topbar}>
         <Pressable accessibilityRole="button" onPress={() => router.back()} style={styles.topbarSideBtn}>
@@ -141,7 +166,11 @@ export default function CreateNameScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.formCard}>
+          {/* Body behind the card, hands over its front edge — the same perch the
+              sign-in screens and the first run use. */}
+          <MascotCharacter width={PERCH} mood="onboarding" calm style={styles.perch}
+            behind={(
+          <View style={[styles.formCard, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
 
             {/* Lesson Name */}
             <View style={styles.inputGroup}>
@@ -155,7 +184,7 @@ export default function CreateNameScreen() {
                 value={lessonName}
                 onChangeText={setLessonName}
                 placeholder="e.g. French Vocabulary, Biology Ch.3…"
-                placeholderTextColor={colors.muted}
+                placeholderTextColor={homeColors.placeholder}
                 autoCapitalize="words"
                 returnKeyType="next"
                 maxLength={80}
@@ -170,7 +199,7 @@ export default function CreateNameScreen() {
                 value={description}
                 onChangeText={setDescription}
                 placeholder="Enter description (optional)"
-                placeholderTextColor={colors.muted}
+                placeholderTextColor={homeColors.placeholder}
                 multiline
                 textAlignVertical="top"
               />
@@ -179,26 +208,7 @@ export default function CreateNameScreen() {
             {/* Learning mode */}
             <View style={styles.inputGroup}>
               <SectionLabel style={styles.label}>Learning mode</SectionLabel>
-              <View style={{ flexDirection: 'row', gap: 8 }}>
-                {(['knowledge', 'language'] as const).map((mode) => (
-                  <Pressable
-                    key={mode}
-                    onPress={() => setLearningMode(mode)}
-                    accessibilityRole="radio"
-                    accessibilityState={{ checked: learningMode === mode }}
-                    style={{ flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1,
-                      borderColor: learningMode === mode ? colors.action : colors.controlBorder,
-                      backgroundColor: learningMode === mode ? colors.accentL : colors.surf }}
-                  >
-                    <Text style={{ color: learningMode === mode ? colors.action : colors.text, fontWeight: '700' }}>
-                      {mode === 'language' ? 'Language' : 'Knowledge'}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              <Text style={styles.switchDesc}>
-                {learningMode === 'language' ? 'Words, phrases, pronunciation, and grammar.' : 'Concepts, facts, and explanations.'}
-              </Text>
+              <LearningModeSelector value={learningMode} onChange={setLearningMode} />
             </View>
 
             {/* Deadline */}
@@ -222,6 +232,7 @@ export default function CreateNameScreen() {
               </TouchableOpacity>
             </View>
           </View>
+            )} />
 
           {/* CTA */}
           <Pressable accessibilityRole="button"
@@ -240,7 +251,7 @@ export default function CreateNameScreen() {
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal visible transparent animationType="none" onRequestClose={closeDatePicker}>
           <TouchableOpacity accessibilityRole="button" style={styles.modalOverlay} activeOpacity={1} onPress={closeDatePicker}>
-            <Animated.View style={[styles.modalContent, { transform: [{ translateY: slideAnim }] }]}>
+            <Animated.View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom), transform: [{ translateY: slideAnim }] }]}>
               <View style={styles.modalHeader}>
                 <TouchableOpacity accessibilityRole="button" onPress={closeDatePicker} style={styles.modalBtn}>
                   <Text style={styles.modalCancel}>Cancel</Text>
@@ -277,20 +288,22 @@ export default function CreateNameScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerGradient: { position: 'absolute', left: 0, right: 0 },
+  perch: { alignSelf: 'center' },
   topbar: {
     paddingHorizontal: layout.screenInline, paddingTop: 20, paddingBottom: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    position: 'relative', borderBottomWidth: 1, borderBottomColor: colors.border,
+    position: 'relative',
   },
-  topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2 },
-  cancel: { fontSize: 13, color: colors.muted, fontFamily: fonts.regular },
+  topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2, justifyContent: 'center' },
+  cancel: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
   title: {
-    fontSize: 16, lineHeight: 22.4, fontWeight: '800', letterSpacing: -0.1,
-    color: colors.text, fontFamily: fonts.extraBold,
+    fontSize: 23, lineHeight: 32,
+    color: homeColors.deep, fontFamily: fonts.display,
     position: 'absolute', left: 0, right: 0, textAlign: 'center',
   },
   tag: {
-    fontSize: 13, lineHeight: 18, letterSpacing: -0.1, color: colors.accentText,
+    fontSize: 14, lineHeight: 20, color: homeColors.primary,
     fontWeight: '700', fontFamily: fonts.bold, textAlign: 'right',
   },
   tagDisabled: { opacity: 0.45 },
@@ -299,9 +312,7 @@ const styles = StyleSheet.create({
 
   formCard: {
     backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8,
-  },
+    borderWidth: 1, borderColor: colors.border, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8, ...cardElevation.card, },
   inputGroup: { marginBottom: 20 },
   inputGroupLast: { marginBottom: 8 },
 
@@ -318,10 +329,10 @@ const styles = StyleSheet.create({
   },
 
   input: { minHeight: 44,
-    backgroundColor: colors.bg, borderRadius: 8,
+    backgroundColor: homeColors.nav, borderRadius: 14,
     paddingHorizontal: 14, fontSize: 15, lineHeight: 22,
     color: colors.text, fontFamily: fonts.regular,
-    borderWidth: 1, borderColor: colors.controlBorder,
+    borderWidth: 1, borderColor: colors.border,
   },
   singleLineInput: { minHeight: 44, paddingVertical: 12 },
   textarea: { minHeight: 90, paddingVertical: 12, textAlignVertical: 'top' },
@@ -349,7 +360,7 @@ const styles = StyleSheet.create({
 
   cta: { minHeight: 44,
     backgroundColor: colors.action, borderRadius: 100,
-    paddingVertical: 14, alignItems: 'center',
+    paddingVertical: 14, alignItems: 'center', boxShadow: `0px 4px 0px ${homeColors.deep}`,
   },
   ctaDisabled: { opacity: 0.45 },
   ctaText: { fontFamily: fonts.bold, fontSize: 15, color: colors.onAction, fontWeight: '700' },
