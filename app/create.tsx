@@ -21,7 +21,6 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -359,7 +358,7 @@ export default function CreateScreen() {
         </View>
         {/* Prompt block, with the character resting on its top edge. It watches the
             box while it is empty and thinks while the cards are being written. */}
-        <MascotCharacter width={PERCH} calm style={styles.perch}
+        <MascotCharacter width={PERCH} calm style={styles.perch} hands
           mood={isGenerating ? 'thinking' : 'onboarding'}
           look={isGenerating ? PROMPT_GAZE : undefined}
           behind={(
@@ -442,22 +441,12 @@ export default function CreateScreen() {
         </View>
           )} />
 
-        {/* Generated header */}
-        <View style={styles.genHead}>
-          <SectionLabel>
-            {visibleCards.length === 0 ? 'Awaiting prompt' : `Generated — ${visibleCards.length} cards`}
-          </SectionLabel>
-        </View>
-
-        {/* Empty state */}
-        {visibleCards.length === 0 && (
-          // Room held for the cards, and for the wait before them — not a poster. It
-          // carried a second character, a headline and two lines restating the box
-          // directly above it, all of it addressed to someone who had not typed yet.
-          <View style={styles.empty}>
-            {isGenerating
-              ? <ActivityIndicator color={homeColors.primary} />
-              : <Text style={styles.emptyText}>Your cards will land here.</Text>}
+        {/* Generated header. Nothing stands here before there is something to head:
+            an "Awaiting prompt" label over an empty panel was a caption for absence,
+            and the character on the card above says the same thing by waiting. */}
+        {visibleCards.length > 0 && (
+          <View style={styles.genHead}>
+            <SectionLabel>{`Generated — ${visibleCards.length} cards`}</SectionLabel>
           </View>
         )}
 
@@ -774,15 +763,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18, paddingTop: 16, paddingBottom: 2,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  // A slot, sized for what lands in it rather than for the words that used to fill it.
-  empty: {
-    marginHorizontal: layout.screenInline, marginBottom: 16, paddingHorizontal: 20,
-    minHeight: 104, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.heroBg, borderWidth: 1, borderColor: colors.heroBorder,
-    ...cardElevation.card,
-  },
-  emptyText: { maxWidth: 260, fontSize: 13, color: colors.muted, lineHeight: 19, textAlign: 'center', fontFamily: fonts.regular },
-
   fullCard: {
     marginHorizontal: layout.screenInline, marginTop: 8,
     backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, ...cardElevation.card, },
