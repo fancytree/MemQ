@@ -82,7 +82,7 @@ export default function UnlockProScreen() {
       <View pointerEvents="none" style={styles.waveFront}><HomeAsset name="waveFront" /></View>
 
       <SafeAreaView edges={['top']}>
-        <SecondaryPageNav onBack={() => safeBack('/you')} backLabel="← Back" showDivider={false} />
+        <SecondaryPageNav onBack={() => safeBack('/you')} backLabel="← Back" />
       </SafeAreaView>
 
       <ScrollView

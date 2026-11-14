@@ -2,8 +2,10 @@ import { layout } from '@/theme/spacing';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
 import { EdBase } from '@/components/EdBase';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
-import { SectionLabel } from '@/components/SectionLabel';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Feather } from '@expo/vector-icons';
+import { HomeAsset } from '@/components/HomeAsset';
+import { homeColors } from '@/theme/colors';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
   activityDaysFromProgressUpdates,
@@ -13,9 +15,10 @@ import {
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors, fonts } from '@/theme';
-import { router } from 'expo-router';
-import { useEffect, useMemo, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
 
@@ -24,20 +27,6 @@ interface QuadStat {
   val: string;
   sub: string;
 }
-
-const LEARNING_STAGE_WEIGHTS: Record<string, number> = {
-  New: 0,
-  Learning: 0.2,
-  Familiar: 0.4,
-  Good: 0.6,
-  Strong: 0.8,
-  Mastered: 1.0,
-};
-
-const getStatusWeight = (status: string | null | undefined): number => {
-  if (!status || status === 'New') return LEARNING_STAGE_WEIGHTS.New;
-  return LEARNING_STAGE_WEIGHTS[status] ?? LEARNING_STAGE_WEIGHTS.New;
-};
 
 /** 本地日期键 YYYY-MM-DD，与 activityDaysFromProgressUpdates 保持一致 */
 function toLocalDateKey(d: Date): string {
@@ -57,12 +46,11 @@ export default function ProfileScreen() {
   const [bestStreak, setBestStreak] = useState(0);
   const [stats, setStats] = useState<QuadStat[]>([
     { label: 'Lessons', val: '0', sub: 'total' },
-    { label: 'Terms', val: '0', sub: 'total cards' },
-    { label: 'Mastered', val: '0', sub: 'status reached' },
-    { label: 'Focus queue', val: '0', sub: 'cards due today' },
+    { label: 'Cards', val: '0', sub: 'in your library' },
+    { label: 'Mastered', val: '0', sub: 'cards mastered' },
   ]);
 
-  useEffect(() => {
+  useFocusEffect(useCallback(() => {
     const loadUserProfile = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -104,16 +92,13 @@ export default function ProfileScreen() {
       const progressMap = buildLatestProgressMap(progressData || []);
       const activityDays = activityDaysFromProgressUpdates(progressData || []);
 
-      let weightedScore = 0;
       let masteredCount = 0;
       termIds.forEach((termId) => {
         const status = progressMap.get(termId);
-        weightedScore += getStatusWeight(status);
         if (status === 'Mastered') masteredCount += 1;
       });
 
-      const dueToday = Math.max(totalTerms - Math.round(weightedScore), 0);
-      const weightedPct = totalTerms > 0 ? Math.round((weightedScore / totalTerms) * 100) : 0;
+
 
       // 最近 7 天（今天在最后一格），用本地日期键比对（避免 UTC 跨天误差）
       const recent7Days = Array.from({ length: 7 }, (_, idx) => {
@@ -129,20 +114,23 @@ export default function ProfileScreen() {
       setBestStreak(computeBestStreak(activityDays));
 
       setStats([
-        { label: 'Lessons', val: String(lessonsCount || 0), sub: 'total' },
-        { label: 'Terms', val: String(totalTerms), sub: `${weightedPct}% weighted mastery` },
-        { label: 'Mastered', val: String(masteredCount), sub: 'status reached' },
-        { label: 'Focus queue', val: String(dueToday), sub: 'cards due today' },
+        { label: 'Lessons', val: String(lessonsCount || 0), sub: 'created' },
+        { label: 'Cards', val: String(totalTerms), sub: 'in your library' },
+        { label: 'Mastered', val: String(masteredCount), sub: 'cards mastered' },
       ]);
     };
-    loadUserProfile();
-  }, []);
+    void loadUserProfile();
+  }, []));
 
   const avatarInitial = useMemo(() => displayName.charAt(0).toUpperCase() || 'U', [displayName]);
+  const totalCards = Number(stats[1].val) || 0;
+  const masteredCards = Number(stats[2].val) || 0;
+  const mastery = totalCards > 0 ? Math.round((masteredCards / totalCards) * 100) : 0;
 
   return (
     <EdBase bottomInset={0} scroll={false}>
-      <SecondaryPageNav backLabel="← Today" onBack={() => safeBack('/(tabs)')} showDivider={false} />
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.45, 1]} style={styles.pageGradient} />
+      <SecondaryPageNav backLabel="← Today" onBack={() => safeBack('/(tabs)')} />
       {/* Avatar row */}
       <View style={styles.avatarRow}>
         {avatarUrl ? (
@@ -166,8 +154,8 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
-        <Pressable accessibilityRole="button" onPress={() => router.push('/profile/settings' as any)}>
-          <Text style={styles.editLink}>Edit</Text>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open profile settings" onPress={() => router.push('/profile/settings' as any)} style={styles.editButton}>
+          <Feather name="settings" size={20} color={homeColors.deep} />
         </Pressable>
       </View>
 
@@ -180,32 +168,26 @@ export default function ProfileScreen() {
         <View style={styles.streakBlock}>
           <View style={styles.streakHead}>
             <View style={styles.streakCopy}>
-              <SectionLabel size={11} style={{ marginBottom: 7, fontFamily: fonts.medium, fontWeight: '500', lineHeight: 15 }}>
-                Your streak
-              </SectionLabel>
+              <Text style={styles.streakLabel}>Your streak</Text>
               <View style={styles.streakLine}>
                 <Text style={styles.streakNum}>{currentStreak}</Text>
                 <Text style={styles.streakUnit}>days</Text>
-                <Text style={[styles.streakUnit, { marginLeft: 'auto' }]}>Best {bestStreak}</Text>
               </View>
+              <Text style={styles.streakHint}>{currentStreak > 0 ? 'Keep your learning streak going.' : 'One study session starts your streak.'}</Text>
             </View>
-            <MascotCharacter width={102} mood={currentStreak > 0 ? 'happy' : 'idle'} />
+            <View style={styles.streakSide}><View style={styles.flameBadge}><HomeAsset name="flame" /></View><View style={styles.bestBadge}><Text style={styles.bestValue}>{bestStreak}</Text><Text style={styles.bestLabel}>best</Text></View></View>
           </View>
 
-          {/* Day cells — 最近 7 天，有学习的天无论 streak 是否连续都高亮 */}
+          <View style={styles.activityHeading}><Text style={styles.activityTitle}>Last 7 days</Text></View>
           <View style={styles.daysRow}>
             {dayLabels.map((d, i) => {
               const active = dayActive[i];
               const isToday = i === dayLabels.length - 1;
               return (
-                <View key={i} style={styles.dayCell}>
-                  <View
-                    style={[
-                      styles.daySquare,
-                      active ? styles.daySquareActive : styles.daySquareIdle,
-                      isToday && !active && styles.daySquareToday,
-                    ]}
-                  />
+                <View key={i} accessible accessibilityLabel={`${isToday ? 'Today, ' : ''}${d}, ${active ? 'studied' : 'no study activity'}`} style={styles.dayCell}>
+                  <View style={[styles.dayMarker, isToday && styles.dayMarkerToday]}>
+                    <View style={[styles.daySquare, active ? styles.daySquareActive : styles.daySquareIdle]} />
+                  </View>
                   <Text style={[styles.dayLabel, isToday && styles.dayLabelToday]}>{d}</Text>
                 </View>
               );
@@ -213,17 +195,14 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Stats grid */}
-        <View style={styles.gridBlock}>
-          <View style={styles.gridRow}>
-            {stats.slice(0, 2).map((item, i) => (
-              <StatCell key={item.label} item={item} />
-            ))}
+        <View style={styles.progressSection}>
+          <View style={styles.sectionHeading}><View><Text accessibilityRole="header" style={styles.sectionTitle}>Your progress</Text><Text style={styles.sectionSubtitle}>A look at what you’ve learned</Text></View><Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.libraryLink}><Text style={styles.libraryLinkText}>Library</Text><Feather name="arrow-up-right" size={16} color={homeColors.primary} /></Pressable></View>
+          <View style={styles.masteryCard}>
+            <View style={styles.masteryCopy}><View style={styles.masteryTag}><Feather name="check" size={14} color={homeColors.deep} /><Text style={styles.masteryTagText}>Mastered</Text></View><Text style={styles.masteryNumber}>{masteredCards}<Text style={styles.masteryTotal}> / {totalCards}</Text></Text><Text style={styles.masteryHint}>{totalCards === 0 ? 'Add cards to start tracking your progress.' : 'cards have reached mastered status'}</Text></View>
+            <View accessibilityRole="progressbar" accessibilityLabel="Cards mastered" accessibilityValue={{ min: 0, max: 100, now: mastery }} style={styles.masteryChart}><Svg width={100} height={100} viewBox="0 0 100 100"><Circle cx={50} cy={50} r={40} stroke={homeColors.track} strokeWidth={9} fill="none" /><Circle cx={50} cy={50} r={40} stroke={homeColors.primary} strokeWidth={9} fill="none" strokeLinecap="round" strokeDasharray={`${2 * Math.PI * 40}`} strokeDashoffset={(2 * Math.PI * 40) * (1 - mastery / 100)} rotation={-90} origin="50, 50" /></Svg><Text style={styles.masteryPercent}>{mastery}%</Text></View>
           </View>
-          <View style={styles.gridRow}>
-            {stats.slice(2, 4).map((item, i) => (
-              <StatCell key={item.label} item={item} />
-            ))}
+          <View style={styles.collectionCard}>
+            <View style={styles.collectionItem}><Text style={styles.collectionValue}>{stats[0].val}</Text><Text style={styles.collectionLabel}>Lessons</Text></View><View style={styles.collectionDivider} /><View style={styles.collectionItem}><Text style={styles.collectionValue}>{stats[1].val}</Text><Text style={styles.collectionLabel}>Cards</Text></View><View style={styles.collectionDivider} /><View style={styles.collectionItem}><Text style={styles.collectionValue}>{stats[2].val}</Text><Text style={styles.collectionLabel}>Mastered</Text></View>
           </View>
         </View>
       </ScrollView>
@@ -231,34 +210,19 @@ export default function ProfileScreen() {
   );
 }
 
-function StatCell({ item }: { item: QuadStat }) {
-  return (
-    <View style={styles.statCell}>
-      <SectionLabel size={11} style={{ marginBottom: 6, fontFamily: fonts.medium, fontWeight: '500', lineHeight: 15 }}>
-        {item.label}
-      </SectionLabel>
-      <Text style={styles.statVal}>{item.val}</Text>
-      <Text style={styles.statSub}>{item.sub}</Text>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
-  avatarRow: {
-    paddingHorizontal: layout.screenInline, paddingTop: 16, paddingBottom: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    borderBottomWidth: 1, borderBottomColor: colors.border,
-  },
+  pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 330 },
+  avatarRow: { paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 24, flexDirection: 'row', alignItems: 'center', gap: 14 },
   avatar: {
-    width: 48, height: 48, borderRadius: 17,
-    backgroundColor: colors.accentL,
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: homeColors.deep,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarImage: { width: 48, height: 48, borderRadius: 17 },
-  avatarChar: { color: colors.accentText, fontSize: 19, fontWeight: '700', fontFamily: fonts.bold },
+  avatarImage: { width: 64, height: 64, borderRadius: 32 },
+  avatarChar: { color: homeColors.white, fontSize: 24, fontWeight: '700', fontFamily: fonts.bold },
   avName: {
-    fontSize: 20, fontFamily: fonts.bold, fontWeight: '700',
-    lineHeight: 28, letterSpacing: -0.1, color: colors.text,
+    fontSize: 27, fontFamily: fonts.display,
+    lineHeight: 36, color: homeColors.deep,
   },
   memberRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 8 },
   proBadge: {
@@ -277,6 +241,7 @@ const styles = StyleSheet.create({
     fontSize: 12, lineHeight: 14, letterSpacing: 0.2, color: colors.muted,
     fontFamily: fonts.medium, fontWeight: '500',
   },
+  editButton: { width: 44, height: 44, borderRadius: 16, backgroundColor: homeColors.focus, alignItems: 'center', justifyContent: 'center' },
   editLink: {
     fontSize: 13, letterSpacing: -0.1, color: colors.action,
     fontFamily: fonts.bold, fontWeight: '700',
@@ -288,38 +253,55 @@ const styles = StyleSheet.create({
   streakBlock: {
     marginHorizontal: layout.screenInline, marginTop: 14,
     paddingHorizontal: 17, paddingTop: 16, paddingBottom: 17,
-    backgroundColor: colors.heroBg,
-    borderWidth: 1, borderColor: colors.heroBorder, borderRadius: 20,
+    backgroundColor: homeColors.white, borderRadius: 24,
+    boxShadow: `0px 4px 0px ${homeColors.border}`, 
   },
+  streakSide: { alignItems: 'center', gap: 8, marginLeft: 12 },
+  bestBadge: { flexDirection: 'row', alignItems: 'baseline', gap: 4, backgroundColor: homeColors.nav, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4 },
+  bestValue: { fontFamily: fonts.display, fontSize: 16, color: homeColors.deep },
+  bestLabel: { fontFamily: fonts.medium, fontSize: 11, color: homeColors.muted },
+  streakHint: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: homeColors.muted, marginTop: 2 },
+  activityHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopWidth: 1, borderColor: homeColors.border, paddingTop: 16, marginTop: 18 },
+  activityTitle: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.deep },
+  streakLabel: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 24, color: homeColors.deep, marginBottom: 4 },
+  flameBadge: { width: 54, height: 54, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.selected },
   streakHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   streakCopy: { flex: 1, minWidth: 0 },
   streakLine: { flexDirection: 'row', alignItems: 'baseline', gap: 8 },
   streakNum: {
-    fontSize: 50, fontFamily: fonts.extraBold, fontWeight: '800',
-    letterSpacing: -1.8, lineHeight: 56, paddingTop: 2, color: colors.text,
+    fontSize: 50, fontFamily: fonts.display,
+    letterSpacing: -1.8, lineHeight: 56, paddingTop: 2, color: homeColors.deep,
   },
   streakUnit: { fontSize: 14, color: colors.muted, fontFamily: fonts.regular },
 
   daysRow: { flexDirection: 'row', gap: 6, marginTop: 10 },
   dayCell: { flex: 1, alignItems: 'center', gap: 4 },
-  daySquare: {
-    width: '100%', aspectRatio: 1, borderRadius: 999, borderWidth: 1.5,
-  },
-  daySquareActive: { backgroundColor: colors.accent, borderColor: colors.action },
-  daySquareIdle: { backgroundColor: colors.bg, borderColor: colors.border },
-  daySquareToday: { backgroundColor: colors.transparent, borderWidth: 2, borderColor: colors.action },
+  dayMarker: { width: '100%', aspectRatio: 1, borderRadius: 999, padding: 3, borderWidth: 2, borderColor: colors.transparent },
+  dayMarkerToday: { borderColor: homeColors.primary },
+  daySquare: { flex: 1, borderRadius: 999, borderWidth: 1.5 },
+  daySquareActive: { backgroundColor: homeColors.primary, borderColor: homeColors.primary },
+  daySquareIdle: { backgroundColor: homeColors.nav, borderColor: homeColors.border },
   dayLabel: { fontSize: 12, color: colors.muted, fontWeight: '500', fontFamily: fonts.medium },
   dayLabelToday: { color: colors.accentText, fontFamily: fonts.bold, fontWeight: '700' },
 
-  gridBlock: { gap: 10, paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 22 },
-  gridRow: { flexDirection: 'row', gap: 10 },
-  statCell: { flex: 1, paddingHorizontal: 14, paddingVertical: 15, backgroundColor: colors.surf, borderRadius: 17, borderWidth: 1, borderColor: colors.border },
-  statVal: {
-    fontFamily: fonts.extraBold, fontSize: 32, fontWeight: '800',
-    letterSpacing: -0.1, lineHeight: 36, paddingTop: 2, color: colors.text,
-  },
-  statSub: {
-    fontSize: 12, lineHeight: 17, color: colors.muted, marginTop: 4,
-    fontFamily: fonts.regular, fontWeight: '400',
-  },
+  progressSection: { paddingHorizontal: layout.screenInline, paddingTop: 28, paddingBottom: 24, gap: 14 },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  sectionTitle: { fontFamily: fonts.semibold, fontSize: 20, lineHeight: 28, color: homeColors.darkest },
+  sectionSubtitle: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: homeColors.muted, marginTop: 2 },
+  libraryLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 3 },
+  libraryLinkText: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary },
+  masteryCard: { minHeight: 156, backgroundColor: homeColors.white, borderRadius: 24, padding: 20, flexDirection: 'row', alignItems: 'center', gap: 12, boxShadow: `0px 4px 0px ${homeColors.border}` },
+  masteryCopy: { flex: 1, gap: 6 },
+  masteryTag: { alignSelf: 'flex-start', borderRadius: 16, backgroundColor: homeColors.selected, paddingHorizontal: 9, paddingVertical: 5, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  masteryTagText: { fontFamily: fonts.semibold, fontSize: 12, color: homeColors.deep },
+  masteryNumber: { fontFamily: fonts.display, fontSize: 38, lineHeight: 46, color: homeColors.deep },
+  masteryTotal: { fontSize: 20, color: homeColors.muted },
+  masteryHint: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 18, color: homeColors.muted },
+  masteryChart: { width: 100, height: 100, alignItems: 'center', justifyContent: 'center' },
+  masteryPercent: { position: 'absolute', fontFamily: fonts.display, fontSize: 22, color: homeColors.deep },
+  collectionCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: homeColors.white, borderRadius: 24, paddingVertical: 16, boxShadow: `0px 4px 0px ${homeColors.border}` },
+  collectionItem: { flex: 1, alignItems: 'center', gap: 3 },
+  collectionValue: { fontFamily: fonts.display, fontSize: 24, color: homeColors.deep },
+  collectionLabel: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.muted },
+  collectionDivider: { width: 1, height: 36, backgroundColor: homeColors.border },
 });

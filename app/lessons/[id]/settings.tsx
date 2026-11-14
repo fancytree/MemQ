@@ -1,20 +1,26 @@
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { LessonCover } from '@/components/LessonCover';
+import { encodeLessonCover, getStoredLessonCover, knowledgeSymbols, languageSymbols, removeStoredLessonCover, resolveLessonCover, setStoredLessonCover } from '@/lib/lessonCover';
+import { lessonCoverPalettes } from '@/theme/colors';
+import { Feather } from '@expo/vector-icons';
+import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
+import { homeColors } from '@/theme/colors';
+import { ledge } from '@/theme/ledge';
+import { LinearGradient } from 'expo-linear-gradient';
 import { DeadlineSheet } from '@/components/DeadlineSheet';
 import { DesignAsset } from '@/components/DesignAsset';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { clearCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
-import { colors, componentTokens, layout, radius, type } from '@/theme';
+import { colors, componentTokens, fonts, layout, type } from '@/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const options = { headerShown: false };
-const modes = [
-  { id: 'knowledge', label: 'Knowledge', description: 'Concepts, facts, and explanations.' },
-  { id: 'language', label: 'Language', description: 'Words, phrases, pronunciation, and grammar.' },
-] as const;
+
 
 export default function LessonSettingsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -30,6 +36,10 @@ export default function LessonSettingsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
+  const [coverStyle, setCoverStyle] = useState<string | null>(null);
+  const [coverSupported, setCoverSupported] = useState(false);
+  const [showCoverPicker, setShowCoverPicker] = useState(false);
+  const coverChoice = resolveLessonCover(id || '', learningMode, coverStyle);
   const busy = saving || deleting;
   const goBack = () => safeBack(id ? `/lessons/${id}` : '/(tabs)/library');
 
@@ -42,7 +52,10 @@ export default function LessonSettingsScreen() {
         if (!user) throw new Error('User not authenticated');
         const { data, error: failure } = await supabase.from('lessons').select('*').eq('id', id).eq('user_id', user.id).single();
         if (failure || !data) throw new Error('Failed to load lesson');
+        const localCover = data.cover_style ? null : await getStoredLessonCover(id);
         if (!active) return;
+        setCoverSupported(Object.prototype.hasOwnProperty.call(data, 'cover_style'));
+        setCoverStyle(data.cover_style || localCover);
         setLessonName(data.name || ''); setDescription(data.description || '');
         setLearningMode(data.learning_mode === 'language' ? 'language' : 'knowledge');
         const date = data.deadline ? new Date(data.deadline) : null;
@@ -67,8 +80,11 @@ export default function LessonSettingsScreen() {
       const { error: failure } = await supabase.from('lessons').update({
         name: lessonName.trim(), description: description.trim() || null,
         learning_mode: learningMode, deadline: deadline?.toISOString() || null,
+        ...(coverSupported ? { cover_style: encodeLessonCover(coverChoice) } : {}),
       }).eq('id', id).eq('user_id', user.id);
       if (failure) throw failure;
+      if (coverSupported) await removeStoredLessonCover(id);
+      else await setStoredLessonCover(id, encodeLessonCover(coverChoice));
       await invalidate(user.id); goBack();
     } catch (failure) { setError(failure instanceof Error ? failure.message : 'Failed to save lesson.'); }
     finally { setSaving(false); }
@@ -94,33 +110,43 @@ export default function LessonSettingsScreen() {
   </SafeAreaView>;
 
   return <SafeAreaView style={styles.screen} edges={['top']}>
+    <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 170 }]} />
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.navigation}>
         <Pressable accessibilityRole="button" accessibilityLabel="Cancel lesson editing" disabled={busy} onPress={goBack} style={styles.cancel}><Text style={styles.link}>Cancel</Text></Pressable>
-        <ActionButton label="Save" loading={saving} disabled={deleting} onPress={save} style={styles.save} />
+        <Text accessibilityRole="header" style={styles.navTitle}>Edit lesson</Text><Pressable accessibilityRole="button" accessibilityLabel="Delete lesson" disabled={busy} onPress={() => { Keyboard.dismiss(); setShowDelete(true); }} style={styles.navDelete}><Feather name="trash-2" size={20} color={homeColors.deep} /></Pressable>
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
-        contentContainerStyle={[styles.content, { paddingBottom: Math.max(24, insets.bottom) }]}>
-        <Text accessibilityRole="header" style={styles.title}>Edit Lesson</Text>
+        contentContainerStyle={styles.content}>
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
+        <View style={styles.formBase}><View style={styles.formCard}>
+        <View style={styles.group}>
+          <Text style={styles.label}>Cover</Text>
+          <View style={styles.coverRow}>
+            <LessonCover id={id || ''} mode={learningMode} width={64} height={64} choice={coverChoice} />
+            <View style={styles.coverCopy}><Text style={styles.coverTitle}>Make it yours</Text><Text style={styles.coverHint}>Choose a color and icon.</Text></View>
+            <Pressable accessibilityRole="button" accessibilityLabel={showCoverPicker ? 'Close cover options' : 'Change cover'} disabled={busy} onPress={() => setShowCoverPicker(!showCoverPicker)} style={styles.coverButton}><Text style={styles.link}>{showCoverPicker ? 'Done' : 'Change'}</Text></Pressable>
+          </View>
+          {showCoverPicker && <View style={styles.coverOptions}>
+            <Text style={styles.coverOptionLabel}>Color</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverChoices}>
+              {lessonCoverPalettes.map((palette) => <Pressable key={palette.id} accessibilityRole="radio" accessibilityLabel={palette.label} accessibilityState={{ selected: coverChoice.palette === palette.id }} onPress={() => setCoverStyle(encodeLessonCover({ ...coverChoice, palette: palette.id }))} style={[styles.coverChoice, coverChoice.palette === palette.id && styles.coverChoiceSelected]}><LinearGradient colors={palette.colors} style={styles.coverSwatch} /></Pressable>)}
+            </ScrollView>
+            <Text style={styles.coverOptionLabel}>{learningMode === 'language' ? 'Language' : 'Icon'}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverChoices}>
+              {(learningMode === 'language' ? languageSymbols : knowledgeSymbols).map((symbol) => <Pressable key={symbol} accessibilityRole="radio" accessibilityLabel={symbol} accessibilityState={{ selected: coverChoice.symbol === symbol }} onPress={() => setCoverStyle(encodeLessonCover({ ...coverChoice, symbol }))} style={[styles.coverChoice, coverChoice.symbol === symbol && styles.coverChoiceSelected]}><LessonCover id={id || ''} mode={learningMode} width={38} height={38} choice={{ ...coverChoice, symbol }} /></Pressable>)}
+            </ScrollView>
+          </View>}
+        </View>
         <View style={styles.group}>
           <Text style={styles.label}>Lesson Name *</Text>
-          <TextInput accessibilityLabel="Lesson name, required" placeholder="Enter lesson name" placeholderTextColor={colors.muted}
+          <TextInput accessibilityLabel="Lesson name, required" placeholder="Enter lesson name" placeholderTextColor={homeColors.placeholder}
             value={lessonName} onChangeText={(value) => { setLessonName(value); setError(null); }} editable={!busy} style={styles.input} />
         </View>
         <View style={styles.group}>
           <Text style={styles.label}>Description (optional)</Text>
-          <TextInput accessibilityLabel="Description, optional" placeholder="Add a description" placeholderTextColor={colors.muted}
+          <TextInput accessibilityLabel="Description, optional" placeholder="Add a description" placeholderTextColor={homeColors.placeholder}
             value={description} onChangeText={setDescription} editable={!busy} multiline textAlignVertical="top" style={[styles.input, styles.description]} />
-        </View>
-        <View style={styles.group}>
-          <Text style={styles.label}>Learning mode</Text>
-          {modes.map((mode) => <Pressable key={mode.id} accessibilityRole="radio" accessibilityLabel={`${mode.label}. ${mode.description}`}
-            accessibilityState={{ checked: learningMode === mode.id, disabled: busy }} disabled={busy} onPress={() => setLearningMode(mode.id)}
-            style={[styles.mode, learningMode === mode.id && styles.selectedMode]}>
-            {learningMode === mode.id ? <DesignAsset name="editRadio" /> : <View accessible={false} style={styles.radio} />}
-            <View style={styles.modeCopy}><Text style={styles.link}>{mode.label}</Text><Text style={styles.meta}>{mode.description}</Text></View>
-          </Pressable>)}
         </View>
         <View style={styles.group}>
           <Text style={styles.label}>Deadline (optional)</Text>
@@ -136,66 +162,79 @@ export default function LessonSettingsScreen() {
             </Pressable>
           </View>
         </View>
-        <View style={styles.deleteSection}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Delete lesson" disabled={busy}
-            onPress={() => { Keyboard.dismiss(); setShowDelete(true); }} style={styles.delete}>
-            <DesignAsset name="editTrash" /><Text style={styles.deleteLabel}>Delete Lesson</Text>
-          </Pressable>
+        </View></View>
+
+        {/* Outside the card, on the page's own ground. Its surface is white and so is
+            the card's, so within it the row showed only as its lip. */}
+        <View style={styles.modeSection}>
+          <Text style={styles.sectionLabel}>Learning mode</Text>
+          <LearningModeSelector value={learningMode} onChange={setLearningMode} disabled={busy} />
         </View>
       </ScrollView>
+      <View style={[styles.footer, { paddingBottom: Math.max(8, insets.bottom) }]}>
+        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || !lessonName.trim(), busy: saving }} disabled={busy || !lessonName.trim()} onPress={save} style={[styles.saveBase, (busy || !lessonName.trim()) && styles.saveDisabled]}><View style={styles.saveFace}>{saving ? <ActivityIndicator color={homeColors.white} /> : <Text style={styles.saveText}>Save changes</Text>}</View></Pressable>
+      </View>
     </KeyboardAvoidingView>
     <DeadlineSheet visible={showDatePicker} value={deadline} onClose={() => setShowDatePicker(false)} onConfirm={(date) => { setDeadline(date); setShowDatePicker(false); }} />
-    <Modal visible={showDelete} transparent animationType="fade" onRequestClose={() => { if (!deleting) setShowDelete(false); }}>
-      <View style={styles.dialogOverlay}>
-        <View accessibilityViewIsModal style={styles.dialog}>
-          <View style={styles.dialogCopy}>
-            <Text accessibilityRole="header" style={styles.dialogTitle}>Delete Lesson</Text>
-            <Text style={styles.dialogLesson}>{lessonName}</Text>
-            <Text style={styles.message}>Are you sure? This cannot be undone.</Text>
-          </View>
-          <View style={styles.dialogActions}>
-            <ActionButton label="Delete Lesson" accessibilityLabel="Confirm delete lesson" loading={deleting} onPress={deleteLesson} />
-            <ActionButton label="Cancel" accessibilityLabel="Cancel lesson deletion" secondary disabled={deleting} onPress={() => setShowDelete(false)} />
-          </View>
-        </View>
-      </View>
-    </Modal>
+    <ConfirmDialog visible={showDelete} title="Delete lesson?" subject={lessonName}
+      message="This lesson and its cards will be permanently deleted."
+      confirmLabel="Delete lesson" loading={deleting}
+      onCancel={() => setShowDelete(false)} onConfirm={deleteLesson} />
   </SafeAreaView>;
 }
 const t = componentTokens.lessonEditor;
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
+  headerGradient: { position: 'absolute', left: 0, right: 0 },
   flex: { flex: 1 },
   navigation: { paddingHorizontal: layout.screenInline, paddingTop: 12, minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  cancel: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
+  navTitle: { fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep },
+  navDelete: { width: 64, minHeight: 44, alignItems: 'flex-end', justifyContent: 'center', paddingRight: 4 },
+  cancel: { minHeight: 44, minWidth: 64, justifyContent: 'center' },
   link: { ...type.controlLink, color: colors.text },
   save: { width: 80, paddingHorizontal: 0 },
-  content: { paddingHorizontal: layout.screenInline, paddingTop: 12, gap: t.groupGap },
-  title: { ...type.page, color: colors.text },
+  content: { paddingHorizontal: layout.screenInline, paddingTop: 12, paddingBottom: 24, gap: 16 },
+  formBase: { borderRadius: 28, backgroundColor: homeColors.border, paddingBottom: ledge.raised },
+  formCard: { borderRadius: 28, backgroundColor: homeColors.white, padding: 20, gap: 20 },
+  footer: { paddingHorizontal: layout.screenInline, paddingTop: 8 },
+  saveBase: { height: 59 + ledge.lead, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: ledge.lead },
+  saveFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
+  saveText: { fontFamily: fonts.medium, fontSize: 22, lineHeight: 30, color: homeColors.white },
+  saveDisabled: { opacity: 0.45 },
   group: { gap: 8 },
-  label: { ...type.formLabel, color: colors.text },
-  input: { ...type.input, minHeight: t.fieldMinHeight, padding: t.fieldPadding, borderRadius: t.fieldRadius, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surfaceSubtle, color: colors.text },
-  description: { minHeight: t.descriptionMinHeight },
-  mode: { minHeight: 64, padding: t.optionPadding, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: t.fieldRadius, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg },
-  selectedMode: { borderColor: colors.action, backgroundColor: colors.selectionNeutral },
-  radio: { width: t.radioSize, height: t.radioSize, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.controlBorder },
-  modeCopy: { flex: 1, gap: 4 },
-  meta: { ...type.meta, color: colors.supporting },
+  coverRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  coverCopy: { flex: 1, gap: 3 },
+  coverTitle: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.deep },
+  coverHint: { fontFamily: fonts.regular, fontSize: 13, color: homeColors.muted },
+  coverButton: { minHeight: 44, justifyContent: 'center' },
+  coverOptions: { gap: 8, paddingTop: 8 },
+  coverOptionLabel: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.muted },
+  coverChoices: { gap: 8, paddingVertical: 2 },
+  coverChoice: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: homeColors.white },
+  coverChoiceSelected: { borderColor: homeColors.primary },
+  coverSwatch: { width: 38, height: 38, borderRadius: 10 },
+  label: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: homeColors.muted },
+  // A well sunk into the card's face, not a bordered box — the same field the create
+  // screens use.
+  input: {
+    minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas,
+    paddingHorizontal: 16, paddingVertical: 14,
+    fontFamily: fonts.medium, fontSize: 16, lineHeight: 22, color: homeColors.darkest,
+  },
+  description: { minHeight: 96 },
+  modeSection: { gap: 10 },
+  sectionLabel: {
+    fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: homeColors.darkest,
+  },
   deadlineRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   dateField: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dateText: { ...type.input, color: colors.supporting, flex: 1 },
+  dateText: { fontFamily: fonts.medium, fontSize: 16, color: homeColors.darkest, flex: 1 },
   clear: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
   muted: { color: colors.muted },
-  deleteSection: { paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border },
+  deleteSection: { paddingHorizontal: 4 },
   delete: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  deleteLabel: { ...type.controlLink, color: colors.supporting },
+  deleteLabel: { ...type.controlLink, color: colors.red },
   status: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: layout.screenInline, gap: 20 },
   message: { ...type.bodyReading, color: colors.text },
   error: { ...type.bodySmall, color: colors.red },
-  dialogOverlay: { flex: 1, backgroundColor: colors.modalScrim, paddingHorizontal: layout.screenInline, justifyContent: 'center' },
-  dialog: { backgroundColor: colors.bg, padding: t.dialogPadding, borderRadius: t.sheetRadius, gap: 20 },
-  dialogCopy: { gap: 12 },
-  dialogTitle: { ...type.section, color: colors.text },
-  dialogLesson: { ...type.controlLink, color: colors.supporting },
-  dialogActions: { gap: 12 },
 });

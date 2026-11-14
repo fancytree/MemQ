@@ -6,16 +6,21 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 interface SecondaryPageNavProps {
   onBack: () => void;
   backLabel?: string;
-  showDivider?: boolean;
 }
 
+/** The back bar on a second-level page.
+ *
+ * No rule under it. It used to draw one by default, which put a hairline across the
+ * top of every settings page — under a gradient that is already a background in its
+ * own right, and above content that is already separated from it by a gap. Two of
+ * the newer screens had turned it off one at a time; the rest had it because it was
+ * the default rather than because anyone chose it. */
 export function SecondaryPageNav({
   onBack,
   backLabel = '← Profile',
-  showDivider = true,
 }: SecondaryPageNavProps) {
   return (
-    <View style={[styles.header, showDivider && styles.headerDivider]}>
+    <View style={styles.header}>
       <TouchableOpacity accessibilityLabel="Go back" onPress={onBack} activeOpacity={0.7} accessibilityRole="button" style={styles.backButton}>
         <Text style={styles.navBack}>{backLabel}</Text>
       </TouchableOpacity>
@@ -32,10 +37,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: layout.screenInline,
     paddingTop: 14,
     paddingBottom: 14,
-  },
-  headerDivider: {
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
   },
   backButton: { minHeight: 44, justifyContent: 'center' },
   navBack: {
