@@ -1,5 +1,6 @@
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
+import { CloseButton, ConfirmButton } from '@/components/ui/CloseButton';
 import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -356,13 +357,9 @@ export default function CreateScreen() {
       </View>
       {/* Top bar */}
       <View style={styles.topbar}>
-        <Pressable accessibilityRole="button" onPress={() => safeBack('/(tabs)')} style={styles.topbarSideBtn}>
-          <Text style={styles.cancel}>Cancel</Text>
-        </Pressable>
+        <CloseButton onPress={() => safeBack('/(tabs)')} label="Cancel new lesson" />
         <Text style={styles.title}>New Lesson</Text>
-        <Pressable accessibilityRole="button" onPress={handleSavePress} style={styles.topbarSideBtn}>
-          <Text style={styles.tag}>Save</Text>
-        </Pressable>
+        <ConfirmButton onPress={handleSavePress} label="Save lesson" />
       </View>
 
       <ScrollView
@@ -735,19 +732,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     position: 'relative',
   },
-  topbarSideBtn: { minHeight: 44, minWidth: 64, zIndex: 2, justifyContent: 'center' },
   contentScroll: { flex: 1 },
   contentScrollBody: { paddingBottom: 24 },
-  cancel: { fontFamily: fonts.medium, fontSize: 15, color: homeColors.deep },
   title: {
     fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep,
-    position: 'absolute', left: 0, right: 0, textAlign: 'center',
+    // Centred on the bar rather than between the buttons, so it stays centred
+    // whatever sits beside it — which means it lies over both of them, and would
+    // swallow their taps if it took any.
+    position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none',
   },
-  tag: {
-    fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20,
-    color: homeColors.primary, textAlign: 'right',
-  },
-  tagDisabled: { opacity: 0.45 },
 
   sectionLabel: {
     fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24,

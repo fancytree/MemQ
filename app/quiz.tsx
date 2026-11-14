@@ -5,6 +5,7 @@ import { elevation as cardElevation } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { Icon } from '@/components/Icon';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { Feather } from '@expo/vector-icons';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
@@ -624,7 +625,7 @@ export default function QuizScreen() {
   if (loading) {
     return (
       <EdBase bottomInset={0}>
-        <View style={styles.nav}><Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={handleClose} style={styles.navButton}><Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
+        <View style={styles.nav}><CloseButton onPress={handleClose} label="Close practice" /></View>
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="small" color={colors.accentText} />
           <Text style={styles.loadingText}>Loading quiz...</Text>
@@ -635,7 +636,7 @@ export default function QuizScreen() {
   if (loadError) {
     return (
       <EdBase bottomInset={0}>
-        <View style={styles.nav}><Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={handleClose} style={styles.navButton}><Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
+        <View style={styles.nav}><CloseButton onPress={handleClose} label="Close practice" /></View>
         <View style={styles.loadingWrap}>
           <Text style={styles.loadingText}>{loadError}</Text>
           <Pressable accessibilityRole="button" onPress={() => {
@@ -657,7 +658,7 @@ export default function QuizScreen() {
   if (!q || sessionTerms.length === 0) {
     return (
       <EdBase bottomInset={0}>
-        <View style={styles.nav}><Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={handleClose} style={styles.navButton}><Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
+        <View style={styles.nav}><CloseButton onPress={handleClose} label="Close practice" /></View>
         <View style={styles.loadingWrap}>
           <Text style={styles.loadingText}>No quiz data available.</Text>
           <Pressable accessibilityRole="button" onPress={handleClose} style={styles.emptyAction}><Text style={styles.emptyActionText}>Go back</Text></Pressable>
@@ -778,9 +779,7 @@ export default function QuizScreen() {
       <KeyboardAvoidingView style={styles.practiceLayout} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Nav */}
       <View style={styles.nav} onLayout={(event) => setNavHeight(event.nativeEvent.layout.height)}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={handleClose} style={styles.navButton}>
-          <Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} />
-        </Pressable>
+        <CloseButton onPress={handleClose} label="Close practice" />
         <Text style={styles.roundTitle}>Practice</Text>
         <Pressable accessibilityRole="button" accessibilityLabel="Practice settings"
           onPress={() => setSettingsOpen(true)} style={styles.navButton}>
@@ -920,7 +919,7 @@ function PracticeComplete({ cards, steps, onClose, onContinue }: { cards: number
   }, [entrance, mascotCelebrate]);
   return <EdBase bottomInset={0} scroll={false}>
     <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.38, 1]} style={[styles.completeGradient, { top: -insets.top }]} />
-    <View style={styles.nav}><Pressable accessibilityRole="button" accessibilityLabel="Close practice" onPress={onClose} style={styles.navButton}><Icon name="close" size={22} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
+    <View style={styles.nav}><CloseButton onPress={onClose} label="Close practice" /></View>
     <ScrollView contentContainerStyle={styles.completeContent} showsVerticalScrollIndicator={false}>
       <Animated.View style={[styles.completeCardBase, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }, { scale: entrance.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
         <View style={styles.completeCard}>
@@ -1131,7 +1130,7 @@ function FlipView({ q, flipped, onFlip, onConfidence, cardMinHeight, swipeProgre
       <Modal visible={showGuide} transparent animationType="fade" onRequestClose={dismissGuide}>
         <View style={[flipStyles.guideOverlay, { paddingBottom: Math.max(insets.bottom, 20) + 12 }]}>
           <View style={flipStyles.guideCard} accessibilityViewIsModal>
-            <View style={flipStyles.guideHeadingRow}><View style={flipStyles.guideIcon}><Icon name="library" size={22} color={homeColors.deep} strokeWidth={2} /></View><Pressable accessibilityRole="button" accessibilityLabel="Close flashcard guide" hitSlop={8} onPress={dismissGuide} style={flipStyles.guideClose}><Icon name="close" size={20} color={homeColors.deep} strokeWidth={2} /></Pressable></View>
+            <View style={flipStyles.guideHeadingRow}><View style={flipStyles.guideIcon}><Icon name="library" size={22} color={homeColors.deep} strokeWidth={2} /></View><CloseButton onPress={dismissGuide} label="Close flashcard guide" size={20} /></View>
             <Text accessibilityRole="header" style={flipStyles.guideTitle}>Study with flashcards</Text>
             <Text style={flipStyles.guideDescription}>Tap the card to reveal the answer. When you’re ready, swipe to continue.</Text>
             <View style={flipStyles.guideDirections}>

@@ -10,6 +10,7 @@
  */
 
 import { HomeAsset } from '@/components/HomeAsset';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
@@ -321,11 +322,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
             <View style={styles.grabber} />
 
             <View style={styles.toolbarContent}>
-              <TouchableOpacity accessibilityLabel="Close" onPress={onClose} style={styles.closeButton} accessibilityRole="button">
-                <View style={styles.closeFace}>
-                  <Feather name="x" size={22} color={homeColors.deep} />
-                </View>
-              </TouchableOpacity>
+              <CloseButton onPress={onClose} />
 
               <View style={styles.titleContainer}>
                 <Text style={styles.title}>Choose your plan</Text>

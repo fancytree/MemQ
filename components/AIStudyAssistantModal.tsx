@@ -1,5 +1,6 @@
 import { layout } from '@/theme/spacing';
 import { sheet } from '@/theme/sheet';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
 import * as DocumentPicker from 'expo-document-picker';
@@ -167,13 +168,7 @@ export default function AIStudyAssistantModal({
 
               {/* Title and Controls */}
               <View style={styles.headerContent}>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Close"
-                  style={styles.closeButton}
-                  onPress={onClose}
-                  activeOpacity={0.7}
-                >
-                  <Feather name="x" size={24} color={colors.sub} />
-                </TouchableOpacity>
+                <CloseButton onPress={onClose} label="Close Study Buddy" />
                 <Text style={styles.headerTitle}>Study Buddy</Text>
                 <View style={styles.headerSpacer} />
               </View>

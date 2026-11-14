@@ -9,12 +9,12 @@
  */
 
 import { Toggle } from '@/components/ui/Toggle';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { fonts } from '@/theme';
 import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
 import { sheet } from '@/theme/sheet';
 import { layout } from '@/theme/spacing';
-import { Feather } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -62,10 +62,7 @@ export default function PracticeSettingsModal({ visible, onClose, settings, onCh
       <StatusBar style="dark" />
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
         <View style={styles.head}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close practice settings"
-            onPress={onClose} style={styles.close} hitSlop={8}>
-            <Feather name="x" size={22} color={homeColors.deep} />
-          </Pressable>
+          <CloseButton onPress={onClose} label="Close practice settings" />
           <Text accessibilityRole="header" style={styles.title}>Practice</Text>
           <View style={styles.closeSpacer} />
         </View>
@@ -123,7 +120,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: layout.screenInline, paddingTop: 8, paddingBottom: 14,
   },
-  close: { width: 44, height: 44, alignItems: 'flex-start', justifyContent: 'center' },
   closeSpacer: { width: 44 },
   title: {
     fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep,

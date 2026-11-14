@@ -5,6 +5,7 @@ import { HomeAsset } from '@/components/HomeAsset';
 import { Icon } from '@/components/Icon';
 import { homeColors } from '@/theme/colors';
 import { sheet } from '@/theme/sheet';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { LinearGradient } from 'expo-linear-gradient';
 import TermCard from '@/components/TermCard';
 import { LanguageCardModal } from '@/components/LanguageCardModal';
@@ -632,14 +633,8 @@ export default function LessonDetailScreen() {
                 <View style={styles.filterModalHeader}>
                   <View style={styles.filterModalHeaderRow}>
                     <Text style={styles.filterModalTitle}>Filter by Level</Text>
-                    <Button
-                      accessibilityLabel="Close level filter"
-                      onPress={() => setShowFilterModal(false)}
-                      style={styles.filterModalCloseButton}
-                      activeOpacity={0.7}
-                    >
-                      <Feather name="x" size={18} color={colors.muted} />
-                    </Button>
+                    <CloseButton onPress={() => setShowFilterModal(false)}
+                      label="Close level filter" size={20} />
                   </View>
                 </View>
 

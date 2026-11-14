@@ -3,6 +3,7 @@ import { ActionButton } from '@/components/ui/ActionButton';
 import { calendarCells, sameCalendarDay, shiftCalendarMonth } from '@/lib/calendar';
 import { colors, componentTokens, layout, radius, type } from '@/theme';
 import { sheet as sheetShape } from '@/theme/sheet';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,7 +29,7 @@ export function DeadlineSheet({ visible, value, onClose, onConfirm }: {
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content} bounces={false}>
           <View style={styles.heading}>
             <Text accessibilityRole="header" style={styles.title}>Deadline (optional)</Text>
-            <Pressable accessibilityRole="button" accessibilityLabel="Close deadline picker" onPress={onClose} style={styles.iconButton}><DesignAsset name="editClose" /></Pressable>
+            <CloseButton onPress={onClose} label="Close deadline picker" size={20} />
           </View>
           <Text style={styles.support}>Choose a date, or leave the deadline unset.</Text>
           <View style={styles.draft}>

@@ -3,6 +3,7 @@ import LoadingScreen from '@/components/LoadingScreen';
 import { colors, homeColors } from '@/theme/colors';
 import { type } from '@/theme/typography';
 import { sheet } from '@/theme/sheet';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
 import { loadFromCache, saveToCache } from '@/lib/cache';
@@ -383,7 +384,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
           <Pressable accessibilityRole="button" accessibilityLabel="Close lesson picker" style={StyleSheet.absoluteFill} onPress={() => setShowLessonPicker(false)} />
           <View accessibilityViewIsModal style={[styles.picker, { paddingBottom: Math.max(20, insets.bottom) }]}>
             <View style={styles.pickerHandle} />
-            <View style={styles.pickerHeading}><View style={styles.pickerCopy}><Text accessibilityRole="header" style={styles.pickerTitle}>Choose a lesson</Text><Text style={styles.pickerSubtitle}>Where would you like to add cards?</Text></View><Pressable accessibilityRole="button" accessibilityLabel="Close lesson picker" onPress={() => setShowLessonPicker(false)} style={styles.pickerClose}><Text style={styles.pickerCloseText}>×</Text></Pressable></View>
+            <View style={styles.pickerHeading}><View style={styles.pickerCopy}><Text accessibilityRole="header" style={styles.pickerTitle}>Choose a lesson</Text><Text style={styles.pickerSubtitle}>Where would you like to add cards?</Text></View><CloseButton onPress={() => setShowLessonPicker(false)} label="Close lesson picker" /></View>
             <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
               {lessons.map((lesson) => <Pressable key={lesson.id} accessibilityRole="button" accessibilityLabel={`Add cards to ${lesson.title}`} onPress={() => { setShowLessonPicker(false); router.push(`/lessons/${lesson.id}/add-terms`); }} style={styles.pickerLesson}>
                 <LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={48} height={48} /><Text numberOfLines={2} style={styles.pickerLessonName}>{lesson.title}</Text><HomeAsset name="chevron" />

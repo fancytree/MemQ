@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { CloseButton } from '@/components/ui/CloseButton';
 import { sheet as sheetShape } from '@/theme/sheet';
 import { fonts } from '@/theme/typography';
 import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';
@@ -78,9 +79,7 @@ export function LanguageCardModal({ term, onClose, isLanguage = true, onEdit, on
               {!!onDelete && <Pressable accessibilityRole="button" accessibilityLabel="Delete card" onPress={onDelete} style={styles.closeButton}>
                 <Feather name="trash-2" size={20} color={colors.red} />
               </Pressable>}
-              <Pressable onPress={() => close()} accessibilityRole="button" accessibilityLabel="Close card" style={styles.closeButton}>
-                <Feather name="x" size={20} color={colors.sub} />
-              </Pressable>
+              <CloseButton onPress={() => close()} label="Close card" size={20} />
             </View>
           </View>
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
