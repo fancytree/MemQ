@@ -1,4 +1,5 @@
 import { homeColors } from '@/theme/colors';
+import { DialogHost, dialog } from '@/lib/dialog';
 import { BackButton, CloseButton, RoundAction } from '@/components/ui/RoundButtons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { elevation as cardElevation } from '@/theme';
@@ -19,7 +20,6 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   FlatList,
   Keyboard,
   KeyboardAvoidingView,
@@ -31,7 +31,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -370,7 +370,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
   // Clear chat conversation
   const handleClearChat = () => {
-    Alert.alert(
+    dialog(
       'Clear Chat',
       'Are you sure you want to clear this conversation? This action cannot be undone.',
       [
@@ -399,7 +399,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           },
         },
       ],
-      { cancelable: true }
     );
   };
 
@@ -538,7 +537,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   //
   //     if (error) {
   //       console.error('Error fetching history:', error);
-  //       Alert.alert('Error', 'Failed to load chat history');
+  //       dialog('Error', 'Failed to load chat history');
   //       return;
   //     }
 
@@ -547,7 +546,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   //     }
   //   } catch (error) {
   //     console.error('Error fetching history:', error);
-  //     Alert.alert('Error', 'Failed to load chat history');
+  //     dialog('Error', 'Failed to load chat history');
   //   } finally {
   //     setIsLoadingHistory(false);
   //   }
@@ -565,7 +564,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
   //     if (error) {
   //       console.error('Error loading thread:', error);
-  //       Alert.alert('Error', 'Failed to load conversation');
+  //       dialog('Error', 'Failed to load conversation');
   //       setIsLoading(false);
   //       return;
   //     }
@@ -598,7 +597,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   //     }
   //   } catch (error) {
   //     console.error('Error loading thread:', error);
-  //     Alert.alert('Error', 'Failed to load conversation');
+  //     dialog('Error', 'Failed to load conversation');
   //   } finally {
   //     setIsLoading(false);
   //   }
@@ -606,7 +605,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
   // 删除对话线程 - 已注释
   // const deleteThread = async (threadIdToDelete: string, threadTitle: string) => {
-  //   Alert.alert(
+  //   dialog(
   //     'Delete Conversation',
   //     `Are you sure you want to delete "${threadTitle}"?`,
   //     [
@@ -625,7 +624,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
   //             if (error) {
   //               console.error('Error deleting thread:', error);
-  //               Alert.alert('Error', 'Failed to delete conversation');
+  //               dialog('Error', 'Failed to delete conversation');
   //               return;
   //             }
 
@@ -649,7 +648,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   //             }
   //           } catch (error) {
   //             console.error('Error deleting thread:', error);
-  //             Alert.alert('Error', 'Failed to delete conversation');
+  //             dialog('Error', 'Failed to delete conversation');
   //           }
   //         },
   //       },
@@ -713,7 +712,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     if (!isPro) {
       // 未订阅用户：检查是否达到限制
       if (messageCount >= FREE_TIER_MESSAGE_LIMIT) {
-        Alert.alert(
+        dialog(
           'Upgrade to Pro',
           `You've used all ${FREE_TIER_MESSAGE_LIMIT} free messages today. Upgrade to Pro for unlimited AI conversations!`,
           [
@@ -1123,7 +1122,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
   // 保存 Term 到现有课程
   const handleConfirmSave = async (termSuggestion: ExtractedTerm, messageId: string) => {
     if (!termSuggestion.target_lesson_id) {
-      Alert.alert('Error', 'No target lesson ID provided');
+      dialog('Error', 'No target lesson ID provided');
       return;
     }
 
@@ -1139,7 +1138,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
       if (error) {
         console.error('Error saving term:', error);
-        Alert.alert('Error', `Failed to save term: ${error.message}`);
+        dialog('Error', `Failed to save term: ${error.message}`);
         return;
       }
 
@@ -1150,7 +1149,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         )
       );
 
-      Alert.alert('Success', 'Term saved successfully!');
+      dialog('Success', 'Term saved successfully!');
 
       // 静默生成问题
       if (insertedTerm) {
@@ -1175,7 +1174,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       }
     } catch (error) {
       console.error('Error:', error);
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     }
   };
 
@@ -1204,7 +1203,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
       if (lessonError || !newLesson) {
         console.error('Error creating lesson:', lessonError);
-        Alert.alert('Error', `Failed to create lesson: ${lessonError?.message}`);
+        dialog('Error', `Failed to create lesson: ${lessonError?.message}`);
         return;
       }
 
@@ -1224,7 +1223,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
       if (termError) {
         console.error('Error saving term:', termError);
-        Alert.alert('Error', `Failed to save term: ${termError.message}`);
+        dialog('Error', `Failed to save term: ${termError.message}`);
         return;
       }
 
@@ -1240,7 +1239,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         return [{ id: newLesson.id, name: newLesson.name }, ...prev];
       });
 
-      Alert.alert('Success', `Lesson "${termSuggestion.target_lesson_name}" created and term saved!`);
+      dialog('Success', `Lesson "${termSuggestion.target_lesson_name}" created and term saved!`);
 
       // 静默生成问题
       if (insertedTerm) {
@@ -1265,7 +1264,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       }
     } catch (error) {
       console.error('Error:', error);
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     }
   };
 
@@ -1333,7 +1332,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
       if (termError) {
         console.error('Error saving term:', termError);
-        Alert.alert('Error', `Failed to save term: ${termError.message}`);
+        dialog('Error', `Failed to save term: ${termError.message}`);
         return;
       }
 
@@ -1344,7 +1343,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
         )
       );
 
-      Alert.alert('Success', 'Term saved to Default lesson!');
+      dialog('Success', 'Term saved to Default lesson!');
 
       // 静默生成问题
       if (insertedTerm) {
@@ -1369,7 +1368,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
       }
     } catch (error) {
       console.error('Error:', error);
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
     }
   };
 
@@ -1466,7 +1465,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
 
   const handleClearCurrentTabConversation = () => {
     const currentEntryType = getEntryTypeFromTab(initialTab);
-    Alert.alert(
+    dialog(
       'Clear Conversation',
       'Clear this tab conversation? This cannot be undone.',
       [
@@ -1488,7 +1487,6 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           },
         },
       ],
-      { cancelable: true }
     );
   };
 
@@ -1653,10 +1651,10 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
     try {
       await getClipboard().setStringAsync(text);
       // Show success message
-      Alert.alert('Copied', 'Message copied to clipboard');
+      dialog('Copied', 'Message copied to clipboard');
     } catch (error) {
       console.error('Error copying to clipboard:', error);
-      Alert.alert('Error', 'Failed to copy, please try again');
+      dialog('Error', 'Failed to copy, please try again');
     }
   };
 
@@ -2305,6 +2303,8 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
           </SafeAreaView>
         </GestureHandlerRootView>
       </Modal> */}
+      {/* A dialog raised from in here has to come up from inside this modal. */}
+      <DialogHost />
     </Modal>
   );
 }

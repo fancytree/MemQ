@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { dialog } from '@/lib/dialog';
 import { fonts } from '@/theme/typography';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
@@ -10,7 +11,6 @@ import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -92,14 +92,14 @@ export default function ForgotPasswordScreen() {
 
   const handleResetPassword = async () => {
     if (!email || !email.trim()) {
-      Alert.alert('Error', 'Please enter your email address');
+      dialog('Error', 'Please enter your email address');
       return;
     }
 
     const trimmedEmail = email.trim();
 
     if (!isValidEmail(trimmedEmail)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      dialog('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -118,7 +118,7 @@ export default function ForgotPasswordScreen() {
         if (__DEV__) console.error('Error sending reset password email:', error);
       }
 
-      Alert.alert(
+      dialog(
         'Email Sent',
         'If an account exists with this email, you will receive a password reset link within a few minutes. The link expires in 10 minutes. Please also check your spam folder.',
         [{ text: 'OK' }]
@@ -126,7 +126,7 @@ export default function ForgotPasswordScreen() {
     } catch (error) {
       if (__DEV__) console.error('Error:', error);
       setCooldown(COOLDOWN_SECONDS);
-      Alert.alert(
+      dialog(
         'Email Sent',
         'If an account exists with this email, you will receive a password reset link within a few minutes. The link expires in 10 minutes. Please also check your spam folder.',
         [{ text: 'OK' }]
@@ -137,7 +137,7 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}>

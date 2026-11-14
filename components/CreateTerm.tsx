@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { dialog } from '@/lib/dialog';
 import { BackButton } from '@/components/ui/RoundButtons';
 import { supabase } from '@/lib/supabase';
 import { Feather } from '@expo/vector-icons';
@@ -6,16 +7,15 @@ import { router } from 'expo-router';
 import { safeBack } from '@/lib/safeBack';
 import React, { useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/theme/colors';
@@ -47,7 +47,7 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
   // 删除行
   const handleDeleteRow = (id: string) => {
     if (terms.length === 1) {
-      Alert.alert('Error', 'At least one row is required');
+      dialog('Error', 'At least one row is required');
       return;
     }
     setTerms(terms.filter((term) => term.id !== id));
@@ -65,7 +65,7 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
     // 验证所有行
     const emptyRows = terms.filter((t) => !t.term.trim() || !t.definition.trim());
     if (emptyRows.length > 0) {
-      Alert.alert('Error', 'Please fill in both Term and Definition for all rows');
+      dialog('Error', 'Please fill in both Term and Definition for all rows');
       return;
     }
 
@@ -82,7 +82,7 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
         }));
 
       if (insertData.length === 0) {
-        Alert.alert('Error', 'No valid terms to save');
+        dialog('Error', 'No valid terms to save');
         setLoading(false);
         return;
       }
@@ -96,20 +96,20 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
 
         // 如果错误是因为找不到 definition 列，提供明确的提示
         if (error.code === 'PGRST204' && error.message?.includes('definition')) {
-          Alert.alert(
+          dialog(
             '数据库结构错误',
             '找不到 "definition" 列。\n\n请在 Supabase Dashboard 的 SQL Editor 中执行以下 SQL：\n\nALTER TABLE public.terms RENAME COLUMN back TO definition;\nNOTIFY pgrst, \'reload schema\';\n\n执行后等待几秒钟让 schema cache 刷新，然后重试。',
             [{ text: '确定' }]
           );
         } else {
-          Alert.alert('Error', error.message || 'Failed to save terms');
+          dialog('Error', error.message || 'Failed to save terms');
         }
         setLoading(false);
         return;
       }
 
       // 成功提示
-      Alert.alert('Success', `Successfully saved ${insertData.length} term(s)!`, [
+      dialog('Success', `Successfully saved ${insertData.length} term(s)!`, [
         {
           text: 'OK',
           onPress: () => {
@@ -120,7 +120,7 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
       ]);
     } catch (error) {
       console.error('Error:', error);
-      Alert.alert('Error', 'Something went wrong');
+      dialog('Error', 'Something went wrong');
       setLoading(false);
     }
   };

@@ -1,4 +1,5 @@
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
+import { dialog } from '@/lib/dialog';
 import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
@@ -22,7 +23,7 @@ import { colors, fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
 
 /** The same perch as New Lesson's: this screen is that screen's twin, so the
  *  character stands at the same width and crosses the card on the same hand line. */
@@ -113,7 +114,7 @@ export default function AddTermsScreen() {
       .then(({ data, error }) => {
         if (error) {
           setModeLoadFailed(true);
-          Alert.alert('Error', 'Failed to load lesson mode. Please reopen this page.');
+          dialog('Error', 'Failed to load lesson mode. Please reopen this page.');
         }
         else setLearningMode(data?.learning_mode === 'language' ? 'language' : 'knowledge');
         setLoadingMode(false);
@@ -124,7 +125,7 @@ export default function AddTermsScreen() {
     const run = async () => {
       if (loadingMode || modeLoadFailed) return;
       if (!prompt.trim()) {
-        Alert.alert('Tip', 'Please enter text or a topic first');
+        dialog('Tip', 'Please enter text or a topic first');
         return;
       }
       if (genExhausted) { void showPaywall(); return; }
@@ -159,7 +160,7 @@ export default function AddTermsScreen() {
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : 'Something went wrong';
-        Alert.alert('Error', message);
+        dialog('Error', message);
         setPhase('idle');
       }
     };
@@ -185,7 +186,7 @@ export default function AddTermsScreen() {
     try {
       const picker = getDocumentPicker();
       if (!picker) {
-        Alert.alert('Unavailable', 'Document picker is unavailable in current build.');
+        dialog('Unavailable', 'Document picker is unavailable in current build.');
         return;
       }
       const picked = await picker.getDocumentAsync({
@@ -198,7 +199,7 @@ export default function AddTermsScreen() {
 
       const asset = picked.assets[0];
       if (!asset.uri) {
-        Alert.alert('Error', 'Invalid file');
+        dialog('Error', 'Invalid file');
         return;
       }
 
@@ -234,7 +235,7 @@ export default function AddTermsScreen() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to process PDF';
-      Alert.alert('Error', message);
+      dialog('Error', message);
       setPhase('idle');
     }
   };
@@ -286,7 +287,7 @@ export default function AddTermsScreen() {
           .eq('id', termId)
           .single();
         if (error || !data) {
-          Alert.alert('Error', 'Failed to load term');
+          dialog('Error', 'Failed to load term');
           return;
         }
         const legacyLanguageData = languageDataFromLegacyExplanation(data.explanation);
@@ -391,7 +392,7 @@ export default function AddTermsScreen() {
   const handleManualRegenerate = async (rowId: string) => {
     const row = manualTerms.find((item) => item.id === rowId);
     if (!row || !row.term.trim()) {
-      Alert.alert('Tip', 'Please add a term first');
+      dialog('Tip', 'Please add a term first');
       return;
     }
     try {
@@ -413,7 +414,7 @@ export default function AddTermsScreen() {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to regenerate';
-      Alert.alert('Error', message);
+      dialog('Error', message);
     } finally {
       setGeneratingManualId((prev) => (prev === rowId ? null : prev));
     }
@@ -426,7 +427,7 @@ export default function AddTermsScreen() {
   const handleRegenerateGeneratedCard = async (cardNo: string) => {
     const card = cards.find((item) => item.n === cardNo);
     if (!card || !card.title.trim()) {
-      Alert.alert('Tip', 'This card has no term to regenerate');
+      dialog('Tip', 'This card has no term to regenerate');
       return;
     }
     try {
@@ -446,7 +447,7 @@ export default function AddTermsScreen() {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to regenerate';
-      Alert.alert('Error', message);
+      dialog('Error', message);
     } finally {
       setRegeneratingCardId((prev) => (prev === cardNo ? null : prev));
     }
@@ -482,7 +483,7 @@ export default function AddTermsScreen() {
   const handleSave = async () => {
     if (loadingMode || modeLoadFailed) return;
     if (!id) {
-      Alert.alert('Error', 'Lesson ID is required');
+      dialog('Error', 'Lesson ID is required');
       return;
     }
     if (saving) return;
@@ -492,7 +493,7 @@ export default function AddTermsScreen() {
       if (isSingleTermEdit && termId) {
         const target = manualTerms[0];
         if (!target || !target.term.trim() || !target.definition.trim()) {
-          Alert.alert('Error', 'Please fill in Term and Definition');
+          dialog('Error', 'Please fill in Term and Definition');
       return;
     }
         const { error } = await supabase
@@ -505,7 +506,7 @@ export default function AddTermsScreen() {
           })
           .eq('id', termId);
         if (error) {
-          Alert.alert('Error', `Failed to update term: ${error.message}`);
+          dialog('Error', `Failed to update term: ${error.message}`);
         return;
       }
         void clearCache('LESSON_DETAIL', id as string);
@@ -536,7 +537,7 @@ export default function AddTermsScreen() {
       ];
 
       if (allTerms.length === 0) {
-        Alert.alert('Error', 'Please add at least one Term and Definition');
+        dialog('Error', 'Please add at least one Term and Definition');
         return;
       }
 
@@ -550,7 +551,7 @@ export default function AddTermsScreen() {
 
       const { error } = await supabase.from('terms').insert(insertData);
       if (error) {
-        Alert.alert('Error', `Failed to save terms: ${error.message}`);
+        dialog('Error', `Failed to save terms: ${error.message}`);
         return;
       }
 
@@ -560,7 +561,7 @@ export default function AddTermsScreen() {
       router.replace(`/lessons/${id}` as any);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Something went wrong';
-      Alert.alert('Error', message);
+      dialog('Error', message);
     } finally {
       setSaving(false);
     }
@@ -635,7 +636,7 @@ export default function AddTermsScreen() {
               onPress={() => {
                 if (isGenerating) return;
                 if (label === 'Voice') {
-                  Alert.alert('Coming soon', 'Voice input will be available soon.');
+                  dialog('Coming soon', 'Voice input will be available soon.');
                   return;
                 }
                 handlePickPdfAndGenerate();
@@ -745,7 +746,7 @@ export default function AddTermsScreen() {
               onDraftChange={(field, value) => updateManualTerm(row.id, field, value)}
               onGenerate={async (term) => {
                 if (!term.trim()) {
-                  Alert.alert('Tip', 'Please enter a term first');
+                  dialog('Tip', 'Please enter a term first');
                   return null;
                 }
                 try {
@@ -754,7 +755,7 @@ export default function AddTermsScreen() {
                 } catch (error) {
                   const message =
                     error instanceof Error ? error.message : 'Failed to generate content';
-                  Alert.alert('Error', message);
+                  dialog('Error', message);
                   return null;
                 } finally {
                   setGeneratingManualId((prev) => (prev === row.id ? null : prev));
@@ -800,7 +801,7 @@ export default function AddTermsScreen() {
                   onDraftChange={(field, value) => updateManualTerm(row.id, field, value)}
                   onGenerate={async (term) => {
                     if (!term.trim()) {
-                      Alert.alert('Tip', 'Please enter a term first');
+                      dialog('Tip', 'Please enter a term first');
                       return null;
                     }
                     try {
@@ -809,7 +810,7 @@ export default function AddTermsScreen() {
                     } catch (error) {
                       const message =
                         error instanceof Error ? error.message : 'Failed to generate content';
-                      Alert.alert('Error', message);
+                      dialog('Error', message);
                       return null;
                     } finally {
                       setGeneratingManualId((prev) => (prev === row.id ? null : prev));

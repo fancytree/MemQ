@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { dialog } from '@/lib/dialog';
 import { fonts } from '@/theme/typography';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { MemQTheme } from '@/constants/theme';
@@ -8,16 +9,15 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    KeyboardAvoidingView,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from 'react-native';
 
 const t = MemQTheme;
@@ -60,7 +60,7 @@ export default function ResetPasswordScreen() {
         subscription.unsubscribe();
         setVerifying(current => {
           if (current) {
-            Alert.alert(
+            dialog(
               'Invalid Link',
               'This password reset link is invalid or has expired. Please request a new one.',
               [{ text: 'OK', onPress: () => router.replace('/forgot-password') }]
@@ -79,19 +79,19 @@ export default function ResetPasswordScreen() {
     // 验证输入
     if (!newPassword || !confirmPassword) {
       setError('Please fill in all fields');
-      Alert.alert('Error', 'Please fill in all fields');
+      dialog('Error', 'Please fill in all fields');
       return;
     }
 
     if (newPassword.length < 6) {
       setError('Password must be at least 6 characters long');
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      dialog('Error', 'Password must be at least 6 characters long');
       return;
     }
 
     if (newPassword !== confirmPassword) {
       setError('Passwords do not match');
-      Alert.alert('Error', 'Passwords do not match');
+      dialog('Error', 'Passwords do not match');
       return;
     }
 
@@ -115,7 +115,7 @@ export default function ResetPasswordScreen() {
       }
 
       // 成功
-      Alert.alert(
+      dialog(
         'Success',
         'Your password has been reset successfully. Please sign in with your new password.',
         [
@@ -129,7 +129,7 @@ export default function ResetPasswordScreen() {
       console.error('Error resetting password:', err);
       const errorMessage = err?.message || 'Failed to reset password. The link may have expired.';
       setError(errorMessage);
-      Alert.alert(
+      dialog(
         'Error',
         errorMessage + '\n\nPlease request a new password reset link if this one has expired.',
         [

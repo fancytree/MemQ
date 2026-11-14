@@ -1,4 +1,5 @@
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { dialog } from '@/lib/dialog';
 import { CloseButton, RoundAction } from '@/components/ui/RoundButtons';
 import { LessonCover } from '@/components/LessonCover';
 import { encodeLessonCover, getStoredLessonCover, knowledgeSymbols, languageSymbols, removeStoredLessonCover, resolveLessonCover, setStoredLessonCover } from '@/lib/lessonCover';
@@ -16,7 +17,7 @@ import { supabase } from '@/lib/supabase';
 import { colors, componentTokens, fonts, layout, type } from '@/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export const options = { headerShown: false };
@@ -99,7 +100,7 @@ export default function LessonSettingsScreen() {
       if (failure) throw failure;
       await invalidate(user.id); setShowDelete(false);
       router.dismissTo('/(tabs)/library');
-    } catch (failure) { Alert.alert('Could not delete lesson', failure instanceof Error ? failure.message : 'Please try again.'); }
+    } catch (failure) { dialog('Could not delete lesson', failure instanceof Error ? failure.message : 'Please try again.'); }
     finally { setDeleting(false); }
   };
 

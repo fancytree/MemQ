@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { dialog } from '@/lib/dialog';
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
@@ -21,8 +22,7 @@ import Animated, {
   Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import {
-    Alert,
-    KeyboardAvoidingView,
+      KeyboardAvoidingView,
     Platform,
     ScrollView,
     StyleSheet,
@@ -183,7 +183,7 @@ export default function SignUpScreen() {
 
   const signUp = async () => {
     if (!identifier || !password || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      dialog('Error', 'Please fill in all fields');
       return;
     }
 
@@ -192,19 +192,19 @@ export default function SignUpScreen() {
 
     // 验证邮箱格式
     if (!isValidEmail(trimmedIdentifier)) {
-      Alert.alert('Error', 'Please enter a valid email address. The email must have a valid format (e.g., user@example.com)');
+      dialog('Error', 'Please enter a valid email address. The email must have a valid format (e.g., user@example.com)');
       return;
     }
 
     // 验证密码长度
     if (password.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      dialog('Error', 'Password must be at least 6 characters long');
       return;
     }
 
     // 验证密码确认
     if (password !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+      dialog('Error', 'Passwords do not match');
       return;
     }
 
@@ -218,13 +218,13 @@ export default function SignUpScreen() {
     });
 
     if (error) {
-      Alert.alert('Error', error.message);
+      dialog('Error', error.message);
       setLoading(false);
     } else {
       // 检查是否需要邮箱验证
       if (data.user && !data.session) {
         // 需要邮箱验证
-        Alert.alert(
+        dialog(
           'Verification Email Sent',
           'We\'ve sent a verification email to ' + trimmedIdentifier + '. Please check your inbox and click the verification link to activate your account.',
           [
@@ -236,7 +236,7 @@ export default function SignUpScreen() {
         );
       } else if (data.session) {
         // 邮箱已验证，直接登录
-        Alert.alert('Success', 'Account created successfully!', [
+        dialog('Success', 'Account created successfully!', [
           {
             text: 'OK',
             onPress: () => {
@@ -247,7 +247,7 @@ export default function SignUpScreen() {
         ]);
       } else {
         // 其他情况
-      Alert.alert('Success', 'Account created! Please sign in.', [
+      dialog('Success', 'Account created! Please sign in.', [
         {
           text: 'OK',
           onPress: () => router.replace('/login'),
@@ -266,7 +266,7 @@ export default function SignUpScreen() {
         // iOS：SFSafariViewController（应用内，无 Apple 确认框）
         const { data, error } = await startGoogleOAuthInSafari();
         if (error) {
-          Alert.alert('Error', error.message || 'Failed to sign in with Google');
+          dialog('Error', error.message || 'Failed to sign in with Google');
           return;
         }
         if (data) {
@@ -281,7 +281,7 @@ export default function SignUpScreen() {
       const { data, error } = await signInWithOAuth('google');
       if (error) {
         if (error.message === 'User cancelled authentication') return;
-        Alert.alert('Error', error.message || 'Failed to sign in with Google');
+        dialog('Error', error.message || 'Failed to sign in with Google');
         return;
       }
       if (data) {
@@ -290,7 +290,7 @@ export default function SignUpScreen() {
       }
     } catch (error: any) {
       if (__DEV__) console.error('Google sign in error:', error);
-      Alert.alert('Error', error.message || 'Failed to sign in with Google');
+      dialog('Error', error.message || 'Failed to sign in with Google');
     } finally {
       setOauthLoading(null);
     }
@@ -303,7 +303,7 @@ export default function SignUpScreen() {
       const { data, error } = await signInWithOAuth('apple');
 
       if (error) {
-        Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+        dialog('Error', error.message || 'Failed to sign in with Apple');
         return;
       }
 
@@ -314,7 +314,7 @@ export default function SignUpScreen() {
       }
     } catch (error: any) {
       console.error('Apple sign in error:', error);
-      Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+      dialog('Error', error.message || 'Failed to sign in with Apple');
     } finally {
       setOauthLoading(null);
     }

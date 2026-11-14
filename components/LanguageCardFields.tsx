@@ -1,10 +1,11 @@
 import { LanguageCardData, normalizeLanguageData } from '@/lib/languageCard';
+import { dialog } from '@/lib/dialog';
 import { DesignAsset, FittedDesignAsset } from '@/components/DesignAsset';
 import { colors, type } from '@/theme';
 import { homeColors } from '@/theme/colors';
 import { Feather } from '@expo/vector-icons';
 import React, { useEffect, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 const textFields: Array<{ key: keyof LanguageCardData; label: string; hint: string; multiline?: boolean }> = [
   { key: 'language_code', label: 'Pronunciation language', hint: 'e.g. en-US, es-ES, zh-CN' },
@@ -114,7 +115,7 @@ export function PlayButton({ text, languageCode, label, iconOnly = false, iconSi
         rate: 0.9,
       });
     } catch {
-      Alert.alert('Speech unavailable', 'Install a new iOS development build to enable pronunciation.');
+      dialog('Speech unavailable', 'Install a new iOS development build to enable pronunciation.');
     }
   };
 

@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { DialogHost, dialog } from '@/lib/dialog';
 import { sheet } from '@/theme/sheet';
 import { CloseButton } from '@/components/ui/RoundButtons';
 import { supabase } from '@/lib/supabase';
@@ -8,7 +9,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { StatusBar } from 'expo-status-bar';
 import React, { useState } from 'react';
 import {
-  Alert,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -45,12 +45,12 @@ export default function AIStudyAssistantModal({
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        Alert.alert('File Selected', `Selected: ${result.assets[0].name}`);
+        dialog('File Selected', `Selected: ${result.assets[0].name}`);
         // TODO: 实现文件上传和处理逻辑
       }
     } catch (err) {
       console.error('Error selecting file:', err);
-      Alert.alert('Error', 'Failed to select file');
+      dialog('Error', 'Failed to select file');
     }
   };
 
@@ -116,7 +116,7 @@ export default function AIStudyAssistantModal({
 
       // 如果有提取的 term，提示用户保存
       if (extracted_term) {
-        Alert.alert(
+        dialog(
           'Term Extracted',
           `Term: ${extracted_term.term}\nDefinition: ${extracted_term.definition}\n\nWould you like to save it?`,
           [
@@ -125,7 +125,7 @@ export default function AIStudyAssistantModal({
               text: 'Save',
               onPress: async () => {
                 // TODO: 实现保存 term 的逻辑
-                Alert.alert('Success', 'Term saved successfully!');
+                dialog('Success', 'Term saved successfully!');
               },
             },
           ]
@@ -133,11 +133,11 @@ export default function AIStudyAssistantModal({
       }
 
       // 显示 AI 回复
-      Alert.alert('AI Response', reply_text);
+      dialog('AI Response', reply_text);
     } catch (err) {
       console.error('Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
-      Alert.alert('Error', errorMessage);
+      dialog('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -256,6 +256,8 @@ export default function AIStudyAssistantModal({
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
+      {/* A dialog raised from in here has to come up from inside this modal. */}
+      <DialogHost />
     </Modal>
   );
 }

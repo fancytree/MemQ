@@ -10,6 +10,7 @@
  */
 
 import { HomeAsset } from '@/components/HomeAsset';
+import { DialogHost, dialog } from '@/lib/dialog';
 import { CloseButton } from '@/components/ui/RoundButtons';
 import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -24,7 +25,6 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Linking,
   Modal,
   Platform,
@@ -203,7 +203,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
     });
 
     if (!selectedPackage) {
-      Alert.alert('Error', 'Selected plan not available.');
+      dialog('Error', 'Selected plan not available.');
       return;
     }
 
@@ -212,7 +212,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       if (userError || !user) {
-        Alert.alert(
+        dialog(
           'Authentication Required',
           'Please log in to complete your purchase.'
         );
@@ -225,7 +225,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
       setCustomerInfo(updatedInfo);
       await refreshSubscriptionStatus();
 
-      Alert.alert(
+      dialog(
         'Success!',
         'Your subscription is now active. Thank you for subscribing!',
         [{ text: 'OK', onPress: onClose }]
@@ -246,7 +246,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
       if (__DEV__) {
         console.error('Purchase error:', error);
       }
-      Alert.alert(
+      dialog(
         'Purchase Failed',
         error.message || 'An error occurred during purchase. Please try again.',
         [{ text: 'OK' }]
@@ -413,9 +413,9 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                     try {
                       await Purchases.restorePurchases();
                       await refreshSubscriptionStatus();
-                      Alert.alert('Success', 'Purchases restored successfully.');
+                      dialog('Success', 'Purchases restored successfully.');
                     } catch (error) {
-                      Alert.alert('Error', 'No purchases found to restore.');
+                      dialog('Error', 'No purchases found to restore.');
                     }
                   }}
                   style={styles.restoreButton}
@@ -451,6 +451,8 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
           )}
         </SafeAreaView>
       </View>
+      {/* A dialog raised from in here has to come up from inside this modal. */}
+      <DialogHost />
     </Modal>
   );
 }

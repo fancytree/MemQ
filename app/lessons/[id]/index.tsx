@@ -1,4 +1,5 @@
 import { LessonCover } from '@/components/LessonCover';
+import { dialog } from '@/lib/dialog';
 import { fonts } from '@/theme/typography';
 import { DesignAsset } from '@/components/DesignAsset';
 import { HomeAsset } from '@/components/HomeAsset';
@@ -21,7 +22,6 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Modal,
   Platform,
   Pressable,
@@ -301,7 +301,7 @@ export default function LessonDetailScreen() {
   // 处理生成题目
   const handleGenerateQuestions = async () => {
     if (!id || terms.length === 0) {
-      Alert.alert('Error', 'No terms available to generate questions');
+      dialog('Error', 'No terms available to generate questions');
       return;
     }
 
@@ -331,7 +331,7 @@ export default function LessonDetailScreen() {
       }
 
       if (data && data.success) {
-        Alert.alert('Success', `Successfully generated ${data.questionsGenerated || 0} questions!`);
+        dialog('Success', `Successfully generated ${data.questionsGenerated || 0} questions!`);
 
         // 重新加载页面数据以显示新生成的问题
         await fetchLessonDetail();
@@ -341,7 +341,7 @@ export default function LessonDetailScreen() {
     } catch (err) {
       console.error('Error:', err);
       const errorMessage = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
-      Alert.alert('Error', errorMessage);
+      dialog('Error', errorMessage);
     } finally {
       setGenerating(false);
     }
@@ -372,7 +372,7 @@ export default function LessonDetailScreen() {
 
   // 处理删除词条
   const handleDeleteTerm = (termId: string, termName: string) => {
-    Alert.alert(
+    dialog(
       'Delete Term',
       `Are you sure you want to delete "${termName}"?`,
       [
@@ -392,7 +392,7 @@ export default function LessonDetailScreen() {
 
               if (error) {
                 console.error('Error deleting term:', error);
-                Alert.alert('Error', 'Failed to delete term');
+                dialog('Error', 'Failed to delete term');
                 return;
               }
 
@@ -401,7 +401,7 @@ export default function LessonDetailScreen() {
               await fetchLessonDetail(false);
             } catch (err) {
               console.error('Error:', err);
-              Alert.alert('Error', 'Something went wrong');
+              dialog('Error', 'Something went wrong');
             }
           },
         },

@@ -1,4 +1,5 @@
 import { layout } from '@/theme/spacing';
+import { dialog } from '@/lib/dialog';
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
@@ -23,7 +24,6 @@ import React, { useEffect, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -428,7 +428,7 @@ export default function LoginScreen() {
 
   const signIn = async () => {
     if (!identifier || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      dialog('Error', 'Please fill in all fields');
       return;
     }
 
@@ -436,7 +436,7 @@ export default function LoginScreen() {
 
     // 验证邮箱格式
     if (!isValidEmail(trimmedIdentifier)) {
-      Alert.alert('Error', 'Please enter a valid email address');
+      dialog('Error', 'Please enter a valid email address');
       setLoading(false);
       return;
     }
@@ -463,7 +463,7 @@ export default function LoginScreen() {
 
         // 检查是否是邮箱未验证错误
         if (error.message.includes('Email not confirmed') || error.message.includes('email_not_confirmed')) {
-          Alert.alert(
+          dialog(
             'Email Not Verified',
             'Please verify your email address before signing in. Check your inbox for the verification email.',
             [
@@ -476,9 +476,9 @@ export default function LoginScreen() {
                     email: trimmedIdentifier,
                   });
                   if (resendError) {
-                    Alert.alert('Error', 'Failed to resend verification email. ' + resendError.message);
+                    dialog('Error', 'Failed to resend verification email. ' + resendError.message);
                   } else {
-                    Alert.alert('Success', 'Verification email sent! Please check your inbox.');
+                    dialog('Success', 'Verification email sent! Please check your inbox.');
                   }
                 },
               },
@@ -506,10 +506,10 @@ export default function LoginScreen() {
           }
 
           // 统一显示通用的错误提示
-          Alert.alert('Login Failed', 'Incorrect email or password', [{ text: 'OK' }]);
+          dialog('Login Failed', 'Incorrect email or password', [{ text: 'OK' }]);
         } else {
           // 其他错误（如网络错误等）仍然显示具体错误信息
-          Alert.alert('Error', error.message);
+          dialog('Error', error.message);
         }
         setLoading(false);
         return;
@@ -532,7 +532,7 @@ export default function LoginScreen() {
         return;
       }
       const rawMessage = err?.message || 'Sign in failed. Please try again.';
-      Alert.alert('Error', rawMessage);
+      dialog('Error', rawMessage);
       if (__DEV__) {
         console.error('Email sign in error:', err);
       }
@@ -552,7 +552,7 @@ export default function LoginScreen() {
         // iOS：SFSafariViewController（应用内，无 Apple 确认框）
         const { data, error } = await startGoogleOAuthInSafari();
         if (error) {
-          Alert.alert('Error', error.message || 'Failed to sign in with Google');
+          dialog('Error', error.message || 'Failed to sign in with Google');
           return;
         }
         if (data) {
@@ -579,7 +579,7 @@ export default function LoginScreen() {
       const { data, error } = await signInWithOAuth('google');
       if (error) {
         if (error.message === 'User cancelled authentication') return;
-        Alert.alert('Error', error.message || 'Failed to sign in with Google');
+        dialog('Error', error.message || 'Failed to sign in with Google');
         return;
       }
       if (data) {
@@ -588,7 +588,7 @@ export default function LoginScreen() {
       }
     } catch (error: any) {
       if (__DEV__) console.error('Google sign in error:', error);
-      Alert.alert('Error', error.message || 'Failed to sign in with Google');
+      dialog('Error', error.message || 'Failed to sign in with Google');
     } finally {
       setOauthLoading(null);
     }
@@ -605,7 +605,7 @@ export default function LoginScreen() {
         if (error.message === 'User cancelled authentication') {
           return;
         }
-        Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+        dialog('Error', error.message || 'Failed to sign in with Apple');
         return;
       }
 
@@ -620,7 +620,7 @@ export default function LoginScreen() {
       if (__DEV__) {
         console.error('Apple sign in error:', error);
       }
-      Alert.alert('Error', error.message || 'Failed to sign in with Apple');
+      dialog('Error', error.message || 'Failed to sign in with Apple');
     } finally {
       setOauthLoading(null);
     }

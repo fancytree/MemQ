@@ -6,6 +6,7 @@ import '@/theme/web.css';
 import { SubscriptionPaywallHost } from '@/components/SubscriptionPaywallHost';
 import { LoadingProvider } from '@/context/LoadingContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
+import { DialogHost } from '@/lib/dialog';
 import { colors } from '@/theme';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -30,6 +31,7 @@ export default function RootLayout() {
       <LoadingProvider>
         <SubscriptionProvider>
           <SubscriptionPaywallHost />
+          <DialogHost />
           <StatusBar style="dark" />
           <Stack
             screenOptions={{
@@ -41,7 +43,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="create" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="create-name" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="quiz" options={{ animation: 'fade' }} />
+            <Stack.Screen name="quiz" options={{ presentation: 'card', animation: 'slide_from_bottom', gestureEnabled: false }} />
             <Stack.Screen name="you" />
           </Stack>
         </SubscriptionProvider>

@@ -1,4 +1,5 @@
 import { elevation as cardElevation } from '@/theme';
+import { dialog } from '@/lib/dialog';
 import { BackButton } from '@/components/ui/RoundButtons';
 import { layout } from '@/theme/spacing';
 import { sheet } from '@/theme/sheet';
@@ -20,7 +21,6 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Animated,
   Image,
   Modal,
@@ -190,7 +190,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
   // 清空缓存
   const handleClearCache = () => {
-    Alert.alert(
+    dialog(
       'Clear Local Data',
       'Are you sure you want to clear all local cached data? This will not affect your account data, but pages may load slower next time.',
       [
@@ -205,10 +205,10 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             try {
               await clearAllCache();
               await fetchCacheSize();
-              Alert.alert('Success', 'Local data cleared successfully.');
+              dialog('Success', 'Local data cleared successfully.');
             } catch (error) {
               console.error('Error clearing cache:', error);
-              Alert.alert('Error', 'Failed to clear local data.');
+              dialog('Error', 'Failed to clear local data.');
             }
           },
         },
@@ -235,7 +235,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
   // 登出
   const handleSignOut = async () => {
-    Alert.alert(
+    dialog(
       'Logout',
       'Are you sure you want to logout?',
       [
@@ -264,7 +264,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               // 登出
               const { error } = await supabase.auth.signOut();
               if (error) {
-                Alert.alert('Error', error.message);
+                dialog('Error', error.message);
                 setSigningOut(false);
                 return;
               }
@@ -274,7 +274,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               router.replace('/login');
             } catch (error) {
               console.error('Error signing out:', error);
-              Alert.alert('Error', 'Failed to logout');
+              dialog('Error', 'Failed to logout');
               setSigningOut(false);
             }
           },
@@ -285,7 +285,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
   // 删除账户
   const handleDeleteAccount = () => {
-    Alert.alert(
+    dialog(
       'Delete Account',
       'Are you sure you want to delete your account? This action cannot be undone. All your data including lessons, terms, progress, and conversations will be permanently deleted.',
       [
@@ -298,7 +298,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           style: 'destructive',
           onPress: async () => {
             // 二次确认
-            Alert.alert(
+            dialog(
               'Final Confirmation',
               'This is your last chance to cancel. Your account and all data will be permanently deleted.',
               [
@@ -318,7 +318,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                       // 调用 Edge Function 删除账号
                       const { data: { session } } = await supabase.auth.getSession();
                       if (!session) {
-                        Alert.alert('Error', 'Session expired. Please sign in again.');
+                        dialog('Error', 'Session expired. Please sign in again.');
                         setSigningOut(false);
                         return;
                       }
@@ -331,7 +331,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
                       if (error) {
                         console.error('Error deleting account:', error);
-                        Alert.alert(
+                        dialog(
                           'Error',
                           error.message || 'Failed to delete account. Please try again or contact support.'
                         );
@@ -341,7 +341,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
                       if (data?.success) {
                         // 账号已删除，跳转到登录页面
-                        Alert.alert(
+                        dialog(
                           'Account Deleted',
                           'Your account has been successfully deleted.',
                           [
@@ -359,7 +359,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                     } catch (err) {
                       console.error('Error:', err);
                       const errorMessage = err instanceof Error ? err.message : 'Something went wrong';
-                      Alert.alert('Error', `Failed to delete account: ${errorMessage}`);
+                      dialog('Error', `Failed to delete account: ${errorMessage}`);
                       setSigningOut(false);
                     }
                   },
@@ -430,12 +430,12 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
         },
       });
       if (error) {
-        Alert.alert('Error', 'Failed to save preference');
+        dialog('Error', 'Failed to save preference');
         return false;
       }
       return true;
     } catch {
-      Alert.alert('Error', 'Failed to save preference');
+      dialog('Error', 'Failed to save preference');
       return false;
     }
   };
@@ -471,7 +471,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
       if (error) {
         console.error('Error saving notification settings:', error);
-        Alert.alert('Error', 'Failed to save notification settings');
+        dialog('Error', 'Failed to save notification settings');
         // 恢复原状态
         setNotificationEnabled(!enabled);
         return;
@@ -484,14 +484,14 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
       } catch (notificationError) {
         console.error('Error updating notification schedule:', notificationError);
         // 通知计划更新失败不影响设置保存，只记录错误
-        Alert.alert(
+        dialog(
           'Warning',
           'Settings saved, but failed to update notification schedule. Please check notification permissions in your device settings.'
         );
       }
     } catch (error) {
       console.error('Error saving notification settings:', error);
-      Alert.alert('Error', 'Failed to save notification settings');
+      dialog('Error', 'Failed to save notification settings');
       setNotificationEnabled(!enabled);
     }
   };
@@ -590,13 +590,13 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
     try {
       const imagePicker = getImagePicker();
       if (!imagePicker) {
-        Alert.alert('Unavailable', 'Image picker is unavailable in current build.');
+        dialog('Unavailable', 'Image picker is unavailable in current build.');
         return;
       }
       // 请求权限
       const { status } = await imagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant camera roll permissions to upload an avatar.');
+        dialog('Permission Required', 'Please grant camera roll permissions to upload an avatar.');
         return;
       }
 
@@ -622,7 +622,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
       // 获取当前用户
       const { data: { user: currentUser }, error: userError } = await supabase.auth.getUser();
       if (userError || !currentUser) {
-        Alert.alert('Error', 'User not authenticated');
+        dialog('Error', 'User not authenticated');
         setUploadingAvatar(false);
         return;
       }
@@ -633,7 +633,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
       });
 
       if (!base64Data) {
-        Alert.alert('Error', 'Failed to read image file');
+        dialog('Error', 'Failed to read image file');
         setUploadingAvatar(false);
         return;
       }
@@ -660,7 +660,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
       if (uploadError) {
         console.error('Error uploading avatar:', uploadError);
-        Alert.alert('Error', uploadError.message || 'Failed to upload avatar');
+        dialog('Error', uploadError.message || 'Failed to upload avatar');
         setUploadingAvatar(false);
         return;
       }
@@ -678,7 +678,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
       if (updateError) {
         console.error('Error updating user metadata:', updateError);
-        Alert.alert('Error', 'Failed to update avatar');
+        dialog('Error', 'Failed to update avatar');
         setUploadingAvatar(false);
         return;
       }
@@ -689,10 +689,10 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
       // 刷新用户信息
       await fetchUser();
 
-      Alert.alert('Success', 'Avatar updated successfully');
+      dialog('Success', 'Avatar updated successfully');
     } catch (error) {
       console.error('Error uploading avatar:', error);
-      Alert.alert('Error', 'Failed to upload avatar');
+      dialog('Error', 'Failed to upload avatar');
     } finally {
       setUploadingAvatar(false);
     }

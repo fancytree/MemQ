@@ -1,4 +1,5 @@
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
+import { dialog } from '@/lib/dialog';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
 import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { homeColors } from '@/theme/colors';
@@ -23,7 +24,6 @@ import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -154,7 +154,7 @@ export default function CreateScreen() {
 
   const generate = () => {
     void (async () => {
-      if (!prompt.trim()) { Alert.alert('Tip', 'Please enter text or a topic first'); return; }
+      if (!prompt.trim()) { dialog('Tip', 'Please enter text or a topic first'); return; }
       if (genExhausted) { void showPaywall(); return; }
       setPhase('generating');
       try {
@@ -180,7 +180,7 @@ export default function CreateScreen() {
           if (ok) setGenUsed((prev) => prev + 1);
         }
       } catch (err) {
-        Alert.alert('Error', err instanceof Error ? err.message : 'Something went wrong');
+        dialog('Error', err instanceof Error ? err.message : 'Something went wrong');
         setPhase('idle');
       }
     })();
@@ -190,11 +190,11 @@ export default function CreateScreen() {
     if (genExhausted) { void showPaywall(); return; }
     try {
       const picker = getDocumentPicker();
-      if (!picker) { Alert.alert('Unavailable', 'Document picker is unavailable in current build.'); return; }
+      if (!picker) { dialog('Unavailable', 'Document picker is unavailable in current build.'); return; }
       const picked = await picker.getDocumentAsync({ type: 'application/pdf', copyToCacheDirectory: true });
       if (picked.canceled || !picked.assets?.length) return;
       const asset = picked.assets[0];
-      if (!asset.uri) { Alert.alert('Error', 'Invalid file'); return; }
+      if (!asset.uri) { dialog('Error', 'Invalid file'); return; }
       // The file's own name, minus its extension: on a PDF run there is nothing else
       // to call the lesson, and it is usually what the person would have typed.
       if (asset.name) setSourceName(asset.name.replace(/\.[^.]+$/, '').trim());
@@ -228,7 +228,7 @@ export default function CreateScreen() {
         if (ok) setGenUsed((prev) => prev + 1);
       }
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to process PDF');
+      dialog('Error', err instanceof Error ? err.message : 'Failed to process PDF');
       setPhase('idle');
     }
   };
@@ -285,7 +285,7 @@ export default function CreateScreen() {
 
   const handleManualRegenerate = async (rowId: string) => {
     const row = manualTerms.find((r) => r.id === rowId);
-    if (!row?.term.trim()) { Alert.alert('Tip', 'Please add a term first'); return; }
+    if (!row?.term.trim()) { dialog('Tip', 'Please add a term first'); return; }
     try {
       setGeneratingManualId(rowId);
       const generated = await generateManualFromTerm(row.term.trim());
@@ -293,7 +293,7 @@ export default function CreateScreen() {
         r.id === rowId ? { ...r, definition: generated.definition, explanation: generated.explanation, languageData: generated.languageData, saved: true, editing: false } : r
       ));
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to regenerate');
+      dialog('Error', err instanceof Error ? err.message : 'Failed to regenerate');
     } finally {
       setGeneratingManualId((p) => (p === rowId ? null : p));
     }
@@ -301,7 +301,7 @@ export default function CreateScreen() {
 
   const handleRegenerateGeneratedCard = async (cardNo: string) => {
     const card = cards.find((c) => c.n === cardNo);
-    if (!card?.title.trim()) { Alert.alert('Tip', 'This card has no term to regenerate'); return; }
+    if (!card?.title.trim()) { dialog('Tip', 'This card has no term to regenerate'); return; }
     try {
       setRegeneratingCardId(cardNo);
       const generated = await generateManualFromTerm(card.title.trim());
@@ -309,7 +309,7 @@ export default function CreateScreen() {
         c.n === cardNo ? { ...c, body: generated.definition, ex: generated.explanation, languageData: generated.languageData } : c
       ));
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Failed to regenerate');
+      dialog('Error', err instanceof Error ? err.message : 'Failed to regenerate');
     } finally {
       setRegeneratingCardId((p) => (p === cardNo ? null : p));
     }
@@ -332,7 +332,7 @@ export default function CreateScreen() {
   const handleSavePress = () => {
     const terms = collectTerms();
     if (terms.length === 0) {
-      Alert.alert('Empty', learningMode === 'language' ? 'Generate at least one language card first.' : 'Please add at least one term and definition.');
+      dialog('Empty', learningMode === 'language' ? 'Generate at least one language card first.' : 'Please add at least one term and definition.');
       return;
     }
     setPendingTerms(terms, learningMode, prompt.trim() || sourceName);
@@ -397,7 +397,7 @@ export default function CreateScreen() {
                 key={label}
                 onPress={() => {
                   if (isGenerating) return;
-                  if (label === 'Voice') { Alert.alert('Coming soon', 'Voice input will be available soon.'); return; }
+                  if (label === 'Voice') { dialog('Coming soon', 'Voice input will be available soon.'); return; }
                   void handlePickPdfAndGenerate();
                 }}
                 disabled={isGenerating}
@@ -498,12 +498,12 @@ export default function CreateScreen() {
                 regenerateDots={regenerateDots}
                 onDraftChange={(field, value) => updateManualTerm(row.id, field, value)}
                 onGenerate={async (term) => {
-                  if (!term.trim()) { Alert.alert('Tip', 'Please enter a term first'); return null; }
+                  if (!term.trim()) { dialog('Tip', 'Please enter a term first'); return null; }
                   try {
                     setGeneratingManualId(row.id);
                     return await generateManualFromTerm(term.trim());
                   } catch (err) {
-                    Alert.alert('Error', err instanceof Error ? err.message : 'Failed to generate content');
+                    dialog('Error', err instanceof Error ? err.message : 'Failed to generate content');
                     return null;
                   } finally {
                     setGeneratingManualId((p) => (p === row.id ? null : p));

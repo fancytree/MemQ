@@ -1,5 +1,6 @@
 import { layout } from '@/theme/spacing';
 import { CloseButton } from '@/components/ui/RoundButtons';
+import { DialogHost } from '@/lib/dialog';
 import { sheet as sheetShape } from '@/theme/sheet';
 import { fonts } from '@/theme/typography';
 import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';
@@ -105,6 +106,8 @@ export function LanguageCardModal({ term, onClose, isLanguage = true, onEdit, on
               </Pressable>}
             </View>}
           </ScrollView>
+          {/* A dialog raised from in here has to come up from inside this sheet. */}
+          <DialogHost />
         </Animated.View>
       </View>
     </Modal>

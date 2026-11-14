@@ -1,4 +1,5 @@
 import { HomeAsset } from '@/components/HomeAsset';
+import { dialog } from '@/lib/dialog';
 import { BackButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
@@ -22,7 +23,6 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
 import {
-  Alert,
   Animated,
   KeyboardAvoidingView,
   Modal,
@@ -90,12 +90,12 @@ export default function CreateNameScreen() {
 
   const handleCreate = async () => {
     const name = lessonName.trim();
-    if (!name) { Alert.alert('Required', 'Please enter a lesson name.'); return; }
+    if (!name) { dialog('Required', 'Please enter a lesson name.'); return; }
     if (saving) return;
 
     const terms = getPendingTerms();
     if (!terms || terms.length === 0) {
-      Alert.alert('Error', 'No terms found. Please go back and add terms.');
+      dialog('Error', 'No terms found. Please go back and add terms.');
       return;
     }
 
@@ -103,7 +103,7 @@ export default function CreateNameScreen() {
     try {
       const { data: authData } = await supabase.auth.getUser();
       const user = authData.user;
-      if (!user) { Alert.alert('Error', 'Please log in first.'); return; }
+      if (!user) { dialog('Error', 'Please log in first.'); return; }
 
       const { data: lesson, error: lessonError } = await supabase
         .from('lessons')
@@ -118,7 +118,7 @@ export default function CreateNameScreen() {
         .single();
 
       if (lessonError || !lesson) {
-        Alert.alert('Error', lessonError?.message || 'Failed to create lesson.');
+        dialog('Error', lessonError?.message || 'Failed to create lesson.');
         return;
       }
 
@@ -133,7 +133,7 @@ export default function CreateNameScreen() {
       );
 
       if (termsError) {
-        Alert.alert('Error', termsError.message || 'Failed to save terms.');
+        dialog('Error', termsError.message || 'Failed to save terms.');
         return;
       }
 
@@ -143,7 +143,7 @@ export default function CreateNameScreen() {
 
       router.replace(`/lessons/${lesson.id}` as any);
     } catch (err) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Something went wrong');
+      dialog('Error', err instanceof Error ? err.message : 'Something went wrong');
     } finally {
       setSaving(false);
     }
