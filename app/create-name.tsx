@@ -1,7 +1,6 @@
 import { HomeAsset } from '@/components/HomeAsset';
 import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { MascotCharacter } from '@/components/mascot/MascotCharacter';
-import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
 import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -52,7 +51,10 @@ export default function CreateNameScreen() {
   const bleed = -((width - 32) - PERCH) / 2;
   const [lessonName, setLessonName] = useState('');
   const [description, setDescription] = useState('');
-  const [learningMode, setLearningMode] = useState<'language' | 'knowledge'>(getPendingLearningMode());
+  // Chosen on the previous screen and carried here with the cards. This page only
+  // has to write it onto the lesson; asking for it a second time, one screen later
+  // and with the answer already filled in, is asking the same question twice.
+  const [learningMode] = useState<'language' | 'knowledge'>(getPendingLearningMode());
   const [deadline, setDeadline] = useState<Date | null>(null);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -217,12 +219,6 @@ export default function CreateNameScreen() {
                 multiline
                 textAlignVertical="top"
               />
-            </View>
-
-            {/* Learning mode */}
-            <View style={styles.inputGroup}>
-              <SectionLabel style={styles.label}>Learning mode</SectionLabel>
-              <LearningModeSelector value={learningMode} onChange={setLearningMode} />
             </View>
 
             {/* Deadline */}
