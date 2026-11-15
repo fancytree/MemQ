@@ -2,7 +2,7 @@
   "expo": {
     "name": "MemQ",
     "slug": "memq",
-    "version": "1.1.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "scheme": "memq",
     "userInterfaceStyle": "light",
