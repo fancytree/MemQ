@@ -97,6 +97,10 @@
             color: var(--text-primary);
         }
 
+        .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+        .faq-empty { color: var(--text-secondary); line-height: 1.6; padding: 1rem 0; }
+        .faq-empty a { color: #6c3cbc; font-weight: 600; }
+
         .faq-item {
             background: var(--bg-white);
             border: 1px solid var(--border-color);
@@ -119,7 +123,14 @@
             font-weight: 600;
             font-size: 1.1rem;
             color: var(--text-primary);
+            width: 100%;
+            border: 0;
+            background: transparent;
+            font-family: inherit;
+            text-align: left;
         }
+
+        .faq-question:focus-visible { outline: 3px solid #6c3cbc; outline-offset: -4px; border-radius: 20px; }
 
         .faq-question:hover {
             color: var(--primary-gradient-start);
@@ -234,7 +245,8 @@
 
         }
     </style>
-    <script src="components/load-components.js" defer></script>
+    <script src="components/load-components.js?v=2" defer></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Oswald:wght@500;600;700&display=swap" rel="stylesheet"><link rel="stylesheet" href="secondary.css?v=4">
 </head>
 <body>
     <!-- Navigation placeholder - will be loaded by load-components.js -->
@@ -249,9 +261,11 @@
 
         <!-- Search Box -->
         <div class="search-box">
-            <span>🔍</span>
-            <input type="text" placeholder="Search for help..." id="searchInput">
+            <span aria-hidden="true">🔍</span>
+            <input type="search" placeholder="Search frequently asked questions..." id="searchInput" aria-label="Search frequently asked questions">
         </div>
+
+        <p id="searchStatus" class="sr-only" role="status" aria-live="polite"></p>
 
         <!-- Getting Started -->
         <div class="guide-section">
@@ -261,10 +275,10 @@
                 <h3>Creating Your First Lesson</h3>
                 <ol>
                     <li>Open the MemQ app and tap the "Create" button</li>
-                    <li>Enter a name for your lesson (e.g., "Biology Chapter 1")</li>
-                    <li>Optionally add a description and set a deadline</li>
-                    <li>Tap "Create" to save your lesson</li>
-                    <li>Start adding terms to your lesson manually, or use AI to generate them</li>
+                    <li>Choose a learning mode, then add cards manually or generate them from a topic, text, or PDF</li>
+                    <li>Review your cards and tap "Save"</li>
+                    <li>Name your lesson and optionally add a description or deadline</li>
+                    <li>Save the lesson to your library</li>
                 </ol>
             </div>
 
@@ -273,19 +287,18 @@
                 <p>There are several ways to add terms:</p>
                 <ul>
                     <li><strong>Manual Entry:</strong> Tap "Add Term" and enter the term and definition yourself</li>
-                    <li><strong>AI Generation:</strong> Use the AI assistant to generate terms from a topic or conversation</li>
-                    <li><strong>PDF Upload:</strong> Upload a PDF document and let AI extract key terms automatically</li>
-                    <li><strong>From Topic:</strong> Provide a topic and let AI generate relevant terms and definitions</li>
+                    <li><strong>From a topic or text:</strong> Enter what you want to learn and generate cards</li>
+                    <li><strong>PDF upload:</strong> Add a PDF and generate cards from its contents</li>
                 </ul>
             </div>
 
             <div class="guide-card">
                 <h3>Studying with Flashcards</h3>
                 <ol>
-                    <li>Navigate to your lesson and tap "Study"</li>
+                    <li>Tap "Start Learning" on Today, or start practice from a lesson</li>
                     <li>Review the term on the front of the card</li>
                     <li>Tap the card to flip it and see the definition</li>
-                    <li>Rate your knowledge level (New, Learning, Familiar, Good, Strong, Mastered)</li>
+                    <li>Swipe right if you remember it, or left if you need more review</li>
                     <li>The app will schedule future reviews based on spaced repetition</li>
                 </ol>
             </div>
@@ -296,88 +309,89 @@
             <h2>Frequently Asked Questions</h2>
 
             <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
-                    <span>How does the AI assistant work?</span>
-                    <span class="faq-icon">▼</span>
-                </div>
-                <div class="faq-answer">
-                    The AI assistant uses advanced language models to help you learn. You can ask questions about your study materials, request explanations, generate terms from topics, or extract key concepts from conversations. The AI is designed to provide educational support and enhance your learning experience.
+                <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-1">
+                    <span>How can I generate cards?</span>
+                    <span class="faq-icon" aria-hidden="true">▼</span>
+                </button>
+                <div class="faq-answer" id="faq-answer-1" aria-hidden="true">
+                    When creating a lesson or adding cards, enter a topic or paste text and use Generate. Review and edit the generated cards before saving them to your lesson.
                 </div>
             </div>
 
             <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
+                <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-2">
                     <span>What is spaced repetition?</span>
-                    <span class="faq-icon">▼</span>
-                </div>
-                <div class="faq-answer">
+                    <span class="faq-icon" aria-hidden="true">▼</span>
+                </button>
+                <div class="faq-answer" id="faq-answer-2" aria-hidden="true">
                     Spaced repetition is a learning technique that involves reviewing material at increasing intervals over time. MemQ uses intelligent algorithms to determine when you should review each term based on your performance. Terms you struggle with appear more frequently, while mastered terms are reviewed less often, optimizing your study time.
                 </div>
             </div>
 
             <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
+                <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-3">
                     <span>Can I upload PDF documents?</span>
-                    <span class="faq-icon">▼</span>
-                </div>
-                <div class="faq-answer">
-                    Yes! You can upload PDF documents through the AI assistant. The app will analyze the document and automatically extract key terms and concepts, creating flashcards for you. This is especially useful for textbooks, research papers, or study guides.
+                    <span class="faq-icon" aria-hidden="true">▼</span>
+                </button>
+                <div class="faq-answer" id="faq-answer-3" aria-hidden="true">
+                    Yes. When creating cards, you can add a PDF and generate cards from its contents. Review the generated cards before saving them.
                 </div>
             </div>
 
             <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
+                <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-4">
                     <span>How do I track my progress?</span>
-                    <span class="faq-icon">▼</span>
-                </div>
-                <div class="faq-answer">
+                    <span class="faq-icon" aria-hidden="true">▼</span>
+                </button>
+                <div class="faq-answer" id="faq-answer-4" aria-hidden="true">
                     MemQ tracks your progress automatically. On the home screen, you'll see your daily goal and progress. Each lesson shows completion statistics, and you can view detailed progress for individual terms. The app tracks which terms you've mastered and which need more review.
                 </div>
             </div>
 
             <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
+                <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-5">
                     <span>What are the different learning stages?</span>
-                    <span class="faq-icon">▼</span>
-                </div>
-                <div class="faq-answer">
+                    <span class="faq-icon" aria-hidden="true">▼</span>
+                </button>
+                <div class="faq-answer" id="faq-answer-5" aria-hidden="true">
                     Terms progress through six stages: <strong>New</strong> (just added), <strong>Learning</strong> (first attempts), <strong>Familiar</strong> (getting comfortable), <strong>Good</strong> (solid understanding), <strong>Strong</strong> (well-known), and <strong>Mastered</strong> (fully learned). The app adjusts review frequency based on these stages.
                 </div>
             </div>
 
             <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
+                <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-6">
                     <span>How do subscriptions work?</span>
-                    <span class="faq-icon">▼</span>
-                </div>
-                <div class="faq-answer">
+                    <span class="faq-icon" aria-hidden="true">▼</span>
+                </button>
+                <div class="faq-answer" id="faq-answer-6" aria-hidden="true">
                     MemQ offers subscription plans that unlock premium features. Subscriptions are managed through your device's App Store (iOS) or Google Play Store (Android). You can cancel anytime through your device settings. Subscriptions automatically renew unless canceled at least 24 hours before the end of the billing period.
                 </div>
             </div>
 
             <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
+                <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-7">
                     <span>Can I delete my account?</span>
-                    <span class="faq-icon">▼</span>
-                </div>
-                <div class="faq-answer">
+                    <span class="faq-icon" aria-hidden="true">▼</span>
+                </button>
+                <div class="faq-answer" id="faq-answer-7" aria-hidden="true">
                     Yes, you can delete your account at any time through the Profile settings in the app. When you delete your account, all your data including lessons, terms, progress, and conversations will be permanently removed. This action cannot be undone.
                 </div>
             </div>
 
             <div class="faq-item">
-                <div class="faq-question" onclick="toggleFaq(this)">
+                <button type="button" class="faq-question" onclick="toggleFaq(this)" aria-expanded="false" aria-controls="faq-answer-8">
                     <span>Is my data secure?</span>
-                    <span class="faq-icon">▼</span>
-                </div>
-                <div class="faq-answer">
+                    <span class="faq-icon" aria-hidden="true">▼</span>
+                </button>
+                <div class="faq-answer" id="faq-answer-8" aria-hidden="true">
                     Yes, we take data security seriously. All data is encrypted in transit using HTTPS/TLS. We use secure authentication and access controls. Your data is stored securely using industry-standard practices. For more details, please see our Privacy Policy.
                 </div>
             </div>
+            <p class="faq-empty" id="faqEmpty" hidden>No matching questions. Try another search or <a href="#contact-support">contact support</a>.</p>
         </div>
 
         <!-- Contact Section -->
-        <div class="contact-section">
+        <div class="contact-section" id="contact-support">
             <h2>Still Need Help?</h2>
             <p>Can't find what you're looking for? Our support team is here to help.</p>
             <a href="mailto:support@riverstudio.cc" class="contact-button">Contact Support</a>
@@ -397,11 +411,15 @@
             document.querySelectorAll('.faq-item').forEach(item => {
                 if (item !== faqItem) {
                     item.classList.remove('active');
+                    item.querySelector('.faq-question').setAttribute('aria-expanded', 'false');
                     item.querySelector('.faq-answer').classList.remove('active');
+                    item.querySelector('.faq-answer').setAttribute('aria-hidden', 'true');
                 }
             });
 
             // Toggle current FAQ
+            element.setAttribute('aria-expanded', String(!isActive));
+            answer.setAttribute('aria-hidden', String(isActive));
             if (isActive) {
                 faqItem.classList.remove('active');
                 answer.classList.remove('active');
@@ -413,8 +431,9 @@
 
         // Search functionality
         document.getElementById('searchInput').addEventListener('input', function(e) {
-            const searchTerm = e.target.value.toLowerCase();
+            const searchTerm = e.target.value.trim().toLowerCase();
             const faqItems = document.querySelectorAll('.faq-item');
+            let matches = 0;
 
             faqItems.forEach(item => {
                 const question = item.querySelector('.faq-question span').textContent.toLowerCase();
@@ -422,10 +441,13 @@
                 
                 if (question.includes(searchTerm) || answer.includes(searchTerm)) {
                     item.style.display = '';
+                    matches++;
                 } else {
                     item.style.display = 'none';
                 }
             });
+            document.getElementById('faqEmpty').hidden = matches !== 0;
+            document.getElementById('searchStatus').textContent = searchTerm ? `${matches} matching ${matches === 1 ? 'question' : 'questions'}.` : '';
         });
     </script>
 </body>

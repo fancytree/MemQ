@@ -1,67 +1,82 @@
-# MemQ Landing Page
+# MemQ website preview
 
-这是一个为 MemQ 应用创建的现代化 landing page 网站。
+This folder contains the static website preview. Serve it from an HTTP server and open `index.html`; the support and policy pages load shared navigation and footer components and should not be checked via a `file://` URL.
 
-## 功能特点
+The home page uses `site.css` and `site.js`, Geist and Oswald, the current lime and purple palette, and the Today screen capture in `img/current/today-demo.png`. The capture uses example course content. Animations respect the visitor's reduced-motion setting, and page content remains available without JavaScript.
 
-- **响应式设计**: 适配桌面、平板和移动设备
-- **现代化UI**: 使用渐变色彩和流畅动画
-- **核心功能展示**: 突出展示应用的6大核心功能
-- **使用流程说明**: 清晰展示应用的使用步骤
-- **平滑滚动**: 优化的导航和滚动体验
+## Stylesheets and markup travel together
 
-## 使用方法
+`site.css`, `site.js`, `secondary.css` and the Today capture are requested with a `?v=` query. Bump it
+in every page whenever one of them changes shape alongside the markup. Without it a
+visitor holding a cached stylesheet gets it against new HTML, and the static server
+here sends no `Cache-Control`, so browsers keep one for a long time: the hero laid
+its two mascot drawings out one above the other down the whole page that way. The
+second drawing is also `hidden` in the markup and only revealed once the rule that
+stacks it is present, so the worst case is one face and no swap rather than that.
 
-1. 直接在浏览器中打开 `landing-page.html` 文件
-2. 或者部署到任何静态网站托管服务（如 Netlify, Vercel, GitHub Pages 等）
+## Keeping it current
 
-## 自定义建议
+`img/current/today-demo.png` is a simulator capture of the app's own `website-preview` route, which renders the Today screen with example content and no personal data. Retake it whenever that screen changes: open `memq://website-preview` and capture with `xcrun simctl io <udid> screenshot`. The development-only route temporarily hides the dev-client floating button and restores its previous setting when leaving; verify the screenshot is the demo screen before using it.
 
-### 替换占位内容
+The hero character is the app's own rig, not a copy of it. Two files are generated
+from `components/mascot/rig` by `node scripts/build-website-mascot.cjs`, and neither
+is edited by hand:
 
-1. **手机截图**: 将 Hero 部分的占位符替换为实际的应用截图
-   ```html
-   <!-- 在 hero-image 部分，替换占位 div 为实际图片 -->
-   <img src="path-to-your-app-screenshot.png" alt="MemQ App">
-   ```
+- `mascot-rig.js` — the solver the app runs every frame, compiled for a browser.
+- the SVG between the `<!--mascot:start-->` and `<!--mascot:end-->` comments in
+  `index.html` — one element per part, drawn in the rest pose, so the character is
+  on the page with no script at all. Each element names the number in a frame it
+  listens to: `data-m` a matrix, `data-o` an opacity, `data-d` a path, `data-rx` and
+  `data-ry` a radius.
 
-2. **下载链接**: 更新 CTA 部分的下载链接
-   ```html
-   <!-- 替换 # 为实际的 App Store 和 Google Play 链接 -->
-   <a href="https://apps.apple.com/..." class="btn-primary">Download for iOS</a>
-   <a href="https://play.google.com/..." class="btn-secondary">Download for Android</a>
-   ```
+`site.js` runs the solver on `requestAnimationFrame` and hands each number to the
+element that asked for it. Nothing about how the character moves is decided on the
+website: when the rig changes in the app, run the script again and bump
+`mascot-rig.js?v=` (and `site.css?v=` / `site.js?v=` if they changed). The script
+takes `--check`, which writes nothing and fails if either file is out of date.
 
-3. **社交媒体链接**: 在 Footer 部分添加实际的社交媒体链接
+The hero is laid out the way the app's Today screen is: two hills, and the character
+behind the near one with its paws over the edge. All of it is one drawing — the far
+hill, the back half of the character, the near hill, then its face and hands — in
+the character's own 256 square, so the paws cannot come off the edge however the
+page is sized. Between the points marked in the build script the hills are the app's
+own curves (`assets/home-figma/wave-back.svg`, `wave-front.svg`) placed as Today
+places them; beyond that stretch they are carried on left and right, far past any
+window, because a page does not end where a phone does. The corrections that rest
+the paws on the slope and lift the tail clear of it are Today's too (`pose` in the
+build script, `data-pose` on the drawing).
 
-### 优化建议
+The mood is `todayIdle`, Today's own resting state, with the sparks the hero has
+always worn asked for on top (`data-marks="spark"`). The gaze follows the pointer
+instead of wandering, since a page has something worth looking at; with no pointer,
+or once it has sat still for a while, it goes back to wandering as it does in the
+app. The character only runs while the hero is on screen, and with reduced motion
+it is drawn once at rest and left alone.
 
-1. **添加实际截图**: 使用真实的应用界面截图替换占位符
-2. **添加用户评价**: 可以添加 testimonials 部分展示用户反馈
-3. **添加视频演示**: 在 Hero 部分可以添加产品演示视频
-4. **SEO优化**: 添加更多 meta 标签和结构化数据
-5. **性能优化**: 压缩图片，使用 CDN 等
+## Motion on the page
 
-## 技术栈
+- **Ticker.** The track is twelve identical groups and moves by exactly one of them,
+  so it is seamless and covers a window up to about eleven groups wide (≈6500px).
+  Change the group count in `index.html` and the `12` in `@keyframes marquee`
+  together.
+- **Lipped buttons** (`.button`) press flat: on `:active` the face travels down by
+  the height of its lip (`--lip`) and the lip goes to nothing. They do not lift on
+  hover — a button that rises and one that is pressed are two different objects.
+- **Parallax.** Anything with `data-parallax` drifts by that many pixels per pixel
+  scrolled; positive hangs back, negative runs ahead. Layers in the first screen
+  drift from where they were laid out; layers further down pass through where they
+  were laid out as their section crosses the middle of the window. It is scaled down
+  on phones and off with reduced motion. The near hill and the character are not
+  layers: the paws are on that edge.
+- **Small things**, all in the last block of `site.css`: the scroll arrow nudges,
+  arrows in links and buttons lean the way they point on hover, the eyebrow dot
+  pings, the two chips bob, the wordmark's star turns.
 
-- 纯 HTML/CSS/JavaScript
-- 响应式设计（CSS Grid & Flexbox）
-- 平滑滚动和动画效果
-- 无需任何构建工具或框架
+It used to be a second description of the character: the paths lifted into the page
+and the motion re-typed as CSS keyframes from the app's numbers. That copy went on
+being the old frame-swapping picture after the app had stopped being one, which is
+why it is generated now.
 
-## 浏览器支持
+The `oauth/` pages are local authorization prototypes. Their presence here does not mean the MCP service or authorization flow is deployed or ready for production. See `docs/mcp/README.md` in the MemQ repository for the current testing and release limitations.
 
-支持所有现代浏览器：
-- Chrome/Edge (最新版本)
-- Firefox (最新版本)
-- Safari (最新版本)
-- 移动浏览器
-
-## 颜色方案
-
-Landing page 使用了与应用一致的颜色方案：
-- 主色渐变: `#4e49fc` → `#6b66ff`
-- 次要蓝色: `#3B82F6`
-- 文本颜色: `#111827` (主), `#6B7280` (次)
-- 背景色: `#F9FAFB` (浅), `#FFFFFF` (白)
-
+Before publishing, compare this preview with the existing website source, verify asset and link paths on the target host, and check desktop and mobile layouts. A local preview or copied source is not evidence that the public website has been deployed.
