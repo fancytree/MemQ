@@ -714,15 +714,15 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
-      {/* The way back stays above the scroll view; the page's name scrolls with the
-          page, large and on the left, the way every other second-level page has it. */}
+      {/* The way back stays above the scroll view. No page name under it: the person's
+          own name and picture open the page, and a heading saying "Profile" over a
+          profile only repeats what is already the first thing on it. */}
       {isTab ? <View style={styles.tabTop} /> : <SecondaryPageNav onBack={() => safeBack('/you')} backLabel="← You" />}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <Text accessibilityRole="header" style={styles.pageTitle}>Profile</Text>
         <View style={styles.topHeaderBlock}>
           {/* 用户信息头部 */}
           <View style={styles.userHeader}>
@@ -1120,7 +1120,6 @@ const styles = StyleSheet.create({
     backgroundColor: t.color.bg,
   },
   pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 300 },
-  pageTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, marginHorizontal: layout.screenInline, marginBottom: 4 },
   tabTop: { height: 14 },
   scrollView: {
     flex: 1,
