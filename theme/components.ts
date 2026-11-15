@@ -8,7 +8,7 @@ export const componentTokens = {
   lessonDetail: { gap: 16, sectionGap: 24, controlRadius: 14, searchHeight: 46, termPadding: 16, overviewRadius: 20, overviewPadding: 16 },
   createNavigation: { width: 48, height: 48, borderRadius: radius.pill, backgroundColor: colors.action },
   // Library 57:2036: 238px reference card minus the deferred 52px cover and its 5px gap.
-  libraryCard: { minHeight: 181, borderRadius: 14, padding: 12, gap: 5, gridGap: 12, progressHeight: 4 },
+  libraryCard: { minHeight: 181, borderRadius: 24, padding: 12, gap: 5, gridGap: 12, progressHeight: 4 },
   primaryAction: {
     minHeight: 52, borderRadius: radius.pill,
     paddingHorizontal: space[6], paddingVertical: 15,
@@ -31,9 +31,13 @@ export const interaction = {
   pressed: colors.actionPressed,
   disabled: { backgroundColor: colors.disabledBg, color: colors.disabledText },
 } as const;
-export const elevation = { none: { shadowOpacity: 0, elevation: 0 } } as const;
+export const elevation = {
+  none: { shadowOpacity: 0, elevation: 0 },
+  card: { borderRadius: 24, boxShadow: `0px 4px 0px ${colors.border}` },
+} as const;
 export const sourceReference = {
   fileKey: 'YkyRSgXn9qY2lHKd1plTss', page: '33:1145',
+  homeDesignFileKey: 'mH3dfsUnPuRiCAUBTWE6cX', homeDesignNode: '1:176',
   lessonEditor: '66:2808', deadlineSheet: '66:2995', deleteLessonDialog: '66:3168',
   library: '57:2036', lessonDetail: '59:2455',
   today: '33:1146', todayRedesign: '96:606', decorations: '33:1262', inkling: '33:1394',

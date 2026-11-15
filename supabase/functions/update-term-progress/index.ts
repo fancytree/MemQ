@@ -1,3 +1,5 @@
+import { isDirectUserSession } from '../_shared/directSession.ts';
+import { cardStateFromRow, scheduleReview, STAGES } from '../_shared/scheduler.ts';
 // Supabase Edge Function - Update Term Progress (SRS Algorithm)
 // Deno environment
 
@@ -12,26 +14,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// 学习阶段定义
-const STAGES: string[] = ['New', 'Learning', 'Familiar', 'Good', 'Strong', 'Mastered'];
-
-// 根据 step_index 计算下次复习间隔（天数）
-const getReviewIntervalDays = (stepIndex: number): number => {
-  const intervals: { [key: number]: number } = {
-    0: 1,   // New -> 1天后
-    1: 3,   // Learning -> 3天后
-    2: 7,   // Familiar -> 7天后
-    3: 14,  // Good -> 14天后
-    4: 30,  // Strong -> 30天后
-    5: 90,  // Mastered -> 90天后（可选，或者设置为很远的日期）
-  };
-  return intervals[stepIndex] || 1;
-};
-
 // 请求体类型定义
 interface UpdateProgressRequest {
   term_id: string;
   is_correct: boolean;
+  /** Minutes east of UTC, so a wait of days can end when the person's day starts. */
+  tz_offset_minutes?: number;
 }
 
 Deno.serve(async (req: Request) => {
@@ -107,6 +95,13 @@ Deno.serve(async (req: Request) => {
       );
     }
 
+    // Verified third-party OAuth sessions are limited to the MCP endpoint.
+    if (!isDirectUserSession(authHeader)) {
+      return new Response(JSON.stringify({ error: 'This action is not available to connected apps.' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // 获取当前用户对该 term 的进度记录
     const { data: currentProgress, error: fetchError } = await supabase
       .from('user_term_progress')
@@ -120,12 +115,10 @@ Deno.serve(async (req: Request) => {
       throw new Error('Failed to fetch current progress');
     }
 
-    // 确定当前索引（如果不存在，默认为 0）
     const currentIndex = currentProgress?.step_index ?? 0;
     const now = new Date();
 
-    // Step A: 获取 Deadline
-    // 查询该 Term 所属的 Lesson，获取 deadline 字段
+    // The lesson's deadline, if it has one: the schedule bends to fit it.
     const { data: termData, error: termError } = await supabase
       .from('terms')
       .select('lesson_id')
@@ -141,76 +134,43 @@ Deno.serve(async (req: Request) => {
         .single();
 
       if (!lessonError && lessonData && lessonData.deadline) {
-        deadline = new Date(lessonData.deadline);
+        const parsed = new Date(lessonData.deadline);
+        if (!Number.isNaN(parsed.getTime())) deadline = parsed;
       }
     }
 
-    // 计算新的索引和状态
-    let newIndex: number;
-    let nextReviewAt: Date;
+    // The schedule itself lives in _shared/scheduler.ts, which the app's offline
+    // fallback runs too. What it decides here: a stage is earned only by a card that
+    // was due, so the several questions one round asks about a card move it once.
+    const tzOffsetMinutes = typeof body.tz_offset_minutes === 'number'
+      && Number.isFinite(body.tz_offset_minutes) && Math.abs(body.tz_offset_minutes) <= 14 * 60
+      ? body.tz_offset_minutes : null;
+    const review = scheduleReview({
+      state: cardStateFromRow(currentProgress),
+      isCorrect: body.is_correct, now, deadline, tzOffsetMinutes,
+    });
+    const newIndex = review.stepIndex;
+    const nextReviewAt = review.nextReviewAt;
 
-    if (body.is_correct) {
-      // 答对了：索引 + 1（最大为 5）
-      newIndex = Math.min(currentIndex + 1, 5);
-      
-      // Step B: 计算标准间隔 (Standard Interval)
-      const standardIntervalDays = getReviewIntervalDays(newIndex);
-      
-      // Step C: 计算压缩间隔 (Compressed Interval)
-      let finalIntervalDays = standardIntervalDays;
-      
-      if (deadline && deadline > now) {
-        // 计算剩余天数
-        const daysUntilDeadline = Math.ceil(
-          (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
-        );
-        
-        // 计算剩余阶段（目标是 Mastered，Index 5）
-        // 如果当前是 index 2 (Familiar)，则剩余 3 个阶段 (3->4, 4->5, 5->Done)
-        const targetIndex = 5; // Mastered
-        const stagesRemaining = Math.max(1, targetIndex - newIndex);
-        
-        // 最大允许间隔：days_until_deadline / stages_remaining
-        const maxAllowedInterval = daysUntilDeadline / stagesRemaining;
-        
-        // Step D: 决策 (Decision)
-        // Final Interval = Math.min(standard_interval, max_allowed_interval)
-        finalIntervalDays = Math.min(standardIntervalDays, maxAllowedInterval);
-        
-        // 保底策略：如果 Final Interval < 1，设置为 1 天 (Cram Mode)
-        if (finalIntervalDays < 1) {
-          finalIntervalDays = 1;
-        }
-      }
-      
-      // 根据最终间隔计算下次复习时间
-      nextReviewAt = new Date(now);
-      nextReviewAt.setDate(nextReviewAt.getDate() + Math.ceil(finalIntervalDays));
-    } else {
-      // 中文：答错降一级（最低 New）；Mastered(5) 答错 → Strong(4)，避免一步跌回 Learning
-      newIndex = Math.max(0, currentIndex - 1);
-      nextReviewAt = now;
-    }
-
-    // 准备更新数据
-    const updateData = {
+    const baseUpdate = {
       user_id: user.id,
       term_id: body.term_id,
-      status: STAGES[newIndex] as any,
+      status: review.status as any,
       step_index: newIndex,
       last_reviewed_at: now.toISOString(),
       next_review_at: nextReviewAt.toISOString(),
     };
 
-    // 使用 upsert 更新或插入记录
-    // 注意：onConflict 应该使用唯一约束的名称，或者直接使用列名
-    const { data, error: upsertError } = await supabase
+    // `ease` and `lapses` arrive with a migration. Until it has run the columns are
+    // not there, and the answer is still recorded without them.
+    let { error: upsertError } = await supabase
       .from('user_term_progress')
-      .upsert(updateData, {
-        onConflict: 'user_id,term_id', // 使用列名组合作为冲突键
-      })
-      .select()
-      .single();
+      .upsert({ ...baseUpdate, ease: review.ease, lapses: review.lapses }, { onConflict: 'user_id,term_id' });
+    if (upsertError && (upsertError.code === 'PGRST204' || upsertError.code === '42703')) {
+      ({ error: upsertError } = await supabase
+        .from('user_term_progress')
+        .upsert(baseUpdate, { onConflict: 'user_id,term_id' }));
+    }
 
     if (upsertError) {
       console.error('Error upserting progress:', upsertError);
@@ -228,6 +188,7 @@ Deno.serve(async (req: Request) => {
           previous_status: currentProgress?.status || STAGES[0],
           new_status: STAGES[newIndex],
           next_review_at: nextReviewAt.toISOString(),
+          outcome: review.outcome,
         },
       }),
       {

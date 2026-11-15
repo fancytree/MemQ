@@ -19,6 +19,10 @@ const assets = {
   home: [require('../assets/home-figma/home.svg'), 24, 24],
   add: [require('../assets/home-figma/add.svg'), 50, 50],
   library: [require('../assets/home-figma/library.svg'), 24, 24],
+  // The tab bar's own pair, solid: a tab is something to press, and at this size a
+  // filled shape holds its place on the bar where a hairline outline does not.
+  homeSolid: [require('../assets/home-figma/home-solid.svg'), 24, 24],
+  librarySolid: [require('../assets/home-figma/library-solid.svg'), 24, 24],
   flame: [require('../assets/home-figma/flame.svg'), 17.024, 21.1051],
 } as const;
 

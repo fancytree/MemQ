@@ -1,0 +1,36 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="256" height="256" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Completed">
+<g id="mascot">
+<path id="Vector" d="M154 200.323C176.553 215.445 200.234 203.984 207 175" stroke-width="12" stroke-linecap="round" stroke="#4B2C78"/>
+<path id="Vector_2" d="M194.168 171.815C193.061 171.152 192.861 169.63 193.76 168.705L207.912 154.133C211.227 150.72 213.547 151.403 214.873 156.181L221.834 179.733C222.497 183.147 221.171 184.512 217.856 183.829C212.995 182.125 208.34 180.082 203.814 177.587L194.168 171.815Z" fill="#4B2C78"/>
+</g>
+<g id="mascot_2">
+<path id="horn L" d="M94.5 86.8166C87 96.6331 68.5 97.625 61.5 95C54.5 92.375 48.8858 86.8166 48.8858 86.8166C40.2565 79.1461 40.2565 65.7229 46.0094 54.2173C51.7622 42.7116 62.309 36 69.9794 36C76.6911 36 75.7323 40.794 73.8147 45.588C71.897 52.2997 75.7323 57.0937 81.4851 60.9289C87.5 64 88 64 94.5 65.5C94.5 65.5 102 77 94.5 86.8166Z" fill="#4B2C78"/>
+</g>
+<g id="mascot_3">
+<path id="horn R" d="M126.065 86.5236C131.562 97.5869 149.536 102.077 156.908 100.831C164.279 99.5844 170.847 95.1946 170.847 95.1946C180.777 89.3044 183.329 76.1259 179.868 63.7365C176.408 51.3471 167.329 42.7529 159.798 41.2948C153.209 40.019 153.239 44.9079 154.21 49.979C154.817 56.9328 150.141 60.9103 143.764 63.582C137.275 65.4537 136.784 65.3587 130.117 65.5957C130.117 65.5957 120.568 75.4603 126.065 86.5236Z" fill="#4B2C78"/>
+</g>
+<path id="Body" d="M110 214C152.526 214 187 180.869 187 140C187 99.1309 152.526 66 110 66C67.4741 66 33 99.1309 33 140C33 180.869 67.4741 214 110 214Z" fill="#C59AF0" stroke-width="12" stroke="#4B2C78"/>
+<g id="mascot_4">
+</g>
+<g id="mascot_5">
+</g>
+<g id="mascot/Mouth suprise">
+</g>
+<g id="mascot_6">
+<path id="Happy eye L" d="M63 128.003C72 111.503 90 112.503 98 128.003" stroke-width="8" stroke-linecap="round" stroke="#4B2C78"/>
+</g>
+<g id="mascot_7">
+<path id="Happy eye R" d="M157 128.003C148 111.503 130 112.503 122 128.003" stroke-width="8" stroke-linecap="round" stroke="#4B2C78"/>
+</g>
+<g id="mascot_8">
+<path id="Vector_3" d="M164 168H127C121.477 168 117 172.477 117 178V216C117 221.523 121.477 226 127 226H164C169.523 226 174 221.523 174 216V178C174 172.477 169.523 168 164 168Z" fill="white" stroke-width="7" stroke-miterlimit="3.99393" stroke="#4B2C78"/>
+<path id="Vector_4" d="M129 196L139 206L162 181" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" stroke="#FFBA00"/>
+</g>
+<g id="mascot_9">
+<path id="Vector_5" d="M205 53L214 36" stroke-width="10" stroke-linecap="round" stroke="#FFBA00"/>
+<path id="Vector_6" d="M219 68L236 59" stroke-width="10" stroke-linecap="round" stroke="#FFBA00"/>
+<path id="Vector_7" d="M222 85L239 88" stroke-width="10" stroke-linecap="round" stroke="#FFBA00"/>
+</g>
+</g>
+</svg>

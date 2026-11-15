@@ -1,6 +1,6 @@
 import { colors, componentTokens, elevation, interaction, type } from '@/theme';
 import { Pressable, PressableProps, StyleSheet, Text, View } from 'react-native';
-import { MascotCharacter, type MascotMood } from '../mascot/MascotCharacter';
+import { MascotRig, type MascotMood } from '../mascot/rig/MascotRig';
 import { DesignAsset } from '../DesignAsset';
 
 type TodayHeroProps = Omit<PressableProps, 'children'> & {
@@ -28,7 +28,7 @@ export function TodayHero({ dueCount, estimateMinutes, actionLabel, showPlayIcon
           {estimateMinutes === null ? 'Nothing due right now.' : `Estimate· ${estimateMinutes}min`}
         </Text>
       </View>
-      <MascotCharacter width={hero.characterWidth} mood={mood} style={styles.character} />
+      <MascotRig width={hero.characterWidth} mood={mood} style={styles.character} />
       <Pressable {...props} accessibilityRole="button"
         accessibilityLabel={props.accessibilityLabel ?? actionLabel}
         style={(state) => [styles.action, state.pressed && styles.actionPressed,

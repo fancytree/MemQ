@@ -52,7 +52,7 @@ function initSmoothScrolling() {
             const target = document.querySelector(href);
             if (target) {
                 target.scrollIntoView({
-                    behavior: 'smooth',
+                    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
                     block: 'start'
                 });
             }

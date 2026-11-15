@@ -1,3 +1,4 @@
+import { isDirectUserSession } from '../_shared/directSession.ts';
 // Supabase Edge Function - Chat Thread Messages
 // 获取特定对话线程的所有消息（从数据库读取）
 
@@ -92,6 +93,13 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
+    }
+
+    // Verified third-party OAuth sessions are limited to the MCP endpoint.
+    if (!isDirectUserSession(authHeader)) {
+      return new Response(JSON.stringify({ error: 'This action is not available to connected apps.' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // 验证该线程属于当前用户

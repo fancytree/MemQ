@@ -48,6 +48,7 @@ export interface Database {
           description: string | null;
           deadline: string | null;
           learning_mode: 'language' | 'knowledge';
+          cover_style: string | null;
           created_at: string;
         };
         Insert: {
@@ -57,6 +58,7 @@ export interface Database {
           description?: string | null;
           deadline?: string | null;
           learning_mode?: 'language' | 'knowledge';
+          cover_style?: string | null;
           created_at?: string;
         };
         Update: {
@@ -66,6 +68,7 @@ export interface Database {
           description?: string | null;
           deadline?: string | null;
           learning_mode?: 'language' | 'knowledge';
+          cover_style?: string | null;
           created_at?: string;
         };
       };
@@ -77,6 +80,7 @@ export interface Database {
           definition: string;
           explanation: string | null;
           language_data: Json | null;
+          content_revision: string;
           created_at: string;
         };
         Insert: {
@@ -86,6 +90,7 @@ export interface Database {
           definition: string;
           explanation?: string | null;
           language_data?: Json | null;
+          content_revision?: string;
           created_at?: string;
         };
         Update: {
@@ -95,6 +100,7 @@ export interface Database {
           definition?: string;
           explanation?: string | null;
           language_data?: Json | null;
+          content_revision?: string;
           created_at?: string;
         };
       };
@@ -107,6 +113,7 @@ export interface Database {
           options: Json | null;
           correct_answer: string;
           explanation: string | null;
+          source_revision: string | null;
           created_at: string;
         };
         Insert: {
@@ -117,6 +124,7 @@ export interface Database {
           options?: Json | null;
           correct_answer: string;
           explanation?: string | null;
+          source_revision?: string | null;
           created_at?: string;
         };
         Update: {
@@ -127,6 +135,7 @@ export interface Database {
           options?: Json | null;
           correct_answer?: string;
           explanation?: string | null;
+          source_revision?: string | null;
           created_at?: string;
         };
       };
@@ -139,6 +148,8 @@ export interface Database {
           step_index: number;
           next_review_at: string | null;
           last_reviewed_at: string | null;
+          ease: number;
+          lapses: number;
           created_at: string;
         };
         Insert: {
@@ -149,6 +160,8 @@ export interface Database {
           step_index?: number;
           next_review_at?: string | null;
           last_reviewed_at?: string | null;
+          ease?: number;
+          lapses?: number;
           created_at?: string;
         };
         Update: {
@@ -159,6 +172,8 @@ export interface Database {
           step_index?: number;
           next_review_at?: string | null;
           last_reviewed_at?: string | null;
+          ease?: number;
+          lapses?: number;
           created_at?: string;
         };
       };

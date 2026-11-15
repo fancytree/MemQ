@@ -5,17 +5,20 @@ import { type } from '@/theme/typography';
 import { sheet } from '@/theme/sheet';
 import { CloseButton } from '@/components/ui/RoundButtons';
 import { HomeAsset } from '@/components/HomeAsset';
-import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
+import { Icon } from '@/components/Icon';
+import { MascotRig, type MascotMood } from '@/components/mascot/rig/MascotRig';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LedgePressable } from '@/components/ui/LedgePressable';
+import { StreakPill } from '@/components/ui/StreakPill';
 
 interface LessonSummary {
   id: string;
@@ -28,7 +31,14 @@ interface LessonSummary {
   deadline: string | null;
   learningMode?: 'language' | 'knowledge';
   coverStyle?: string | null;
+  /** When this lesson was last touched, in ms: the latest review of any of its
+   * cards, or failing that when it was made. Absent on a list cached before this
+   * was recorded. */
+  recent?: number;
 }
+
+/** How many lessons Continue Learning lists. The rest are in the library. */
+const CONTINUE_MAX = 5;
 
 const LEARNING_STAGE_WEIGHTS: Record<string, number> = {
   New: 0,
@@ -99,6 +109,16 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
   // use. Null until there is a card to measure, which is not the same as 0%.
   const [mastery, setMastery] = useState<number | null>(isDemo ? 64 : null);
   const [currentStreak, setCurrentStreak] = useState(isDemo ? 5 : 0);
+  // Whether this screen is the one in front. The streak only celebrates then: it
+  // grows while a practice session is covering this screen, and the moment to say
+  // so is when that session is put away and this is what is being looked at.
+  const focused = useIsFocused();
+  // How far the page has been scrolled, for the band that comes in behind the top
+  // bar once there is something passing under it.
+  const scrolled = useRef(new Animated.Value(0)).current;
+  const barSky = scrolled.interpolate({ inputRange: [6, 44], outputRange: [0, 1], extrapolate: 'clamp' });
+  // Whose streak it is, so the last number each account was shown is kept apart.
+  const [streakOwner, setStreakOwner] = useState<string | null>(null);
   // The character's face is read off this screen's own numbers — how many are due,
   // whether the day's goal is met, whether there are any cards at all — so it cannot
   // be drawn before they are all here. Drawn early it wears one expression and swaps
@@ -138,7 +158,13 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
     transform: [{ translateY: heroEntrance[index].interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }],
   });
   const insets = useSafeAreaInsets();
-  const visibleLessons = lessons.slice(0, 3);
+  // Continue Learning is what was being learned, most recent first — not the
+  // newest lessons made. A lesson studied this morning belongs above one created
+  // last night and never opened. The sort is stable, so lessons with nothing to
+  // tell them apart stay in the order they came in.
+  const visibleLessons = [...lessons]
+    .sort((a, b) => (b.recent ?? 0) - (a.recent ?? 0))
+    .slice(0, CONTINUE_MAX);
   const lessonsCount = lessons.length;
   const totalCards = lessons.reduce((sum, lesson) => sum + lesson.cards, 0);
   const totalDue = lessons.reduce((sum, lesson) => sum + lesson.due, 0);
@@ -259,6 +285,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
     setMastery(termIds.length ? Math.round((carried / termIds.length) * 100) : null);
     const activityDays = activityDaysFromProgressUpdates(progressData || []);
     setCurrentStreak(computeCurrentStreak(activityDays));
+    setStreakOwner(user.id);
 
     // Count distinct terms reviewed today (last_reviewed_at >= today 00:00 local)
     const todayMidnight = new Date();
@@ -267,6 +294,14 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
       (p) => p.last_reviewed_at && new Date(p.last_reviewed_at) >= todayMidnight
     ).length;
     setReviewedToday(reviewedTodayCount);
+
+    // When each card was last reviewed, for ordering lessons by when they were
+    // last studied.
+    const reviewedAt = new Map<string, number>();
+    (progressData || []).forEach((row) => {
+      const at = row.last_reviewed_at ? new Date(row.last_reviewed_at).getTime() : NaN;
+      if (Number.isFinite(at) && at > (reviewedAt.get(row.term_id) ?? 0)) reviewedAt.set(row.term_id, at);
+    });
 
     const termsByLesson = new Map<string, { id: string; lesson_id: string }[]>();
     (termsData || []).forEach((term) => {
@@ -280,10 +315,13 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
       const lessonTerms = termsByLesson.get(lesson.id) || [];
       const cards = lessonTerms.length;
       let weightedScore = 0;
+      const made = lesson.created_at ? new Date(lesson.created_at).getTime() : NaN;
+      let recent = Number.isFinite(made) ? made : 0;
 
       lessonTerms.forEach((term) => {
         const status = progressMap.get(term.id);
         weightedScore += getStatusWeight(status);
+        recent = Math.max(recent, reviewedAt.get(term.id) ?? 0);
       });
 
       const reviewed = Math.round(weightedScore);
@@ -322,6 +360,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         totalDue: rawDue,
         pct,
         deadline: lesson.deadline ?? null,
+        recent,
       };
     });
 
@@ -343,27 +382,28 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
 
   return (
     <View style={styles.root}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: 90 + Math.max(8, insets.bottom) }]}>
+      <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: 90 + Math.max(8, insets.bottom) }]}
+        scrollEventThrottle={16}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrolled } } }], { useNativeDriver: true })}>
         <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]} locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
         <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
         <View pointerEvents="none" style={styles.mascot}>
-          <MascotCharacter width={MASCOT_WIDTH} mood={mood} tilt={MASCOT_TILT} look={MASCOT_LOOK}
-            handRest={{ right: MASCOT_RIGHT_HAND }} tailRest={MASCOT_TAIL}
+          <MascotRig width={MASCOT_WIDTH} mood={mood} tilt={MASCOT_TILT} look={MASCOT_LOOK}
+            handRest={MASCOT_HAND_REST} tailRest={MASCOT_TAIL}
             behind={<View pointerEvents="none" style={styles.waveOverMascot}><HomeAsset name="waveFront" /></View>} />
         </View>
-        <View style={[styles.top, { paddingTop: insets.top + 10 }]}>
-          <View style={styles.streak} accessibilityLabel={`${currentStreak}-day streak`}><View style={styles.streakFace}><HomeAsset name="flame" /><Text style={styles.streakText}>{currentStreak}</Text></View></View>
-          <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`} onPress={() => router.push('/you')} style={styles.profile}>{avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.profileImage} onError={() => setAvatarUrl(null)} /> : <Text style={styles.profileText}>{initial}</Text>}</Pressable>
-        </View>
+        {/* Where the streak and the profile sit. They are not in here: they stay put
+            while this scrolls, and are drawn over it below. */}
+        <View style={styles.top} />
         <View style={styles.hero}>
           <Animated.View style={[styles.focus, entranceStyle(0)]}><HomeAsset name="focusTarget" height={FOCUS_ICON} /><Text style={styles.focusText}>Today’s Focus</Text></Animated.View>
           <Animated.View style={[styles.heroCopy, entranceStyle(1)]}>
             <Text accessibilityRole="header" style={styles.count}>{totalDue}<Text style={styles.countUnit}> {totalDue === 1 ? 'card' : 'cards'}</Text></Text>
             <Text style={styles.subtitle}>{lessonsError ? 'Couldn’t load your lessons' : lessonsLoading ? 'Getting your lessons ready' : lessonsCount === 0 ? 'Create a lesson to start learning' : !hasCards ? 'Add cards to a lesson to start learning' : totalDue > 0 ? 'Need your review' : 'All caught up'}</Text>
           </Animated.View>
-          <Animated.View style={entranceStyle(2)}><Pressable accessibilityRole="button" accessibilityState={{ disabled: lessonsLoading }} disabled={lessonsLoading} onPress={startLearning} style={({ pressed }) => [styles.start, lessonsLoading && styles.startLoading, pressed && styles.startPressed]}>
+          <Animated.View style={entranceStyle(2)}><LedgePressable accessibilityRole="button" accessibilityState={{ disabled: lessonsLoading }} disabled={lessonsLoading} onPress={startLearning} style={[styles.start, lessonsLoading && styles.startLoading]}>
             <View style={styles.startFace}>{hasCards && !lessonsLoading && !lessonsError && <View style={styles.playIcon}><HomeAsset name="play" /></View>}<Text style={styles.startText}>{startLabel}</Text></View>
-          </Pressable></Animated.View>
+          </LedgePressable></Animated.View>
           {!lessonsLoading && !lessonsError && lessonsCount > 0 && !hasCards && <Pressable accessibilityRole="button" onPress={() => router.push('/create')} style={styles.createAlternative}><Text style={styles.createAlternativeText}>Or create a new lesson</Text></Pressable>}
         </View>
         <View style={styles.stats}><View style={styles.statsFace}>
@@ -372,13 +412,37 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
           <View style={styles.stat}><View style={styles.goalIcon}><GoalRing done={reviewedToday} goal={dailyGoalCards} /></View><Text style={styles.statValue}>{reviewedToday}/{dailyGoalCards}</Text><Text style={styles.statLabel}>Today’s goal</Text></View>
         </View></View>
         <View style={styles.courses}><View style={styles.coursesFace}>
-          <View style={styles.heading}><Text accessibilityRole="header" style={styles.sectionTitle}>Continue Learning</Text><Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.seeAll}><Text style={styles.seeAllText}>See All</Text><HomeAsset name="chevron" /></Pressable></View>
+          <View style={styles.heading}><Text accessibilityRole="header" style={styles.sectionTitle}>Continue Learning</Text>{lessonsCount > 0 && <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.seeAll}><Text style={styles.seeAllText}>See All</Text><HomeAsset name="chevron" /></Pressable>}</View>
           {visibleLessons.map(lesson => <Pressable key={lesson.id} accessibilityRole="button" onPress={() => router.push(`/lessons/${lesson.id}`)} style={styles.lesson}>
             <LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={71} height={56} /><View style={styles.lessonCopy}><Text numberOfLines={1} style={styles.lessonTitle}>{lesson.title}</Text><Text style={styles.lessonMeta}>{lesson.pct}% · {lesson.totalDue} cards remaining</Text><View style={styles.track}><View style={[styles.fill, { width: `${lesson.pct}%` }]} /></View></View>
           </Pressable>)}
-          {!lessonsLoading && !lessonsError && lessonsCount === 0 && <View style={styles.empty}><Text style={styles.lessonTitle}>Your first course is waiting.</Text><Text style={styles.lessonMeta}>Turn a topic, a note, or a PDF into learning cards.</Text></View>}
+          {/* Nothing to continue yet. The place a lesson would be is kept, drawn as
+              one that has not been made: the same row, a plus where its cover goes.
+              It is the quiet way in — the hero's button is the loud one — so it is
+              a row to tap, not a second button. */}
+          {!lessonsLoading && !lessonsError && lessonsCount === 0 && <Pressable accessibilityRole="button" accessibilityLabel="Create your first lesson" onPress={() => router.push('/create')} style={({ pressed }) => [styles.lesson, pressed && styles.emptyPressed]}>
+            <View style={styles.emptyCover}><Icon name="plus" size={22} color={homeColors.deep} /></View>
+            <View style={styles.lessonCopy}><Text style={styles.lessonTitle}>Your first lesson is waiting</Text><Text style={styles.lessonMeta}>Turn a topic, a note, or a PDF into learning cards.</Text><View style={styles.track} /></View>
+          </Pressable>}
         </View></View>
-      </ScrollView>
+      </Animated.ScrollView>
+      {/* The top bar: the streak and the way to the profile. It does not scroll. Those
+          two are the screen's standing furniture — how the days are going, and who
+          this is — and they were the first things to leave when the page moved.
+          At rest it is just the two of them on the hero; once the page has moved
+          under them a band of the hero's own sky comes in behind, fading out at its
+          lower edge, so the cards pass beneath it instead of through it. */}
+      <View pointerEvents="box-none" style={styles.topBar}>
+        <Animated.View pointerEvents="none" style={[styles.topBarSky, { height: insets.top + BAR_SKY, opacity: barSky }]}>
+          <LinearGradient pointerEvents="none" style={StyleSheet.absoluteFill}
+            colors={[homeColors.gradientStart, homeColors.gradientStart, `${homeColors.gradientStart}00`]}
+            locations={[0, 0.7, 1]} />
+        </Animated.View>
+        <View pointerEvents="box-none" style={[styles.topBarRow, { paddingTop: insets.top + 10 }]}>
+          <StreakPill value={currentStreak} active={focused} seenKey={streakOwner ? `memq:streak-seen:${streakOwner}` : null} />
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`} onPress={() => router.push('/you')} style={styles.profile}>{avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.profileImage} onError={() => setAvatarUrl(null)} /> : <Text style={styles.profileText}>{initial}</Text>}</Pressable>
+        </View>
+      </View>
       <Modal visible={showLessonPicker} transparent animationType="slide" onRequestClose={() => setShowLessonPicker(false)}>
         <View style={styles.pickerOverlay}>
           <Pressable accessibilityRole="button" accessibilityLabel="Close lesson picker" style={StyleSheet.absoluteFill} onPress={() => setShowLessonPicker(false)} />
@@ -398,6 +462,9 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
 }
 
 const purple = homeColors.deep;
+/** How far below the status bar the band behind the top bar reaches: the bar's own
+ * ten points of air and forty of height, and then the length of its fade. */
+const BAR_SKY = 86;
 /** The character's box. The static asset was a 220.205 square whose drawing filled
  * 60.4% of it; the animated one is a 256 square filling 60.2%, so the same number
  * puts the body on screen at the same size and the layout above is untouched. */
@@ -405,20 +472,14 @@ const MASCOT_WIDTH = 220.205;
 /** It sits in the top right with the count, the line of copy and the button all to
  * its left, so that is where it looks.
  *
- * These two numbers are what the character was first given at 16:33 — translated,
- * because the scale they were written in no longer exists. Back then one unit of look
- * moved the pupil 12 units across and 8 down, and nothing else; at 16:37 that single
- * reach was split in two, the eye white began to travel as well, and one unit became
- * 7 + 11 across and 4 + 10 down. The constant lives in MascotCharacter and is shared
- * by every screen that aims a gaze, so this screen's numbers went on meaning what
- * they had meant while quietly driving half again as far, and an afternoon of tuning
- * on top of that took them to -1.8 — 32 units into an eye white that has 13 to give,
- * which pins both pupils against the rim and holds them there.
- *
- * So: -1 by 12 across and 0.15 by 8 down, divided back out by 18 and 14. The gaze
- * lands exactly where it landed before any of it, and if that reach is ever retuned
- * again these have to be divided out again with it. */
-const MASCOT_LOOK = { x: -0.667, y: 0.086 };
+ * The numbers are a distance, written in the rig's scale. One unit of look moves a
+ * pupil 10 units across and 8 down inside its white, and slides the whole face 4
+ * and 2.5 after it (LOOK_REACH and FACE_TURN in the rig). What this screen wants is
+ * the gaze 12 units to the left and a little over 1 down, which is where it was
+ * first set and where it has been kept through two changes of that scale — so 12
+ * over 14 and 1.2 over 10.5. If the reach is retuned again these are divided out
+ * again with it; asking for more than about one unit pins both pupils to the rim. */
+const MASCOT_LOOK = { x: -0.857, y: 0.115 };
 /** No lean. The mockup draws the character at +10.1 degrees, which turned its head
  * away from everything it is about; leaning it the other way fixed that and brought
  * its own problems — the hands orbit a circle and a tilted body meets them at a
@@ -426,33 +487,30 @@ const MASCOT_LOOK = { x: -0.667, y: 0.086 };
  * faces its copy without being tipped at it. */
 const MASCOT_TILT = 0;
 
-/** Where the right paw rests on this screen.
+/** Where the paws rest on this screen.
  *
- * Two corrections, measured rather than nudged by eye.
+ * The character rests its hands on the hill, which this screen hands it as
+ * `behind`, so the hill is drawn between the body and the hands. Given something to
+ * lean on, the hands come to rest level, as they would on a card — but the hill's
+ * edge is a slope, high where it crosses the body's left side and low on its right,
+ * so a level pair leaves the left paw stranded on the hill's face a long way below
+ * the edge. Each is slid round the outline to where the edge passes it: the left
+ * one up to the body's side, the right one a little further down.
  *
- * `out` 6.31 — the paws are not mirror images in the artwork. About the body's own
- * centre (x 124 of the 256 box) the left paw rests at radius 76.50 and the right at
- * 70.19, so the right one sits inside the circle the left one rests on, buried in
- * the outline rather than against it.
- *
- * `turn` 38 — here the character rests its hands on the hill, which this screen
- * hands it as `behind`, so the hill is drawn between the body and the hands. The
- * hill's edge is a slope: at the left paw it passes 8.0 points above the paw's
- * centre, which is what resting on it looks like, and at the right paw's place it
- * runs 28.1 points below — the paw was hanging clear of everything by 11.1 points.
- * Sliding it 38 degrees down the outline puts it back on the edge at the same 8.0.
- *
- * Both numbers are this screen's, not the artwork's: the sign-in screens rest the
+ * These are this screen's numbers, not the artwork's. The sign-in screens rest the
  * same paws on the level top edge of a card, where they are right as they are. */
-const MASCOT_RIGHT_HAND = { out: 6.31, turn: 38 } as const;
+const MASCOT_HAND_REST = {
+  left: { out: -6, turn: 25 },
+  right: { turn: 6 },
+} as const;
 
-/** The tail, put back down this screen's back.
+/** The tail, lifted clear of the hill.
  *
- * The artwork carries a global 48-unit lift (TAIL_LIFT in the importer) that the
- * sign-in screens need: there the card covers the body's lower half, and a tail at
- * its natural height is swallowed by it. Nothing covers the body here, so the same
- * lift leaves the tail riding high up the back instead of coming off its base. */
-const MASCOT_TAIL = { y: 26 } as const;
+ * The drawing sprouts it low on the body's right side, and on this screen that is
+ * behind the hill: two thirds of its length was hidden and what showed was an
+ * arrowhead coming and going beside the body. Raised this far its whole curve sits
+ * above the hill's edge and it comes out from behind the body instead. */
+const MASCOT_TAIL = { x: 6, y: -26 } as const;
 
 /** The Today's Focus icon's drawn height.
  *
@@ -473,10 +531,12 @@ const styles = StyleSheet.create({
   // 402 - 220.205 + 1, and the hill is laid out at left -19, top 150.
   waveOverMascot: { position: 'absolute', left: -19 - (402 - MASCOT_WIDTH + 1), top: 150 - 89 },
 
-  top: { height: 145, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
-  streak: { height: 40, borderRadius: 27, backgroundColor: homeColors.streakBorder, paddingBottom: 2 },
-  streakFace: { flex: 1, borderRadius: 27, backgroundColor: homeColors.white, paddingHorizontal: 16, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  streakText: { fontFamily: 'Geist_600SemiBold', fontSize: 22, color: homeColors.black },
+  // The room the top bar takes at the head of the page. The bar itself is drawn
+  // over the scroll view, not in it.
+  top: { height: 145 },
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0 },
+  topBarSky: { position: 'absolute', top: 0, left: 0, right: 0 },
+  topBarRow: { paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
   // The same disc the profile page gives someone with no photo: deep, with the
   // initial reversed out of it. It was the one flat grey on a screen made of lime
   // and purple, and next to the streak it read as something still loading.
@@ -530,6 +590,10 @@ const styles = StyleSheet.create({
   track: { height: 5, borderRadius: 14, backgroundColor: homeColors.track, overflow: 'hidden' },
   fill: { height: 5, borderRadius: 10, backgroundColor: homeColors.primary },
   startLoading: { opacity: 0.6 },
-  startPressed: { transform: [{ scale: 0.98 }] },
-  empty: { gap: 8 },
+  emptyCover: {
+    width: 71, height: 56, borderRadius: 16, backgroundColor: homeColors.selected,
+    borderWidth: 1.5, borderStyle: 'dashed', borderColor: homeColors.muted,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  emptyPressed: { opacity: 0.7 },
 });

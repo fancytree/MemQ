@@ -2,9 +2,8 @@ import { layout } from '@/theme/spacing';
 import { dialog } from '@/lib/dialog';
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotRig, RIG_HAND_LINE, RIG_INK_OFFSET } from '@/components/mascot/rig/MascotRig';
 import LoadingScreen from '@/components/LoadingScreen';
-import { MASCOT_ART, MASCOT_HANDS } from '@/components/mascot/figma-parts';
 import { homeColors, referenceColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -23,6 +22,7 @@ import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -663,7 +663,7 @@ export default function LoginScreen() {
           {/* Calm: one face, no blink, no wink. What moves is the tail and the
               eyes — a face that keeps changing above a form is something to watch
               instead of something to fill in. */}
-          <MascotCharacter width={PERCH_MASCOT}
+          <MascotRig width={PERCH_MASCOT}
             mood={busy ? 'thinking' : 'onboarding'}
             calm
             eyesShut={typingPassword}
@@ -732,16 +732,15 @@ export default function LoginScreen() {
               </View>
             )} />
 
-          <TouchableOpacity accessibilityRole="button"
+          <LedgePressable accessibilityRole="button"
             accessibilityState={{ disabled: busy }}
             style={[styles.signIn, busy && styles.signInBusy]}
             onPress={signIn}
-            activeOpacity={0.9}
             disabled={busy}>
             <View style={styles.signInFace}>
               <Text style={styles.signInText}>Sign In</Text>
             </View>
-          </TouchableOpacity>
+          </LedgePressable>
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -750,24 +749,24 @@ export default function LoginScreen() {
           </View>
 
           <View style={styles.socialRow}>
-            <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Google"
-              style={styles.social} onPress={handleGoogleSignIn} disabled={busy} activeOpacity={0.8}>
+            <LedgePressable accessibilityRole="button" accessibilityLabel="Sign in with Google"
+              style={styles.social} onPress={handleGoogleSignIn} disabled={busy}>
               <View style={styles.socialFace}>
                 {oauthLoading === 'google'
-                  ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
+                  ? <MascotRig width={SOCIAL_MASCOT} mood="thinking" />
                   : <FontAwesome5 name="google" size={20} color={colors.google} />}
               </View>
-            </TouchableOpacity>
+            </LedgePressable>
 
             {Platform.OS === 'ios' && (
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Sign in with Apple"
-                style={styles.social} onPress={handleAppleSignIn} disabled={busy} activeOpacity={0.8}>
+              <LedgePressable accessibilityRole="button" accessibilityLabel="Sign in with Apple"
+                style={styles.social} onPress={handleAppleSignIn} disabled={busy}>
                 <View style={styles.socialFace}>
                   {oauthLoading === 'apple'
-                    ? <MascotCharacter width={SOCIAL_MASCOT} mood="thinking" />
+                    ? <MascotRig width={SOCIAL_MASCOT} mood="thinking" />
                     : <FontAwesome5 name="apple" size={22} color={homeColors.darkest} />}
                 </View>
-              </TouchableOpacity>
+              </LedgePressable>
             )}
           </View>
 
@@ -794,8 +793,7 @@ const PERCH_MASCOT = 190;
  * typed in: a little below their middle, so their lower part laps onto the card and
  * they read as resting on the edge instead of hovering above it. Moving the hands in
  * the artwork moves the edge with them. */
-const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
-  / MASCOT_HANDS.length / 256;
+const HAND_LINE = RIG_HAND_LINE;
 /** The character stands on the golden section of the screen rather than its middle:
  * 0.618 across, which is 0.118 of the width right of centre. Off-centre by a little
  * reads as a mistake; this is far enough to read as a decision.
@@ -807,20 +805,11 @@ const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 
  * without the page leaning. */
 const PERCH_AT = 0.69;
 
-/** The drawing is not centred in its own square. Taking the body and the hands —
- * the mass the eye reads, the tail being a thin thing off to one side — their middle
- * sits seven units left of the square's, so aiming the box at a point leaves the
- * character short of it. Measured on screen before this correction: 0.604 across
- * where 0.618 was asked for, which is the same seven units.
- */
-const INK_OFFSET = (() => {
-  const boxes = [
-    ...MASCOT_ART.neutral.parts.filter((p) => p.name === 'body').map((p) => p.box),
-    ...MASCOT_HANDS.map((p) => p.box),
-  ];
-  const mid = (Math.min(...boxes.map((b) => b[0])) + Math.max(...boxes.map((b) => b[2]))) / 2;
-  return (128 - mid) / 256;
-})();
+/** The drawing is not centred in its own square: the body and the hands — the mass
+ * the eye reads, the tail being a thin thing off to one side — sit left of its
+ * middle, so aiming the box at a point leaves the character short of it. The rig
+ * measures how far, from its own parts. */
+const INK_OFFSET = RIG_INK_OFFSET;
 
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH_MASCOT;
 const SOCIAL_MASCOT = 54;

@@ -13,11 +13,8 @@ export function dominantScript(text: string): string | null {
 }
 
 export function compatibleAnswerScripts(answer: string, options: string[]): boolean {
-  const script = dominantScript(answer);
-  return !script || options.every((option) => {
-    const candidate = dominantScript(option);
-    return !candidate || candidate === script;
-  });
+  const scripts = new Set([answer, ...options].map(dominantScript).filter((script): script is string => script !== null));
+  return scripts.size <= 1;
 }
 
 export function fallbackOptions(correct: string, lessonId: string, selfId: string, terms: Array<{id: string; lesson_id: string; definition: string | null}>, random = Math.random): {opts: string[]; correctIndex: number} | null {
@@ -30,6 +27,22 @@ export function fallbackOptions(correct: string, lessonId: string, selfId: strin
     if (term.id === selfId || term.lesson_id !== lessonId || !value || used.has(value.toLocaleLowerCase()) || !compatibleAnswerScripts(answer, [value])) continue;
     used.add(value.toLocaleLowerCase());
     alternatives.push(value);
+  }
+  // When the answer is a shared acronym or number, choose one script for the
+  // distractors instead of accepting an arbitrary mixture of languages.
+  if (!dominantScript(answer)) {
+    const counts = new Map<string, number>();
+    for (const value of alternatives) {
+      const script = dominantScript(value);
+      if (script) counts.set(script, (counts.get(script) || 0) + 1);
+    }
+    const chosen = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+    if (chosen) {
+      for (let i = alternatives.length - 1; i >= 0; i--) {
+        const script = dominantScript(alternatives[i]);
+        if (script && script !== chosen) alternatives.splice(i, 1);
+      }
+    }
   }
   if (alternatives.length < 3) return null;
   const shuffle = (items: string[]) => {

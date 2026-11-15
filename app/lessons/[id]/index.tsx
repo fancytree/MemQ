@@ -32,6 +32,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LedgePressable } from '@/components/ui/LedgePressable';
+import { MascotState } from '@/components/mascot/MascotState';
 
 // 课程类型定义
 interface Lesson {
@@ -527,7 +529,7 @@ export default function LessonDetailScreen() {
             </View>
             <View style={styles.barTrack}><View style={[styles.barFill, { width: `${progressPct}%` }]} /></View>
           </View>
-          <Pressable accessibilityRole="button" accessibilityState={{ disabled: totalCards === 0 }} disabled={totalCards === 0} onPress={handleStartStudy} style={[styles.reviewButton, totalCards === 0 && styles.reviewDisabled]}><View style={styles.reviewButtonFace}><View style={styles.playIcon}><HomeAsset name="play" /></View><Text style={styles.reviewButtonText}>Start review</Text></View></Pressable>
+          <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: totalCards === 0 }} disabled={totalCards === 0} onPress={handleStartStudy} style={[styles.reviewButton, totalCards === 0 && styles.reviewDisabled]}><View style={styles.reviewButtonFace}><View style={styles.playIcon}><HomeAsset name="play" /></View><Text style={styles.reviewButtonText}>Start review</Text></View></LedgePressable>
         </View></View>
 
         <View style={styles.termsSection}>
@@ -556,7 +558,7 @@ export default function LessonDetailScreen() {
           {/* 词条列表 */}
           {filteredTerms.length === 0 ? (
             <View style={styles.emptyTermsContainer}>
-              <Feather name="book-open" size={48} color={colors.muted} />
+              <MascotState kind={searchQuery || filterLevel !== 'All' ? 'noResults' : 'empty'} width={156} />
               <Text style={styles.emptyTermsTitle}>
                 {searchQuery || filterLevel !== 'All'
                   ? 'No Terms Found'

@@ -4,6 +4,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@4';
 
+import { isDirectAppRequest } from '../_shared/directRequest.ts';
+
 // CORS 响应头
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,6 +49,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (!await isDirectAppRequest(req)) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     // 获取认证信息
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {

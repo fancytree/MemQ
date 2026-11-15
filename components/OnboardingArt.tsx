@@ -15,8 +15,7 @@
  * the curve fully drawn, the fan settled, the last step lit — so a still frame is
  * the finished picture rather than an empty one.
  */
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
-import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
+import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
 import React, { useEffect } from 'react';
@@ -73,8 +72,7 @@ function useBob(ms: number) {
  *
  * The laptop is handed to the character as `behind`, which puts it between the
  * body and the hands, so the paws land on the lid the way they land on the card
- * on the sign-in screens. The right paw is pushed out 6.31 units because the two
- * are not mirror images in the artwork — see handRest in MascotCharacter.
+ * on the sign-in screens.
  */
 const DESK_MASCOT = 146;
 const LID_W = 152;
@@ -83,17 +81,15 @@ const LID_W = 152;
  * typed in: a little below their middle, so their lower part laps onto the lid and
  * they read as resting on it instead of hovering above. Same relationship the
  * sign-in card uses. */
-const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
-  / MASCOT_HANDS.length / 256;
+const HAND_LINE = RIG_HAND_LINE;
 const LID_LIFT = -(1 - (HAND_LINE + 7 / 256)) * DESK_MASCOT;
 
 export function Desk() {
   return (
     <View style={art.desk}>
       <Prompts />
-      <MascotCharacter width={DESK_MASCOT} mood="onboarding" calm
+      <MascotRig width={DESK_MASCOT} mood="onboarding" calm
         look={{ y: -0.5 }}
-        handRest={{ right: { out: 6.31 } }}
         style={art.deskMascot}
         behind={(
           <View style={art.laptop}>

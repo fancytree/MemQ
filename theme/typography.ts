@@ -1,20 +1,19 @@
-/** Manrope: primary UI. Inter: compact utility/numbers. Caveat: short supportive annotations.
- * All faces are bundled and loaded by theme/font-assets.ts; no network font request at runtime.
- */
+/** Geist is the UI family; Oswald is used for compact display and numeric emphasis. */
 export const fonts = {
-  regular: 'Manrope_400Regular',
-  medium: 'Manrope_500Medium',
-  semibold: 'Manrope_600SemiBold',
-  bold: 'Manrope_700Bold',
-  extraBold: 'Manrope_800ExtraBold',
-  utility: 'Inter_400Regular',
-  utilitySemibold: 'Inter_600SemiBold',
-  annotation: 'Caveat_400Regular',
-  code: 'JetBrainsMono_400Regular', // Implementation extension for actual code samples only.
+  regular: 'Geist_400Regular',
+  medium: 'Geist_500Medium',
+  semibold: 'Geist_600SemiBold',
+  bold: 'Geist_700Bold',
+  extraBold: 'Geist_800ExtraBold',
+  display: 'Oswald_600SemiBold',
+  utility: 'Geist_400Regular',
+  utilitySemibold: 'Geist_600SemiBold',
+  annotation: 'Geist_400Regular',
+  code: 'Geist_400Regular', // Implementation extension for actual code samples only.
   // Legacy aliases; they no longer imply serif or monospace application typography.
-  grotesk: 'Manrope_400Regular',
-  serif: 'Manrope_400Regular',
-  mono: 'Inter_400Regular',
+  grotesk: 'Geist_400Regular',
+  serif: 'Geist_400Regular',
+  mono: 'Geist_400Regular',
 } as const;
 export type FontFamily = keyof typeof fonts;
 
@@ -53,7 +52,7 @@ export const type = {
   formLabel: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 19 },
   detailLabel: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 20 },
   lessonTitle: { fontFamily: fonts.bold, fontSize: 24, lineHeight: 31 },
-  lessonStatistic: { fontFamily: fonts.semibold, fontSize: 24, lineHeight: 31 },
+  lessonStatistic: { fontFamily: fonts.display, fontSize: 24, lineHeight: 31 },
   termTitle: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 25 },
   bodySmall: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19 },
   input: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22 },
@@ -62,7 +61,7 @@ export const type = {
   wordmark: { fontFamily: fonts.extraBold, fontSize: 25, lineHeight: 32, letterSpacing: -1.1 },
   dailyGreeting: { fontFamily: fonts.medium, fontSize: 20, lineHeight: 32, letterSpacing: -1.1 },
   dailyInvitation: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 20 },
-  dueCount: { fontFamily: fonts.bold, fontSize: 48, lineHeight: 54, letterSpacing: -1.1 },
+  dueCount: { fontFamily: fonts.display, fontSize: 48, lineHeight: 54, letterSpacing: -1.1 },
   dueLabel: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 23, letterSpacing: -1.1 },
   dueEstimate: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20 },
   heroAction: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 24 },
@@ -71,8 +70,9 @@ export const type = {
   section: { fontFamily: fonts.bold, fontSize: 19, lineHeight: 26 },
   goalLabel: { fontFamily: fonts.regular, fontSize: 20, lineHeight: 28 },
   button: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22 },
-  courseTitle: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 19 },
+  courseTitle: { fontFamily: fonts.display, fontSize: 15, lineHeight: 19 },
   meta: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },
+  lessonProgress: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20 },
   streak: { fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18 },
   navActive: { fontFamily: fonts.semibold, fontSize: 12, lineHeight: 17 },
   navInactive: { fontFamily: fonts.regular, fontSize: 12, lineHeight: 17 },

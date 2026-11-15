@@ -1,24 +1,19 @@
 import { supabase } from '@/lib/supabase';
+import { cardStateFromRow, scheduleReview } from '@/lib/scheduler';
 
-const STAGES = ['New', 'Learning', 'Familiar', 'Good', 'Strong', 'Mastered'] as const;
-type LearningStage = (typeof STAGES)[number];
+const missingColumn = (error: { code?: string } | null) =>
+  !!error && (error.code === 'PGRST204' || error.code === '42703');
 
-const getReviewIntervalDays = (stepIndex: number): number => {
-  const intervals: Record<number, number> = {
-    0: 1,
-    1: 3,
-    2: 7,
-    3: 14,
-    4: 30,
-    5: 90,
-  };
-  return intervals[stepIndex] ?? 1;
-};
-
+/**
+ * Record one answer. The Edge Function does it; if it cannot be reached the app does
+ * the same thing itself, with the same schedule (lib/scheduler), so an answer given
+ * on a bad connection is scheduled no differently from one given on a good one.
+ */
 export async function updateTermProgressSafe(termId: string, isCorrect: boolean): Promise<void> {
+  const tzOffsetMinutes = -new Date().getTimezoneOffset();
   try {
     const { error } = await supabase.functions.invoke('update-term-progress', {
-      body: { term_id: termId, is_correct: isCorrect },
+      body: { term_id: termId, is_correct: isCorrect, tz_offset_minutes: tzOffsetMinutes },
     });
     if (!error) return;
   } catch {
@@ -32,61 +27,46 @@ export async function updateTermProgressSafe(termId: string, isCorrect: boolean)
 
     const { data: current } = await supabase
       .from('user_term_progress')
-      .select('step_index')
+      .select('*')
       .eq('user_id', user.id)
       .eq('term_id', termId)
       .maybeSingle();
 
-    const currentIndex = typeof current?.step_index === 'number' ? current.step_index : 0;
     const now = new Date();
-
-    // 中文：答错降一级（最低 New），与 Edge Function 一致；Mastered 答错 → Strong
-    let newIndex = isCorrect ? Math.min(currentIndex + 1, 5) : Math.max(0, currentIndex - 1);
-    let intervalDays = isCorrect ? getReviewIntervalDays(newIndex) : 0;
-
+    let deadline: Date | null = null;
     const { data: termData } = await supabase
       .from('terms')
       .select('lesson_id')
       .eq('id', termId)
       .maybeSingle();
-
-    if (isCorrect && termData?.lesson_id) {
+    if (termData?.lesson_id) {
       const { data: lessonData } = await supabase
         .from('lessons')
         .select('deadline')
         .eq('id', termData.lesson_id)
         .maybeSingle();
-
-      if (lessonData?.deadline) {
-        const deadline = new Date(lessonData.deadline);
-        if (!Number.isNaN(deadline.getTime()) && deadline > now) {
-          const daysUntilDeadline = Math.ceil(
-            (deadline.getTime() - now.getTime()) / (1000 * 60 * 60 * 24),
-          );
-          const stagesRemaining = Math.max(1, 5 - newIndex);
-          const maxAllowedInterval = daysUntilDeadline / stagesRemaining;
-          intervalDays = Math.max(1, Math.ceil(Math.min(intervalDays, maxAllowedInterval)));
-        }
-      }
+      const parsed = lessonData?.deadline ? new Date(lessonData.deadline) : null;
+      if (parsed && !Number.isNaN(parsed.getTime())) deadline = parsed;
     }
 
-    const nextReviewAt = new Date(now);
-    if (isCorrect) {
-      nextReviewAt.setDate(nextReviewAt.getDate() + Math.max(1, intervalDays));
+    const review = scheduleReview({
+      state: cardStateFromRow(current as Parameters<typeof cardStateFromRow>[0]),
+      isCorrect, now, deadline, tzOffsetMinutes,
+    });
+    const row = {
+      user_id: user.id,
+      term_id: termId,
+      status: review.status,
+      step_index: review.stepIndex,
+      last_reviewed_at: now.toISOString(),
+      next_review_at: review.nextReviewAt.toISOString(),
+    };
+    // `ease` and `lapses` arrive with a migration; without it the answer still counts.
+    const { error } = await supabase.from('user_term_progress')
+      .upsert({ ...row, ease: review.ease, lapses: review.lapses }, { onConflict: 'user_id,term_id' });
+    if (missingColumn(error)) {
+      await supabase.from('user_term_progress').upsert(row, { onConflict: 'user_id,term_id' });
     }
-
-    const status = STAGES[newIndex] as LearningStage;
-    await supabase.from('user_term_progress').upsert(
-      {
-        user_id: user.id,
-        term_id: termId,
-        status,
-        step_index: newIndex,
-        last_reviewed_at: now.toISOString(),
-        next_review_at: nextReviewAt.toISOString(),
-      },
-      { onConflict: 'user_id,term_id' },
-    );
   } catch {
     // ignore
   }

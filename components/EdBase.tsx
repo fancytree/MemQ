@@ -18,10 +18,11 @@ interface EdBaseProps {
 export function EdBase({ children, style, bottomInset = 70, scroll = true }: EdBaseProps) {
   const insets = useSafeAreaInsets();
   const topInset = insets.top;
+  const safeBottom = Math.max(bottomInset, insets.bottom);
 
   if (!scroll) {
     return (
-      <View style={[styles.root, { paddingTop: topInset, paddingBottom: bottomInset }, style]}>
+      <View style={[styles.root, { paddingTop: topInset, paddingBottom: safeBottom }, style]}>
         {children}
       </View>
     );
@@ -29,7 +30,7 @@ export function EdBase({ children, style, bottomInset = 70, scroll = true }: EdB
   return (
     <ScrollView
       style={styles.root}
-      contentContainerStyle={[{ paddingTop: topInset, paddingBottom: bottomInset }, style]}
+      contentContainerStyle={[{ paddingTop: topInset, paddingBottom: safeBottom }, style]}
       showsVerticalScrollIndicator={false}
     >
       {children}

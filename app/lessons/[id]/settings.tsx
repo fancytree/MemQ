@@ -1,3 +1,4 @@
+import { MascotState } from '@/components/mascot/MascotState';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { dialog } from '@/lib/dialog';
 import { CloseButton, RoundAction } from '@/components/ui/RoundButtons';
@@ -19,6 +20,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 
 export const options = { headerShown: false };
 
@@ -106,7 +108,7 @@ export default function LessonSettingsScreen() {
 
   if (loading || loadError) return <SafeAreaView style={styles.screen}>
     <View style={styles.status}>
-      {loading ? <ActivityIndicator color={colors.text} /> : <><Text style={styles.message}>{loadError}</Text><ActionButton label="Go back" onPress={goBack} /></>}
+      {loading ? <ActivityIndicator color={colors.text} /> : <><MascotState kind="error" width={160} /><Text style={styles.message}>{loadError}</Text><ActionButton label="Go back" onPress={goBack} /></>}
     </View>
   </SafeAreaView>;
 
@@ -175,7 +177,7 @@ export default function LessonSettingsScreen() {
         </View>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: Math.max(8, insets.bottom) }]}>
-        <Pressable accessibilityRole="button" accessibilityState={{ disabled: busy || !lessonName.trim(), busy: saving }} disabled={busy || !lessonName.trim()} onPress={save} style={[styles.saveBase, (busy || !lessonName.trim()) && styles.saveDisabled]}><View style={styles.saveFace}>{saving ? <ActivityIndicator color={homeColors.white} /> : <Text style={styles.saveText}>Save changes</Text>}</View></Pressable>
+        <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: busy || !lessonName.trim(), busy: saving }} disabled={busy || !lessonName.trim()} onPress={save} style={[styles.saveBase, (busy || !lessonName.trim()) && styles.saveDisabled]}><View style={styles.saveFace}>{saving ? <ActivityIndicator color={homeColors.white} /> : <Text style={styles.saveText}>Save changes</Text>}</View></LedgePressable>
       </View>
     </KeyboardAvoidingView>
     <DeadlineSheet visible={showDatePicker} value={deadline} onClose={() => setShowDatePicker(false)} onConfirm={(date) => { setDeadline(date); setShowDatePicker(false); }} />

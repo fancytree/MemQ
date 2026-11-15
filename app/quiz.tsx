@@ -8,7 +8,7 @@ import { Icon } from '@/components/Icon';
 import { CloseButton } from '@/components/ui/RoundButtons';
 import { Feather } from '@expo/vector-icons';
 import { HomeAsset } from '@/components/HomeAsset';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotRig } from '@/components/mascot/rig/MascotRig';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';
 import { LanguageCardData, normalizeLanguageData } from '@/lib/languageCard';
@@ -27,6 +27,10 @@ import { useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, ActivityIndicator, Animated, Keyboard, KeyboardAvoidingView, InteractionManager, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput } from 'react-native';
+import { LedgePressable } from '@/components/ui/LedgePressable';
+import { MascotState } from '@/components/mascot/MascotState';
+import type { MascotStateKind } from '@/components/mascot/states';
+import { isOffline } from '@/lib/networkError';
 
 interface MCQ {
   termId: string;
@@ -347,6 +351,21 @@ function totalStepsForRound(terms: QuizTermRow[], plans: Record<string, TermPlan
  * on every advance — there's no persistence between sessions, since this
  * is a UI port. Wire your real quiz engine on top.
  */
+
+/** What a session that could not start says when the reason is the connection. */
+const OFFLINE = 'You’re offline. Check your connection and try again.';
+/** The side of the picture over a session that could not start. */
+const STATE_ART = 176;
+/** Which picture goes with which reason. The reasons are the sentences this screen
+ * already tells apart by how they begin, to decide where its button leads. */
+function stateFor(reason: string): MascotStateKind {
+  if (reason === OFFLINE) return 'offline';
+  if (reason.startsWith('You’re all caught up')) return 'caughtUp';
+  if (reason.startsWith('No ')) return 'empty';
+  if (reason.includes('not found')) return 'noResults';
+  return 'error';
+}
+
 export default function QuizScreen() {
   const { height: windowHeight, fontScale } = useWindowDimensions();
   const swipeProgress = useRef(new Animated.Value(0)).current;
@@ -418,8 +437,13 @@ export default function QuizScreen() {
     return () => task.cancel();
   }, [loading, practiceComplete, currentQ?.mode, currentQ?.termId, revealed]);
 
+  // Answers are saved as they are given and nothing waits for them, except leaving:
+  // see handleClose.
+  const saving = useRef(new Set<Promise<void>>());
   const updateTermProgress = async (termId: string, isCorrect: boolean) => {
-    await updateTermProgressSafe(termId, isCorrect);
+    const save = updateTermProgressSafe(termId, isCorrect);
+    saving.current.add(save);
+    try { await save; } finally { saving.current.delete(save); }
   };
 
   useEffect(() => {
@@ -453,7 +477,7 @@ export default function QuizScreen() {
           .order('created_at', { ascending: false });
 
         if (lessonsError || !lessonsData) {
-          setLoadError('Could not load your lessons. Please try again.');
+          setLoadError(isOffline(lessonsError) ? OFFLINE : 'Could not load your lessons. Please try again.');
           return;
         }
         if (lessonsData.length === 0) {
@@ -482,7 +506,7 @@ export default function QuizScreen() {
           .order('created_at', { ascending: false });
 
         if (termsError) {
-          setLoadError('Failed to load terms.');
+          setLoadError(isOffline(termsError) ? OFFLINE : 'Failed to load terms.');
           return;
         }
 
@@ -550,7 +574,7 @@ export default function QuizScreen() {
         // Load the LLM-authored questions for selected cards; older cards may have none.
         const { data: practiceRows, error: practiceError } = await loadCurrentPracticeQuestions(orderedTerms.map((term) => term.id));
         if (practiceError) {
-          setLoadError('Could not load practice questions. Please try again.');
+          setLoadError(isOffline(practiceError) ? OFFLINE : 'Could not load practice questions. Please try again.');
           return;
         }
         const questionsByTerm = new Map<string, SavedPracticeQuestion[]>();
@@ -596,8 +620,8 @@ export default function QuizScreen() {
         setStages(initialStages);
         setCurrentQ(first.q);
         setCurrentTermIdx(first.termIdx);
-      } catch {
-        setLoadError('Failed to initialize quiz.');
+      } catch (failure) {
+        setLoadError(isOffline(failure) ? OFFLINE : 'Failed to initialize quiz.');
         clearLocalSession();
       } finally {
         setLoading(false);
@@ -613,10 +637,20 @@ export default function QuizScreen() {
   const totalSteps = Math.max(1, totalStepsForRound(sessionTerms, termPlans));
   const completedSubsteps = countCompletedSubsteps(sessionTerms, stages, termPlans);
 
-  const handleClose = () => {
+  const handleClose = async () => {
     const destination = entry === 'lesson' && lessonId
       ? { pathname: '/lessons/[id]' as const, params: { id: lessonId } }
       : '/(tabs)' as const;
+    // The screen being returned to reads its numbers the moment it is back in front
+    // — the streak among them, which this session may just have added a day to. An
+    // answer still on its way to the server would not be counted, so the last of
+    // them are given a moment to land. Not long: leaving must not hang on a network.
+    if (saving.current.size) {
+      await Promise.race([
+        Promise.allSettled(Array.from(saving.current)),
+        new Promise((done) => setTimeout(done, 1200)),
+      ]);
+    }
     // Dismiss every stacked practice screen, returning to the entry screen in one action.
     if (router.canDismiss()) router.dismissTo(destination);
     else router.replace(destination);
@@ -624,7 +658,7 @@ export default function QuizScreen() {
 
   if (loading) {
     return (
-      <EdBase bottomInset={0}>
+      <EdBase bottomInset={0} scroll={false}>
         <View style={styles.nav}><CloseButton onPress={handleClose} label="Close practice" /></View>
         <View style={styles.loadingWrap}>
           <ActivityIndicator size="small" color={colors.accentText} />
@@ -635,10 +669,11 @@ export default function QuizScreen() {
   }
   if (loadError) {
     return (
-      <EdBase bottomInset={0}>
+      <EdBase bottomInset={0} scroll={false}>
         <View style={styles.nav}><CloseButton onPress={handleClose} label="Close practice" /></View>
         <View style={styles.loadingWrap}>
-          <Text style={styles.loadingText}>{loadError}</Text>
+          <MascotState kind={stateFor(loadError)} width={STATE_ART} style={styles.stateArt} />
+          <Text style={[styles.loadingText, styles.stateText]}>{loadError}</Text>
           <Pressable accessibilityRole="button" onPress={() => {
             if (entry === 'lesson' && lessonId && loadError.startsWith('No terms')) router.replace(`/lessons/${lessonId}/add-terms`);
             else if (entry === 'home' && (loadError.startsWith('No cards') || loadError.startsWith('You’re all caught up'))) router.replace('/(tabs)/library');
@@ -657,10 +692,11 @@ export default function QuizScreen() {
   }
   if (!q || sessionTerms.length === 0) {
     return (
-      <EdBase bottomInset={0}>
+      <EdBase bottomInset={0} scroll={false}>
         <View style={styles.nav}><CloseButton onPress={handleClose} label="Close practice" /></View>
         <View style={styles.loadingWrap}>
-          <Text style={styles.loadingText}>No quiz data available.</Text>
+          <MascotState kind="empty" width={STATE_ART} style={styles.stateArt} />
+          <Text style={[styles.loadingText, styles.stateText]}>No quiz data available.</Text>
           <Pressable accessibilityRole="button" onPress={handleClose} style={styles.emptyAction}><Text style={styles.emptyActionText}>Go back</Text></Pressable>
         </View>
       </EdBase>
@@ -935,7 +971,7 @@ function PracticeComplete({ cards, steps, onClose, onContinue }: { cards: number
         </View>
       </Animated.View>
       <View style={styles.completeActions}>
-        <Pressable accessibilityRole="button" onPress={onContinue} style={styles.completePrimaryBase}><View style={styles.completePrimary}><Text style={styles.completePrimaryText}>Keep practicing</Text></View></Pressable>
+        <LedgePressable accessibilityRole="button" onPress={onContinue} style={styles.completePrimaryBase}><View style={styles.completePrimary}><Text style={styles.completePrimaryText}>Keep practicing</Text></View></LedgePressable>
         <Pressable accessibilityRole="button" onPress={onClose} style={styles.completeDone}><Text style={styles.completeDoneText}>Done</Text></Pressable>
       </View>
     </ScrollView>
@@ -1236,7 +1272,7 @@ function FeedbackBlock({
 
   return (
     <View style={[fbStyles.block, { backgroundColor: bg, borderColor: `${accent}30` }]}>
-      <MascotCharacter width={76} mood={tone === 'right' ? 'happy' : 'thinking'} />
+      <MascotRig width={76} mood={tone === 'right' ? 'happy' : 'thinking'} />
       <View style={fbStyles.copy}>
         <Text style={[fbStyles.heading, { color: accent }]}>
           {tone === 'right' ? 'That one stuck.' : q.mode === 'recall' ? 'Not quite yet.' : 'A useful miss.'}
@@ -1297,6 +1333,8 @@ const styles = StyleSheet.create({
   recallSubmitDisabled: { opacity: 0.4 },
   emptyAction: { minHeight: 44, paddingHorizontal: 20, borderRadius: 22, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', marginTop: 8 },
   emptyActionText: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.white },
+  stateArt: { marginBottom: 14 },
+  stateText: { fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 300, color: colors.text },
   loadingWrap: {
     flex: 1,
     alignItems: 'center',

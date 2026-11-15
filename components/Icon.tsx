@@ -1,6 +1,7 @@
 import Svg, { Path, Circle, Rect, G } from 'react-native-svg';
 
 export type IconName =
+  | 'search'
   | 'circlePlus'
   | 'arrowRight'
   | 'home'
@@ -40,6 +41,8 @@ export function Icon({ name, color, size = 20, strokeWidth = 1.6, strokeLinejoin
   };
 
   switch (name) {
+    case 'search':
+      return <Svg {...common}><G {...stroke}><Circle cx={10.5} cy={10.5} r={6.5} /><Path d="M15.3 15.3L20 20" /></G></Svg>;
     case 'circlePlus':
       return <Svg {...common}><G {...stroke}><Circle cx={12} cy={12} r={9} /><Path d="M8 12h8M12 8v8" /></G></Svg>;
     case 'arrowRight':

@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "memq-website",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4391", "--directory", "preview/memq-website"],
+      "port": 4391
+    }
+  ]
+}

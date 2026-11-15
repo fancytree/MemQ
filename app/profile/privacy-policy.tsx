@@ -1,3 +1,5 @@
+import { LinearGradient } from 'expo-linear-gradient';
+import { homeColors } from '@/theme/colors';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
@@ -28,14 +30,16 @@ export default function PrivacyPolicyScreen() {
   }, [navigation]);
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      <SecondaryPageNav onBack={() => safeBack('/you')} />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
+      <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >
         {/* Content */}
         <View style={styles.content}>
+          <Text accessibilityRole="header" style={[styles.pageTitle, { marginHorizontal: 0 }]}>Privacy policy</Text>
           <Text style={styles.lastUpdated}>Last Updated: January 1, 2026</Text>
 
           <Text style={styles.paragraph}>
@@ -159,6 +163,8 @@ export default function PrivacyPolicyScreen() {
 }
 
 const styles = StyleSheet.create({
+  pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 250 },
+  pageTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, marginHorizontal: layout.screenInline, marginBottom: 20 },
   container: {
     flex: 1,
     backgroundColor: colors.bg,

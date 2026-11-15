@@ -16,28 +16,66 @@ stacks it is present, so the worst case is one face and no swap rather than that
 
 ## Keeping it current
 
-`img/current/today-demo.png` is a simulator capture of the app's own `website-preview` route, which renders the Today screen with example content and no personal data. Retake it whenever that screen changes: open `memq://website-preview`, capture with `xcrun simctl io <udid> screenshot`, and crop above the dev-client's floating button — the mock frame shows more of the image than its CSS height suggests, so the button lands inside it otherwise.
+`img/current/today-demo.png` is a simulator capture of the app's own `website-preview` route, which renders the Today screen with example content and no personal data. Retake it whenever that screen changes: open `memq://website-preview` and capture with `xcrun simctl io <udid> screenshot`. The development-only route temporarily hides the dev-client floating button and restores its previous setting when leaving; verify the screenshot is the demo screen before using it.
 
-The hero character is rigged like Today's, not animated as one picture. It is an
-inline SVG in `index.html` with the parts in their own groups — sparks, tail, horns,
-body, eyes, pupils — each on its own clock, because what made the old version wrong
-was that everything moved together. The numbers come from `todayIdle` in
-`components/mascot/state.ts`: roll ±1.1° at 0.46, breath ±0.028/±0.042 at 1.3, tail
-±3° at 1.6× the lean, blink 2800–6200ms, and neutral three times per
-happy on a 4000–8000ms hold. The drawing itself is lifted part for part out of
-`components/mascot/figma-parts.ts` — the same paths Today renders — rather than from
-the icon set, whose eyes are drawn touching.
+The hero character is the app's own rig, not a copy of it. Two files are generated
+from `components/mascot/rig` by `node scripts/build-website-mascot.cjs`, and neither
+is edited by hand:
 
-The gaze follows the pointer instead of wandering, since a page has something worth
-looking at. The travel is still the app's: `GAZE_EYE` 7/4 moves the eye and
-`GAZE_PUPIL` 11/10 moves the pupil inside it, and the aim is clamped to those. With
-no pointer, or once it has sat still for a while, it returns to Today's own
-`MASCOT_LOOK` (−0.667, 0.086). The lags (`hornLag`,
-`tailLag`) are springs in the app and animation delays here, which is an
-approximation, not the same thing.
+- `mascot-rig.js` — the solver the app runs every frame, compiled for a browser.
+- the SVG between the `<!--mascot:start-->` and `<!--mascot:end-->` comments in
+  `index.html` — one element per part, drawn in the rest pose, so the character is
+  on the page with no script at all. Each element names the number in a frame it
+  listens to: `data-m` a matrix, `data-o` an opacity, `data-d` a path, `data-rx` and
+  `data-ry` a radius.
 
-An earlier version used the app's hop for the `happy` mood, which was the wrong mood
-for this screen — Today does not hop: the keyframes in `@keyframes mascot-hop` were generated from the trajectory in `components/mascot/state.ts` (height 0.030, crouch 0.012, squash 0.095, beats 0.17/0.23/0.26/0.14/0.2) with the breath from `squash: [1, 0.018, 2.1]` on top. One loop is three seconds: three hops, and one breath to within 0.3%. If those numbers change in the app, regenerate rather than nudge by eye.
+`site.js` runs the solver on `requestAnimationFrame` and hands each number to the
+element that asked for it. Nothing about how the character moves is decided on the
+website: when the rig changes in the app, run the script again and bump
+`mascot-rig.js?v=` (and `site.css?v=` / `site.js?v=` if they changed). The script
+takes `--check`, which writes nothing and fails if either file is out of date.
+
+The hero is laid out the way the app's Today screen is: two hills, and the character
+behind the near one with its paws over the edge. All of it is one drawing — the far
+hill, the back half of the character, the near hill, then its face and hands — in
+the character's own 256 square, so the paws cannot come off the edge however the
+page is sized. Between the points marked in the build script the hills are the app's
+own curves (`assets/home-figma/wave-back.svg`, `wave-front.svg`) placed as Today
+places them; beyond that stretch they are carried on left and right, far past any
+window, because a page does not end where a phone does. The corrections that rest
+the paws on the slope and lift the tail clear of it are Today's too (`pose` in the
+build script, `data-pose` on the drawing).
+
+The mood is `todayIdle`, Today's own resting state, with the sparks the hero has
+always worn asked for on top (`data-marks="spark"`). The gaze follows the pointer
+instead of wandering, since a page has something worth looking at; with no pointer,
+or once it has sat still for a while, it goes back to wandering as it does in the
+app. The character only runs while the hero is on screen, and with reduced motion
+it is drawn once at rest and left alone.
+
+## Motion on the page
+
+- **Ticker.** The track is twelve identical groups and moves by exactly one of them,
+  so it is seamless and covers a window up to about eleven groups wide (≈6500px).
+  Change the group count in `index.html` and the `12` in `@keyframes marquee`
+  together.
+- **Lipped buttons** (`.button`) press flat: on `:active` the face travels down by
+  the height of its lip (`--lip`) and the lip goes to nothing. They do not lift on
+  hover — a button that rises and one that is pressed are two different objects.
+- **Parallax.** Anything with `data-parallax` drifts by that many pixels per pixel
+  scrolled; positive hangs back, negative runs ahead. Layers in the first screen
+  drift from where they were laid out; layers further down pass through where they
+  were laid out as their section crosses the middle of the window. It is scaled down
+  on phones and off with reduced motion. The near hill and the character are not
+  layers: the paws are on that edge.
+- **Small things**, all in the last block of `site.css`: the scroll arrow nudges,
+  arrows in links and buttons lean the way they point on hover, the eyebrow dot
+  pings, the two chips bob, the wordmark's star turns.
+
+It used to be a second description of the character: the paths lifted into the page
+and the motion re-typed as CSS keyframes from the app's numbers. That copy went on
+being the old frame-swapping picture after the app had stopped being one, which is
+why it is generated now.
 
 The `oauth/` pages are local authorization prototypes. Their presence here does not mean the MCP service or authorization flow is deployed or ready for production. See `docs/mcp/README.md` in the MemQ repository for the current testing and release limitations.
 

@@ -1,0 +1,9 @@
+{
+  "name": "memq-grant-coordinator-test-only",
+  "main": "coordinator-worker.ts",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "local-test-only" }],
+  "durable_objects": { "bindings": [{ "name": "GRANTS", "class_name": "GrantCoordinator" }, { "name": "REPLAY", "class_name": "AssertionReplay" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["GrantCoordinator", "AssertionReplay"] }]
+}

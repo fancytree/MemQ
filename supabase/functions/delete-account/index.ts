@@ -1,3 +1,4 @@
+import { isDirectUserSession } from '../_shared/directSession.ts';
 // Supabase Edge Function - Delete User Account
 // 彻底删除用户账号和相关数据（满足 iOS 审核要求）
 
@@ -58,6 +59,13 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
+    }
+
+    // Verified third-party OAuth sessions are limited to the MCP endpoint.
+    if (!isDirectUserSession(authHeader)) {
+      return new Response(JSON.stringify({ error: 'This action is not available to connected apps.' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     const userId = user.id;

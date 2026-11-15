@@ -1,16 +1,29 @@
 import { EdBase } from '@/components/EdBase';
+import { MascotRig } from '@/components/mascot/rig/MascotRig';
+import { MascotState } from '@/components/mascot/MascotState';
+import { MASCOT_STATE_KINDS, MASCOT_STATES } from '@/components/mascot/states';
 import {
-  ALL_MASCOT_MOODS, MASCOT_GROUPS, MASCOT_STATES, MascotCharacter, type MascotMood,
-} from '@/components/mascot/MascotCharacter';
+  ALL_MASCOT_MOODS, CH, CHANNEL_COUNT, MASCOT_GROUPS, RIG_PARTS, RIG_VIEW,
+  type Channel, type MascotMood, type PartControl, type RigPart,
+} from '@/components/mascot/rig/rig';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
+import { StreakPill } from '@/components/ui/StreakPill';
 import { safeBack } from '@/lib/safeBack';
-import { colors, componentTokens, layout, radius, type } from '@/theme';
-import { useLocalSearchParams } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { colors, componentTokens, fonts, layout, radius, type } from '@/theme';
+import { Stack, useLocalSearchParams } from 'expo-router';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useSharedValue, withSpring } from 'react-native-reanimated';
 
-/** Preview screen for the mascot. Every number shown is read back from the state
- * table, so this page cannot drift out of step with the real behaviour.
+/** The side of a state's picture on the lab's states page. */
+const STATE_ART = 184;
+
+/** Where the mascot is taken apart.
+ *
+ * The character on this screen is the rig in components/mascot/rig, the same one
+ * every screen draws. The screen is here to answer two questions about it by
+ * looking: can each part be moved on its own, and do the others feel it when one
+ * does.
  */
 const USED_BY: Partial<Record<MascotMood, string>> = {
   idle: 'Today · cards are due and the goal is not met',
@@ -23,184 +36,443 @@ const USED_BY: Partial<Record<MascotMood, string>> = {
   streakReward: 'A streak milestone was reached',
 };
 
-const PREVIEW_WIDTH = 190;
+/** What is attached to what. This is the rig's own account of itself, in the order
+ * a movement travels through it. */
+const LINKS: { part: string; follows: string }[] = [
+  { part: 'Tail', follows: 'Three bones hung off the body. Each trails the one before it, so a hop travels down it.' },
+  { part: 'Horns', follows: 'Blown back by the head’s movement, splayed when the body flattens.' },
+  { part: 'Hands', follows: 'Carried on the outline, a beat late, tipping with their own speed.' },
+  { part: 'Face', follows: 'Slips against the body when it jumps. Follows the eyes when they look.' },
+  { part: 'Body', follows: 'Leans after a look, and is rocked a little by its own tail.' },
+  { part: 'Marks', follows: 'Hang beside the body and keep a fraction of its travel.' },
+];
 
-function secs([min, max]: readonly [number, number]) {
-  return min === max ? `${(min / 1000).toFixed(1)}s` : `${(min / 1000).toFixed(1)}–${(max / 1000).toFixed(1)}s`;
+const STAGE_WIDTH = 200;
+/** How far the body can be pulled, in artwork units, before the stage clips it. */
+const DRAG_LIMIT = 56;
+/** The stage is wider than the character's square, and the character is dragged
+ * about in it, so it is drawn well past its square: enough to reach the stage's edge. */
+const STAGE_BLEED = 0.4;
+const DRAG_RETURN = { damping: 11, stiffness: 150, mass: 1 } as const;
+const NO_TWEAK: number[] = new Array(CHANNEL_COUNT).fill(0);
+
+function clamp(n: number, lo: number, hi: number) {
+  return Math.min(hi, Math.max(lo, n));
 }
 function signed(n: number, unit = '') {
-  return `${n > 0 ? '+' : ''}${n}${unit}`;
-}
-/** Translations are fractions of the square canvas; showing them as a percentage of
- * the character's own box is the only form that means anything on screen. */
-function pct(n: number) {
-  return `${(Math.abs(n) * 100).toFixed(1)}%`;
+  const digits = Math.abs(n) < 2 && n % 1 !== 0 ? 2 : Math.abs(n) < 10 && n % 1 !== 0 ? 1 : 0;
+  const text = n.toFixed(digits);
+  return `${n > 0 ? '+' : ''}${text === '-0' ? '0' : text}${unit}`;
 }
 
-/** Where a state rests its gaze, in words. Saying it in two halves put an "and" in
- * front of a state that looks straight up. */
-function look(x: number, y: number) {
-  const across = x === 0 ? '' : x > 0 ? 'right' : 'left';
-  const down = y === 0 ? '' : y < 0 ? 'up' : 'down';
-  if (!across && !down) return 'straight out';
-  return [across, down].filter(Boolean).join(' and ');
-}
+/** One channel, as a track to drag along. The value is an offset from the pose the
+ * mood is holding, so the middle of nowhere is "as the mood has it". */
+function Slider({ control, value, onChange, onHold }: {
+  control: PartControl; value: number; onChange: (value: number) => void;
+  /** Told when a finger takes the track and when it lets go. */
+  onHold: (held: boolean) => void;
+}) {
+  const { min, max, label, unit } = control;
+  const [width, setWidth] = useState(0);
+  // The responder is made once, so what it needs is read through a ref.
+  const live = useRef({ width, min, max, onChange, onHold });
+  live.current = { width, min, max, onChange, onHold };
+  const responder = useMemo(() => {
+    let from = 0;
+    const set = (x: number) => {
+      const c = live.current;
+      if (c.width <= 0) return;
+      const raw = c.min + clamp(x / c.width, 0, 1) * (c.max - c.min);
+      // Snap to nothing near the mood's own value, so it is easy to put back.
+      c.onChange(Math.abs(raw) < (c.max - c.min) * 0.02 ? 0 : raw);
+    };
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      // The page scrolls; a drag that began on a track belongs to the track.
+      onPanResponderTerminationRequest: () => false,
+      // Where the finger came down is read once, against the track. After that the
+      // position is that plus how far the finger has travelled: a move event's own
+      // location is measured against whatever it is over by then, which stops being
+      // the track as soon as the thumb is redrawn under it.
+      onPanResponderGrant: (e) => {
+        live.current.onHold(true);
+        from = e.nativeEvent.locationX;
+        set(from);
+      },
+      onPanResponderMove: (_e, g) => set(from + g.dx),
+      onPanResponderRelease: () => live.current.onHold(false),
+      onPanResponderTerminate: () => live.current.onHold(false),
+    });
+  }, []);
 
-function Row({ label, value }: { label: string; value: string }) {
+  const span = max - min;
+  const at = (clamp(value, min, max) - min) / span;
+  const zero = clamp(-min / span, 0, 1);
+  const nudge = span / 20;
   return (
-    <View style={styles.row}>
-      <Text style={styles.rowLabel}>{label}</Text>
-      <Text style={styles.rowValue}>{value}</Text>
+    <View style={styles.slider}>
+      <View style={styles.sliderHead}>
+        <Text style={styles.rowLabel}>{label}</Text>
+        <Text style={styles.rowValue}>{value === 0 ? 'as posed' : signed(value, unit)}</Text>
+      </View>
+      <View
+        accessible
+        accessibilityRole="adjustable"
+        accessibilityLabel={label}
+        accessibilityValue={{ text: value === 0 ? 'as posed' : signed(value, unit) }}
+        accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
+        onAccessibilityAction={(e) => {
+          const step = e.nativeEvent.actionName === 'increment' ? nudge : -nudge;
+          onChange(clamp(value + step, min, max));
+        }}
+        // The whole track takes the touch, so its position is measured against the
+        // track and not against whichever piece of it was under the finger.
+        pointerEvents="box-only"
+        onLayout={(e) => setWidth(e.nativeEvent.layout.width)}
+        style={styles.track}
+        {...responder.panHandlers}
+      >
+        <View style={styles.trackLine} />
+        <View style={[styles.trackFill, {
+          left: `${Math.min(at, zero) * 100}%`, width: `${Math.abs(at - zero) * 100}%`,
+        }]} />
+        <View style={[styles.trackZero, { left: `${zero * 100}%` }]} />
+        <View style={[styles.thumb, { left: `${at * 100}%` }]} />
+      </View>
     </View>
+  );
+}
+
+function Chip({ label, active, marked, onPress }: {
+  label: string; active: boolean; onPress: () => void;
+  /** This part has been moved off the pose by hand. */
+  marked?: boolean;
+}) {
+  return (
+    <Pressable accessibilityRole="button" accessibilityState={{ selected: active }}
+      accessibilityLabel={marked ? `${label}, moved by hand` : label} onPress={onPress}
+      style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.chipPressed]}>
+      <Text style={[styles.chipText, active && styles.chipTextActive]}>{label}</Text>
+      {marked && <View style={[styles.chipMark, active && styles.chipMarkActive]} />}
+    </Pressable>
+  );
+}
+
+function Action({ label, onPress, disabled }: { label: string; onPress: () => void; disabled?: boolean }) {
+  return (
+    <Pressable accessibilityRole="button" onPress={onPress} disabled={disabled}
+      style={({ pressed }) => [styles.action, disabled && styles.actionDisabled, pressed && styles.actionPressed]}>
+      <Text style={[styles.actionText, disabled && styles.actionTextDisabled]}>{label}</Text>
+    </Pressable>
   );
 }
 
 export default function MotionLabScreen() {
   // `?mood=` makes any state reachable by deep link, which is how this screen gets
-  // checked: tapping twenty-three chips means scrolling the character out of frame.
-  // It has to be an effect, not a `useState` initialiser — navigating to the same
-  // route with a different parameter reuses the mounted screen, so an initialiser
-  // runs once and every later link silently does nothing.
-  const params = useLocalSearchParams<{ mood?: string }>();
+  // checked. It has to be an effect, not a `useState` initialiser — navigating to
+  // the same route with a different parameter reuses the mounted screen, so an
+  // initialiser runs once and every later link silently does nothing.
+  const params = useLocalSearchParams<{ mood?: string; part?: string; at?: string }>();
   const [mood, setMood] = useState<MascotMood>('idle');
   useEffect(() => {
     const found = ALL_MASCOT_MOODS.find((m) => m === params.mood);
     if (found) setMood(found);
   }, [params.mood]);
+
+  // The lab has two pages. The rig, with the character pinned over its controls;
+  // and the states, which are finished pictures to be looked at, not taken apart,
+  // and would only be half seen from under a pinned stage. `?at=states` opens the
+  // second, from a link or on a screen that is already open.
+  const [page, setPage] = useState<'rig' | 'states'>('rig');
+  useEffect(() => {
+    if (params.at === 'states') setPage('states');
+    else if (params.at === 'rig') setPage('rig');
+  }, [params.at]);
+  const [linked, setLinked] = useState(true);
+  const [bones, setBones] = useState(false);
+  const [part, setPart] = useState<RigPart>('tail');
+  useEffect(() => {
+    const found = RIG_PARTS.find((p) => p.part === params.part);
+    if (found) setPart(found.part);
+  }, [params.part]);
+
   const [blinkSignal, setBlinkSignal] = useState(0);
   const [beatSignal, setBeatSignal] = useState(0);
   const [winkSignal, setWinkSignal] = useState(0);
-  const pose = MASCOT_STATES[mood];
-  const gaze = pose.gaze;
-  const beat = pose.beat;
-  const blinkEvery = pose.blink;
+  const [poke, setPoke] = useState<{ seq: number; part: RigPart }>({ seq: 0, part: 'tail' });
+  // The streak pill, with a number that can be pushed up by hand: on Today it only
+  // moves once a day.
+  const [streak, setStreak] = useState(3);
+
+  // The sliders. The numbers live twice: in state so the screen can show them, and in
+  // a shared value so the character reads them on the frame they change. The ref
+  // is the one both are written from, so neither is ever derived from the other
+  // inside a render.
+  const [tweak, setTweak] = useState<number[]>(NO_TWEAK);
+  const tweakLive = useSharedValue<number[]>(NO_TWEAK);
+  const tweakNow = useRef<number[]>(NO_TWEAK);
+  const commit = (next: number[]) => {
+    tweakNow.current = next;
+    tweakLive.value = next;
+    setTweak(next);
+  };
+  const setChannel = (channel: Channel, value: number) => {
+    const next = tweakNow.current.slice();
+    next[CH[channel]] = value;
+    commit(next);
+  };
+  const reset = (channels: Channel[] | null) => {
+    const next = channels ? tweakNow.current.slice() : NO_TWEAK.slice();
+    if (channels) for (const c of channels) next[CH[c]] = 0;
+    commit(next);
+  };
+  // Which parts are off the pose. A slider left where it was is invisible once its
+  // part is no longer the one selected, and then what it did to the character looks
+  // like the character's own pose — so the parts say so, and so does the stage.
+  const moved = RIG_PARTS.filter((p) => p.controls.some((c) => tweak[CH[c.channel]] !== 0));
+  const selected = RIG_PARTS.find((p) => p.part === part) ?? RIG_PARTS[0];
+  const partTouched = selected.controls.some((c) => tweak[CH[c.channel]] !== 0);
+
+  // A track or the character under a finger must not also scroll the page. The
+  // scroll view is native and takes a vertical drag before any responder here is
+  // asked about it, so it is switched off for as long as something is held.
+  const [held, setHeld] = useState(false);
+
+  // Dragging the character. The body goes where the finger is; nothing else is
+  // told, and what the rest does about it is the thing being shown.
+  const dragX = useSharedValue(0);
+  const dragY = useSharedValue(0);
+  const drag = useMemo(() => {
+    const unit = RIG_VIEW / STAGE_WIDTH;
+    return PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: () => setHeld(true),
+      onPanResponderMove: (_e, g) => {
+        dragX.value = clamp(g.dx * unit, -DRAG_LIMIT, DRAG_LIMIT);
+        dragY.value = clamp(g.dy * unit, -DRAG_LIMIT, DRAG_LIMIT);
+      },
+      onPanResponderRelease: () => {
+        setHeld(false);
+        dragX.value = withSpring(0, DRAG_RETURN);
+        dragY.value = withSpring(0, DRAG_RETURN);
+      },
+      onPanResponderTerminate: () => {
+        setHeld(false);
+        dragX.value = withSpring(0, DRAG_RETURN);
+        dragY.value = withSpring(0, DRAG_RETURN);
+      },
+    });
+  }, [dragX, dragY]);
 
   return (
     <EdBase scroll={false} bottomInset={0}>
+      {/* Swiping back is off here. The stack takes a sideways drag anywhere on the
+          screen as the start of one, and a sideways drag is what a slider and the
+          character both need; left on, moving the tail to the right left the lab. */}
+      <Stack.Screen options={{ gestureEnabled: false }} />
       <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
+      {/* The stage is the third child and sticks, so the character stays in view
+          while the controls for it scroll underneath. */}
+      <ScrollView showsVerticalScrollIndicator={false} scrollEnabled={!held}
+        stickyHeaderIndices={page === 'rig' ? [2] : []} contentContainerStyle={styles.content}>
         <Text accessibilityRole="header" style={styles.title}>Motion lab</Text>
-        <Text style={styles.lede}>
-          Six expressions and four product moments, drawn from eight frames of flat vector
-          art. The frame carries the expression; posture and rhythm come from the state, and
-          the blink, the wink, the gaze and the beat each run on their own random interval, so
-          no two viewings look alike.
-        </Text>
-
-        <View style={styles.stage}>
-          <MascotCharacter width={PREVIEW_WIDTH} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} winkSignal={winkSignal} />
+        <View>
+          <Text style={styles.lede}>
+            {page === 'rig'
+              ? 'The character as a rig: every part on its own controls, and linked, so that what one part does the others feel.'
+              : 'What a screen shows when there is nothing to show, or when something failed: the character, and one thing that says which.'}
+          </Text>
+          <View style={[styles.chips, styles.pages]}>
+            <Chip label="Rig" active={page === 'rig'} onPress={() => setPage('rig')} />
+            <Chip label="States" active={page === 'states'} onPress={() => setPage('states')} />
+          </View>
         </View>
-        <View style={styles.stageWhite}>
-          <MascotCharacter width={PREVIEW_WIDTH * 0.6} mood={mood} blinkSignal={blinkSignal} beatSignal={beatSignal} winkSignal={winkSignal} />
+
+        {page === 'states' ? (
+          <View style={styles.states}>
+            {MASCOT_STATE_KINDS.map((kind) => (
+              <View key={kind} style={styles.state}>
+                <MascotState kind={kind} width={STATE_ART} />
+                <Text style={styles.stateTitle}>{MASCOT_STATES[kind].title}</Text>
+                <Text style={styles.stateCopy}>{MASCOT_STATES[kind].copy}</Text>
+                <Text style={styles.stateKind}>{kind} · {MASCOT_STATES[kind].mood}</Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+        <View style={styles.pinned}>
+          <View style={styles.stage} {...drag.panHandlers}>
+            <MascotRig width={STAGE_WIDTH} mood={mood} linked={linked} debug={bones} bleed={STAGE_BLEED}
+              tweak={tweakLive} dragX={dragX} dragY={dragY}
+              blinkSignal={blinkSignal} winkSignal={winkSignal} beatSignal={beatSignal} poke={poke} />
+          </View>
+          <View style={styles.status}>
+            <Text style={[styles.hint, moved.length > 0 && styles.hintMoved]} numberOfLines={1}>
+              {moved.length > 0
+                ? `Moved by hand: ${moved.map((p) => p.label).join(', ')}`
+                : 'Drag the character. Only the body is being moved.'}
+            </Text>
+            {moved.length > 0 && (
+              <Pressable accessibilityRole="button" accessibilityLabel="Put every part back"
+                hitSlop={10} onPress={() => reset(null)} style={styles.putBack}>
+                <Text style={styles.putBackText}>Put back</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+        )}
+
+        {page === 'rig' && <>
+        <View style={[styles.chips, styles.toggles]}>
+          <Chip label="Linked" active={linked} onPress={() => setLinked((v) => !v)} />
+          <Chip label="Skeleton" active={bones} onPress={() => setBones((v) => !v)} />
         </View>
 
         {MASCOT_GROUPS.map((group) => (
           <View key={group.label}>
             <Text style={styles.groupLabel}>{group.label.toUpperCase()}</Text>
             <View style={styles.chips}>
-              {group.moods.map((item) => {
-                const active = item === mood;
-                return (
-                  <Pressable key={item} accessibilityRole="button" accessibilityState={{ selected: active }}
-                    onPress={() => setMood(item)}
-                    style={({ pressed }) => [styles.chip, active && styles.chipActive, pressed && styles.chipPressed]}>
-                    <Text style={[styles.chipText, active && styles.chipTextActive]}>{item}</Text>
-                  </Pressable>
-                );
-              })}
+              {group.moods.map((item) => (
+                <Chip key={item} label={item} active={item === mood} onPress={() => setMood(item)} />
+              ))}
             </View>
           </View>
         ))}
-
         {USED_BY[mood] && <Text style={styles.when}>{USED_BY[mood]}</Text>}
 
+        <Text style={styles.groupLabel}>PARTS</Text>
+        <View style={styles.chips}>
+          {RIG_PARTS.map((p) => (
+            <Chip key={p.part} label={p.label} active={p.part === part} marked={moved.includes(p)}
+              onPress={() => setPart(p.part)} />
+          ))}
+        </View>
+        <View style={styles.panel}>
+          {selected.controls.map((control) => (
+            <Slider key={control.channel} control={control} value={tweak[CH[control.channel]]}
+              onChange={(value) => setChannel(control.channel, value)} onHold={setHeld} />
+          ))}
+          <View style={styles.actions}>
+            <Action label={`Knock ${selected.label.toLowerCase()}`}
+              onPress={() => setPoke((p) => ({ seq: p.seq + 1, part }))} />
+            <Action label="Put back" disabled={!partTouched}
+              onPress={() => reset(selected.controls.map((c) => c.channel))} />
+          </View>
+        </View>
+
+        <Text style={styles.groupLabel}>WHAT FOLLOWS WHAT</Text>
         <View style={styles.readout}>
-          <Row label="Lean" value={`${signed(pose.roll[0], '°')} ± ${pose.roll[1]}°`} />
-          <Row label="Height" value={pose.ty[0] === 0 ? 'level' : `${pose.ty[0] < 0 ? 'lifted' : 'sunk'} ${pct(Math.abs(pose.ty[0]))}`} />
-          <Row label="Squash" value={`${pose.squash[0]} ± ${pose.squash[1]}`} />
-          {pose.hop && <Row label="Hop" value={`${pct(pose.hop.height)} at ${pose.hop.rate}/s · crouch ${pct(pose.hop.crouch)} · squash ${pose.hop.squash}`} />}
-          {pose.shake && <Row label="Shake" value={`${pct(pose.shake[0])} at ${pose.shake[1]} Hz`} />}
-          <Row label="Frame" value={Array.isArray(pose.frame) ? pose.frame.join(' → ') : pose.frame} />
-          <Row label="Lid" value={pose.lid >= 1 ? 'open' : `${Math.round(pose.lid * 100)}% open`} />
-          <Row label="Eye size" value={pose.eyeScale === 1 ? 'normal' : `${pose.eyeScale}×`} />
-          {pose.propMotion && <Row label="Accents" value={pose.propMotion} />}
-          <Row label="Horn lag" value={pose.hornLag === 0 ? 'rigid' : `${Math.round(pose.hornLag * 100)}%`} />
-          <Row label="Tail lag" value={pose.tailLag === 0 ? 'rigid' : `${Math.round(pose.tailLag * 100)}%`} />
-          <Row label="Looks" value={`${look(gaze.x, gaze.y)} · held ${secs(gaze.hold)}`} />
-          <Row label="Blink" value={blinkEvery ? `every ${secs(blinkEvery)}` : 'held, never blinks'} />
-          <Row label="Wink" value={pose.wink ? `every ${secs(pose.wink)}` : 'none'} />
-          <Row label="Beat" value={beat ? `${pct(beat.ty)} lift · ${signed(beat.roll, '°')} every ${secs(beat.every)}` : 'none'} />
+          {LINKS.map((link) => (
+            <View key={link.part} style={styles.row}>
+              <Text style={styles.rowLabel}>{link.part}</Text>
+              <Text style={styles.rowValue}>{link.follows}</Text>
+            </View>
+          ))}
         </View>
 
         <View style={styles.actions}>
-          <Pressable accessibilityRole="button" onPress={() => setBlinkSignal((n) => n + 1)}
-            disabled={!blinkEvery}
-            style={({ pressed }) => [styles.action, !blinkEvery && styles.actionDisabled, pressed && styles.actionPressed]}>
-            <Text style={[styles.actionText, !blinkEvery && styles.actionTextDisabled]}>Blink now</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={() => setBeatSignal((n) => n + 1)}
-            disabled={!beat}
-            style={({ pressed }) => [styles.action, !beat && styles.actionDisabled, pressed && styles.actionPressed]}>
-            <Text style={[styles.actionText, !beat && styles.actionTextDisabled]}>Beat now</Text>
-          </Pressable>
-          <Pressable accessibilityRole="button" onPress={() => setWinkSignal((n) => n + 1)}
-            disabled={!blinkEvery}
-            style={({ pressed }) => [styles.action, !blinkEvery && styles.actionDisabled, pressed && styles.actionPressed]}>
-            <Text style={[styles.actionText, !blinkEvery && styles.actionTextDisabled]}>Wink now</Text>
-          </Pressable>
+          <Action label="Blink" onPress={() => setBlinkSignal((n) => n + 1)} />
+          <Action label="Wink" onPress={() => setWinkSignal((n) => n + 1)} />
+          <Action label="Beat" onPress={() => setBeatSignal((n) => n + 1)} />
         </View>
 
+        <Text style={styles.groupLabel}>STREAK</Text>
+        <View style={styles.streakRow}>
+          <StreakPill value={streak} />
+          <Action label="Add a day" onPress={() => setStreak((n) => n + 1)} />
+          <Action label="Add a week" onPress={() => setStreak((n) => n + 7)} />
+        </View>
+
+        </>}
+
         <Text style={styles.footnote}>
-          With the system reduce-motion setting on, every layer holds its rest pose and none of
-          these controls do anything.
+          With the system reduce-motion setting on, every part holds its rest pose. The
+          sliders still move it; nothing else does.
         </Text>
       </ScrollView>
     </EdBase>
   );
 }
 
+const THUMB = 22;
 const styles = StyleSheet.create({
   content: { paddingHorizontal: layout.listInline, paddingBottom: 40 },
   title: { ...type.page, color: colors.text, marginTop: 4 },
   lede: { ...type.bodyReading, color: colors.supporting, marginTop: 8 },
+  // The page's own colour behind the stage, so what scrolls under it is hidden.
+  pinned: { paddingTop: 16, paddingBottom: 6, backgroundColor: colors.bg },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 34, marginTop: 4 },
   stage: {
-    marginTop: 20, height: 230,
+    height: 232,
     borderRadius: componentTokens.todayHero.borderRadius,
     backgroundColor: colors.surfaceSubtle,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
-  stageWhite: {
-    marginTop: 10, height: 140,
-    borderRadius: componentTokens.todayHero.borderRadius,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
-    alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-  },
-  groupLabel: { ...type.meta, color: colors.muted, marginTop: 20, marginBottom: 8, letterSpacing: 0.6 },
+  hint: { ...type.meta, color: colors.muted, flex: 1 },
+  hintMoved: { color: colors.text },
+  putBack: { minHeight: 34, justifyContent: 'center' },
+  putBackText: { ...type.meta, color: colors.accentText, textDecorationLine: 'underline' },
+  groupLabel: { ...type.meta, color: colors.muted, marginTop: 22, marginBottom: 8, letterSpacing: 0.6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
+  toggles: { marginTop: 8 },
   chip: {
-    minHeight: 40, justifyContent: 'center', paddingHorizontal: 13,
+    minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13,
     borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
   },
   chipActive: { backgroundColor: colors.action, borderColor: colors.action },
   chipPressed: { backgroundColor: colors.surfaceSubtle },
   chipText: { ...type.meta, color: colors.sub },
   chipTextActive: { color: colors.onAction },
-  when: { ...type.meta, color: colors.muted, marginTop: 18 },
-  readout: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border },
+  chipMark: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.action },
+  chipMarkActive: { backgroundColor: colors.onAction },
+  when: { ...type.meta, color: colors.muted, marginTop: 14 },
+  panel: {
+    marginTop: 12, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 16,
+    borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surf,
+  },
+  slider: { paddingTop: 10 },
+  sliderHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
+  track: { height: 44, justifyContent: 'center', marginHorizontal: THUMB / 2 },
+  trackLine: { height: 4, borderRadius: radius.pill, backgroundColor: colors.border },
+  trackFill: { position: 'absolute', height: 4, borderRadius: radius.pill, backgroundColor: colors.action },
+  trackZero: {
+    position: 'absolute', width: 2, height: 12, marginLeft: -1,
+    borderRadius: radius.pill, backgroundColor: colors.controlBorder,
+  },
+  thumb: {
+    position: 'absolute', width: THUMB, height: THUMB, marginLeft: -THUMB / 2,
+    borderRadius: radius.pill, backgroundColor: colors.action,
+    borderWidth: 3, borderColor: colors.surf,
+  },
+  readout: { borderTopWidth: 1, borderTopColor: colors.border },
   row: {
     flexDirection: 'row', justifyContent: 'space-between', gap: 16,
     paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   rowLabel: { ...type.meta, color: colors.muted },
   rowValue: { ...type.meta, color: colors.text, flexShrink: 1, textAlign: 'right' },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 20 },
+  actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
+  streakRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   action: {
-    flex: 1, minHeight: 48, borderRadius: radius.pill,
+    flex: 1, minHeight: 48, borderRadius: radius.pill, paddingHorizontal: 12,
     backgroundColor: colors.surfaceSubtle, alignItems: 'center', justifyContent: 'center',
   },
   actionPressed: { backgroundColor: colors.selectionNeutral },
   actionDisabled: { backgroundColor: colors.disabledBg },
   actionText: { ...type.meta, color: colors.text },
   actionTextDisabled: { color: colors.disabledText },
+  pages: { marginTop: 14, marginBottom: 14 },
+  states: { gap: 12 },
+  state: {
+    alignItems: 'center', paddingTop: 20, paddingBottom: 22, paddingHorizontal: 20,
+    borderRadius: radius.card, backgroundColor: colors.surf,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
+  },
+  stateTitle: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 26, color: colors.text, textAlign: 'center', marginTop: 18 },
+  stateCopy: { ...type.bodyReading, color: colors.sub, textAlign: 'center', marginTop: 4 },
+  stateKind: { ...type.meta, color: colors.muted, marginTop: 10 },
   footnote: { ...type.meta, color: colors.muted, marginTop: 20 },
 });

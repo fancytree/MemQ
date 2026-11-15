@@ -13,8 +13,7 @@
  */
 
 import { HomeAsset } from '@/components/HomeAsset';
-import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { safeBack } from '@/lib/safeBack';
@@ -36,6 +35,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 
 const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
@@ -57,8 +57,7 @@ const PERCH = 150;
  *  typed in: a little below their middle, so their lower part laps onto the card and
  *  they read as resting on the edge instead of hovering above it. The first run and
  *  the sign-in screens perch on the same line. */
-const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
-  / MASCOT_HANDS.length / 256;
+const HAND_LINE = RIG_HAND_LINE;
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
 
 export default function UnlockProScreen() {
@@ -98,7 +97,7 @@ export default function UnlockProScreen() {
 
         {/* Body behind the card, hands over its front edge — the character holds what
             you get the way it holds the setup questions on the first run. */}
-        <MascotCharacter width={PERCH} mood="excited" calm style={styles.perch}
+        <MascotRig width={PERCH} mood="excited" calm style={styles.perch}
           behind={(
             <View style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
               <View style={styles.cardFace}>
@@ -121,12 +120,12 @@ export default function UnlockProScreen() {
       <SafeAreaView edges={['bottom']}>
         <View style={styles.footer}>
           <Text style={styles.hint}>7-day free trial · Cancel anytime</Text>
-          <Pressable accessibilityRole="button" style={styles.lead}
+          <LedgePressable accessibilityRole="button" style={styles.lead}
             onPress={() => setShowPaywallModal(true)}>
             <View style={styles.leadFace}>
               <Text style={styles.leadText}>Start free trial</Text>
             </View>
-          </Pressable>
+          </LedgePressable>
           <View style={styles.legal}>
             <Pressable accessibilityRole="button" onPress={() => Linking.openURL(APPLE_EULA_URL)}>
               <Text style={styles.legalLink}>Terms of Use (EULA)</Text>

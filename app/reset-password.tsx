@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { colors } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -23,6 +24,7 @@ import {
 const t = MemQTheme;
 
 export default function ResetPasswordScreen() {
+  const insets = useSafeAreaInsets();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -163,12 +165,14 @@ export default function ResetPasswordScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}>
+      {/* Above the scroll view, not in it: the way back stays where it is. */}
+      <View style={{ paddingTop: insets.top }}>
+        <SecondaryPageNav onBack={() => router.replace('/login')} backLabel="← Back" />
+      </View>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>
-          {/* Header */}
-          <SecondaryPageNav onBack={() => router.replace('/login')} backLabel="← Back" />
 
           <Text style={styles.title}>Set New Password</Text>
           <Text style={styles.subtitle}>
@@ -279,7 +283,8 @@ const styles = StyleSheet.create({
   content: {
     flex: 1,
     paddingHorizontal: layout.screenInline,
-    paddingVertical: 40,
+    // The bar above carries the top of the page now; this is only the foot.
+    paddingBottom: 40,
   },
   loadingContainer: {
     flex: 1,

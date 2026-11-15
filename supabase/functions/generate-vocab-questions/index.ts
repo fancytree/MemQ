@@ -2,10 +2,11 @@
 // Deno environment
 // For language lessons (learning_mode = 'language')
 
-// @ts-expect-error - Deno supports URL imports, but TypeScript needs type declarations
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-// @ts-expect-error - Deno supports URL imports, but TypeScript needs type declarations
-import OpenAI from 'https://esm.sh/openai@4';
+import OpenAI from 'https://esm.sh/openai@6.49.0';
+import { validMcqPool, validTrueFalse } from '../_shared/practiceOptions.ts';
+import { requestPractice } from '../_shared/requestPractice.ts';
+import { checkQuestionAccess, type QuestionAccessClient } from '../_shared/questionAccess.ts';
 
 // CORS 响应头
 const corsHeaders = {
@@ -20,7 +21,7 @@ interface GenerateRequest {
     id: string;
     term: string;
     definition: string;
-    explanation?: string; // May contain IPA, POS, Meaning, Example, Synonyms
+    explanation?: string | null; // May contain IPA, POS, Meaning, Example, Synonyms
     language_data?: Record<string, unknown> | null;
   }>;
 }
@@ -66,27 +67,31 @@ Deno.serve(async (req) => {
       apiKey: openaiApiKey,
     });
 
-    // 初始化 Supabase 客户端（使用 Service Role Key）
+    // Verify the caller and use their own database privileges, never service role.
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
-
-    if (!supabaseUrl || !supabaseServiceKey) {
-      throw new Error('Missing Supabase environment variables');
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    const authorization = req.headers.get('Authorization') || '';
+    if (!supabaseUrl || !supabaseAnonKey) throw new Error('Missing Supabase environment variables');
+    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+      global: { headers: { Authorization: authorization } },
+      auth: { autoRefreshToken: false, persistSession: false },
     });
+    const access = await checkQuestionAccess(supabase as unknown as QuestionAccessClient, authorization, body.lessonId, body.terms.map((term) => term?.id));
+    if (!access.ok) {
+      return new Response(JSON.stringify({ error: access.error }), {
+        status: access.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    // Generate from the verified snapshot, not caller-supplied card text.
+    body.terms = access.terms;
+    const revisions = new Map(access.terms.map((term) => [term.id, term.content_revision]));
 
     const systemPrompt = `You are a language teacher creating practice for words, phrases, and grammar patterns in any language.
-Use the term's language in questions and examples. Never assume the user's native language or add translations.
+Use the language of the supplied definition for question wording and explanations. Preserve target-language words and examples. Every answer option, including distractors and the correct answer, must use the same language as the expected answer. Never substitute the system language or invent translations.
 Use the supplied definition, example, forms, collocations, synonyms, and antonyms. Test usage in context, spelling, forms, and suitable relationships. Never ask a synonym/antonym question when the source data has no reliable relationship.
 For grammar patterns, test applying the construction in a natural sentence. Avoid questions that only repeat the definition.
-Return only JSON: {"questions":[{"term_id":"uuid","question_text":"...","question_type":"mcq","options":["A","B","C","D"],"correct_answer":"A","explanation":"..."}]}.
-Use mcq with exactly four options, true_false with ["True","False"], or fill_blank with null options and a short exact answer. Generate 1-3 questions per term. Every term_id must be one of the supplied IDs.`;
+Return only JSON: {"questions":[{"term_id":"uuid","question_text":"...","question_type":"mcq","options":["A","B","C","D","E"],"correct_answer":"A","explanation":"..."}]}.
+Use mcq with 5–6 distinct options of at most 100 characters, including exactly one correct answer; the app displays four choices. Use true_false with ["True","False"] only for English questions; otherwise use mcq or fill_blank, or fill_blank with null options and a short exact answer. Generate 1-3 questions per term. Every term_id must be one of the supplied IDs.`;
 
     const userPrompt = `Create language practice from these cards:\n\n${body.terms.map((term) =>
       `Term ID: ${term.id}\nTerm: ${term.term}\nDefinition: ${term.definition}\nUsage note: ${term.explanation || ''}\nLanguage details: ${JSON.stringify(term.language_data || {})}`
@@ -94,34 +99,7 @@ Use mcq with exactly four options, true_false with ["True","False"], or fill_bla
 
     // 调用 OpenAI API
     const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-6-luna';
-    const completion = await openai.chat.completions.create({
-      model: openaiModel,
-      ...(openaiModel === 'gpt-6-luna' ? { reasoning_effort: 'none' as const } : {}),
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7,
-    });
-
-    // 解析 OpenAI 返回的 JSON
-    const responseContent = completion.choices[0]?.message?.content;
-    if (!responseContent) {
-      throw new Error('OpenAI returned empty response');
-    }
-
-    let questionsData: { questions: any[] };
-    try {
-      questionsData = JSON.parse(responseContent);
-    } catch (parseError) {
-      console.error('Failed to parse OpenAI response:', responseContent);
-      throw new Error('Invalid JSON response from OpenAI');
-    }
-
-    if (!questionsData.questions || !Array.isArray(questionsData.questions)) {
-      throw new Error('Invalid response format: missing questions array');
-    }
+    const questionsData = await requestPractice(openai, openaiModel, systemPrompt, userPrompt, body.terms.map((term) => term.id));
 
     // 验证并构建数据库插入数据
     const insertData = questionsData.questions.map((q) => {
@@ -144,21 +122,24 @@ Use mcq with exactly four options, true_false with ["True","False"], or fill_bla
       // 验证 options
       if (q.question_type === 'fill_blank') {
         if (q.options !== null) {
-          console.warn(`Warning: fill_blank question should have null options, got: ${q.options}`);
+          console.warn('Normalizing non-null fill_blank options');
           q.options = null;
         }
       } else if (q.question_type === 'true_false') {
-        if (!Array.isArray(q.options) || q.options.length !== 2) {
-          throw new Error(`true_false question must have exactly 2 options: ["True", "False"]`);
+        if (!validTrueFalse(q.options, q.correct_answer, q.question_text)) {
+          throw new Error('true_false requires the supported True/False options and answer and compatible question wording');
         }
       } else if (q.question_type === 'mcq') {
-        if (!Array.isArray(q.options) || q.options.length !== 4) {
-          throw new Error(`mcq question must have exactly 4 options`);
+        if (!validMcqPool(q.options, q.correct_answer)) {
+          throw new Error('mcq question requires 5–6 distinct options of at most 100 characters, including the correct answer, using a consistent writing system');
         }
+        q.options = q.options.map((option: string) => option.trim());
+        q.correct_answer = q.correct_answer.trim();
       }
 
       return {
         term_id: q.term_id,
+        source_revision: revisions.get(q.term_id),
         question_text: q.question_text,
         question_type: q.question_type,
         options: q.options,

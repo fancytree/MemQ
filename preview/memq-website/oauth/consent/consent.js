@@ -1,4 +1,9 @@
-import { SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js';
+import { CONSENT_ENABLED, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from './config.js?v=2';
+if (!CONSENT_ENABLED) {
+  const status = document.getElementById('status');
+  status.textContent = 'Connections are not available yet.';
+  status.hidden = false;
+} else {
 if (!window.supabase?.createClient) {
   const status = document.getElementById('status');
   status.textContent = 'The sign-in service could not be loaded. Please reload this page.';
@@ -53,3 +58,4 @@ $('approve').addEventListener('click', () => decide(true));
 $('deny').addEventListener('click', () => decide(false));
 $('switch').addEventListener('click', async () => { setBusy(true); await supabase.auth.signOut({ scope: 'local' }); $('consent').hidden = true; $('email').value = ''; await load(); setBusy(false); });
 void load();
+}

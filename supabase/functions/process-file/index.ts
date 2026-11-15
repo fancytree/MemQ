@@ -3,6 +3,10 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { OpenAI } from 'https://deno.land/x/openai@v4.20.1/mod.ts';
+import { unzipSync } from 'https://esm.sh/fflate@0.8.2';
+
+import { isDirectAppRequest } from '../_shared/directRequest.ts';
+import { signOwnedPdfReference } from '../_shared/pdfReference.ts';
 
 // CORS 响应头
 const corsHeaders = {
@@ -12,7 +16,7 @@ const corsHeaders = {
 
 // 请求体类型定义
 interface ProcessFileRequest {
-  pdf_url: string; // PDF 文件的公开 URL
+  pdf_url: string; // Time-limited URL for the processor.
 }
 
 Deno.serve(async (req) => {
@@ -22,6 +26,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (!await isDirectAppRequest(req)) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     // 获取认证信息
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -48,10 +57,33 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Legacy app versions send a public URL; newer ones send a signed URL.
+    // Neither is trusted as authority: resolve it to this user's object, then
+    // mint a fresh short-lived URL under the user's own Storage permissions.
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+    if (!supabaseUrl || !anonKey) throw new Error('Storage configuration unavailable');
+    const client = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const signedUrl = await signOwnedPdfReference(body.pdf_url, supabaseUrl,
+      () => client.auth.getUser(),
+      (path) => client.storage.from('pdfs').createSignedUrl(path, 15 * 60),
+      Deno.env.get('MEMQ_PUBLIC_SUPABASE_URL'));
+    if (!signedUrl) {
+      return new Response(JSON.stringify({ error: 'Invalid or inaccessible PDF' }), {
+        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // 获取 MinerU API Token
     const mineruToken = Deno.env.get('MINERU_API_TOKEN');
     if (!mineruToken) {
-      throw new Error('MINERU_API_TOKEN environment variable is not set');
+      console.error('PDF processor configuration unavailable');
+      return new Response(JSON.stringify({ error: 'PDF processing is temporarily unavailable.' }), {
+        status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // 第一步：调用 MinerU API 创建解析任务
@@ -63,29 +95,22 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${mineruToken}`,
       },
       body: JSON.stringify({
-        url: body.pdf_url,
+        url: signedUrl,
         model_version: 'vlm',
       }),
     });
 
     if (!createTaskResponse.ok) {
-      const errorText = await createTaskResponse.text();
-      let errorData;
-      try {
-        errorData = JSON.parse(errorText);
-      } catch {
-        errorData = { message: errorText };
-      }
-      console.error('MinerU API error:', errorData);
-      throw new Error(`MinerU API error: ${errorData.message || errorData.error || createTaskResponse.statusText}`);
+      // Upstream responses may echo the temporary bearer URL; never log them.
+      console.error('MinerU task creation failed', createTaskResponse.status);
+      throw new Error('Could not start PDF processing.');
     }
 
     const taskData = await createTaskResponse.json();
     const taskId = taskData.task_id || taskData.id || taskData.data?.task_id;
 
     if (!taskId) {
-      console.error('MinerU API response:', taskData);
-      throw new Error('Failed to get task ID from MinerU API. Response: ' + JSON.stringify(taskData));
+      throw new Error('PDF processing did not return a task ID.');
     }
 
     // 第二步：轮询任务状态，直到完成
@@ -116,38 +141,52 @@ Deno.serve(async (req) => {
       }
 
       const statusData = await statusResponse.json();
-      const status = statusData.status || statusData.state || statusData.data?.status;
+      const status = statusData.status || statusData.state || statusData.data?.status || statusData.data?.state;
 
       console.log(`MinerU task status (attempt ${attempt + 1}):`, status);
 
       if (status === 'completed' || status === 'success' || status === 'done') {
         // 任务完成，获取结果
-        const resultUrl = statusData.result_url || statusData.download_url || statusData.data?.result_url;
+        const resultUrl = statusData.data?.full_zip_url;
         const markdown = statusData.markdown || statusData.data?.markdown;
         const text = statusData.text || statusData.data?.text;
         const content = statusData.content || statusData.data?.content;
 
         if (resultUrl) {
-          // 从 URL 下载结果
-          const resultResponse = await fetch(resultUrl);
-          if (resultResponse.ok) {
-            const resultContent = await resultResponse.text();
-            
-            // 尝试解析为 JSON
-            try {
-              const jsonResult = JSON.parse(resultContent);
-              extractedText = jsonResult.markdown || jsonResult.text || jsonResult.content || JSON.stringify(jsonResult);
-            } catch {
-              // 如果不是 JSON，直接使用文本内容（可能是 Markdown）
-              extractedText = resultContent;
-            }
+          // Only fetch the documented MinerU result CDN, with bounded input and output.
+          const archiveUrl = new URL(resultUrl);
+          if (archiveUrl.protocol !== 'https:' || archiveUrl.hostname !== 'cdn-mineru.openxlab.org.cn' || archiveUrl.port || archiveUrl.username || archiveUrl.password) throw new Error('Invalid PDF result location');
+          const resultResponse = await fetch(archiveUrl, { redirect: 'error' });
+          if (!resultResponse.ok || !resultResponse.body) throw new Error('Could not download PDF result');
+          const maxArchiveBytes = 20 * 1024 * 1024;
+          const reader = resultResponse.body.getReader();
+          const chunks: Uint8Array[] = [];
+          let length = 0;
+          while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            length += value.length;
+            if (length > maxArchiveBytes) { await reader.cancel(); throw new Error('PDF result is too large'); }
+            chunks.push(value);
           }
+          const archive = new Uint8Array(length);
+          let offset = 0;
+          for (const chunk of chunks) { archive.set(chunk, offset); offset += chunk.length; }
+          let markdownCount = 0;
+          const files = unzipSync(archive, { filter: (file) => {
+            if (file.name !== 'full.md' && !file.name.endsWith('/full.md')) return false;
+            if (++markdownCount > 1 || file.originalSize > 5 * 1024 * 1024) throw new Error('Invalid PDF result markdown');
+            return true;
+          } });
+          const markdownFiles = Object.keys(files);
+          if (markdownFiles.length !== 1) throw new Error('PDF result has no unique markdown');
+          extractedText = new TextDecoder().decode(files[markdownFiles[0]]);
         } else if (markdown || text || content) {
           // 结果直接在响应中
           extractedText = markdown || text || content;
         } else {
           // 尝试从响应中提取任何文本字段
-          extractedText = JSON.stringify(statusData);
+          throw new Error('PDF result has no text');
         }
         break;
       } else if (status === 'failed' || status === 'error') {
@@ -202,6 +241,10 @@ Deno.serve(async (req) => {
     const systemPrompt = `You are a rigorous knowledge graph expert. Your task is to extract core concepts (Terms) and their definitions (Definitions) from the input.
 
 STRICT RULES:
+
+0. Language:
+   - Write each card's definition in the language of the source material; do not default to the app or system language.
+   - Preserve original terminology and proper names. If the source contains multiple languages, keep each concept and its definition consistent with its own source context.
 
 1. Term Requirements:
    - Must be a core noun, concept, legal term, event name, or key terminology
@@ -260,9 +303,8 @@ Identify all important concepts, terminology, and definitions mentioned in the t
     let parsedResponse: { results: Array<{ term: string; definition: string }> };
     try {
       parsedResponse = JSON.parse(responseContent);
-    } catch (parseError) {
-      console.error('Error parsing OpenAI response:', parseError);
-      console.error('Response content:', responseContent);
+    } catch {
+      console.error('Error parsing OpenAI response');
       throw new Error('Invalid JSON response from OpenAI');
     }
 
@@ -285,11 +327,12 @@ Identify all important concepts, terminology, and definitions mentioned in the t
       }
     );
   } catch (error) {
-    console.error('Error processing file:', error);
+    // Errors from third parties can contain the signed URL or document text.
+    console.error('Error processing file');
     return new Response(
       JSON.stringify({
         error: 'Internal server error',
-        message: error instanceof Error ? error.message : 'Unknown error',
+        message: 'Unable to process this PDF. Please try again.',
       }),
       {
         status: 500,

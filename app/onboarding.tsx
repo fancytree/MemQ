@@ -26,8 +26,7 @@ import { HomeAsset } from '@/components/HomeAsset';
 import { BackButton } from '@/components/ui/RoundButtons';
 import LoadingScreen from '@/components/LoadingScreen';
 import { WELCOME_SCENES, WelcomeStory } from '@/components/WelcomeStory';
-import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notificationService';
 import { supabase } from '@/lib/supabase';
 import { homeColors } from '@/theme/colors';
@@ -53,6 +52,7 @@ import Animated, {
   Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -264,8 +264,7 @@ const PERCH = 150;
  *  typed in: a little below their middle, so their lower part laps onto the card
  *  and they read as resting on the edge instead of hovering above it. The sign-in
  *  screens perch on the same line. */
-const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
-  / MASCOT_HANDS.length / 256;
+const HAND_LINE = RIG_HAND_LINE;
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
 
 /** One question: what it asks, then what it asks with.
@@ -290,14 +289,14 @@ function Field({ label, lead, children }: {
 
 function Lead({ label, onPress, off }: { label: string; onPress: () => void; off?: boolean }) {
   return (
-    <Pressable accessibilityRole="button"
+    <LedgePressable accessibilityRole="button"
       style={[styles.lead, off && styles.leadOff]}
       onPress={off ? undefined : onPress}
       disabled={off}>
       <View style={styles.leadFace}>
         <Text style={styles.leadText}>{label}</Text>
       </View>
-    </Pressable>
+    </LedgePressable>
   );
 }
 
@@ -326,7 +325,7 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
         keyboardShouldPersistTaps="handled">
         {/* Body behind the card, hands over its front edge — the character leans
             on the questions the way it leans on the sign-in form. */}
-        <MascotCharacter width={PERCH} mood="onboarding" calm style={styles.perch}
+        <MascotRig width={PERCH} mood="onboarding" calm style={styles.perch}
           behind={(
             <View style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
               <View style={styles.cardFace}>
@@ -352,14 +351,14 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
                     {GOAL_OPTIONS.map((cards) => {
                       const on = goal === cards;
                       return (
-                        <Pressable accessibilityRole="button" key={cards}
+                        <LedgePressable accessibilityRole="button" key={cards}
                           accessibilityState={{ selected: on }}
                           style={[styles.chip, on && styles.chipOn]}
                           onPress={() => onGoal(cards)}>
                           <View style={[styles.chipFace, on && styles.chipFaceOn]}>
                             <Text style={[styles.chipNum, on && styles.chipTextOn]}>{cards}</Text>
                           </View>
-                        </Pressable>
+                        </LedgePressable>
                       );
                     })}
                   </View>
@@ -375,14 +374,14 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
                         {row.map((t) => {
                       const on = reminder === t.value;
                       return (
-                        <Pressable accessibilityRole="button" key={t.value}
+                        <LedgePressable accessibilityRole="button" key={t.value}
                           accessibilityState={{ selected: on }}
                           style={[styles.time, on && styles.chipOn]}
                           onPress={() => onReminder(on ? null : t.value)}>
                           <View style={[styles.timeFace, on && styles.chipFaceOn]}>
                             <Text style={[styles.timeText, on && styles.chipTextOn]}>{t.label}</Text>
                           </View>
-                        </Pressable>
+                        </LedgePressable>
                       );
                         })}
                       </View>

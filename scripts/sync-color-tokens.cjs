@@ -2,9 +2,9 @@
 const fs = require('node:fs');
 const { resolve } = require('node:path');
 const { loadTheme } = require('./theme-module.cjs');
-const { colors, referenceColors, semanticColor, decorationOpacity } = loadTheme('colors');
+const { colors, referenceColors, semanticColor, decorationOpacity, homeColors } = loadTheme('colors');
 const { fonts, type, referenceTypography } = loadTheme('typography');
-const { layout } = loadTheme('spacing');
+const { layout, space, radius } = loadTheme('spacing');
 const { componentTokens, interaction, elevation, sourceReference } = loadTheme('components');
 const { artwork } = loadTheme('artwork');
 const kebab = (key) => key.replace(/[A-Z]/g, (v) => `-${v.toLowerCase()}`);
@@ -19,7 +19,7 @@ const foundationCSS = header + ':root {\n' + Object.entries(type).flatMap(([role
 const tokens = {
   version: '2.0.0', authority: sourceReference,
   reference: { colors: referenceColors, typography: referenceTypography, decorationOpacity },
-  runtime: { semanticColor, colors, typography: type, fonts, layout, componentTokens, interaction, elevation },
+  runtime: { semanticColor, colors, homeColors, typography: type, fonts, layout, space, radius, componentTokens, interaction, elevation },
   artwork,
   status: { reference: 'Measured in supplied source; not newly inspected or bound Figma variables',
     runtime: 'Implementation aliases; contrast/line-height/navigation-label adaptations and unmeasured interaction states are extensions',

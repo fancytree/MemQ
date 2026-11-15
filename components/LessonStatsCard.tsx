@@ -1,3 +1,4 @@
+import { elevation as cardElevation } from '@/theme';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/theme';
@@ -182,7 +183,7 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
           <View
             style={[
               styles.progressBarFill,
-              { width: `${Math.max(stats.completionRate, 1)}%` },
+              { width: `${stats.completionRate}%` },
             ]}
           />
         </View>
@@ -330,7 +331,6 @@ const styles = StyleSheet.create({
     height: '100%',
     backgroundColor: colors.accent,
     borderRadius: 999,
-    minWidth: 1,
   },
   statsGrid: {
     flexDirection: 'row',
@@ -342,13 +342,11 @@ const styles = StyleSheet.create({
   statCard: {
     width: '31%',
     height: 67,
-    borderRadius: 14,
     paddingTop: 8,
     paddingHorizontal: 8,
     justifyContent: 'flex-start',
     alignItems: 'center',
-    marginBottom: 8,
-  },
+    marginBottom: 8, ...cardElevation.card, },
   statNumber: {
     fontSize: 16,
     fontWeight: '400',

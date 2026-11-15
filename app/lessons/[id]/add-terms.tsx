@@ -2,8 +2,7 @@ import { ManualTermFields } from '@/components/ui/ManualTermFields';
 import { dialog } from '@/lib/dialog';
 import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { HomeAsset } from '@/components/HomeAsset';
-import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,6 +17,7 @@ import { AI_LIMITS, getAIUsageCount, recordAIUsage } from '@/lib/aiUsage';
 import { clearCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
+import { createPdfProcessingUrl } from '@/lib/pdfSignedUrl';
 import { LanguageCardData, hasLanguageData, languageDataFromLegacyExplanation, normalizeLanguageData } from '@/lib/languageCard';
 import { colors, fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
@@ -28,8 +28,7 @@ import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions
 /** The same perch as New Lesson's: this screen is that screen's twin, so the
  *  character stands at the same width and crosses the card on the same hand line. */
 const PERCH = 132;
-const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
-  / MASCOT_HANDS.length / 256;
+const HAND_LINE = RIG_HAND_LINE;
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
 const PROMPT_GAZE = { x: 0.5, y: 0.9 } as const;
 
@@ -205,7 +204,8 @@ export default function AddTermsScreen() {
 
       setPhase('generating');
       const { data: authData } = await supabase.auth.getUser();
-      const userId = authData.user?.id ?? 'anonymous';
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('Please sign in to upload a PDF.');
       const fileName = `${userId}/${Date.now()}-${asset.name || 'upload.pdf'}`;
 
       const fileResp = await fetch(asset.uri);
@@ -218,9 +218,9 @@ export default function AddTermsScreen() {
         throw new Error(`Failed to upload file: ${uploadError.message}`);
       }
 
-      const { data: urlData } = supabase.storage.from('pdfs').getPublicUrl(fileName);
+      const pdfUrl = await createPdfProcessingUrl(supabase.storage.from('pdfs'), fileName);
       const { data, error } = await supabase.functions.invoke('process-file', {
-        body: { pdf_url: urlData.publicUrl },
+        body: { pdf_url: pdfUrl },
       });
       if (error) {
         throw new Error(error.message || 'Failed to process file');
@@ -602,7 +602,7 @@ export default function AddTermsScreen() {
       >
       {/* Prompt block, with the character resting on its top edge. It watches the
           box while it is empty and thinks while the cards are being written. */}
-      <MascotCharacter width={PERCH} calm style={styles.perch} hands
+      <MascotRig width={PERCH} calm style={styles.perch} hands
         mood={isGenerating ? 'thinking' : 'onboarding'}
         look={isGenerating ? PROMPT_GAZE : undefined}
         behind={(

@@ -11,8 +11,7 @@ import { ledge } from '@/theme/ledge';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { HomeAsset } from '@/components/HomeAsset';
-import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, LanguageCardEditor } from '@/components/LanguageCardFields';
 import { useSubscription } from '@/context/SubscriptionContext';
@@ -20,6 +19,7 @@ import { AI_LIMITS, getAIUsageCount, recordAIUsage } from '@/lib/aiUsage';
 import { safeBack } from '@/lib/safeBack';
 import { setPendingTerms } from '@/lib/createStore';
 import { supabase } from '@/lib/supabase';
+import { createPdfProcessingUrl } from '@/lib/pdfSignedUrl';
 import { LanguageCardData, hasLanguageData, normalizeLanguageData } from '@/lib/languageCard';
 import { fonts } from '@/theme';
 import { Feather } from '@expo/vector-icons';
@@ -42,8 +42,7 @@ const PERCH = 132;
  *  typed in: a little below their middle, so their lower part laps onto the card and
  *  they read as resting on the edge instead of hovering above it. Every perch in the
  *  app sits on this line. */
-const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
-  / MASCOT_HANDS.length / 256;
+const HAND_LINE = RIG_HAND_LINE;
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
 
 /** The thinking face looks up and off into the middle distance on its own, which is
@@ -211,15 +210,16 @@ export default function CreateScreen() {
       if (asset.name) setSourceName(asset.name.replace(/\.[^.]+$/, '').trim());
       setPhase('generating');
       const { data: authData } = await supabase.auth.getUser();
-      const userId = authData.user?.id ?? 'anonymous';
+      const userId = authData.user?.id;
+      if (!userId) throw new Error('Please sign in to upload a PDF.');
       const fileName = `${userId}/${Date.now()}-${asset.name || 'upload.pdf'}`;
       const fileBlob = await (await fetch(asset.uri)).blob();
       const { error: uploadError } = await supabase.storage
         .from('pdfs').upload(fileName, fileBlob, { contentType: 'application/pdf' });
       if (uploadError) throw new Error(`Failed to upload file: ${uploadError.message}`);
-      const { data: urlData } = supabase.storage.from('pdfs').getPublicUrl(fileName);
+      const pdfUrl = await createPdfProcessingUrl(supabase.storage.from('pdfs'), fileName);
       const { data, error } = await supabase.functions.invoke('process-file', {
-        body: { pdf_url: urlData.publicUrl },
+        body: { pdf_url: pdfUrl },
       });
       if (error) throw new Error(error.message || 'Failed to process file');
       const results: Array<{ term: string; definition: string; explanation?: string; language_data?: LanguageCardData }> =
@@ -384,7 +384,7 @@ export default function CreateScreen() {
         </View>
         {/* Prompt block, with the character resting on its top edge. It watches the
             box while it is empty and thinks while the cards are being written. */}
-        <MascotCharacter width={PERCH} calm style={styles.perch} hands
+        <MascotRig width={PERCH} calm style={styles.perch} hands
           mood={isGenerating ? 'thinking' : 'onboarding'}
           look={isGenerating ? PROMPT_GAZE : undefined}
           behind={(

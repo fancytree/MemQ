@@ -1,4 +1,5 @@
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { MascotState } from '@/components/mascot/MascotState';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { mcpBrokerUrl as brokerBaseUrl } from '@/lib/mcp';
 import { McpSetupSheet } from '@/components/McpSetupSheet';
@@ -90,7 +91,7 @@ export default function ConnectionsScreen() {
         <Feather name="chevron-right" size={18} color={homeColors.muted} />
       </Pressable>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      {loading ? <ActivityIndicator color={homeColors.primary} style={styles.loading} /> : error && grants.length === 0 ? <Pressable accessibilityRole="button" onPress={load} style={styles.retry}><Text style={styles.retryText}>Try again</Text></Pressable> : grants.length === 0 ? <View style={styles.empty}><Feather name="link" size={24} color={homeColors.deep} /><Text style={styles.emptyTitle}>{brokerBaseUrl ? 'No connected apps' : 'Not available yet'}</Text><Text style={styles.emptyText}>{brokerBaseUrl ? 'Apps you authorize will appear here.' : 'Connecting isn’t switched on in this build. The steps above are what it will look like.'}</Text></View> : grants.map((grant) => <View key={grant.id} style={styles.card}>
+      {loading ? <ActivityIndicator color={homeColors.primary} style={styles.loading} /> : error && grants.length === 0 ? <View style={styles.empty}><MascotState kind="error" width={148} /><Pressable accessibilityRole="button" onPress={load} style={[styles.retry, styles.retryCentered]}><Text style={styles.retryText}>Try again</Text></Pressable></View> : grants.length === 0 ? <View style={styles.empty}><MascotState kind="empty" width={148} /><Text style={styles.emptyTitle}>{brokerBaseUrl ? 'No connected apps' : 'Not available yet'}</Text><Text style={styles.emptyText}>{brokerBaseUrl ? 'Apps you authorize will appear here.' : 'Connecting isn’t switched on in this build. The steps above are what it will look like.'}</Text></View> : grants.map((grant) => <View key={grant.id} style={styles.card}>
         <View style={styles.cardTop}><View style={styles.icon}><Feather name="link" size={20} color={homeColors.deep} /></View><View style={styles.copy}><Text style={styles.name}>{grant.name || 'Connected app'}</Text><Text style={styles.meta}>Connected {new Date(grant.createdAt * 1000).toLocaleDateString()}</Text></View></View>
         <Pressable accessibilityRole="button" accessibilityLabel={`Disconnect ${grant.name || 'connected app'}`} onPress={() => setSelected(grant)} style={styles.disconnect}><Text style={styles.disconnectText}>Disconnect</Text></Pressable>
       </View>)}
@@ -129,5 +130,6 @@ const styles = StyleSheet.create({
   disconnect: { minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center', paddingHorizontal: 8 },
   disconnectText: { color: colors.red, fontFamily: fonts.semibold, fontSize: 14 },
   retry: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
+  retryCentered: { alignSelf: 'center' },
   retryText: { color: homeColors.primary, fontFamily: fonts.semibold, fontSize: 15 },
 });

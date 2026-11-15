@@ -4,6 +4,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@4';
 
+import { isDirectAppRequest } from '../_shared/directRequest.ts';
+
 // CORS 响应头
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -23,6 +25,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (!await isDirectAppRequest(req)) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     // 解析请求体
     const body: GenerateTermsRequest = await req.json();
 
@@ -79,7 +86,7 @@ STRICT RULES:
 
 2. Definition Requirements:
    - A "definition" is a short explanation of what the term means or what it does (its identity or function).
-   - Definitions can also be in ANY LANGUAGE, matching the language of the term.
+   - Write definitions and explanations in the language used in the user's request, or the explicitly requested language; do not default to the app or system language. Keep original technical terms and names when appropriate.
    - If the text does not contain an explicit definition sentence, you may infer a concise definition from context (your best guess), but keep it factual and neutral.
 
 3. FORBIDDEN in Definitions:

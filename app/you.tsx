@@ -21,6 +21,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 
 const WEEKDAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'] as const;
 
@@ -155,13 +156,13 @@ export default function ProfileScreen() {
           )}
         </View>
         {!isPro && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Go Pro"
+          <LedgePressable accessibilityRole="button" accessibilityLabel="Go Pro"
             onPress={showPaywall} style={styles.goPro}>
             <View style={styles.goProFace}>
               <Feather name="zap" size={15} color={homeColors.white} />
               <Text style={styles.goProText}>Go Pro</Text>
             </View>
-          </Pressable>
+          </LedgePressable>
         )}
       </View>
 

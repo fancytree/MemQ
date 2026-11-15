@@ -1,3 +1,4 @@
+import { elevation as cardElevation } from '@/theme';
 import { PlayButton } from '@/components/LanguageCardFields';
 import { hasLanguageData, languageDataFromLegacyExplanation, normalizeLanguageData } from '@/lib/languageCard';
 import { colors, componentTokens, radius, type } from '@/theme';
@@ -32,14 +33,14 @@ export default function TermCard({ term, status, isLanguage = false, onOpen }: T
   );
 }
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderColor: colors.border, borderRadius: componentTokens.lessonDetail.controlRadius, padding: componentTokens.lessonDetail.termPadding, gap: 6, backgroundColor: colors.bg },
+  card: { borderWidth: 1, borderColor: colors.border, padding: componentTokens.lessonDetail.termPadding, gap: 6, backgroundColor: colors.surf, ...cardElevation.card, },
   body: { gap: 6 },
   play: { position: 'absolute', top: 16, right: 16 },
   languageEntry: { paddingRight: 52 },
   pressed: { backgroundColor: colors.surfaceSubtle },
   entry: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 8 },
   meaning: { flex: 1, gap: 4 },
-  term: { ...type.termTitle, color: colors.text },
+  term: { ...type.termTitle, fontFamily: type.courseTitle.fontFamily, color: colors.text },
   definition: { ...type.bodyReading, color: colors.text },
   note: { ...type.bodySmall, color: colors.supporting },
   badge: { alignSelf: 'flex-start', backgroundColor: colors.surfaceSubtle, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },

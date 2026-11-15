@@ -1,3 +1,4 @@
+import { isDirectUserSession } from '../_shared/directSession.ts';
 // Supabase Edge Function - Chat Assistant (使用 OpenAI Chat Completions API)
 // Deno environment
 
@@ -439,6 +440,13 @@ Deno.serve(async (req) => {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         }
       );
+    }
+
+    // Verified third-party OAuth sessions are limited to the MCP endpoint.
+    if (!isDirectUserSession(authHeader)) {
+      return new Response(JSON.stringify({ error: 'This action is not available to connected apps.' }), {
+        status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // 创建 Supabase Admin 客户端（用于数据库操作）

@@ -1,3 +1,4 @@
+import { MascotState } from '@/components/mascot/MascotState';
 import { homeColors } from '@/theme/colors';
 import { DialogHost, dialog } from '@/lib/dialog';
 import { BackButton, CloseButton, RoundAction } from '@/components/ui/RoundButtons';
@@ -2248,6 +2249,7 @@ export default function AIChatModal({ visible, onClose }: AIChatModalProps) {
               </View>
             ) : historyThreads.length === 0 ? (
               <View style={styles.historyEmptyContainer}>
+                <MascotState kind="empty" width={148} style={styles.historyEmptyArt} />
                 <Text style={styles.historyEmptyText}>No chat history yet</Text>
                 <Text style={styles.historyEmptySubtext}>Start a conversation to see it here</Text>
               </View>
@@ -3059,6 +3061,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  historyEmptyArt: { marginBottom: 18 },
   historyEmptyContainer: {
     flex: 1,
     justifyContent: 'center',

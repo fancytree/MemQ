@@ -2,6 +2,7 @@ import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
 import { Feather } from '@expo/vector-icons';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
+import { LedgePressable } from './LedgePressable';
 
 /** The round control all three are cut from: a shell with a white face on it,
  *  offset so a band of the shell shows along the bottom edge. A small control, so
@@ -18,7 +19,7 @@ function RoundButton({ icon, color, onPress, label, size, disabled, busy }: {
   busy?: boolean;
 }) {
   return (
-    <Pressable accessibilityRole="button" accessibilityLabel={label}
+    <LedgePressable accessibilityRole="button" accessibilityLabel={label}
       accessibilityState={{ disabled: !!disabled || !!busy, busy: !!busy }}
       disabled={disabled || busy} onPress={onPress} hitSlop={8}
       style={[styles.shell, (disabled || busy) && styles.off]}>
@@ -27,7 +28,7 @@ function RoundButton({ icon, color, onPress, label, size, disabled, busy }: {
           ? <ActivityIndicator size="small" color={color} />
           : <Feather name={icon} size={size} color={color} />}
       </View>
-    </Pressable>
+    </LedgePressable>
   );
 }
 

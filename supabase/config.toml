@@ -86,3 +86,9 @@ entrypoint = "./functions/generate-vocab-questions/index.ts"
 # Specifies static files to be bundled with the function. Supports glob patterns.
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/generate-vocab-questions/*.html" ]
+
+# OAuth discovery is public; the function itself validates every user token.
+[functions.mcp]
+enabled = true
+verify_jwt = false
+entrypoint = "./functions/mcp/index.ts"

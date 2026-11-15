@@ -141,11 +141,12 @@ export default function ForgotPasswordScreen() {
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}>
+      {/* Above the scroll view, not in it: the way back stays where it is. */}
+      <SecondaryPageNav onBack={() => safeBack('/login')} backLabel="← Back" />
       <ScrollView
           style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled">
-          <SecondaryPageNav onBack={() => safeBack('/login')} backLabel="← Back" />
 
           <View style={styles.content}>
 

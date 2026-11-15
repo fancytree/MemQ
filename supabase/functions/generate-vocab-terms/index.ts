@@ -5,6 +5,8 @@
 // @ts-expect-error - Deno supports URL imports, but TypeScript needs type declarations
 import OpenAI from 'https://esm.sh/openai@4';
 
+import { isDirectAppRequest } from '../_shared/directRequest.ts';
+
 // CORS 响应头
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -24,6 +26,11 @@ Deno.serve(async (req) => {
   }
 
   try {
+    if (!await isDirectAppRequest(req)) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     // 解析请求体
     const body: GenerateVocabTermsRequest = await req.json();
 
@@ -70,7 +77,7 @@ Deno.serve(async (req) => {
 
     const systemPrompt = `You create language learning cards for words, phrases, and grammar patterns in any language.
 Return JSON only: {"results":[{"term":"...","definition":"...","explanation":"...","language_data":{"language_code":"en-US","pronunciation":"...","part_of_speech":"...","forms":"...","example":"...","synonyms":[],"antonyms":[],"collocations":[]}}]}.
-Use a short, clear definition in the term's language. Never add a translation or assume the user's native language.
+Write short definitions and usage explanations in the language the learner requested. If they did not specify one, follow the language of their request; do not use the app or system language as a default. Keep the target-language term and examples in the language being learned. Do not invent a translation when the request does not call for one.
 The explanation is an optional short usage note; do not duplicate structured fields in it.
 Infer a valid BCP-47 language code for iOS speech (for example en-US, es-ES, fr-FR, zh-CN). Use an empty string if unsure.
 Give one natural example in the same language as the term. Pronunciation may be IPA, pinyin, or another appropriate reading guide. Forms should contain only relevant grammar information.

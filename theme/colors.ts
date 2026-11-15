@@ -76,41 +76,56 @@ const extension = {
   buddyPupil: '#31383C', buddyBlush: '#FFD0AB', buddyBadge: '#FFD06B',
 } as const;
 
+/** Colors from the Today home design. */
+export const homeColors = {
+  gradientStart: '#f3ffa6', gradientBright: '#f6ff7c', gradientSoft: '#f5f7c0', canvas: '#fcfced',
+  deep: '#4b2c78', white: '#ffffff', black: '#000000', placeholder: '#d9d9d9',
+  focus: 'rgba(255,255,255,0.6)', primary: '#6c3cbc', border: '#e5dfeb',
+  muted: '#795ba3', chartBackground: '#ede1fd', chartBar: '#9d66ed',
+  // The hills' own yellow, opaque. It was only ever here at 36% as goalBackground;
+  // the welcome screens stand whole fields of it and need the solid colour.
+  hill: '#eefc41',
+  goalBackground: 'rgba(238,252,71,0.36)', darkest: '#301a50', track: '#f0e4fc',
+  nav: '#f7f5fa', selected: '#f4fab1', streakBorder: '#c59af0',
+  swipeGreen: '#c5efd5', swipeGreenLight: '#eaf7ef',
+  swipeRed: '#f8cdc8', swipeRedLight: '#fff0ed', quizWrongOutline: '#ff6900',
+} as const;
+
 /** Stable runtime API. Old accent/gradient names are compatibility aliases, neutralized.
  * New components should use semanticColor or the explicit action/text/surface tokens.
  */
 export const colors = {
-  bg: referenceColors.canvas,
-  surf: referenceColors.canvas,
-  surfaceSubtle: referenceColors.surfaceNeutral,
-  border: referenceColors.lineSubtle,
-  borderS: referenceColors.lineSubtle,
-  controlBorder: extension.controlBorder,
-  focus: referenceColors.inkPrimary,
+  bg: homeColors.canvas,
+  surf: homeColors.white,
+  surfaceSubtle: homeColors.nav,
+  border: homeColors.border,
+  borderS: homeColors.border,
+  controlBorder: homeColors.muted,
+  focus: homeColors.deep,
 
   brand: extension.buddyBody, // Deprecated: only for the legacy buddy, never structural UI.
-  accent: referenceColors.inkPrimary,
-  accentText: referenceColors.inkPrimary,
-  accentDark: referenceColors.inkWordmark,
-  accentL: referenceColors.surfaceNeutral,
-  accentRing: referenceColors.lineSubtle,
+  accent: homeColors.primary,
+  accentText: homeColors.deep,
+  accentDark: homeColors.darkest,
+  accentL: homeColors.chartBackground,
+  accentRing: homeColors.track,
   accentShadow: 'transparent',
   accentShadowLg: 'transparent',
   onAccent: referenceColors.canvas,
-  action: referenceColors.inkPrimary,
-  actionPressed: extension.actionPressed,
+  action: homeColors.primary,
+  actionPressed: homeColors.deep,
   onAction: referenceColors.canvas,
   actionShadow: 'transparent',
   onDark: referenceColors.canvas,
 
-  text: referenceColors.inkPrimary,
-  sub: extension.textSecondary,
-  supporting: referenceColors.inkSupporting,
+  text: homeColors.darkest,
+  sub: homeColors.deep,
+  supporting: homeColors.deep,
   selectionNeutral: referenceColors.selectionNeutral,
   sheetHandle: referenceColors.sheetHandle,
   modalScrim: referenceColors.modalScrim,
   paperIvory: referenceColors.ruledPage,
-  muted: extension.textMuted,
+  muted: homeColors.deep,
   dim: referenceColors.lineSubtle,
   disabledBg: extension.disabledBg,
   disabledText: extension.textMuted,
@@ -120,13 +135,13 @@ export const colors = {
   red: extension.red, redL: extension.redL,
   warn: extension.warn, warnL: extension.warnL,
   info: extension.info, infoL: extension.infoL,
-  ai: referenceColors.inkPrimary,
-  aiL: referenceColors.surfaceNeutral,
-  aiGradientEnd: referenceColors.inkPrimary,
+  ai: homeColors.primary,
+  aiL: homeColors.chartBackground,
+  aiGradientEnd: homeColors.deep,
 
-  heroBg: referenceColors.surfaceNeutral, // A hero is not automatically a paper note.
-  heroBorder: referenceColors.lineSubtle,
-  progressTrack: referenceColors.lineSubtle,
+  heroBg: homeColors.chartBackground, // A hero is not automatically a paper note.
+  heroBorder: homeColors.border,
+  progressTrack: homeColors.track,
   studyGradientStart: referenceColors.canvas,
   studyGradientEnd: referenceColors.canvas,
   learningBg: referenceColors.surfaceNeutral,
@@ -169,3 +184,14 @@ export const semanticColor = {
 
 export const decorationOpacity = { todayTape: 0.51, peachTape: 0.82, lilacTape: 0.90 } as const;
 export type ColorToken = keyof typeof colors;
+
+
+/** Preset lesson cover gradients. */
+export const lessonCoverPalettes = [
+  { id: 'lime', label: 'Lime', colors: ['#F4FFB5', '#D4EB79'] },
+  { id: 'lavender', label: 'Lavender', colors: ['#EDE0FF', '#C9B0F1'] },
+  { id: 'peach', label: 'Peach', colors: ['#FFE4C7', '#F4B69E'] },
+  { id: 'sky', label: 'Sky', colors: ['#DDF4FB', '#A7D8E9'] },
+  { id: 'mint', label: 'Mint', colors: ['#DDF7E4', '#A8DFC0'] },
+  { id: 'rose', label: 'Rose', colors: ['#FFE2EA', '#EFAFC5'] },
+] as const;

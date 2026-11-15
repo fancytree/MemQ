@@ -1,8 +1,7 @@
 import { HomeAsset } from '@/components/HomeAsset';
 import { dialog } from '@/lib/dialog';
 import { BackButton, ConfirmButton } from '@/components/ui/RoundButtons';
-import { MASCOT_HANDS } from '@/components/mascot/figma-parts';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { homeColors } from '@/theme/colors';
 import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -22,6 +21,7 @@ import { colors, fonts } from '@/theme';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 import {
   Animated,
   KeyboardAvoidingView,
@@ -44,8 +44,7 @@ const PERCH = 138;
  *  typed in: a little below their middle, so their lower part laps onto the card and
  *  they read as resting on the edge instead of hovering above it. The sign-in screens
  *  and the first run perch on the same line. */
-const HAND_LINE = MASCOT_HANDS.reduce((sum, h) => sum + (h.box[1] + h.box[3]) / 2, 0)
-  / MASCOT_HANDS.length / 256;
+const HAND_LINE = RIG_HAND_LINE;
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
 
 export default function CreateNameScreen() {
@@ -183,7 +182,7 @@ export default function CreateNameScreen() {
         >
           {/* Body behind the card, hands over its front edge — the same perch the
               sign-in screens and the first run use. */}
-          <MascotCharacter width={PERCH} mood="onboarding" calm style={styles.perch}
+          <MascotRig width={PERCH} mood="onboarding" calm style={styles.perch}
             behind={(
           <View style={[styles.formCard, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
             <View style={styles.formFace}>
@@ -251,7 +250,7 @@ export default function CreateNameScreen() {
             )} />
 
           {/* CTA */}
-          <Pressable accessibilityRole="button"
+          <LedgePressable accessibilityRole="button"
             style={[styles.cta, (!canCreate || saving) && styles.ctaDisabled]}
             onPress={() => void handleCreate()}
             disabled={!canCreate || saving}
@@ -261,7 +260,7 @@ export default function CreateNameScreen() {
                 {saving ? 'Creating…' : 'Create Lesson →'}
               </Text>
             </View>
-          </Pressable>
+          </LedgePressable>
         </ScrollView>
       </KeyboardAvoidingView>
 

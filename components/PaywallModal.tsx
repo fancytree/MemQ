@@ -12,7 +12,7 @@
 import { HomeAsset } from '@/components/HomeAsset';
 import { DialogHost, dialog } from '@/lib/dialog';
 import { CloseButton } from '@/components/ui/RoundButtons';
-import { MascotCharacter, type MascotMood } from '@/components/mascot/MascotCharacter';
+import { MascotRig, type MascotMood } from '@/components/mascot/rig/MascotRig';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
 import { homeColors } from '@/theme/colors';
@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 
 const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
@@ -347,7 +348,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   No paws. It is standing over the plans rather than holding them, and
                   paws reaching out of a frame nothing fills read as a crop. */}
               <View style={styles.logoContainer}>
-                <MascotCharacter width={168} hands={false} calm
+                <MascotRig width={168} hands={false} calm
                   mood={face} look={face === 'thinking' ? LEVEL_GAZE : undefined} />
               </View>
 
@@ -387,14 +388,13 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   </Text>
                 </View>
 
-                <TouchableOpacity accessibilityRole="button"
+                <LedgePressable accessibilityRole="button"
                   style={[
                     styles.subscribeButton,
                     (!selectedPlan || purchasing) && styles.subscribeButtonDisabled,
                   ]}
                   onPress={handlePurchase}
                   disabled={!selectedPlan || !!purchasing}
-                  activeOpacity={0.8}
                 >
                   <View style={styles.subscribeFace}>
                     {purchasing ? (
@@ -406,7 +406,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                       <Text style={styles.subscribeButtonText}>Start free trial</Text>
                     )}
                   </View>
-                </TouchableOpacity>
+                </LedgePressable>
 
                 <TouchableOpacity accessibilityRole="button"
                   onPress={async () => {
@@ -439,11 +439,11 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
           ) : (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{loadError || 'No subscription options available.'}</Text>
-              <TouchableOpacity accessibilityRole="button" onPress={loadOfferings} style={styles.errorButton}>
+              <LedgePressable accessibilityRole="button" onPress={loadOfferings} style={styles.errorButton}>
                 <View style={styles.errorButtonFace}>
                   <Text style={styles.errorButtonText}>Retry</Text>
                 </View>
-              </TouchableOpacity>
+              </LedgePressable>
               <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.restoreButton}>
                 <Text style={styles.restoreButtonText}>Close</Text>
               </TouchableOpacity>

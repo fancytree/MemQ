@@ -1,0 +1,7 @@
+{
+  "name": "memq-replay-test-only",
+  "main": "replay-worker.ts",
+  "compatibility_date": "2026-11-13",
+  "durable_objects": { "bindings": [{ "name": "REPLAY", "class_name": "AssertionReplay" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["AssertionReplay"] }]
+}

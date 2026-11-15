@@ -1,3 +1,4 @@
+import { elevation as cardElevation } from '@/theme';
 import { colors } from '@/theme/colors';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -120,7 +121,6 @@ const styles = StyleSheet.create({
     width: '100%',
     minHeight: 400,
     backgroundColor: colors.surf,
-    borderRadius: 16,
     shadowColor: colors.shadow,
     shadowOffset: {
       width: 0,
@@ -131,8 +131,7 @@ const styles = StyleSheet.create({
     elevation: 0,
     overflow: 'hidden',
     // 确保背面不可见
-    backfaceVisibility: 'hidden',
-  },
+    backfaceVisibility: 'hidden', ...cardElevation.card, },
   backCard: {
     // 背面初始状态，已通过动画样式控制
   },

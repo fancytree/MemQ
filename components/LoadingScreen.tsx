@@ -16,7 +16,7 @@
  */
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
-import { MascotCharacter } from '@/components/mascot/MascotCharacter';
+import { MascotRig } from '@/components/mascot/rig/MascotRig';
 import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
@@ -51,7 +51,7 @@ export default function LoadingScreen({ visible, label = WORKING }: LoadingScree
         <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
           <View style={styles.content}>
             <Logo width={200} />
-            <MascotCharacter width={MASCOT} mood="working" calm style={styles.mascot} />
+            <MascotRig width={MASCOT} mood="working" calm style={styles.mascot} />
             {!!label && <Text style={styles.label}>{label}</Text>}
           </View>
         </SafeAreaView>

@@ -1,4 +1,4 @@
-export { colors, referenceColors, semanticColor, decorationOpacity } from './colors';
+export { colors, referenceColors, semanticColor, decorationOpacity, homeColors } from './colors';
 export type { ColorToken } from './colors';
 export { fonts, type, referenceTypography } from './typography';
 export type { FontFamily } from './typography';

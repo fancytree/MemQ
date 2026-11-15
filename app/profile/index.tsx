@@ -712,22 +712,22 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
+      {/* The bar, above the scroll view rather than in it: the way back and the
+          page's name stay where they are while the page moves. */}
+      <View style={styles.header}>
+        {isTab ? (
+          <Text style={styles.navBack}>Profile</Text>
+        ) : (
+          <BackButton onPress={() => safeBack('/you')} />
+        )}
+        <Text accessibilityRole="header" style={styles.pageTitle}>Profile</Text><View style={styles.navRightSpacer} />
+      </View>
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.topHeaderBlock}>
-          {/* 二级页导航（参考 deck 内页） */}
-          <View style={styles.header}>
-            {isTab ? (
-              <Text style={styles.navBack}>Profile</Text>
-            ) : (
-              <BackButton onPress={() => safeBack('/you')} />
-            )}
-            <Text accessibilityRole="header" style={styles.pageTitle}>Profile</Text><View style={styles.navRightSpacer} />
-          </View>
-
           {/* 用户信息头部 */}
           <View style={styles.userHeader}>
             <TouchableOpacity accessibilityRole="button"

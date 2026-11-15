@@ -138,13 +138,13 @@ export default function UsernameEditScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
       >
+        {/* Above the scroll view, not in it: the way back stays where it is. */}
+        <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
         <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
 
           <View style={styles.bodyContent}>
             <Text accessibilityRole="header" style={styles.pageTitle}>Edit user name</Text>

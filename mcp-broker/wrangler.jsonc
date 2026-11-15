@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "memq-mcp-broker-local",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-11-13",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": false,
+  "observability": { "enabled": true },
+  "kv_namespaces": [{ "binding": "OAUTH_KV", "id": "00000000000000000000000000000000" }],
+  "vars": {
+    "BROKER_ENABLED": "false",
+    "SUPABASE_URL": "http://127.0.0.1:55421",
+    "BROKER_ORIGIN": "http://127.0.0.1:8787",
+    "SUPABASE_OAUTH_CLIENT_ID": "local-unconfigured",
+    "SUPABASE_ANON_KEY": "local-unconfigured"
+  }
+}
