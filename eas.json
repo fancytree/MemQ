@@ -33,7 +33,7 @@
         // ascAppId：App Store Connect 的应用 Apple ID（纯数字）。
         //   获取：appstoreconnect.apple.com → 我的 App → 选中应用，
         //   地址栏形如 /apps/1234567890/appstore，其中 1234567890 即是。
-        // "ascAppId": "1234567890",
+        "ascAppId": "6757248312",
         //
         // appleTeamId：开发者团队 ID（10 位字母数字）。
         //   获取：developer.apple.com/account → Membership details。
