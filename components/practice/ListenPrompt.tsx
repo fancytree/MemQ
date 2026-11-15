@@ -67,9 +67,11 @@ export function ListenPrompt({ text, languageCode, onCannotListen }: {
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', gap: 8 },
   buttons: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  // The question's one big button: a round face on a deep shell, lipped by the lead
-  // depth, so a tap presses it down rather than dimming it.
-  play: { width: 76, height: 76 + ledge.lead, borderRadius: 38, backgroundColor: homeColors.deep, paddingBottom: ledge.lead },
+  // The question's one big button: a round face on a deep shell, so a tap presses it
+  // down rather than dimming it. Lipped like the app's other round buttons, by the
+  // control depth: the lead depth under a circle this size made the whole button
+  // half again as tall as the lip warrants, and it read as an egg, not a disc.
+  play: { width: 76, height: 76 + ledge.control, borderRadius: 38, backgroundColor: homeColors.deep, paddingBottom: ledge.control },
   playFace: { flex: 1, borderRadius: 38, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
   slow: {
     minWidth: 64, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14,
