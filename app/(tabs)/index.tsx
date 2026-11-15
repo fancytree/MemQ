@@ -513,8 +513,10 @@ const MASCOT_HAND_REST = {
  * The drawing sprouts it low on the body's right side, and on this screen that is
  * behind the hill: two thirds of its length was hidden and what showed was an
  * arrowhead coming and going beside the body. Raised this far its whole curve sits
- * above the hill's edge and it comes out from behind the body instead. */
-const MASCOT_TAIL = { x: 6, y: -26 } as const;
+ * above the hill's edge and it comes out from behind the body instead. (It was
+ * -26, which carried the tip up level with the eyes; -14 keeps the curve clear of
+ * the hill and the tip lower down the body.) */
+const MASCOT_TAIL = { x: 6, y: -14 } as const;
 
 /** The Today's Focus icon's drawn height.
  *

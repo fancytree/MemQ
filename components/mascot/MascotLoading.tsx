@@ -5,7 +5,8 @@ import { MascotRig } from '@/components/mascot/rig/MascotRig';
 import { homeColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
-/** A page waiting for its own content: the character at work, and one short line.
+/** A page waiting for its own content: the character, happy and hopping, and one
+ * short line. (Not the working mood: its face is a frown.)
  *
  * The in-page sibling of LoadingScreen. That one covers everything, wordmark and
  * all, because nothing can be done until it is finished; this one sits in the
@@ -25,7 +26,7 @@ export function MascotLoading({ label = 'Loading…', width = 140, style }: {
   return (
     <View style={[styles.wrap, style]} accessible accessibilityRole="progressbar" accessibilityLabel={label}>
       <Animated.View entering={FadeIn.delay(WAIT_MS).duration(240)} style={styles.inner}>
-        <MascotRig width={width} mood="working" calm />
+        <MascotRig width={width} mood="happy" calm />
         {!!label && <Text style={styles.label}>{label}</Text>}
       </Animated.View>
     </View>
