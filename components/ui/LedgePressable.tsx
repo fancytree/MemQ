@@ -21,8 +21,9 @@ import Animated, {
  * it. Under it the shell is drawn as its own layer, so that it can be drawn shorter:
  * pressed, its top comes down with the face and it is exactly hidden behind it.
  *
- * Only for buttons. A card that holds content has a lip too, and is not asking to
- * be pushed.
+ * Only for things that do something when pressed. A card that only holds content
+ * has a lip too, and is not asking to be pushed; a card that opens something is a
+ * button, and presses like one.
  */
 type Props = Omit<PressableProps, 'style' | 'children'> & {
   style?: StyleProp<ViewStyle>;

@@ -1,35 +1,23 @@
-import { layout } from '@/theme/spacing';
+import { AuthPerch, authField } from '@/components/auth/AuthPerch';
+import { MascotRig } from '@/components/mascot/rig/MascotRig';
 import { dialog } from '@/lib/dialog';
-import { fonts } from '@/theme/typography';
-import { SecondaryPageNav } from '@/components/SecondaryPageNav';
-import { MemQTheme } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme';
+import { homeColors } from '@/theme/colors';
+import { fonts } from '@/theme/typography';
 import { Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import React, { useEffect, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
+import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-const t = MemQTheme;
 
 export default function ResetPasswordScreen() {
-  const insets = useSafeAreaInsets();
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [typing, setTyping] = useState(false);
   const [verifying, setVerifying] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -151,229 +139,71 @@ export default function ResetPasswordScreen() {
   };
 
   if (verifying) {
+    // The link is being checked: the character thinks it over in the page's own
+    // light rather than a spinner on a white screen.
     return (
-      <View style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accentText} />
-          <Text style={styles.loadingText}>Verifying reset link...</Text>
-        </View>
+      <View style={styles.checking}>
+        <LinearGradient pointerEvents="none"
+          colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+          locations={[0, 0.21154, 0.44712, 1]} style={StyleSheet.absoluteFill} />
+        <MascotRig width={150} mood="thinking" />
+        <Text style={styles.checkingText}>Checking your link…</Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}>
-      {/* Above the scroll view, not in it: the way back stays where it is. */}
-      <View style={{ paddingTop: insets.top }}>
-        <SecondaryPageNav onBack={() => router.replace('/login')} backLabel="← Back" />
+    <AuthPerch title="Set a new password" copy="At least 6 characters."
+      onBack={() => router.replace('/login')} backLabel="Back to sign in"
+      mood={loading ? 'thinking' : 'onboarding'} eyesShut={typing}
+      action={{ label: 'Save password', onPress: handleResetPassword, busy: loading }}
+      footer={{ label: 'Back to sign in', onPress: () => router.replace('/login'), disabled: loading }}>
+      <View style={authField.well}>
+        <TextInput accessibilityLabel="New password"
+          style={[authField.input, authField.secret]}
+          placeholder="New password"
+          placeholderTextColor={homeColors.placeholder}
+          value={newPassword}
+          onChangeText={(text) => { setNewPassword(text); setError(null); }}
+          onFocus={() => setTyping(true)}
+          onBlur={() => setTyping(false)}
+          secureTextEntry={!showPassword}
+          autoCapitalize="none"
+          autoComplete="password-new"
+          editable={!loading}
+        />
+        <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
+          style={authField.eye} onPress={() => setShowPassword(!showPassword)}>
+          <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
+        </Pressable>
       </View>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
-        <View style={styles.content}>
-
-          <Text style={styles.title}>Set New Password</Text>
-          <Text style={styles.subtitle}>
-            Please enter your new password below.
-          </Text>
-
-          {/* New Password */}
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput accessibilityLabel="New Password"
-                style={styles.passwordInput}
-                placeholder="New Password"
-                placeholderTextColor={colors.muted}
-                value={newPassword}
-                onChangeText={(text) => {
-                  setNewPassword(text);
-                  setError(null);
-                }}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                autoComplete="password-new"
-                editable={!loading}
-              />
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.eyeButton}
-                onPress={() => setShowPassword(!showPassword)}
-                activeOpacity={0.7}
-              >
-                <Feather
-                  name={showPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.muted}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Confirm Password */}
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordInputWrapper}>
-              <TextInput accessibilityLabel="Confirm New Password"
-                style={styles.passwordInput}
-                placeholder="Confirm New Password"
-                placeholderTextColor={colors.muted}
-                value={confirmPassword}
-                onChangeText={(text) => {
-                  setConfirmPassword(text);
-                  setError(null);
-                }}
-                secureTextEntry={!showConfirmPassword}
-                autoCapitalize="none"
-                autoComplete="password-new"
-                editable={!loading}
-              />
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.eyeButton}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                activeOpacity={0.7}
-              >
-                <Feather
-                  name={showConfirmPassword ? 'eye-off' : 'eye'}
-                  size={20}
-                  color={colors.muted}
-                />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {error && (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-            </View>
-          )}
-
-          <TouchableOpacity accessibilityRole="button"
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleResetPassword}
-            disabled={loading}>
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.surf} />
-            ) : (
-              <Text style={styles.buttonText}>Reset Password</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.backToLoginLink}
-            onPress={() => router.replace('/login')}
-            disabled={loading}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.backToLoginText}>Back to Sign In</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <View style={authField.well}>
+        <TextInput accessibilityLabel="Confirm new password"
+          style={[authField.input, authField.secret]}
+          placeholder="Confirm new password"
+          placeholderTextColor={homeColors.placeholder}
+          value={confirmPassword}
+          onChangeText={(text) => { setConfirmPassword(text); setError(null); }}
+          onFocus={() => setTyping(true)}
+          onBlur={() => setTyping(false)}
+          secureTextEntry={!showConfirmPassword}
+          autoCapitalize="none"
+          autoComplete="password-new"
+          returnKeyType="done"
+          onSubmitEditing={handleResetPassword}
+          editable={!loading}
+        />
+        <Pressable accessibilityRole="button" accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
+          style={authField.eye} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+          <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
+        </Pressable>
+      </View>
+      {!!error && <Text accessibilityRole="alert" style={authField.error}>{error}</Text>}
+    </AuthPerch>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: layout.screenInline,
-    // The bar above carries the top of the page now; this is only the foot.
-    paddingBottom: 40,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 13,
-    color: colors.muted,
-    fontFamily: fonts.regular,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 12,
-    fontFamily: fonts.extraBold,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.muted,
-    marginBottom: 32,
-    lineHeight: 19,
-    fontFamily: fonts.regular,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  passwordInputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-  },
-  passwordInput: { minHeight: 44,
-    flex: 1,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 14,
-    color: colors.text,
-    lineHeight: 20,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-  },
-  eyeButton: { minHeight: 44,
-    padding: 14,
-    paddingRight: 16,
-  },
-  errorContainer: {
-    marginBottom: 16,
-    padding: 12,
-    backgroundColor: colors.redL,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: colors.red,
-  },
-  errorText: {
-    fontSize: 12,
-    color: colors.red,
-    fontFamily: fonts.medium,
-  },
-  button: { minHeight: 44,
-    backgroundColor: colors.action,
-    borderRadius: 100,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.onAction,
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
-  backToLoginLink: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  backToLoginText: {
-    fontSize: 12,
-    color: colors.accentText,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
+  checking: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: homeColors.canvas },
+  checkingText: { fontFamily: fonts.medium, fontSize: 16, color: homeColors.muted },
 });
-

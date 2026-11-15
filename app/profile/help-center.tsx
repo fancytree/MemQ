@@ -1,4 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { ledge } from '@/theme/ledge';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 import { homeColors } from '@/theme/colors';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
@@ -70,14 +72,15 @@ export default function HelpCenterScreen() {
           </Text>
 
           {/* WhatsApp Contact Button */}
-          <TouchableOpacity accessibilityRole="button"
+          <LedgePressable accessibilityRole="button"
             style={styles.whatsappButton}
             onPress={handleOpenWhatsApp}
-            activeOpacity={0.8}
           >
-            <Feather name="message-circle" size={24} color={colors.surf} />
-            <Text style={styles.whatsappButtonText}>Contact via WhatsApp</Text>
-          </TouchableOpacity>
+            <View style={styles.whatsappFace}>
+              <Feather name="message-circle" size={24} color={colors.surf} />
+              <Text style={styles.whatsappButtonText}>Contact via WhatsApp</Text>
+            </View>
+          </LedgePressable>
 
           {/* QR Code */}
           <View style={styles.qrCodeContainer}>
@@ -137,18 +140,13 @@ const styles = StyleSheet.create({
     color: colors.muted,
     marginBottom: 20,
   },
-  whatsappButton: { minHeight: 44,
-    backgroundColor: colors.action,
-    borderWidth: 1,
-    borderColor: colors.action,
-    borderRadius: 100,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-    marginBottom: 20,
+  whatsappButton: {
+    borderRadius: 100, backgroundColor: homeColors.deep, paddingBottom: ledge.lead, marginBottom: 20,
+  },
+  whatsappFace: {
+    minHeight: 52, borderRadius: 100, backgroundColor: homeColors.primary,
+    paddingVertical: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
   },
   whatsappButtonText: {
     color: colors.onAction,

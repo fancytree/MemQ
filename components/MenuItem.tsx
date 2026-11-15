@@ -2,12 +2,13 @@ import { fonts } from '@/theme/typography';
 import { colors } from '@/theme';
 import { homeColors } from '@/theme/colors';
 import { Feather } from '@expo/vector-icons';
+import { RowIcon, type RowIconName } from '@/components/RowIcon';
 import React from 'react';
 import { Toggle } from '@/components/ui/Toggle';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface MenuItemProps {
-  icon: keyof typeof Feather.glyphMap;
+  icon: RowIconName;
   iconColor: string;
   iconBgColor: string;
   title: string;
@@ -45,7 +46,7 @@ export default function MenuItem({
         {/* 左侧图标和文字 */}
         <View style={styles.leftSection}>
           <View style={styles.iconContainer}>
-            <Feather name={icon} size={20} color={homeColors.deep} />
+            <RowIcon name={icon} color={homeColors.deep} />
           </View>
           <View style={styles.textContainer}>
             <Text style={styles.title}>{title}</Text>

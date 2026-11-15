@@ -1,29 +1,13 @@
-import { layout } from '@/theme/spacing';
+import { AuthPerch, authField } from '@/components/auth/AuthPerch';
 import { dialog } from '@/lib/dialog';
-import { fonts } from '@/theme/typography';
-import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
-import { MemQTheme } from '@/constants/theme';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme';
+import { homeColors } from '@/theme/colors';
 import * as Linking from 'expo-linking';
-import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { TextInput, View } from 'react-native';
 
 const COOLDOWN_SECONDS = 120;
-const t = MemQTheme;
 
 export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState('');
@@ -137,137 +121,29 @@ export default function ForgotPasswordScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardView}>
-      {/* Above the scroll view, not in it: the way back stays where it is. */}
-      <SecondaryPageNav onBack={() => safeBack('/login')} backLabel="← Back" />
-      <ScrollView
-          style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
-
-          <View style={styles.content}>
-
-          <Text style={styles.title}>Forgot Password?</Text>
-          <Text style={styles.subtitle}>
-            Enter your email address and we'll send you a link to reset your password.
-          </Text>
-
-          <View style={styles.inputContainer}>
-            <TextInput accessibilityLabel="Email"
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor={colors.muted}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoComplete="email"
-              editable={!loading}
-            />
-          </View>
-
-          <TouchableOpacity accessibilityRole="button"
-            style={[styles.button, (loading || cooldown > 0) && styles.buttonDisabled]}
-            onPress={handleResetPassword}
-            disabled={loading || cooldown > 0}>
-            {loading ? (
-              <ActivityIndicator size="small" color={colors.surf} />
-            ) : cooldown > 0 ? (
-              <Text style={styles.buttonText}>Resend in {cooldown}s</Text>
-            ) : (
-              <Text style={styles.buttonText}>Send Reset Link</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.backToLoginLink}
-            onPress={() => safeBack('/login')}
-            disabled={loading}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.backToLoginText}>Back to Sign In</Text>
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
-    </KeyboardAvoidingView>
-    </SafeAreaView>
+    <AuthPerch title="Forgot password?" copy="We'll email you a reset link."
+      onBack={() => safeBack('/login')} backLabel="Back to sign in"
+      mood={loading ? 'thinking' : 'onboarding'}
+      action={{
+        label: cooldown > 0 ? `Resend in ${cooldown}s` : 'Send reset link',
+        onPress: handleResetPassword, disabled: cooldown > 0, busy: loading,
+      }}
+      footer={{ label: 'Back to sign in', onPress: () => safeBack('/login'), disabled: loading }}>
+      <View style={authField.well}>
+        <TextInput accessibilityLabel="Email"
+          style={authField.input}
+          placeholder="Email"
+          placeholderTextColor={homeColors.placeholder}
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="email"
+          returnKeyType="send"
+          onSubmitEditing={handleResetPassword}
+          editable={!loading}
+        />
+      </View>
+    </AuthPerch>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.bg,
-  },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: 40,
-  },
-  content: {
-    paddingHorizontal: layout.screenInline,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 12,
-    fontFamily: fonts.extraBold,
-  },
-  subtitle: {
-    fontSize: 13,
-    color: colors.muted,
-    marginBottom: 32,
-    lineHeight: 19,
-    fontFamily: fonts.regular,
-  },
-  inputContainer: {
-    marginBottom: 24,
-  },
-  input: { minHeight: 44,
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 14,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-  },
-  button: { minHeight: 44,
-    backgroundColor: colors.action,
-    borderRadius: 100,
-    paddingVertical: 16,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  buttonDisabled: {
-    opacity: 0.5,
-  },
-  buttonText: {
-    color: colors.onAction,
-    fontSize: 14,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
-  backToLoginLink: {
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  backToLoginText: {
-    fontSize: 12,
-    color: colors.accentText,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
-});
-

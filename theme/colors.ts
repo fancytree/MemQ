@@ -91,6 +91,18 @@ export const homeColors = {
   swipeRed: '#f8cdc8', swipeRedLight: '#fff0ed', quizWrongOutline: '#ff6900',
 } as const;
 
+/** The You page's charts. One purple ramp, light to deep, so every chart reads the
+ * same way: the deeper the colour, the further along or the more of it. */
+export const chartColors = {
+  /** A cell or a bar with nothing in it, on a white card. */
+  empty: '#efeaf5',
+  faint: '#dcc8f7',
+  /** The stages a card moves through, in order. */
+  stages: ['#efeaf5', '#dcc8f7', homeColors.streakBorder, homeColors.chartBar, homeColors.primary, homeColors.deep],
+  /** How much was studied on a day, from a little to the most. */
+  heat: ['#efeaf5', '#dcc8f7', homeColors.streakBorder, homeColors.chartBar, homeColors.primary],
+} as const;
+
 /** Stable runtime API. Old accent/gradient names are compatibility aliases, neutralized.
  * New components should use semanticColor or the explicit action/text/surface tokens.
  */

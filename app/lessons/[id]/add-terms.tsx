@@ -630,34 +630,18 @@ export default function AddTermsScreen() {
           />
         </View>
         <View style={styles.promptActions}>
-          {(['Attach', 'Voice', 'Doc'] as const).map((label, i, arr) => (
-            <Pressable accessibilityRole="button"
-              key={label}
-              onPress={() => {
-                if (isGenerating) return;
-                if (label === 'Voice') {
-                  dialog('Coming soon', 'Voice input will be available soon.');
-                  return;
-                }
-                handlePickPdfAndGenerate();
-              }}
-              disabled={isGenerating}
-              style={[
-                styles.actionBtn,
-                i < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
-                isGenerating && styles.actionDisabled,
-              ]}
-            >
-              {label === 'Attach' ? (
-                <View style={styles.actionLabelRow}>
-                  <Feather name="paperclip" size={13} color={colors.muted} />
-                  <Text style={styles.actionLabel}>Attach</Text>
-                </View>
-              ) : (
-                <Text style={styles.actionLabel}>{label}</Text>
-              )}
-            </Pressable>
-          ))}
+          {/* One way in for a file. "Doc" opened the same picker as Attach, and voice
+              input is not coming, so both are gone rather than left as dead ends. */}
+          <Pressable accessibilityRole="button"
+            onPress={() => { if (!isGenerating) void handlePickPdfAndGenerate(); }}
+            disabled={isGenerating}
+            style={[styles.actionBtn, isGenerating && styles.actionDisabled]}
+          >
+            <View style={styles.actionLabelRow}>
+              <Feather name="paperclip" size={13} color={colors.muted} />
+              <Text style={styles.actionLabel}>Attach</Text>
+            </View>
+          </Pressable>
           <Pressable accessibilityRole="button"
             disabled={isGenerating || loadingMode || modeLoadFailed}
             onPress={genExhausted ? () => void showPaywall() : generate}

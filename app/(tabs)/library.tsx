@@ -8,11 +8,13 @@ import { loadFromCache, saveToCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { colors, fonts, layout, radius, type } from '@/theme';
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect, useIsFocused } from 'expo-router';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LedgePressable } from '@/components/ui/LedgePressable';
+import { FilterMenu } from '@/components/ui/FilterMenu';
+import { CountUp, ProgressFill } from '@/components/motion/Grow';
 import { MascotState } from '@/components/mascot/MascotState';
 import type { MascotStateKind } from '@/components/mascot/states';
 import { isOffline } from '@/lib/networkError';
@@ -52,6 +54,12 @@ export default function LibraryScreen() {
   const [lessons, setLessons] = useState<LessonSummary[]>([]);
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<LessonFilter>('all');
+  /** Counts each arrival on Library. The summary's numbers and every card's progress
+   * are keyed by it, so they count and fill again whenever the tab is opened — the
+   * tab stays mounted underneath, and would otherwise only do it the first time. */
+  const focused = useIsFocused();
+  const [visit, setVisit] = useState(0);
+  useEffect(() => { if (focused) setVisit((n) => n + 1); }, [focused]);
   const [loading, setLoading] = useState(true);
   // Not just whether it failed but which way: no connection is the person's to fix
   // and is said differently from a failure that is ours.
@@ -136,7 +144,7 @@ export default function LibraryScreen() {
         id: lesson.id,
         coverStyle: lesson.cover_style,
         title: lesson.name || 'Untitled lesson',
-        sub: lesson.description || 'No description',
+        sub: lesson.description?.trim() || '',
         cards,
         due,
         pct,
@@ -163,14 +171,17 @@ export default function LibraryScreen() {
     return { lessons: lessons.length, cards, due };
   }, [lessons]);
 
+  // How many lessons each filter would leave, shown beside it in the menu, so a
+  // filter that leaves none can be seen to before it is chosen.
+  const filterOptions = useMemo(() => FILTERS.map((item) => ({
+    ...item, count: lessons.filter((lesson) => inFilter(lesson, item.id)).length,
+  })), [lessons]);
+
   const filteredLessons = useMemo(() => {
     const search = query.trim().toLocaleLowerCase();
     const matched = lessons.filter((lesson) => {
       const matchesSearch = !search || `${lesson.title} ${lesson.sub}`.toLocaleLowerCase().includes(search);
-      const matchesFilter = filter === 'all' || (filter === 'review' && lesson.due > 0) ||
-        (filter === 'mastered' && lesson.cards > 0 && lesson.pct === 100) ||
-        (filter === 'deadline' && deadlineOf(lesson) !== null);
-      return matchesSearch && matchesFilter;
+      return matchesSearch && inFilter(lesson, filter);
     });
     // With a deadline, the order that matters is which comes first: the soonest at
     // the top, and the ones already past after every one still ahead.
@@ -211,9 +222,8 @@ export default function LibraryScreen() {
       ? { art: 'empty', title: 'No deadlines yet', copy: 'Set a date to pace your reviews.', action: 'View lessons', onPress: () => setFilter('all') }
       : { art: 'empty', title: 'No deadlines yet', copy: 'Set a date to pace your reviews.', action: 'Set a deadline', onPress: () => router.push(`/lessons/${heaviest!.id}/settings`) };
 
-  // The heading does not scroll with the list: the page's name and its mark stay
-  // where they are, and the list goes under them. What changes is how much room
-  // they take. At the top of the page the name is as large as it was drawn; once
+  // The heading does not scroll with the list: the page's name stays where it
+  // is, and the list goes under it. What changes is how much room it takes. At the top of the page the name is as large as it was drawn; once
   // the list has moved it settles to the size of a bar, the line under it goes, and
   // a band of the page's own sky comes in behind so the cards passing beneath do
   // not run through the letters.
@@ -228,7 +238,6 @@ export default function LibraryScreen() {
   const pulled = scrolled.interpolate({ inputRange: [-1, 0], outputRange: [1, 0], extrapolateRight: 'clamp' });
   const rise = settle.interpolate({ inputRange: [0, 1], outputRange: [0, -RISE] });
   const titleSize = settle.interpolate({ inputRange: [0, 1], outputRange: [1, TITLE_SMALL] });
-  const markSize = settle.interpolate({ inputRange: [0, 1], outputRange: [1, MARK_SMALL] });
   const subtitleShown = scrolled.interpolate({ inputRange: [0, SETTLE * 0.5], outputRange: [1, 0], extrapolate: 'clamp' });
   // The list leaves the heading's room empty at its top; the room is measured, so
   // a subtitle that wraps at a larger text size is still cleared.
@@ -256,6 +265,7 @@ export default function LibraryScreen() {
           }
         }}
         keyExtractor={(lesson) => lesson.id}
+        extraData={visit}
         contentContainerStyle={[styles.content, { paddingBottom: 90 + Math.max(8, insets.bottom) }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -264,22 +274,22 @@ export default function LibraryScreen() {
           <LinearGradient colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.48, 1]} style={[styles.hero, { paddingTop: insets.top + 22 }]}>
             <View style={{ height: headingHeight }} />
             <View style={styles.summary}>
-              <View style={styles.summaryItem}><Text style={styles.summaryNumber}>{summary.lessons}</Text><Text style={styles.summaryLabel}>{summary.lessons === 1 ? 'Lesson' : 'Lessons'}</Text></View>
+              <View style={styles.summaryItem}><CountUp key={`l${visit}`} value={summary.lessons} style={styles.summaryNumber} /><Text style={styles.summaryLabel}>{summary.lessons === 1 ? 'Lesson' : 'Lessons'}</Text></View>
               <View style={styles.summaryDivider} />
-              <View style={styles.summaryItem}><Text style={styles.summaryNumber}>{summary.cards}</Text><Text style={styles.summaryLabel}>Cards</Text></View>
+              <View style={styles.summaryItem}><CountUp key={`c${visit}`} value={summary.cards} delay={70} style={styles.summaryNumber} /><Text style={styles.summaryLabel}>Cards</Text></View>
               <View style={styles.summaryDivider} />
-              <View style={styles.summaryItem}><Text style={styles.summaryNumber}>{summary.due}</Text><Text style={styles.summaryLabel}>To review</Text></View>
+              <View style={styles.summaryItem}><CountUp key={`d${visit}`} value={summary.due} delay={140} style={styles.summaryNumber} /><Text style={styles.summaryLabel}>To review</Text></View>
             </View>
           </LinearGradient>
           <View style={styles.tools}>
+            <View style={styles.searchRow}>
+            <FilterMenu label="Filter lessons" options={filterOptions} value={filter} onChange={setFilter} />
             <View style={styles.search}><Icon name="search" size={20} color={homeColors.muted} strokeWidth={1.8} /><TextInput value={query} onChangeText={setQuery} placeholder="Search lessons" placeholderTextColor={homeColors.muted} accessibilityLabel="Search lessons" returnKeyType="search" style={styles.searchInput} />{query.length > 0 && <Pressable onPress={() => setQuery('')} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8}><Icon name="close" size={20} color={homeColors.deep} /></Pressable>}</View>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
-              {FILTERS.map((item) => <Pressable key={item.id} accessibilityRole="button" accessibilityState={{ selected: filter === item.id }} onPress={() => setFilter(item.id)} style={[styles.filter, filter === item.id && styles.filterActive]}><Text style={[styles.filterLabel, filter === item.id && styles.filterLabelActive]}>{item.label}</Text></Pressable>)}
-            </ScrollView>
-            <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>Lessons <Text style={styles.resultCount}>{filteredLessons.length}</Text></Text><Pressable accessibilityRole="button" accessibilityLabel="Create a new lesson" onPress={() => router.push('/create')} style={styles.newLesson}><Icon name="plus" size={18} color={homeColors.primary} /><Text style={styles.newLessonLabel}>New lesson</Text></Pressable></View>
+            </View>
+            <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{filter === 'all' ? 'Lessons' : FILTERS.find((item) => item.id === filter)!.label} <Text style={styles.resultCount}>{filteredLessons.length}</Text></Text><Pressable accessibilityRole="button" accessibilityLabel="Create a new lesson" onPress={() => router.push('/create')} style={styles.newLesson}><Icon name="plus" size={18} color={homeColors.primary} /><Text style={styles.newLessonLabel}>New lesson</Text></Pressable></View>
           </View>
         </View>}
-        renderItem={({ item }) => <LessonCard lesson={item} showDeadline={filter === 'deadline'} />}
+        renderItem={({ item, index }) => <LessonCard lesson={item} showDeadline={filter === 'deadline'} order={index} visit={visit} />}
         ListEmptyComponent={!loading ? <View style={styles.empty}>
           <MascotState kind={emptyContent.art} width={EMPTY_ART} />
           <Text style={styles.emptyTitle}>{emptyContent.title}</Text>
@@ -299,7 +309,6 @@ export default function LibraryScreen() {
             <Animated.Text accessibilityRole="header" style={[styles.title, { transform: [{ scale: titleSize }] }]}>Your library</Animated.Text>
             <Animated.Text style={[styles.subtitle, { opacity: subtitleShown }]}>Everything you’re learning, in one place.</Animated.Text>
           </View>
-          <Animated.View style={[styles.libraryIcon, { transform: [{ scale: markSize }] }]}><HomeAsset name="library" /></Animated.View>
         </Animated.View>
       </Animated.View>
     </View>
@@ -313,10 +322,9 @@ export default function LibraryScreen() {
 const EMPTY_ART = 116;
 /** How far the list moves before the heading has finished settling into a bar. */
 const SETTLE = 48;
-/** How far up it travels to get there, and how small the name and mark become. */
+/** How far up it travels to get there, and how small the name becomes. */
 const RISE = 12;
 const TITLE_SMALL = 0.72;
-const MARK_SMALL = 0.84;
 /** The sky behind the settled bar, below the status bar: solid behind the name,
  * gone by its lower edge. */
 const BAR_SKY = 100;
@@ -332,6 +340,12 @@ const FILTERS: { id: LessonFilter; label: string }[] = [
   { id: 'all', label: 'All' }, { id: 'review', label: 'To review' },
   { id: 'mastered', label: 'Mastered' }, { id: 'deadline', label: 'Deadline' },
 ];
+
+function inFilter(lesson: LessonSummary, filter: LessonFilter) {
+  return filter === 'all' || (filter === 'review' && lesson.due > 0) ||
+    (filter === 'mastered' && lesson.cards > 0 && lesson.pct === 100) ||
+    (filter === 'deadline' && deadlineOf(lesson) !== null);
+}
 
 function startOfToday() {
   const today = new Date();
@@ -358,15 +372,25 @@ function timeLeft(lesson: LessonSummary): string | null {
   return `${days} days left`;
 }
 
-function LessonCard({ lesson, showDeadline = false }: { lesson: LessonSummary; showDeadline?: boolean }) {
+/** A card opens its lesson, so it is a button and presses like one: the face goes
+ * down onto its lip. The press waits a moment before it shows, so a finger that
+ * lands on a card to scroll the list does not push it. */
+const SCROLL_GRACE_MS = 70;
+
+/** How long after the one above a card's progress starts to fill, and the most any
+ * card waits: the cards below the fold have no reason to wait for the ones above. */
+const FILL_STAGGER_MS = 80;
+const FILL_STAGGER_MAX = 6;
+
+function LessonCard({ lesson, showDeadline = false, order = 0, visit = 0 }: { lesson: LessonSummary; showDeadline?: boolean; order?: number; visit?: number }) {
   const left = showDeadline ? timeLeft(lesson) : null;
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${lesson.title}.${lesson.learningMode === 'language' ? ' Language lesson.' : ''} ${lesson.cards} ${lesson.cards === 1 ? 'card' : 'cards'}. ${lesson.pct} percent mastered. ${lesson.due} cards remaining.`} accessibilityHint="Opens lesson details" onPress={() => router.push(`/lessons/${lesson.id}`)} style={({ pressed }) => [styles.cardBase, pressed && styles.cardPressed]}>
+  return <LedgePressable accessibilityRole="button" accessibilityLabel={`${lesson.title}.${lesson.learningMode === 'language' ? ' Language lesson.' : ''} ${lesson.cards} ${lesson.cards === 1 ? 'card' : 'cards'}. ${lesson.pct} percent mastered. ${lesson.due} cards remaining.`} accessibilityHint="Opens lesson details" onPress={() => router.push(`/lessons/${lesson.id}`)} unstable_pressDelay={SCROLL_GRACE_MS} style={styles.cardBase}>
     <View style={styles.cardFace}>
-      <View style={styles.cardHeading}><LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={56} height={56} /><View style={styles.cardCopy}><View style={styles.titleRow}><Text numberOfLines={2} style={styles.cardTitle}>{lesson.title}</Text>{lesson.learningMode === 'language' && <View style={styles.languageSticker} accessible={false}><MaterialIcons name="language" size={16} color={homeColors.white} /></View>}</View><Text numberOfLines={2} style={styles.description}>{lesson.sub}</Text></View><HomeAsset name="chevron" /></View>
+      <View style={styles.cardHeading}><LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={56} height={56} /><View style={styles.cardCopy}><View style={styles.titleRow}><Text numberOfLines={2} style={styles.cardTitle}>{lesson.title}</Text>{lesson.learningMode === 'language' && <View style={styles.languageSticker} accessible={false}><MaterialIcons name="language" size={16} color={homeColors.white} /></View>}</View>{!!lesson.sub && <Text numberOfLines={2} style={styles.description}>{lesson.sub}</Text>}</View><HomeAsset name="chevron" /></View>
       <View style={styles.cardBottom}><Text style={styles.cardCount}>{lesson.cards} {lesson.cards === 1 ? 'card' : 'cards'}{left ? <Text style={[styles.cardDeadline, left.startsWith('Ended') && styles.cardDeadlinePast]}>{` · ${left}`}</Text> : null}</Text><Text style={styles.review}>{lesson.cards === 0 ? 'No cards yet' : `${lesson.pct}% · ${lesson.due} cards remaining`}</Text></View>
-      <View accessible={false} style={styles.track}><View style={[styles.fill, { width: `${Math.max(0, Math.min(100, lesson.pct))}%` }]} /></View>
+      <View accessible={false} style={styles.track}><ProgressFill key={`fill${visit}`} pct={lesson.pct} delay={150 + Math.min(order, FILL_STAGGER_MAX) * FILL_STAGGER_MS} style={styles.fill} /></View>
     </View>
-  </Pressable>;
+  </LedgePressable>;
 }
 
 const styles = StyleSheet.create({
@@ -377,7 +401,6 @@ const styles = StyleSheet.create({
   headingCopy: { flex: 1, gap: 4 },
   title: { fontFamily: fonts.display, fontSize: 36, lineHeight: 46, color: homeColors.deep, alignSelf: 'flex-start', transformOrigin: 'left center' },
   subtitle: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: homeColors.deep },
-  libraryIcon: { width: 48, height: 48, borderRadius: 16, backgroundColor: homeColors.focus, alignItems: 'center', justifyContent: 'center' },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0 },
   topBarSky: { position: 'absolute', top: 0, left: 0, right: 0 },
   topBarRow: { marginHorizontal: layout.screenInline },
@@ -387,13 +410,9 @@ const styles = StyleSheet.create({
   summaryLabel: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.muted },
   summaryDivider: { width: 1, height: 32, backgroundColor: homeColors.border },
   tools: { paddingHorizontal: layout.screenInline, gap: 16, paddingBottom: 12 },
-  search: { height: 52, borderRadius: 26, backgroundColor: homeColors.white, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: homeColors.border },
+  search: { flex: 1, height: 52, borderRadius: 26, backgroundColor: homeColors.white, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: homeColors.border },
   searchInput: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: homeColors.darkest, paddingVertical: 0, height: '100%' },
-  filters: { gap: 8, paddingBottom: 2 },
-  filter: { minHeight: 40, paddingHorizontal: 16, borderRadius: 24, backgroundColor: homeColors.white, borderWidth: 1, borderColor: homeColors.border, alignItems: 'center', justifyContent: 'center' },
-  filterActive: { backgroundColor: homeColors.selected, borderColor: homeColors.selected },
-  filterLabel: { fontFamily: fonts.medium, fontSize: 14, color: homeColors.deep },
-  filterLabelActive: { fontFamily: fonts.semibold },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sectionHeading: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   sectionTitle: { fontFamily: fonts.semibold, fontSize: 20, color: homeColors.darkest },
   resultCount: { fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
@@ -401,7 +420,6 @@ const styles = StyleSheet.create({
   newLessonLabel: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary },
   separator: { height: 12 },
   cardBase: { marginHorizontal: layout.screenInline, borderRadius: 24, backgroundColor: homeColors.border, paddingBottom: 4 },
-  cardPressed: { opacity: 0.8 },
   cardFace: { borderRadius: 24, backgroundColor: homeColors.white, padding: 16, gap: 12 },
   cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   cardCopy: { flex: 1, gap: 4 },

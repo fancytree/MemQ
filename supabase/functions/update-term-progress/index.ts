@@ -177,6 +177,13 @@ Deno.serve(async (req: Request) => {
       throw new Error('Failed to update progress');
     }
 
+    // The answer itself, for the charts of how much and how well (review_events).
+    // Where it stands is already saved above; if this table is not there yet the
+    // answer has still counted, so a failure here is logged and nothing more.
+    const { error: eventError } = await supabase.from('review_events')
+      .insert({ user_id: user.id, term_id: body.term_id, is_correct: body.is_correct, reviewed_at: now.toISOString() });
+    if (eventError) console.warn('Could not record review event:', eventError.message);
+
     // 返回成功响应
     return new Response(
       JSON.stringify({

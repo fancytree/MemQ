@@ -1,4 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
+import { ledge } from '@/theme/ledge';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 import { dialog } from '@/lib/dialog';
 import { homeColors } from '@/theme/colors';
 import { elevation as cardElevation } from '@/theme';
@@ -295,18 +297,19 @@ export default function EmailEditScreen() {
             </View>
 
             {/* Save Changes 按钮 */}
-            <TouchableOpacity accessibilityRole="button"
+            <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: saving, busy: saving }}
               style={[styles.saveButton, saving && styles.saveButtonDisabled]}
               onPress={handleSave}
               disabled={saving}
-              activeOpacity={0.8}
             >
+              <View style={styles.saveFace}>
               {saving ? (
                 <ActivityIndicator size="small" color={colors.surf} />
               ) : (
                 <Text style={styles.saveButtonText}>Save Changes</Text>
               )}
-            </TouchableOpacity>
+              </View>
+            </LedgePressable>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -410,17 +413,13 @@ const styles = StyleSheet.create({
     fontWeight: '400',
     marginLeft: 8,
   },
-  saveButton: { minHeight: 56,
-    boxShadow: `0px 4px 0px ${homeColors.deep}`, 
-    backgroundColor: colors.action,
-    borderWidth: 1,
-    borderColor: colors.action,
-    borderRadius: 100,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginHorizontal: layout.screenInline,
+  // The one thing this page wants pressed: a shell with the face on it, and the
+  // deepest lip, which pressing uses up.
+  saveButton: {
+    height: 56 + ledge.lead, borderRadius: 100, backgroundColor: homeColors.deep,
+    paddingBottom: ledge.lead, marginHorizontal: layout.screenInline,
   },
+  saveFace: { flex: 1, borderRadius: 100, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
   saveButtonDisabled: {
     opacity: 0.6,
   },

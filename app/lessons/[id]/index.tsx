@@ -21,7 +21,6 @@ import { useNavigation } from 'expo-router/react-navigation';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ActivityIndicator,
   Modal,
   Platform,
   Pressable,
@@ -34,6 +33,10 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LedgePressable } from '@/components/ui/LedgePressable';
 import { MascotState } from '@/components/mascot/MascotState';
+import { StageBar } from '@/components/stats/ProgressCharts';
+import { CountUp } from '@/components/motion/Grow';
+import { stageCounts } from '@/lib/reviewStats';
+import { MascotLoading } from '@/components/mascot/MascotLoading';
 
 // 课程类型定义
 interface Lesson {
@@ -375,7 +378,7 @@ export default function LessonDetailScreen() {
   // 处理删除词条
   const handleDeleteTerm = (termId: string, termName: string) => {
     dialog(
-      'Delete Term',
+      'Delete card?',
       `Are you sure you want to delete "${termName}"?`,
       [
         {
@@ -394,7 +397,7 @@ export default function LessonDetailScreen() {
 
               if (error) {
                 console.error('Error deleting term:', error);
-                dialog('Error', 'Failed to delete term');
+                dialog('Error', 'Failed to delete card');
                 return;
               }
 
@@ -437,10 +440,7 @@ export default function LessonDetailScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accentText} />
-          <Text style={styles.loadingText}>Loading lesson...</Text>
-        </View>
+        <MascotLoading label="Opening your lesson…" />
       </SafeAreaView>
     );
   }
@@ -450,18 +450,14 @@ export default function LessonDetailScreen() {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
-          <Feather name="alert-circle" size={48} color={colors.red} />
-          <Text style={styles.errorTitle}>Lesson Not Found</Text>
+          <MascotState kind="error" width={156} />
+          <Text style={styles.errorTitle}>Lesson not found</Text>
           <Text style={styles.errorText}>
             {error || 'The lesson you are looking for does not exist.'}
           </Text>
-          <Button
-            style={styles.backButton}
-            onPress={handleGoBack}
-            activeOpacity={0.8}
-          >
-            <Text style={styles.backButtonText}>Back to Lessons</Text>
-          </Button>
+          <LedgePressable accessibilityRole="button" style={styles.backButton} onPress={handleGoBack}>
+            <View style={styles.backButtonFace}><Text style={styles.backButtonText}>Back to lessons</Text></View>
+          </LedgePressable>
         </View>
       </SafeAreaView>
     );
@@ -474,8 +470,6 @@ export default function LessonDetailScreen() {
     return sum + getStatusWeight(status);
   }, 0);
   const progressPct = totalCards > 0 ? Math.round((weightedScore / totalCards) * 100) : 0;
-  const reviewedCount = Math.round(weightedScore);
-  const dueCount = Math.max(totalCards - reviewedCount, 0);
   const masteredCount = terms.filter(
     (term) => term.user_term_progress?.[0]?.status === 'Mastered'
   ).length;
@@ -511,23 +505,14 @@ export default function LessonDetailScreen() {
             </View></View>
             {!!lesson.description && <Text style={styles.lessonDescription}>{lesson.description}</Text>}
           </View>
-          <View style={styles.statsRow}>
-            {[
-              { value: totalCards, label: 'total cards' },
-              { value: dueCount, label: 'to review' },
-              { value: masteredCount, label: 'mastered' },
-            ].map((stat) => <View key={stat.label} style={styles.statCell}>
-              <Text style={styles.statVal}>{stat.value}</Text>
-              <Text style={styles.statLabel}>{stat.label}</Text>
-            </View>)}
-          </View>
-          <View accessible accessibilityRole="progressbar" accessibilityLabel="Mastery"
-            accessibilityValue={{ min: 0, max: 100, now: progressPct }} style={styles.mastery}>
+          {/* The same picture of where the cards stand as the You page draws for all
+              of them: how many are mastered, and the rest by stage. */}
+          <View style={styles.stageBlock}>
             <View style={styles.masteryLine}>
-              <Text style={styles.masteryLabel}>Mastery</Text>
-              <Text style={styles.masteryValue}>{progressPct}%</Text>
+              <Text style={styles.masteredLine}><CountUp value={masteredCount} style={styles.masteredNumber} /> of {totalCards} mastered</Text>
+              <Text style={styles.masteredLine}>Progress <Text style={styles.masteryValue}>{progressPct}%</Text></Text>
             </View>
-            <View style={styles.barTrack}><View style={[styles.barFill, { width: `${progressPct}%` }]} /></View>
+            <StageBar counts={stageCounts(terms.map((term) => term.id), new Map(terms.map((term) => [term.id, term.user_term_progress?.[0]?.status ?? null])))} />
           </View>
           <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: totalCards === 0 }} disabled={totalCards === 0} onPress={handleStartStudy} style={[styles.reviewButton, totalCards === 0 && styles.reviewDisabled]}><View style={styles.reviewButtonFace}><View style={styles.playIcon}><HomeAsset name="play" /></View><Text style={styles.reviewButtonText}>Start review</Text></View></LedgePressable>
         </View></View>
@@ -535,14 +520,14 @@ export default function LessonDetailScreen() {
         <View style={styles.termsSection}>
           <View style={styles.controls}>
             <View style={styles.sectionHead}>
-              <Text accessibilityRole="header" style={styles.sectionTitle}>Terms</Text>
-              <Button accessibilityLabel="Add term" onPress={handleEditTerms} style={styles.addTerm}>
-                <DesignAsset name="termPlus" /><Text style={styles.sectionAction}>Add</Text>
+              <Text accessibilityRole="header" style={styles.sectionTitle}>Cards</Text>
+              <Button accessibilityLabel="Add cards" onPress={handleEditTerms} style={styles.addTerm}>
+                <Icon name="plus" size={18} color={homeColors.primary} /><Text style={styles.sectionAction}>Add cards</Text>
               </Button>
             </View>
             <View style={styles.searchContainer}>
               <Icon name="search" size={20} color={homeColors.muted} strokeWidth={1.8} />
-              <TextInput accessibilityLabel="Search terms" style={styles.searchInput} placeholder="Search terms"
+              <TextInput accessibilityLabel="Search cards" style={styles.searchInput} placeholder="Search cards"
                 placeholderTextColor={colors.muted} value={searchQuery} onChangeText={setSearchQuery}
                 autoCorrect={false} returnKeyType="search" />
             </View>
@@ -561,22 +546,18 @@ export default function LessonDetailScreen() {
               <MascotState kind={searchQuery || filterLevel !== 'All' ? 'noResults' : 'empty'} width={156} />
               <Text style={styles.emptyTermsTitle}>
                 {searchQuery || filterLevel !== 'All'
-                  ? 'No Terms Found'
-                  : 'No Terms Yet'}
+                  ? 'No matching cards'
+                  : 'No cards yet'}
               </Text>
               <Text style={styles.emptyTermsText}>
                 {searchQuery || filterLevel !== 'All'
-                  ? 'Try adjusting your search or filter criteria.'
-                  : 'Add terms to get started with this lesson.'}
+                  ? 'Try another word or level.'
+                  : 'Add a few to start learning.'}
               </Text>
               {!searchQuery && filterLevel === 'All' && (
-              <Button
-                  style={styles.addTermsButtonEmpty}
-                onPress={handleEditTerms}
-                activeOpacity={0.8}
-              >
-                  <Text style={styles.addTermsButtonTextEmpty}>Add Terms</Text>
-              </Button>
+              <LedgePressable accessibilityRole="button" style={styles.addTermsButtonEmpty} onPress={handleEditTerms}>
+                <View style={styles.addTermsFaceEmpty}><Text style={styles.addTermsButtonTextEmpty}>Add cards</Text></View>
+              </LedgePressable>
               )}
             </View>
           ) : (
@@ -839,12 +820,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   safeAreaTop: { flex: 1 },
   headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 450 },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { ...type.bodySmall, color: colors.muted, marginTop: 12 },
   errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
   errorTitle: { ...type.section, color: colors.text, marginTop: 16, marginBottom: 8 },
   errorText: { ...type.bodySmall, color: colors.muted, textAlign: 'center', marginBottom: 24 },
-  backButton: { backgroundColor: colors.action, paddingHorizontal: 20, paddingVertical: 12, borderRadius: radius.pill },
+  // The empty and error states' one button, lipped the way Library's are.
+  backButton: { backgroundColor: homeColors.deep, borderRadius: radius.pill, paddingBottom: 3 },
+  backButtonFace: { minHeight: 45, backgroundColor: homeColors.primary, paddingHorizontal: 20, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   backButtonText: { ...type.controlLink, color: colors.onAction },
   nav: { paddingHorizontal: layout.screenInline, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   scrollView: { flex: 1 },
@@ -859,16 +840,11 @@ const styles = StyleSheet.create({
   lessonMetadata: { ...type.meta, color: colors.supporting },
   languageTag: { width: 22, height: 22, borderRadius: 11, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], boxShadow: `0px 2px 0px ${homeColors.border}` },
   lessonDescription: { ...type.bodyReading, color: colors.supporting },
-  statsRow: { flexDirection: 'row', borderRadius: 16, backgroundColor: homeColors.nav, paddingVertical: 12, paddingHorizontal: 8 },
-  statCell: { flex: 1, gap: 2, alignItems: 'center' },
-  statVal: { fontFamily: fonts.display, fontSize: 24, color: homeColors.deep },
-  statLabel: { ...type.meta, color: homeColors.muted },
-  mastery: { gap: 10 },
+  stageBlock: { gap: 12 },
   masteryLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  masteryLabel: { ...type.controlLink, color: colors.text },
+  masteredLine: { fontFamily: fonts.medium, fontSize: 15, color: homeColors.muted },
+  masteredNumber: { fontFamily: fonts.display, fontSize: 28, color: homeColors.deep },
   masteryValue: { ...type.courseTitle, color: colors.text },
-  barTrack: { height: componentTokens.progress.height, borderRadius: radius.pill, backgroundColor: colors.progressTrack, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: colors.action, borderRadius: radius.pill },
   reviewButton: { height: 56, borderRadius: 42, paddingBottom: 4, backgroundColor: homeColors.deep },
   reviewButtonFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
   reviewButtonText: { fontFamily: fonts.semibold, fontSize: 18, color: homeColors.white },
@@ -878,8 +854,10 @@ const styles = StyleSheet.create({
   controls: { gap: 10 },
   sectionHead: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { ...type.section, color: colors.text },
-  addTerm: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  sectionAction: { ...type.controlLink, color: colors.text },
+  // Drawn the way Library's "New lesson" is: the section's way to add more, in the
+  // primary colour.
+  addTerm: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  sectionAction: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary },
   searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: homeColors.white, borderWidth: 1, borderColor: homeColors.border, borderRadius: 26, paddingHorizontal: 16, minHeight: 52, gap: 10 },
   searchInput: { ...type.input, color: colors.text, flex: 1, minHeight: 46, paddingVertical: 10 },
   filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
@@ -889,7 +867,8 @@ const styles = StyleSheet.create({
   emptyTermsContainer: { alignItems: 'center', paddingVertical: 24, gap: 12 },
   emptyTermsTitle: { ...type.section, color: colors.text },
   emptyTermsText: { ...type.bodySmall, color: colors.muted, textAlign: 'center' },
-  addTermsButtonEmpty: { backgroundColor: colors.action, paddingHorizontal: 24, paddingVertical: 12, borderRadius: radius.pill },
+  addTermsButtonEmpty: { backgroundColor: homeColors.deep, borderRadius: radius.pill, paddingBottom: 3 },
+  addTermsFaceEmpty: { minHeight: 45, backgroundColor: homeColors.primary, paddingHorizontal: 24, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   addTermsButtonTextEmpty: { ...type.controlLink, color: colors.onAction },
   termsList: { gap: 16 },
   // Filter Modal Styles (iOS bottom sheet style)

@@ -3,7 +3,7 @@
  */
 
 /** 将时间转换为本地日期键 YYYY-MM-DD（避免 UTC 跨天误差） */
-function toLocalDateKey(input: Date | string): string {
+export function toLocalDateKey(input: Date | string): string {
   const date = typeof input === 'string' ? new Date(input) : input;
   const y = date.getFullYear();
   const m = String(date.getMonth() + 1).padStart(2, '0');

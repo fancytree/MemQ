@@ -3,6 +3,8 @@ import { PlayButton } from '@/components/LanguageCardFields';
 import { hasLanguageData, languageDataFromLegacyExplanation, normalizeLanguageData } from '@/lib/languageCard';
 import { colors, componentTokens, radius, type } from '@/theme';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { chartColors, homeColors } from '@/theme/colors';
+import { fonts } from '@/theme/typography';
 
 type LearningStage = 'New' | 'Learning' | 'Familiar' | 'Good' | 'Strong' | 'Mastered';
 interface Term { id: string; term: string; definition: string; explanation: string | null; language_data?: unknown }
@@ -24,7 +26,7 @@ export default function TermCard({ term, status, isLanguage = false, onOpen }: T
         </View>
       </View>
       {showNote && <Text style={styles.note}>{term.explanation}</Text>}
-      <View style={styles.badge}><Text style={styles.level}>{status}</Text></View>
+      <StageTag stage={status} />
     </Pressable>
     {isLanguage && <View style={styles.play}>
       <PlayButton iconOnly text={term.term} languageCode={normalizeLanguageData(term.language_data).language_code} label={`Play ${term.term}`} />
@@ -32,6 +34,24 @@ export default function TermCard({ term, status, isLanguage = false, onOpen }: T
     </View>
   );
 }
+const STAGE_ORDER: LearningStage[] = ['New', 'Learning', 'Familiar', 'Good', 'Strong', 'Mastered'];
+
+/** Which stage a card is at, told by colour: the tag deepens a step for each stage,
+ * white for a card not yet started to solid purple for one mastered, so a list can
+ * be scanned for the weak ones without reading a word. */
+function StageTag({ stage }: { stage: LearningStage }) {
+  const at = Math.max(0, STAGE_ORDER.indexOf(stage));
+  return (
+    <View style={[styles.badge, { backgroundColor: STAGE_TINTS[at] }, stage === 'New' && styles.badgeNew]}>
+      <Text style={[styles.level, at >= 4 && styles.levelDone]}>{stage}</Text>
+    </View>
+  );
+}
+
+/** The tag's ground, a step deeper for each stage: white for a card not yet
+ * started, up through the lilacs, to the deep purple of Mastered. */
+const STAGE_TINTS = [homeColors.white, homeColors.track, chartColors.faint, homeColors.streakBorder, homeColors.primary, homeColors.deep];
+
 const styles = StyleSheet.create({
   card: { borderWidth: 1, borderColor: colors.border, padding: componentTokens.lessonDetail.termPadding, gap: 6, backgroundColor: colors.surf, ...cardElevation.card, },
   body: { gap: 6 },
@@ -43,6 +63,8 @@ const styles = StyleSheet.create({
   term: { ...type.termTitle, fontFamily: type.courseTitle.fontFamily, color: colors.text },
   definition: { ...type.bodyReading, color: colors.text },
   note: { ...type.bodySmall, color: colors.supporting },
-  badge: { alignSelf: 'flex-start', backgroundColor: colors.surfaceSubtle, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
-  level: { ...type.meta, color: colors.supporting },
+  badge: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
+  level: { ...type.meta, fontFamily: fonts.semibold, color: homeColors.deep },
+  levelDone: { color: homeColors.white },
+  badgeNew: { borderWidth: 1, borderColor: homeColors.border },
 });

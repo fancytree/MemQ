@@ -1,3 +1,4 @@
+import { RowIcon } from '@/components/RowIcon';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { MascotState } from '@/components/mascot/MascotState';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
@@ -86,13 +87,13 @@ export default function ConnectionsScreen() {
           it away, but never said how to connect anything in the first place. */}
       <Pressable accessibilityRole="button" accessibilityLabel="How to connect an app"
         onPress={() => setShowHow(true)} style={styles.how}>
-        <View style={styles.howIcon}><Feather name="help-circle" size={19} color={homeColors.deep} /></View>
+        <View style={styles.howIcon}><RowIcon name="help" color={homeColors.deep} /></View>
         <Text style={styles.howText}>How to connect an app</Text>
         <Feather name="chevron-right" size={18} color={homeColors.muted} />
       </Pressable>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
       {loading ? <ActivityIndicator color={homeColors.primary} style={styles.loading} /> : error && grants.length === 0 ? <View style={styles.empty}><MascotState kind="error" width={148} /><Pressable accessibilityRole="button" onPress={load} style={[styles.retry, styles.retryCentered]}><Text style={styles.retryText}>Try again</Text></Pressable></View> : grants.length === 0 ? <View style={styles.empty}><MascotState kind="empty" width={148} /><Text style={styles.emptyTitle}>{brokerBaseUrl ? 'No connected apps' : 'Not available yet'}</Text><Text style={styles.emptyText}>{brokerBaseUrl ? 'Apps you authorize will appear here.' : 'Connecting isn’t switched on in this build. The steps above are what it will look like.'}</Text></View> : grants.map((grant) => <View key={grant.id} style={styles.card}>
-        <View style={styles.cardTop}><View style={styles.icon}><Feather name="link" size={20} color={homeColors.deep} /></View><View style={styles.copy}><Text style={styles.name}>{grant.name || 'Connected app'}</Text><Text style={styles.meta}>Connected {new Date(grant.createdAt * 1000).toLocaleDateString()}</Text></View></View>
+        <View style={styles.cardTop}><View style={styles.icon}><RowIcon name="connections" color={homeColors.deep} /></View><View style={styles.copy}><Text style={styles.name}>{grant.name || 'Connected app'}</Text><Text style={styles.meta}>Connected {new Date(grant.createdAt * 1000).toLocaleDateString()}</Text></View></View>
         <Pressable accessibilityRole="button" accessibilityLabel={`Disconnect ${grant.name || 'connected app'}`} onPress={() => setSelected(grant)} style={styles.disconnect}><Text style={styles.disconnectText}>Disconnect</Text></Pressable>
       </View>)}
     </ScrollView>

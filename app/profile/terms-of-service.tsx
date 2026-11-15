@@ -193,6 +193,18 @@ export default function TermsOfServiceScreen() {
           <Text style={styles.paragraphBold}>
             BY USING THE APP, YOU ACKNOWLEDGE THAT YOU HAVE READ THIS AGREEMENT, UNDERSTAND IT, AND AGREE TO BE BOUND BY ITS TERMS AND CONDITIONS.
           </Text>
+
+          {/* Not a clause of the agreement, so it is not numbered. Solar's licence
+              (CC BY 4.0) asks for this credit where the people using the icons can
+              see it; the others are credited alongside it for completeness. */}
+          <Text style={styles.sectionTitle}>Icon credits</Text>
+          <Text style={styles.paragraph}>
+            Some icons in the app come from these open icon sets. They have been recoloured and resized.
+          </Text>
+          <Text style={styles.bulletPoint}>• Solar by 480 Design, licensed under CC BY 4.0 (creativecommons.org/licenses/by/4.0)</Text>
+          <Text style={styles.bulletPoint}>• Fluent UI System Icons by Microsoft, licensed under MIT</Text>
+          <Text style={styles.bulletPoint}>• Material Symbols by Google, licensed under Apache 2.0</Text>
+          <Text style={styles.bulletPoint}>• MingCute by MingCute Design, licensed under Apache 2.0</Text>
         </View>
       </ScrollView>
     </SafeAreaView>

@@ -6,6 +6,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeAsset } from '../HomeAsset';
+import { RowIcon } from '../RowIcon';
 
 export const destinations = [
   { id: 'today', label: 'Today' },
@@ -99,10 +100,10 @@ export function BottomNavigation({ active, onNavigate }: { active: Destination; 
               style={[styles.highlight, { left: INSET, top: (face.height - ITEM) / 2, width: item }, highlight]} />
           )}
           <Item tab selected={active === 'today'} marked={!measured && active === 'today'} label="Today"
-            onPress={() => onNavigate('today')}><HomeAsset name="homeSolid" /></Item>
+            onPress={() => onNavigate('today')}><RowIcon name="today" color={homeColors.deep} size={26} /></Item>
           <Item bare label="Create a new lesson" onPress={() => onNavigate('create')}><HomeAsset name="add" /></Item>
           <Item tab selected={active === 'library'} marked={!measured && active === 'library'} label="Library"
-            onPress={() => onNavigate('library')}><HomeAsset name="librarySolid" /></Item>
+            onPress={() => onNavigate('library')}><RowIcon name="library" color={homeColors.deep} size={26} /></Item>
         </View>
       </View>
     </View>

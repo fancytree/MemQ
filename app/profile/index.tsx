@@ -1,6 +1,8 @@
+import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { elevation as cardElevation } from '@/theme';
+import { ledge } from '@/theme/ledge';
+import { LedgePressable } from '@/components/ui/LedgePressable';
 import { dialog } from '@/lib/dialog';
-import { BackButton } from '@/components/ui/RoundButtons';
 import { mcpEnabled } from '@/lib/mcp';
 import { layout } from '@/theme/spacing';
 import { sheet } from '@/theme/sheet';
@@ -8,6 +10,7 @@ import { fonts } from '@/theme/typography';
 import { colors, homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import MenuItem from '@/components/MenuItem';
+import { RowIcon } from '@/components/RowIcon';
 import { MemQTheme } from '@/constants/theme';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { clearAllCache, formatCacheSize, getCacheSize } from '@/lib/cache';
@@ -33,6 +36,7 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { MascotLoading } from '@/components/mascot/MascotLoading';
 
 export const options = {
   headerShown: false,
@@ -702,9 +706,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accentText} />
-        </View>
+        <MascotLoading />
       </SafeAreaView>
     );
   }
@@ -712,21 +714,15 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
-      {/* The bar, above the scroll view rather than in it: the way back and the
-          page's name stay where they are while the page moves. */}
-      <View style={styles.header}>
-        {isTab ? (
-          <Text style={styles.navBack}>Profile</Text>
-        ) : (
-          <BackButton onPress={() => safeBack('/you')} />
-        )}
-        <Text accessibilityRole="header" style={styles.pageTitle}>Profile</Text><View style={styles.navRightSpacer} />
-      </View>
+      {/* The way back stays above the scroll view; the page's name scrolls with the
+          page, large and on the left, the way every other second-level page has it. */}
+      {isTab ? <View style={styles.tabTop} /> : <SecondaryPageNav onBack={() => safeBack('/you')} backLabel="← You" />}
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        <Text accessibilityRole="header" style={styles.pageTitle}>Profile</Text>
         <View style={styles.topHeaderBlock}>
           {/* 用户信息头部 */}
           <View style={styles.userHeader}>
@@ -766,13 +762,14 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               <Text style={styles.premiumLabel}>Pro</Text>
             </View>
             <Text style={styles.premiumTitle}>Unlock Your Full Potential</Text>
-            <TouchableOpacity accessibilityRole="button"
+            <LedgePressable accessibilityRole="button"
               style={styles.premiumButton}
-              activeOpacity={0.8}
               onPress={showPaywall}
             >
-              <Text style={styles.premiumButtonText}>Start Free Trial</Text>
-            </TouchableOpacity>
+              <View style={styles.premiumFace}>
+                <Text style={styles.premiumButtonText}>Start Free Trial</Text>
+              </View>
+            </LedgePressable>
           </View>
         )}
 
@@ -812,7 +809,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               showDivider={mcpEnabled}
             />
             {mcpEnabled && <MenuItem
-              icon="link" iconColor={t.color.muted} iconBgColor={t.color.bg} title="Connected apps"
+              icon="connections" iconColor={t.color.muted} iconBgColor={t.color.bg} title="Connected apps"
               subtitle="Manage AI and other connections" onPress={() => router.push('/profile/connections')} showDivider={false}
             />}
           </View>
@@ -876,7 +873,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               </>
             )}
             <MenuItem
-              icon="clock"
+              icon="duration"
               iconColor={t.color.muted}
               iconBgColor={t.color.bg}
               title="Daily study duration"
@@ -906,7 +903,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               </>
             )}
             <MenuItem
-              icon="target"
+              icon="goal"
               iconColor={t.color.muted}
               iconBgColor={t.color.bg}
               title="Daily goal"
@@ -946,7 +943,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             <View style={styles.cacheItem}>
               <View style={styles.cacheItemLeft}>
                 <View style={styles.cacheIconContainer}>
-                  <Feather name="database" size={20} color={t.color.muted} />
+                  <RowIcon name="storage" color={homeColors.deep} />
                 </View>
                 <View style={styles.cacheItemContent}>
                   <Text style={styles.cacheItemTitle}>Local Data</Text>
@@ -971,7 +968,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           <Text style={styles.sectionTitle}>About</Text>
           <View style={styles.menuCard}>
             <MenuItem
-              icon="shield"
+              icon="privacy"
               iconColor={t.color.muted}
               iconBgColor={t.color.bg}
               title="Privacy policy"
@@ -980,7 +977,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               }}
             />
             <MenuItem
-              icon="file-text"
+              icon="terms"
               iconColor={t.color.muted}
               iconBgColor={t.color.bg}
               title="Terms of service"
@@ -989,7 +986,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               }}
             />
             <MenuItem
-              icon="help-circle"
+              icon="help"
               iconColor={t.color.muted}
               iconBgColor={t.color.bg}
               title="Help center"
@@ -1005,7 +1002,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             {/* Design review tool. Gated so it cannot ship in a release build. */}
             {__DEV__ && (
               <MenuItem
-                icon="activity"
+                icon="motion"
                 iconColor={t.color.muted}
                 iconBgColor={t.color.bg}
                 title="Motion lab"
@@ -1028,7 +1025,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             activeOpacity={0.7}
           >
             <View style={styles.actionButtonIconContainer}>
-              <Feather name="log-out" size={20} color={t.color.muted} />
+              <RowIcon name="signOut" color={homeColors.deep} />
             </View>
             <Text style={styles.actionButtonText}>Logout</Text>
           </TouchableOpacity>
@@ -1040,7 +1037,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             activeOpacity={0.7}
           >
             <View style={[styles.actionButtonIconContainer, styles.deleteIconContainer]}>
-              <Feather name="trash-2" size={20} color={t.color.danger} />
+              <RowIcon name="delete" color={t.color.danger} />
             </View>
             <Text style={styles.deleteButtonText}>Delete account</Text>
           </TouchableOpacity>
@@ -1123,36 +1120,15 @@ const styles = StyleSheet.create({
     backgroundColor: t.color.bg,
   },
   pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 300 },
-  pageTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 34, color: homeColors.deep },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
+  pageTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, marginHorizontal: layout.screenInline, marginBottom: 4 },
+  tabTop: { height: 14 },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     paddingBottom: 56,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: layout.screenInline,
-    paddingTop: 14,
-    paddingBottom: 14,
-  },
   topHeaderBlock: {
-  },
-  navBack: {
-    fontSize: 15,
-    lineHeight: 22,
-    color: homeColors.deep,
-    fontFamily: fonts.semibold,
-  },
-  navRightSpacer: {
-    width: 52,
   },
   userHeader: {
     flexDirection: 'row',
@@ -1196,9 +1172,10 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: t.color.surface,
   },
+  // Under the page's own title now, so a step down from it.
   userName: {
-    fontSize: 28,
-    lineHeight: 36,
+    fontSize: 24,
+    lineHeight: 32,
     fontFamily: fonts.display,
     color: homeColors.deep,
     flex: 1,
@@ -1232,14 +1209,13 @@ const styles = StyleSheet.create({
     color: t.color.textHigh,
     marginBottom: 14,
   },
-  premiumButton: { minHeight: 44,
-    backgroundColor: colors.action,
-    borderWidth: 1,
-    borderColor: colors.action,
-    borderRadius: 100,
-    paddingVertical: 11,
-    paddingHorizontal: 16,
-    alignSelf: 'flex-start',
+  // A small control inside the banner, so the shallow lip.
+  premiumButton: {
+    borderRadius: 100, backgroundColor: homeColors.deep, paddingBottom: ledge.control, alignSelf: 'flex-start',
+  },
+  premiumFace: {
+    minHeight: 44, borderRadius: 100, backgroundColor: homeColors.primary,
+    paddingVertical: 11, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center',
   },
   premiumButtonText: {
     fontSize: 14,
@@ -1277,10 +1253,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     marginBottom: 10,
   },
+  // The same tile every settings row's icon sits in.
   actionButtonIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
+    borderRadius: 14,
     backgroundColor: homeColors.nav,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1288,8 +1265,6 @@ const styles = StyleSheet.create({
   },
   deleteIconContainer: {
     backgroundColor: t.color.dangerBg,
-    borderWidth: 1,
-    borderColor: t.color.dangerBorder,
   },
   actionButtonText: {
     fontSize: 14,
@@ -1542,9 +1517,8 @@ const styles = StyleSheet.create({
   cacheIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: t.color.border,
+    borderRadius: 14,
+    backgroundColor: homeColors.nav,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,

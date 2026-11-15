@@ -2,6 +2,8 @@
 
 This folder contains the static website preview. Serve it from an HTTP server and open `index.html`; the support and policy pages load shared navigation and footer components and should not be checked via a `file://` URL.
 
+The support and policy pages also embed fallback copies of the shared navigation and footer, so those links remain available when scripts or component fetches fail. When editing either component, update the matching fallback markup in all three pages as well. The help center shows all FAQ answers and hides its script-dependent search when JavaScript is unavailable.
+
 The home page uses `site.css` and `site.js`, Geist and Oswald, the current lime and purple palette, and the Today screen capture in `img/current/today-demo.png`. The capture uses example course content. Animations respect the visitor's reduced-motion setting, and page content remains available without JavaScript.
 
 ## Stylesheets and markup travel together
@@ -80,3 +82,5 @@ why it is generated now.
 The `oauth/` pages are local authorization prototypes. Their presence here does not mean the MCP service or authorization flow is deployed or ready for production. See `docs/mcp/README.md` in the MemQ repository for the current testing and release limitations.
 
 Before publishing, compare this preview with the existing website source, verify asset and link paths on the target host, and check desktop and mobile layouts. A local preview or copied source is not evidence that the public website has been deployed.
+
+Local source audit, 2026-11-15: the five standalone HTML pages have no missing relative files or fragment targets, and `node scripts/build-website-mascot.cjs --check` confirms the landing-page mascot matches the app rig. This does not verify links or rendering on the eventual host, the responsive layout, or live deployment.

@@ -67,6 +67,9 @@ export async function updateTermProgressSafe(termId: string, isCorrect: boolean)
     if (missingColumn(error)) {
       await supabase.from('user_term_progress').upsert(row, { onConflict: 'user_id,term_id' });
     }
+    // And the answer itself, the same row the Edge Function adds (review_events).
+    await supabase.from('review_events')
+      .insert({ user_id: user.id, term_id: termId, is_correct: isCorrect, reviewed_at: now.toISOString() });
   } catch {
     // ignore
   }

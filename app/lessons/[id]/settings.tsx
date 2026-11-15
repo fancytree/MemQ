@@ -21,6 +21,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LedgePressable } from '@/components/ui/LedgePressable';
+import { MascotLoading } from '@/components/mascot/MascotLoading';
 
 export const options = { headerShown: false };
 
@@ -106,9 +107,10 @@ export default function LessonSettingsScreen() {
     finally { setDeleting(false); }
   };
 
-  if (loading || loadError) return <SafeAreaView style={styles.screen}>
+  if (loading) return <SafeAreaView style={styles.screen}><MascotLoading /></SafeAreaView>;
+  if (loadError) return <SafeAreaView style={styles.screen}>
     <View style={styles.status}>
-      {loading ? <ActivityIndicator color={colors.text} /> : <><MascotState kind="error" width={160} /><Text style={styles.message}>{loadError}</Text><ActionButton label="Go back" onPress={goBack} /></>}
+      <MascotState kind="error" width={160} /><Text style={styles.message}>{loadError}</Text><ActionButton label="Go back" onPress={goBack} />
     </View>
   </SafeAreaView>;
 

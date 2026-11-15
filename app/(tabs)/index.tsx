@@ -17,6 +17,8 @@ import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AccessibilityInfo, Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
+import Reanimated, { useAnimatedProps } from 'react-native-reanimated';
+import { CountUp, ProgressFill, useEased } from '@/components/motion/Grow';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LedgePressable } from '@/components/ui/LedgePressable';
 import { StreakPill } from '@/components/ui/StreakPill';
@@ -76,18 +78,21 @@ function GoalRing({ done, goal }: { done: number; goal: number }) {
   const r = 13;
   const circumference = 2 * Math.PI * r;
   const at = goal > 0 ? Math.max(0, Math.min(1, done / goal)) : 0;
+  // The arc sweeps round to where today has got to, as the number beside it counts.
+  const swept = useEased(at, 250);
+  const arc = useAnimatedProps(() => ({ strokeDasharray: [circumference * swept.value, circumference] }));
   return (
     <Svg width={30} height={30} viewBox="0 0 30 30">
       <Circle cx={15} cy={15} r={r} fill="none" stroke={homeColors.white} strokeWidth={4} />
       {at > 0 && (
-        <Circle cx={15} cy={15} r={r} fill="none" stroke={colors.green} strokeWidth={4}
-          strokeLinecap="round"
-          strokeDasharray={`${circumference * at} ${circumference}`}
+        <RingArc cx={15} cy={15} r={r} fill="none" stroke={colors.green} strokeWidth={4}
+          strokeLinecap="round" animatedProps={arc}
           transform="rotate(-90 15 15)" />
       )}
     </Svg>
   );
 }
+const RingArc = Reanimated.createAnimatedComponent(Circle);
 
 /** Implementation extension: the reference frame reads 23min for 37 due cards. */
 const SECONDS_PER_CARD = 37;
@@ -134,7 +139,13 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
     arrived.current[which] = true;
     if (arrived.current.lessons && arrived.current.user) setReady(true);
   }, []);
-  const heroEntrance = useRef([new Animated.Value(0), new Animated.Value(0), new Animated.Value(0)]).current;
+  // The hero's three lines, then the stats card and the lessons card under them.
+  const heroEntrance = useRef(Array.from({ length: 5 }, () => new Animated.Value(0))).current;
+  /** Counts each time Today comes to the front once it is ready. The numbers and
+   * progress bars are keyed by it, so they count and fill again on every arrival
+   * rather than only the first. */
+  const [visit, setVisit] = useState(0);
+  useEffect(() => { if (focused && ready) setVisit((n) => n + 1); }, [focused, ready]);
   useEffect(() => {
     // Nothing to come in until there is something to come in: run it when the screen
     // is first shown, not while the loading screen is still over it.
@@ -347,7 +358,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         learningMode: lesson.learning_mode,
         coverStyle: lesson.cover_style,
         title: lesson.name || 'Untitled lesson',
-        sub: lesson.description || 'No description',
+        sub: lesson.description?.trim() || '',
         cards,
         due,
         totalDue: rawDue,
@@ -391,7 +402,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         <View style={styles.hero}>
           <Animated.View style={[styles.focus, entranceStyle(0)]}><HomeAsset name="focusTarget" height={FOCUS_ICON} /><Text style={styles.focusText}>Today’s Focus</Text></Animated.View>
           <Animated.View style={[styles.heroCopy, entranceStyle(1)]}>
-            <Text accessibilityRole="header" style={styles.count}>{totalDue}<Text style={styles.countUnit}> {totalDue === 1 ? 'card' : 'cards'}</Text></Text>
+            <Text accessibilityRole="header" style={styles.count}><CountUp key={`due${visit}`} value={totalDue} style={styles.count} /><Text style={styles.countUnit}> {totalDue === 1 ? 'card' : 'cards'}</Text></Text>
             <Text style={styles.subtitle}>{lessonsError ? 'Couldn’t load your lessons' : lessonsLoading ? 'Getting your lessons ready' : lessonsCount === 0 ? 'Create a lesson to start learning' : !hasCards ? 'Add cards to a lesson to start learning' : totalDue > 0 ? 'Need your review' : 'All caught up'}</Text>
           </Animated.View>
           <Animated.View style={entranceStyle(2)}><LedgePressable accessibilityRole="button" accessibilityState={{ disabled: lessonsLoading }} disabled={lessonsLoading} onPress={startLearning} style={[styles.start, lessonsLoading && styles.startLoading]}>
@@ -399,15 +410,15 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
           </LedgePressable></Animated.View>
           {!lessonsLoading && !lessonsError && lessonsCount > 0 && !hasCards && <Pressable accessibilityRole="button" onPress={() => router.push('/create')} style={styles.createAlternative}><Text style={styles.createAlternativeText}>Or create a new lesson</Text></Pressable>}
         </View>
-        <View style={styles.stats}><View style={styles.statsFace}>
-          <View style={styles.stat}><HomeAsset name="time" /><Text style={styles.statValue}>{totalDue ? `${estimateMinutes}min` : '—'}</Text><Text style={styles.statLabel}>Estimated</Text></View>
-          <View style={styles.stat}><View style={styles.chartIcon}><View style={[styles.bar, { height: 11, opacity: 0.5 }]} /><View style={[styles.bar, { height: 17 }]} /><View style={[styles.bar, { height: 23, opacity: 0.65 }]} /></View><Text style={styles.statValue}>{mastery === null ? '—' : `${mastery}%`}</Text><Text style={styles.statLabel}>Mastery</Text></View>
-          <View style={styles.stat}><View style={styles.goalIcon}><GoalRing done={reviewedToday} goal={dailyGoalCards} /></View><Text style={styles.statValue}>{reviewedToday}/{dailyGoalCards}</Text><Text style={styles.statLabel}>Today’s goal</Text></View>
-        </View></View>
-        <View style={styles.courses}><View style={styles.coursesFace}>
+        <Animated.View style={[styles.stats, entranceStyle(3)]}><View style={styles.statsFace}>
+          <View style={styles.stat}><HomeAsset name="time" /><Text style={styles.statValue}>{totalDue ? <><CountUp key={`min${visit}`} value={estimateMinutes} delay={150} style={styles.statValue} />min</> : '—'}</Text><Text style={styles.statLabel}>Estimated</Text></View>
+          <View style={styles.stat}><View style={styles.chartIcon}><View style={[styles.bar, { height: 11, opacity: 0.5 }]} /><View style={[styles.bar, { height: 17 }]} /><View style={[styles.bar, { height: 23, opacity: 0.65 }]} /></View><Text style={styles.statValue}>{mastery === null ? '—' : <><CountUp key={`mastery${visit}`} value={mastery} delay={220} style={styles.statValue} />%</>}</Text><Text style={styles.statLabel}>Mastery</Text></View>
+          <View style={styles.stat}><View style={styles.goalIcon}><GoalRing key={`ring${visit}`} done={reviewedToday} goal={dailyGoalCards} /></View><Text style={styles.statValue}><CountUp key={`done${visit}`} value={reviewedToday} delay={290} style={styles.statValue} />/{dailyGoalCards}</Text><Text style={styles.statLabel}>Today’s goal</Text></View>
+        </View></Animated.View>
+        <Animated.View style={[styles.courses, entranceStyle(4)]}><View style={styles.coursesFace}>
           <View style={styles.heading}><Text accessibilityRole="header" style={styles.sectionTitle}>Continue Learning</Text>{lessonsCount > 0 && <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.seeAll}><Text style={styles.seeAllText}>See All</Text><HomeAsset name="chevron" /></Pressable>}</View>
-          {visibleLessons.map(lesson => <Pressable key={lesson.id} accessibilityRole="button" onPress={() => router.push(`/lessons/${lesson.id}`)} style={styles.lesson}>
-            <LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={71} height={56} /><View style={styles.lessonCopy}><Text numberOfLines={1} style={styles.lessonTitle}>{lesson.title}</Text><Text style={styles.lessonMeta}>{lesson.pct}% · {lesson.totalDue} cards remaining</Text><View style={styles.track}><View style={[styles.fill, { width: `${lesson.pct}%` }]} /></View></View>
+          {visibleLessons.map((lesson, row) => <Pressable key={lesson.id} accessibilityRole="button" onPress={() => router.push(`/lessons/${lesson.id}`)} style={styles.lesson}>
+            <LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={71} height={56} /><View style={styles.lessonCopy}><Text numberOfLines={1} style={styles.lessonTitle}>{lesson.title}</Text><Text style={styles.lessonMeta}>{lesson.pct}% · {lesson.totalDue} cards remaining</Text><View style={styles.track}><ProgressFill key={`fill${visit}`} pct={lesson.pct} delay={300 + row * 90} style={styles.fill} /></View></View>
           </Pressable>)}
           {/* Nothing to continue yet. The place a lesson would be is kept, drawn as
               one that has not been made: the same row, a plus where its cover goes.
@@ -417,7 +428,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
             <View style={styles.emptyCover}><Icon name="plus" size={22} color={homeColors.deep} /></View>
             <View style={styles.lessonCopy}><Text style={styles.lessonTitle}>Your first lesson is waiting</Text><Text style={styles.lessonMeta}>Turn a topic, a note, or a PDF into learning cards.</Text><View style={styles.track} /></View>
           </Pressable>}
-        </View></View>
+        </View></Animated.View>
       </Animated.ScrollView>
       {/* The top bar: the streak and the way to the profile. It does not scroll. Those
           two are the screen's standing furniture — how the days are going, and who

@@ -8,12 +8,6 @@ async function loadComponent(componentName) {
         }
         const html = await htmlResponse.text();
         
-        // 加载CSS
-        const cssLink = document.createElement('link');
-        cssLink.rel = 'stylesheet';
-        cssLink.href = `components/${componentName}.css`;
-        document.head.appendChild(cssLink);
-        
         return html;
     } catch (error) {
         console.error(`Error loading component ${componentName}:`, error);
