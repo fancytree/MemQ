@@ -8,12 +8,12 @@
  *
  *   flip    a flashcard: look, turn it over, say whether you knew
  *   mcq     pick one of four — a meaning, a synonym, an opposite, the word for a gap
- *   match   pair several cards with their meanings at once
+ *   match   pair words and phrases with their meanings as they keep arriving
  *   recall  type it — the meaning, or the word itself spelled from memory
  *   listen  hear it, then type it (dictation) or pick what it means
  *   build   put the words of a sentence in order
  *
- * `listen` and `build` need a language card; a round simply never offers them otherwise.
+ * `match`, `listen` and `build` need a language card; a round simply never offers them otherwise.
  */
 export type PracticeMode = 'flip' | 'mcq' | 'match' | 'recall' | 'listen' | 'build';
 export const PRACTICE_MODES: PracticeMode[] = ['flip', 'mcq', 'match', 'recall', 'listen', 'build'];

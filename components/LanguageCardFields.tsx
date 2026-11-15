@@ -1,4 +1,4 @@
-import { LanguageCardData, normalizeLanguageData } from '@/lib/languageCard';
+import { LanguageCardData, inferLanguageKind, normalizeLanguageData, type LanguageKind } from '@/lib/languageCard';
 import { dialog } from '@/lib/dialog';
 import { DesignAsset, FittedDesignAsset } from '@/components/DesignAsset';
 import { colors, type } from '@/theme';
@@ -13,6 +13,14 @@ const textFields: Array<{ key: keyof LanguageCardData; label: string; hint: stri
   { key: 'part_of_speech', label: 'Part of speech', hint: 'e.g. noun, verb, phrase' },
   { key: 'forms', label: 'Forms', hint: 'e.g. plural, conjugation, or gender' },
   { key: 'example', label: 'Example sentence', hint: 'A natural sentence using this term', multiline: true },
+];
+
+/** What the card teaches. Practice asks a word to be spelled and heard, a phrase to
+ *  be used, a grammar pattern to be applied — so it needs to know which this is. */
+const kinds: Array<{ key: LanguageKind; label: string }> = [
+  { key: 'word', label: 'Word' },
+  { key: 'phrase', label: 'Phrase' },
+  { key: 'grammar', label: 'Grammar' },
 ];
 
 const listFields: Array<{ key: 'synonyms' | 'antonyms' | 'collocations'; label: string; hint: string }> = [
@@ -37,6 +45,22 @@ export function LanguageCardEditor({
     <View style={styles.editor}>
       <Text style={styles.sectionTitle}>Language details</Text>
       <Text style={styles.hint}>Add what is useful for this word, phrase, or grammar pattern.</Text>
+      <View style={styles.inputGroup}>
+        <Text style={styles.label}>Card type</Text>
+        <View accessibilityRole="radiogroup" style={styles.kindRow}>
+          {kinds.map((kind) => {
+            // Until someone chooses, the card is read for what it looks like.
+            const chosen = (value.kind ?? inferLanguageKind(term, value)) === kind.key;
+            return (
+              <Pressable key={kind.key} accessibilityRole="radio" accessibilityState={{ checked: chosen }}
+                onPress={() => onChange(normalizeLanguageData({ ...value, kind: kind.key }))}
+                style={[styles.kind, chosen && styles.kindChosen]}>
+                <Text style={[styles.kindText, chosen && styles.kindTextChosen]}>{kind.label}</Text>
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
       {textFields.map((field) => (
         <View key={field.key} style={styles.inputGroup}>
           <Text style={styles.label}>{field.label}</Text>
@@ -178,6 +202,11 @@ const styles = StyleSheet.create({
   label: { fontSize: 12, fontWeight: '600', color: colors.text },
   input: { minHeight: 44, borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, color: colors.text, fontSize: 14 },
   multiline: { minHeight: 64, textAlignVertical: 'top' },
+  kindRow: { flexDirection: 'row', gap: 8 },
+  kind: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 9 },
+  kindChosen: { borderColor: colors.action, backgroundColor: colors.accentL },
+  kindText: { fontSize: 14, fontWeight: '600', color: colors.text },
+  kindTextChosen: { color: colors.accentText },
   playButton: { minHeight: 44, minWidth: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingRight: 8 },
   playText: { fontSize: 12, fontWeight: '700', color: colors.accentText },
   details: { gap: 20, marginTop: 20 },

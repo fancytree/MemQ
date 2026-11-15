@@ -20,7 +20,7 @@
 import { inferLanguageKind, normalizeLanguageData, type LanguageCardData, type LanguageKind } from './languageCard.ts';
 import type { PracticeMode } from './practiceModes.ts';
 import { chooseSavedQuestion, type SavedPracticeQuestion } from './practiceQuestions.ts';
-import { compatibleAnswerScripts, fallbackOptions } from './quizLanguage.ts';
+import { coherentAnswerCandidates, fallbackOptions } from './quizLanguage.ts';
 
 export type RoundTerm = {
   id: string;
@@ -73,14 +73,23 @@ export type RecallQuestion = Shared & {
   audio?: boolean;
 };
 
-export type MatchPair = { termId: string; left: string; right: string };
+export type MatchPair = {
+  termId: string;
+  left: string;
+  right: string;
+  /** A card of this round, whose matching is recorded. The rest are there to fill the
+   *  board with the lesson's other words, and matching them is practice. */
+  scored: boolean;
+};
 export type MatchQuestion = {
   mode: 'match';
   termId: string;
   topic: string;
+  /** The distinct cards on the board. */
   pairs: MatchPair[];
-  /** The order the right-hand column is shown in, as indexes into `pairs`. */
-  rightOrder: number[];
+  /** The pairs to be made, in the order they arrive, as indexes into `pairs`. Longer
+   *  than `pairs`: each card comes round more than once. */
+  sequence: number[];
 };
 
 export type BuildQuestion = Shared & {
@@ -104,11 +113,60 @@ export type RoundContext = {
 
 const CJK = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u;
 const GAP = '_____';
-/** Longest meaning that still reads in a matching tile. */
-const MATCH_MEANING_LIMIT = 140;
-const MATCH_TERM_LIMIT = 60;
-export const MATCH_SIZE = 4;
-const MATCH_MINIMUM = 3;
+
+/**
+ * How much room a text takes on a card. A Chinese, Japanese or Korean character, or
+ * any full-width one, is about twice as wide as a Latin letter and counts as two.
+ */
+export function displayLength(text: string): number {
+  let length = 0;
+  for (const char of text.normalize('NFC').trim()) {
+    length += /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}\u3000-\u303f\uff00-\uffef]/u.test(char) ? 2 : 1;
+  }
+  return length;
+}
+
+/**
+ * The longest text each part of a question may hold, in `displayLength` units.
+ *
+ * Everything a person has to pick, pair, arrange or type is held to these. They are
+ * hard limits, not hints: text over the limit is never shortened to fit — a clipped
+ * option is an option that cannot be read — it is simply not used. A wrong answer
+ * that is too long is not offered; a card whose own answer is too long for one form
+ * is asked in another (a long definition cannot be an option, but it can be the
+ * question whose options are the short terms).
+ *
+ *   option        one of four choices: two lines of the card
+ *   matchTerm     a word tile on a matching board: a word or a short phrase
+ *   matchMeaning  a meaning tile: one sense of the card's meaning (`firstSense`),
+ *                 in three lines of the wider column
+ *   tile          one word of a sentence to build
+ *   sentence      the whole sentence to build
+ *   typed         a word or phrase to spell or take down by ear
+ *   typedMeaning  a meaning to type in one's own words: about a sentence
+ */
+export const LIMITS = {
+  option: 60,
+  matchTerm: 20,
+  matchMeaning: 52,
+  tile: 18,
+  sentence: 90,
+  typed: 40,
+  typedMeaning: 100,
+} as const;
+
+const fits = (text: string | null | undefined, limit: number) => {
+  const length = displayLength(text ?? '');
+  return length > 0 && length <= limit;
+};
+/** A matching board draws on at most this many different cards… */
+const MATCH_CARDS_MAX = 8;
+/** …and needs this many, since it shows at least four rows and never the same card twice at once. */
+export const MATCH_CARDS_MIN = 4;
+/** Cards of the round that must be waiting to be recognised before a board is worth laying out. */
+const MATCH_SCORED_MIN = 2;
+/** Pairs to make on one board, repeats included. */
+export const MATCH_PAIRS_MAX = 12;
 
 const pickIndex = (length: number, random: () => number) =>
   Math.min(length - 1, Math.floor(Math.max(0, random()) * length));
@@ -127,17 +185,18 @@ const fold = (text: string) => text.normalize('NFC').toLocaleLowerCase().replace
 /** The answer among three others, or null when there are not three that would do. */
 function optionsFrom(answer: string, candidates: string[], random: () => number, exclude: string[] = []): { opts: string[]; correct: number } | null {
   const right = answer.trim();
-  if (!right) return null;
+  if (!fits(right, LIMITS.option)) return null;
   const used = new Set([fold(right), ...exclude.map(fold)]);
   const others: string[] = [];
   for (const candidate of candidates) {
     const value = candidate.trim();
-    if (!value || used.has(fold(value)) || !compatibleAnswerScripts(right, [value])) continue;
+    if (!fits(value, LIMITS.option) || used.has(fold(value))) continue;
     used.add(fold(value));
     others.push(value);
   }
-  if (others.length < 3) return null;
-  const opts = shuffled([right, ...shuffled(others, random).slice(0, 3)], random);
+  const coherent = coherentAnswerCandidates(right, others);
+  if (coherent.length < 3) return null;
+  const opts = shuffled([right, ...shuffled(coherent, random).slice(0, 3)], random);
   return { opts, correct: opts.indexOf(right) };
 }
 
@@ -186,6 +245,33 @@ const definitionNamesTerm = (term: RoundTerm) => {
   return word.length >= 3 && fold(term.definition ?? '').includes(word);
 };
 
+/** The card's meaning among three other meanings, every one of them short enough to be a choice. */
+function meaningOptions(term: RoundTerm, context: RoundContext, random: () => number) {
+  const definition = (term.definition ?? '').trim();
+  if (!fits(definition, LIMITS.option)) return null;
+  return fallbackOptions(definition, term.lesson_id, term.id, context.pool.filter((other) => fits(other.definition, LIMITS.option)), random);
+}
+
+/**
+ * Questions written for the card, held to the same limits as the ones built here.
+ * A choice that is too long is taken out of the pool it is drawn from; a question
+ * whose own answer is too long, or that is left with too few choices, is not asked.
+ */
+function fittingSaved(rows: SavedPracticeQuestion[]): SavedPracticeQuestion[] {
+  const out: SavedPracticeQuestion[] = [];
+  for (const row of rows) {
+    if (typeof row.correct_answer !== 'string') continue;
+    if (row.question_type === 'fill_blank') {
+      if (fits(row.correct_answer, LIMITS.typedMeaning)) out.push(row);
+      continue;
+    }
+    if (!fits(row.correct_answer, LIMITS.option) || !Array.isArray(row.options)) continue;
+    const options = row.options.filter((option) => typeof option !== 'string' || fits(option, LIMITS.option));
+    out.push(options.length === row.options.length ? row : { ...row, options });
+  }
+  return out;
+}
+
 // ── The forms ───────────────────────────────────────────────────
 
 function flipQuestion(term: RoundTerm, context: RoundContext): FlipQuestion {
@@ -196,12 +282,13 @@ type Builder<T> = (term: RoundTerm, context: RoundContext, random: () => number)
 
 const choiceBuilders: Record<ChoiceVariant, Builder<ChoiceQuestion>> = {
   saved(term, context, random) {
-    const saved = chooseSavedQuestion(term.practiceQuestions || [], 'mcq', random);
+    const saved = chooseSavedQuestion(fittingSaved(term.practiceQuestions || []), 'mcq', random);
     if (!saved || saved.mode !== 'mcq') return null;
-    return { ...shared(term, context), ...saved, mode: 'mcq', variant: 'saved', chip: 'Choose', prompt: 'Choose the answer' };
+    const base = shared(term, context);
+    return { ...base, ...saved, explain: saved.explain ?? base.explain, mode: 'mcq', variant: 'saved', chip: 'Choose', prompt: 'Choose the answer' };
   },
   meaning(term, context, random) {
-    const options = fallbackOptions((term.definition ?? '').trim(), term.lesson_id, term.id, context.pool, random);
+    const options = meaningOptions(term, context, random);
     if (!options) return null;
     return { ...shared(term, context), mode: 'mcq', variant: 'meaning', chip: 'Choose', prompt: 'Choose the meaning', q: term.term, opts: options.opts, correct: options.correctIndex };
   },
@@ -229,9 +316,9 @@ const choiceBuilders: Record<ChoiceVariant, Builder<ChoiceQuestion>> = {
   },
   heard(term, context, random) {
     if (!languageOf(term) || cardKind(term) === 'grammar') return null;
-    const options = fallbackOptions((term.definition ?? '').trim(), term.lesson_id, term.id, context.pool, random);
+    const options = meaningOptions(term, context, random);
     if (!options) return null;
-    return { ...shared(term, context), mode: 'mcq', variant: 'heard', chip: 'Listen', prompt: 'Choose what you heard means', q: term.term, opts: options.opts, correct: options.correctIndex, audio: true };
+    return { ...shared(term, context), mode: 'mcq', variant: 'heard', chip: 'Listen', prompt: 'Choose the meaning of what you heard', q: term.term, opts: options.opts, correct: options.correctIndex, audio: true };
   },
 };
 
@@ -258,23 +345,25 @@ function relatedChoice(term: RoundTerm, context: RoundContext, random: () => num
 
 const recallBuilders: Record<RecallVariant, Builder<RecallQuestion>> = {
   saved(term, context, random) {
-    const saved = chooseSavedQuestion(term.practiceQuestions || [], 'recall', random);
+    const saved = chooseSavedQuestion(fittingSaved(term.practiceQuestions || []), 'recall', random);
     if (!saved || saved.mode !== 'recall') return null;
     // In a language lesson a short answer is a word to be spelled; elsewhere it is an idea to be named.
-    const spelled = !!languageOf(term) && saved.answer.trim().split(/\s+/).length <= 3;
+    const spelled = !!languageOf(term) && saved.answer.trim().split(/\s+/).length <= 3 && fits(saved.answer, LIMITS.typed);
+    const base = shared(term, context);
     return {
-      ...shared(term, context), ...saved, mode: 'recall', variant: 'saved', chip: 'Recall',
+      ...base, ...saved, explain: saved.explain ?? base.explain, mode: 'recall', variant: 'saved', chip: 'Recall',
       placeholder: 'Type your answer', answerKind: spelled ? 'spelling' : 'meaning',
     };
   },
   meaning(term, context) {
     const definition = (term.definition ?? '').trim();
-    if (!definition) return null;
+    // Nobody should be asked to type out a paragraph from memory on a phone.
+    if (!fits(definition, LIMITS.typedMeaning)) return null;
     return { ...shared(term, context), mode: 'recall', variant: 'meaning', chip: 'Recall', placeholder: 'Type the meaning', q: term.term, answer: definition, answerKind: 'meaning' };
   },
   spelling(term, context) {
     const definition = (term.definition ?? '').trim();
-    if (!definition || definitionNamesTerm(term) || cardKind(term) === 'grammar') return null;
+    if (!definition || !fits(term.term, LIMITS.typed) || definitionNamesTerm(term) || cardKind(term) === 'grammar') return null;
     const language = !!languageOf(term);
     return {
       ...shared(term, context), mode: 'recall', variant: 'spelling', chip: language ? 'Spell it' : 'Name it',
@@ -282,7 +371,7 @@ const recallBuilders: Record<RecallVariant, Builder<RecallQuestion>> = {
     };
   },
   dictation(term, context) {
-    if (!languageOf(term) || cardKind(term) === 'grammar' || !term.term.trim()) return null;
+    if (!languageOf(term) || cardKind(term) === 'grammar' || !fits(term.term, LIMITS.typed)) return null;
     return { ...shared(term, context), mode: 'recall', variant: 'dictation', chip: 'Listen', placeholder: 'Type what you hear', q: term.term, answer: term.term, answerKind: 'spelling', audio: true };
   },
 };
@@ -293,6 +382,7 @@ function buildQuestion(term: RoundTerm, context: RoundContext, random: () => num
   if (!data || !example) return null;
   const answer = example.replace(/[.!?。！？]+$/u, '').split(/\s+/).filter(Boolean);
   if (answer.length < 3 || answer.length > 12) return null;
+  if (!fits(answer.join(' '), LIMITS.sentence) || answer.some((word) => !fits(word, LIMITS.tile))) return null;
   let tiles = shuffled(answer, random);
   // A shuffle that lands in order is no question; turn it once.
   if (tiles.every((tile, index) => tile === answer[index])) tiles = [...tiles.slice(1), tiles[0]];
@@ -300,35 +390,94 @@ function buildQuestion(term: RoundTerm, context: RoundContext, random: () => num
   return { ...shared(term, context), mode: 'build', q: `Build a sentence with “${term.term}”`, tiles, answer };
 }
 
-/** Whether a card can sit in a matching question at all. */
+/**
+ * Whether a card can sit on a matching board at all. Matching is for vocabulary: a
+ * word or a phrase against its meaning. A grammar pattern is practised by using it,
+ * and a knowledge card's meaning is a sentence to understand, not a tile to spot.
+ */
+/**
+ * One sense of a meaning: the first.
+ *
+ * A card's meaning often lists several — "happy; glad; cheerful", "高兴的，快乐的",
+ * "1. a bank 2. a bench". A matching tile shows one. Listing them all makes the tile
+ * long and adds nothing to telling this word from the five beside it.
+ *
+ * Senses are divided by semicolons, slashes, line breaks and numbering. A comma
+ * divides them only when what it divides are plainly alternatives — single words
+ * ("happy, glad"), or phrases that open the same way ("to run, to jog"). "A large,
+ * slow river" is one sense with a comma in it.
+ */
+export function firstSense(definition: string | null | undefined): string {
+  const whole = (definition ?? '').normalize('NFC').trim();
+  if (!whole) return '';
+  const numbered = whole.replace(/^\s*(?:\(?1[.)、]|①)\s*/u, '').split(/\s*(?:\(?2[.)、]|②)\s*/u)[0];
+  const sense = numbered.split(/\s*(?:[;；|\n]|\s\/\s)\s*/u).find((piece) => piece.trim()) ?? numbered;
+  const pieces = sense.split(/\s*[,，、]\s*/u).map((piece) => piece.trim()).filter(Boolean);
+  return (alternatives(pieces) ? pieces[0] : sense).trim();
+}
+
+/** Whether comma-separated pieces are alternatives to one another rather than one phrase. */
+function alternatives(pieces: string[]): boolean {
+  if (pieces.length < 2) return false;
+  if (pieces.every((piece) => CJK.test(piece))) return pieces.every((piece) => displayLength(piece) <= 12);
+  const words = (piece: string) => piece.split(/\s+/).length;
+  if (pieces.every((piece) => words(piece) === 1)) return true;
+  const opening = (piece: string) => /^(to|an?|the)\s/i.exec(piece)?.[1].toLowerCase().replace(/^an?$|^the$/, 'article') ?? '';
+  return opening(pieces[0]) !== '' && pieces.every((piece) => opening(piece) === opening(pieces[0]) && words(piece) <= 4);
+}
+
 export const canMatch = (term: RoundTerm) => {
-  const definition = (term.definition ?? '').trim();
-  return !!definition && definition.length <= MATCH_MEANING_LIMIT && term.term.trim().length <= MATCH_TERM_LIMIT;
+  const kind = cardKind(term);
+  return (kind === 'word' || kind === 'phrase')
+    && fits(term.term, LIMITS.matchTerm) && fits(firstSense(term.definition), LIMITS.matchMeaning);
 };
 
-/** Several cards and their meanings to pair up. Null with fewer than three distinct pairs. */
-export function matchQuestion(terms: RoundTerm[], context: RoundContext): MatchQuestion | null {
+/**
+ * A matching board: words down one side, meanings down the other, a few rows at a
+ * time. A pair that is made leaves and another takes its place, until every pair in
+ * the sequence has been made.
+ *
+ * `waiting` are the round's cards whose recognition step this board stands for; their
+ * matching is recorded. The lesson's other words fill the board out to as many as
+ * eight different cards, and every card comes round twice (up to twelve pairs in
+ * all), so a pair is found again after it has left the screen — which is the part
+ * that is remembering rather than elimination.
+ *
+ * Null when fewer than two cards are waiting or the lesson cannot fill four rows.
+ */
+export function matchQuestion(waiting: RoundTerm[], context: RoundContext): MatchQuestion | null {
   const random = context.random ?? Math.random;
+  const lessonId = waiting[0]?.lesson_id;
   const pairs: MatchPair[] = [];
+  const seenId = new Set<string>();
   const seenLeft = new Set<string>();
   const seenRight = new Set<string>();
-  for (const term of terms) {
-    if (pairs.length >= MATCH_SIZE) break;
-    if (!canMatch(term)) continue;
+  const add = (term: RoundTerm, scored: boolean) => {
+    if (pairs.length >= MATCH_CARDS_MAX || seenId.has(term.id) || term.lesson_id !== lessonId || !canMatch(term)) return;
     const left = term.term.trim();
-    const right = (term.definition ?? '').trim();
+    const right = firstSense(term.definition);
     // Two cards with the same face would make a pair with two right answers.
-    if (seenLeft.has(fold(left)) || seenRight.has(fold(right))) continue;
+    if (seenLeft.has(fold(left)) || seenRight.has(fold(right))) return;
+    seenId.add(term.id);
     seenLeft.add(fold(left));
     seenRight.add(fold(right));
-    pairs.push({ termId: term.id, left, right });
-  }
-  if (pairs.length < MATCH_MINIMUM) return null;
-  let rightOrder = shuffled(pairs.map((_, index) => index), random);
-  if (rightOrder.every((value, index) => value === index)) rightOrder = [...rightOrder.slice(1), rightOrder[0]];
+    pairs.push({ termId: term.id, left, right, scored });
+  };
+  waiting.forEach((term) => add(term, true));
+  const scored = pairs.length;
+  if (scored < MATCH_SCORED_MIN) return null;
+  shuffled(context.pool, random).forEach((term) => add(term, false));
+  if (pairs.length < MATCH_CARDS_MIN) return null;
+
+  const indexes = pairs.map((_, index) => index);
+  const total = Math.min(MATCH_PAIRS_MAX, pairs.length * 2);
+  // Everything once, then round again — the round's own cards first, so that when
+  // twelve pairs will not hold two of everything it is the fillers that come once.
+  const again = [...shuffled(indexes.slice(0, scored), random), ...shuffled(indexes.slice(scored), random)];
+  const sequence = [...shuffled(indexes, random), ...again.slice(0, total - pairs.length)];
   return {
     mode: 'match', termId: pairs[0].termId,
-    topic: context.topicByLesson[terms[0].lesson_id] || 'Lesson', pairs, rightOrder,
+    topic: context.topicByLesson[lessonId] || 'Lesson', pairs, sequence,
   };
 }
 
@@ -375,8 +524,9 @@ function candidatesFor(term: RoundTerm, step: StepKind, context: RoundContext, p
       if (modes[mode] && weight[kind] > 0) out.push({ variant, weight: weight[kind], make: () => choiceBuilders[variant](term, context, random) });
     }
     if (modes.match && canMatch(term)) {
-      const others = partners.filter((other) => other.id !== term.id && canMatch(other));
-      if (others.length >= MATCH_MINIMUM - 1) out.push({ variant: 'match', weight: MATCH_WEIGHT, make: () => matchQuestion([term, ...others], context) });
+      // Only cards from the same lesson: across lessons the pairs give themselves away by subject.
+      const others = partners.filter((other) => other.id !== term.id && other.lesson_id === term.lesson_id && canMatch(other));
+      if (others.length >= MATCH_SCORED_MIN - 1) out.push({ variant: 'match', weight: MATCH_WEIGHT, make: () => matchQuestion([term, ...others], context) });
     }
     return out;
   }

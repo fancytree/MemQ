@@ -77,7 +77,7 @@ export function inferLanguageKind(term: string, data?: LanguageCardData | null):
   const text = term.trim();
   const partOfSpeech = (data?.part_of_speech || '').toLocaleLowerCase();
   if (/grammar|pattern|structure|construction|particle|conjugation|tense|语法|語法|句型|文法|句式/.test(partOfSpeech)) return 'grammar';
-  if (/[~〜～…+＋]|\.{3}|\b(?:sb|sth|smb|smth)\b|\b[A-Z]\b.*\b[A-Z]\b/.test(text)) return 'grammar';
+  if (/[~〜～…+＋]|\.{3}|\b(?:sb|sth|smb|smth)\b|\b[ABXYNV]\b.*\b[ABXYNV]\b/.test(text)) return 'grammar';
   if (/phrase|idiom|expression|collocation|短语|词组|成语|熟語|慣用/.test(partOfSpeech)) return 'phrase';
   if (/\s/.test(text)) return 'phrase';
   return 'word';

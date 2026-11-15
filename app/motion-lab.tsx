@@ -10,7 +10,7 @@ import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { StreakPill } from '@/components/ui/StreakPill';
 import { safeBack } from '@/lib/safeBack';
 import { colors, componentTokens, fonts, layout, radius, type } from '@/theme';
-import { Stack, useLocalSearchParams } from 'expo-router';
+import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSharedValue, withSpring } from 'react-native-reanimated';
@@ -168,7 +168,14 @@ function Action({ label, onPress, disabled }: { label: string; onPress: () => vo
   );
 }
 
-export default function MotionLabScreen() {
+/** A design review tool, for development builds only. Its entry in Settings is
+ * already hidden in a release — but a route is an address, and `memq://motion-lab`
+ * would still open it. In a release the address leads home instead. */
+export default function MotionLabRoute() {
+  return __DEV__ ? <MotionLabScreen /> : <Redirect href="/" />;
+}
+
+function MotionLabScreen() {
   // `?mood=` makes any state reachable by deep link, which is how this screen gets
   // checked. It has to be an effect, not a `useState` initialiser — navigating to
   // the same route with a different parameter reuses the mounted screen, so an

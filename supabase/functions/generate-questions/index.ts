@@ -139,7 +139,7 @@ Rules for Question Generation:
    - Direction B: "The powerhouse of the cell is the Nucleus." → False
 
 4. Question Format Requirements:
-   - mcq (Multiple Choice): Provide 5–6 distinct, concise options, each at most 100 characters, including exactly one correct answer. The app displays four choices.
+   - mcq (Multiple Choice): Provide 5–6 distinct, concise options, including exactly one correct answer. The app displays four choices. Keep every option, the correct one included, to 60 characters or fewer (30 for Chinese, Japanese or Korean): the app does not show longer options. If the correct answer cannot be said that briefly, ask the question another way.
    - true_false (True/False): options must be ["True", "False"]; use this type only for English questions, and use mcq or fill_blank for other languages
    - fill_blank (Fill in the Blank):
      * correct_answer must be concise (1-3 words only, no full sentences)

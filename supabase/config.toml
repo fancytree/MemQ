@@ -43,6 +43,12 @@ entrypoint = "./functions/update-term-progress/index.ts"
 # For example, if you want to serve static HTML pages in your function:
 # static_files = [ "./functions/update-term-progress/*.html" ]
 
+[functions.grade-answer]
+enabled = true
+verify_jwt = true
+import_map = "./functions/grade-answer/deno.json"
+entrypoint = "./functions/grade-answer/index.ts"
+
 [functions.process-file]
 enabled = true
 verify_jwt = true

@@ -40,7 +40,9 @@ export type TodayPlan = {
   queue: string[];
   /** New cards beyond today's ration, for someone who wants to keep going. */
   extraNew: string[];
-  /** Cards not yet due, soonest first: practice, which does not move them. */
+  /** Cards not yet due, the one practised longest ago first: practice, which does not
+   *  move them. Ordering by when they were last seen keeps a second and a third round
+   *  of extra practice from being the same eight cards. */
   early: string[];
 };
 
@@ -89,7 +91,7 @@ export function planToday(lessons: PlanLesson[], cards: PlanCard[], now: Date = 
     daysLeftByLesson.set(lesson.id, deadline !== null && deadline > now.getTime() ? (deadline - now.getTime()) / DAY_MS : null);
   }
 
-  type Entry = { id: string; lessonId: string; next: number; step: number };
+  type Entry = { id: string; lessonId: string; next: number; last: number; step: number };
   const due: Entry[] = [];
   const early: Entry[] = [];
   const fresh = new Map<string, string[]>();
@@ -109,6 +111,7 @@ export function planToday(lessons: PlanLesson[], cards: PlanCard[], now: Date = 
     const entry: Entry = {
       id: card.id, lessonId: card.lessonId,
       next: time(progress!.next_review_at) ?? 0,
+      last: time(progress!.last_reviewed_at) ?? 0,
       step: typeof progress!.step_index === 'number' ? progress!.step_index : 0,
     };
     (isDueCard(progress, now) ? due : early).push(entry);
@@ -117,7 +120,7 @@ export function planToday(lessons: PlanLesson[], cards: PlanCard[], now: Date = 
   // Nearest deadline first, then the weakest card, then the one that has waited longest.
   const pressure = (lessonId: string) => daysLeftByLesson.get(lessonId) ?? Number.POSITIVE_INFINITY;
   due.sort((a, b) => pressure(a.lessonId) - pressure(b.lessonId) || a.step - b.step || a.next - b.next);
-  early.sort((a, b) => a.next - b.next);
+  early.sort((a, b) => a.last - b.last || a.next - b.next);
 
   const byLesson = new Map<string, LessonPlan>();
   const todayNew: string[] = [];

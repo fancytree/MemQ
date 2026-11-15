@@ -1,15 +1,15 @@
 /**
- * What a practice round is made of, and how strictly a written answer is marked.
+ * What a practice round is made of, and how strictly a typed answer is marked.
  *
- * This replaces a sheet that offered true/false, multiple choice and written —
- * question kinds belonging to a screen that no longer exists. Practice asks three
- * things: a flashcard, a multiple choice, and a written recall, in that order for a
- * term still being learned, and one of the three at random for a term already
- * mastered. Those are what this turns on and off.
+ * A round takes each card through up to three steps — look at it, recognise it,
+ * produce it — and each step can be asked in several forms (lib/practiceRound).
+ * What is switched on and off here is the forms, grouped by what the person does:
+ * turn a card over, pick, match, type, listen, build.
  */
 
 import { Toggle } from '@/components/ui/Toggle';
 import { CloseButton } from '@/components/ui/RoundButtons';
+import type { PracticeMode, PracticeSettings } from '@/lib/practiceModes';
 import { fonts } from '@/theme';
 import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
@@ -19,30 +19,20 @@ import { StatusBar } from 'expo-status-bar';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-export type PracticeMode = 'flip' | 'mcq' | 'recall';
-
-export type PracticeSettings = {
-  /** Which of the three a round may ask. At least one is always on. */
-  modes: Record<PracticeMode, boolean>;
-  /** How a written answer is marked. Relaxed accepts an answer whose keywords mostly
-   *  match; strict wants the words themselves. */
-  grading: 'relaxed' | 'strict';
-};
-
-export const DEFAULT_PRACTICE_SETTINGS: PracticeSettings = {
-  modes: { flip: true, mcq: true, recall: true },
-  grading: 'relaxed',
-};
+export { DEFAULT_PRACTICE_SETTINGS, type PracticeMode, type PracticeSettings } from '@/lib/practiceModes';
 
 const MODES: { key: PracticeMode; label: string; hint: string }[] = [
   { key: 'flip', label: 'Flashcards', hint: 'See the card, then turn it over.' },
-  { key: 'mcq', label: 'Multiple choice', hint: 'Pick the right answer from four.' },
-  { key: 'recall', label: 'Written', hint: 'Type the answer from memory.' },
+  { key: 'mcq', label: 'Multiple choice', hint: 'Pick one of four: a meaning, a synonym, an opposite, or the word for a gap.' },
+  { key: 'match', label: 'Matching', hint: 'Pair words with their meanings as new ones keep arriving. Language lessons only.' },
+  { key: 'recall', label: 'Written', hint: 'Type the meaning, or spell the word from memory.' },
+  { key: 'listen', label: 'Listening', hint: 'Hear a word, then type it or pick its meaning. Language lessons only.' },
+  { key: 'build', label: 'Sentence building', hint: 'Put the words of a sentence in order. Language lessons only.' },
 ];
 
 const GRADING: { key: PracticeSettings['grading']; label: string; hint: string }[] = [
-  { key: 'relaxed', label: 'Relaxed', hint: 'Accepts an answer that means the right thing, with synonyms, rephrasing or typos.' },
-  { key: 'strict', label: 'Strict', hint: 'Wants the answer itself, give or take capitals and punctuation.' },
+  { key: 'relaxed', label: 'Relaxed', hint: 'The right idea counts, however it is worded. A small spelling slip passes, and is pointed out.' },
+  { key: 'strict', label: 'Strict', hint: 'Spelling must be exact, accents included, and a meaning must be the card’s own. Capitals and punctuation are let go.' },
 ];
 
 export default function PracticeSettingsModal({ visible, onClose, settings, onChange }: {
@@ -88,7 +78,7 @@ export default function PracticeSettingsModal({ visible, onClose, settings, onCh
             })}
           </View></View>
 
-          <Text style={styles.sectionLabel}>Marking written answers</Text>
+          <Text style={styles.sectionLabel}>Marking typed answers</Text>
           <View style={styles.card}><View style={styles.cardFace}>
             {GRADING.map((option, i) => {
               const chosen = settings.grading === option.key;

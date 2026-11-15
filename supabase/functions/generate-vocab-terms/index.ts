@@ -76,9 +76,10 @@ Deno.serve(async (req) => {
     });
 
     const systemPrompt = `You create language learning cards for words, phrases, and grammar patterns in any language.
-Return JSON only: {"results":[{"term":"...","definition":"...","explanation":"...","language_data":{"language_code":"en-US","pronunciation":"...","part_of_speech":"...","forms":"...","example":"...","synonyms":[],"antonyms":[],"collocations":[]}}]}.
+Return JSON only: {"results":[{"term":"...","definition":"...","explanation":"...","language_data":{"kind":"word","language_code":"en-US","pronunciation":"...","part_of_speech":"...","forms":"...","example":"...","synonyms":[],"antonyms":[],"collocations":[]}}]}.
 Write short definitions and usage explanations in the language the learner requested. If they did not specify one, follow the language of their request; do not use the app or system language as a default. Keep the target-language term and examples in the language being learned. Do not invent a translation when the request does not call for one.
 The explanation is an optional short usage note; do not duplicate structured fields in it.
+Set kind to "word" for a single word, "phrase" for a multi-word expression or idiom, and "grammar" for a grammar pattern or construction; the app chooses how to practise the card from it. Whenever possible make the example sentence contain the term exactly as written on the card, so the app can turn it into a fill-the-gap question; for a grammar pattern the example should be a short natural sentence that uses the pattern. Only list synonyms and antonyms that are reliable single words or short phrases in the language being learned.
 Infer a valid BCP-47 language code for iOS speech (for example en-US, es-ES, fr-FR, zh-CN). Use an empty string if unsure.
 Give one natural example in the same language as the term. Pronunciation may be IPA, pinyin, or another appropriate reading guide. Forms should contain only relevant grammar information.
 Synonyms, antonyms, and collocations are optional arrays. Omit misleading or unnatural relationships; never invent antonyms just to fill a field.
@@ -146,6 +147,7 @@ If no useful cards can be made, return {"results":[]}.`;
           definition: item.definition.trim(),
           explanation: typeof item.explanation === 'string' ? item.explanation.trim() : '',
           language_data: {
+            ...(['word', 'phrase', 'grammar'].includes(value('kind')) ? { kind: value('kind') } : {}),
             language_code: value('language_code'),
             pronunciation: value('pronunciation'),
             part_of_speech: value('part_of_speech'),

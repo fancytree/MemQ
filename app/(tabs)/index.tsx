@@ -10,6 +10,7 @@ import { MascotRig, type MascotMood } from '@/components/mascot/rig/MascotRig';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
+import { planToday } from '@/lib/studyPlan';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
@@ -266,10 +267,10 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
     const { data: progressData } = termIds.length
       ? await supabase
           .from('user_term_progress')
-          .select('term_id, status, last_reviewed_at')
+          .select('term_id, status, last_reviewed_at, next_review_at, step_index, created_at')
           .eq('user_id', user.id)
           .in('term_id', termIds)
-      : { data: [] as { term_id: string; status: string | null; last_reviewed_at: string | null }[] };
+      : { data: [] as { term_id: string; status: string | null; last_reviewed_at: string | null; next_review_at: string | null; step_index: number | null; created_at: string | null }[] };
 
     const progressMap = buildLatestProgressMap(progressData || []);
 
@@ -311,6 +312,17 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
       termsByLesson.get(term.lesson_id)?.push(term);
     });
 
+    // Today's number is what the schedule says is for today: the reviews whose time
+    // has come, plus the share of never-seen cards today has room for — a deadline
+    // spreads those over the days left, keeping the last stretch for review. It is
+    // the same plan practice is built from (lib/studyPlan), so the count on this
+    // screen is the count the round then asks.
+    const progressByTerm = new Map((progressData || []).map((row) => [row.term_id, row]));
+    const plan = planToday(
+      lessonsData.map((lesson) => ({ id: lesson.id, deadline: lesson.deadline })),
+      (termsData || []).map((term) => ({ id: term.id, lessonId: term.lesson_id, progress: progressByTerm.get(term.id) })),
+    );
+
     const nextLessons: LessonSummary[] = lessonsData.map((lesson) => {
       const lessonTerms = termsByLesson.get(lesson.id) || [];
       const cards = lessonTerms.length;
@@ -327,27 +339,8 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
       const reviewed = Math.round(weightedScore);
       const pct = cards > 0 ? Math.round((weightedScore / cards) * 100) : 0;
       const rawDue = Math.max(cards - reviewed, 0);
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-      const lessonDeadline = lesson.deadline ? new Date(lesson.deadline) : null;
-      const isFutureLesson =
-        lessonDeadline &&
-        !Number.isNaN(lessonDeadline.getTime()) &&
-        lessonDeadline > todayEnd;
-      let due = rawDue;
-      if (isFutureLesson && lessonDeadline) {
-        const msPerDay = 24 * 60 * 60 * 1000;
-        const daysRemaining = Math.max(
-          1,
-          Math.floor((lessonDeadline.getTime() - todayStart.getTime()) / msPerDay) + 1
-        );
-        // 预留复习缓冲天数，避免学习计划卡到 deadline 当天
-        const reviewBufferDays = Math.max(1, Math.floor(daysRemaining * 0.2));
-        const effectiveStudyDays = Math.max(1, daysRemaining - reviewBufferDays);
-        due = Math.ceil(rawDue / effectiveStudyDays);
-      }
+      const today = plan.byLesson.get(lesson.id);
+      const due = today ? today.dueReviews + today.newToday : 0;
 
       return {
         id: lesson.id,

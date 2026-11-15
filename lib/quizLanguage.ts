@@ -17,6 +17,19 @@ export function compatibleAnswerScripts(answer: string, options: string[]): bool
   return scripts.size <= 1;
 }
 
+/** Keep a single writing system when the answer itself has no identifiable script. */
+export function coherentAnswerCandidates(answer: string, candidates: string[]): string[] {
+  const compatible = candidates.filter((value) => compatibleAnswerScripts(answer, [value]));
+  if (dominantScript(answer)) return compatible;
+  const counts = new Map<string, number>();
+  for (const value of compatible) {
+    const script = dominantScript(value);
+    if (script) counts.set(script, (counts.get(script) || 0) + 1);
+  }
+  const chosen = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
+  return chosen ? compatible.filter((value) => !dominantScript(value) || dominantScript(value) === chosen) : compatible;
+}
+
 export function fallbackOptions(correct: string, lessonId: string, selfId: string, terms: Array<{id: string; lesson_id: string; definition: string | null}>, random = Math.random): {opts: string[]; correctIndex: number} | null {
   const answer = correct.trim();
   if (!answer) return null;
@@ -30,21 +43,8 @@ export function fallbackOptions(correct: string, lessonId: string, selfId: strin
   }
   // When the answer is a shared acronym or number, choose one script for the
   // distractors instead of accepting an arbitrary mixture of languages.
-  if (!dominantScript(answer)) {
-    const counts = new Map<string, number>();
-    for (const value of alternatives) {
-      const script = dominantScript(value);
-      if (script) counts.set(script, (counts.get(script) || 0) + 1);
-    }
-    const chosen = [...counts].sort((a, b) => b[1] - a[1])[0]?.[0];
-    if (chosen) {
-      for (let i = alternatives.length - 1; i >= 0; i--) {
-        const script = dominantScript(alternatives[i]);
-        if (script && script !== chosen) alternatives.splice(i, 1);
-      }
-    }
-  }
-  if (alternatives.length < 3) return null;
+  const coherent = coherentAnswerCandidates(answer, alternatives);
+  if (coherent.length < 3) return null;
   const shuffle = (items: string[]) => {
     for (let i = items.length - 1; i > 0; i--) {
       const j = Math.min(i, Math.floor(Math.max(0, random()) * (i + 1)));
@@ -52,6 +52,6 @@ export function fallbackOptions(correct: string, lessonId: string, selfId: strin
     }
     return items;
   };
-  const opts = shuffle([answer, ...shuffle(alternatives).slice(0, 3)]);
+  const opts = shuffle([answer, ...shuffle(coherent).slice(0, 3)]);
   return { opts, correctIndex: opts.indexOf(answer) };
 }

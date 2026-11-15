@@ -6,8 +6,9 @@
  * Spelling — the word itself, in the language being learned: dictation, spelling a
  * word from its meaning. What matters is the letters.
  *   strict   every letter, accents included. Capitals and punctuation are let go.
- *   relaxed  a slip is allowed in proportion to the word (see `allowedSlips`), and so
- *            is a missing accent. It passes as "almost", never as "correct": the
+ *   relaxed  a slip is allowed in proportion to the word — none up to four letters,
+ *            one up to eleven, two up to nineteen, three beyond — and so is a missing
+ *            accent. It passes as "almost", never as "correct": the
  *            answer is shown back with the slip marked, because a mistake nobody
  *            points out is a mistake practised.
  *
@@ -96,9 +97,11 @@ export function allowedSlips(target: string): number {
   const length = units(target).filter((unit) => unit.key && unit.key !== ' ').length;
   // One wrong character in a short Chinese or Japanese word is a different word.
   if (CJK.test(target)) return length < 8 ? 0 : 1;
-  if (length <= 3) return 0;
-  if (length <= 7) return 1;
-  if (length <= 15) return 2;
+  // Roughly one slip in eight letters, and none at all in a word short enough that one
+  // letter makes it another word.
+  if (length <= 4) return 0;
+  if (length <= 11) return 1;
+  if (length <= 19) return 2;
   return 3;
 }
 
@@ -215,15 +218,28 @@ function keywords(text: string): string[] {
   return folded.split(' ').filter((word) => word.length > 1 && !STOP_WORDS.has(word)).map(stem);
 }
 
-const sameWord = (a: string, b: string) =>
-  a === b || (a.length >= 5 && b.length >= 5 && align(Array.from(a), Array.from(b)).slips <= 1);
+/** The same word, give or take a typo or an ending: "produces" and "production" count as one. */
+const sameWord = (a: string, b: string) => {
+  if (a === b) return true;
+  const [short, long] = a.length <= b.length ? [a, b] : [b, a];
+  if (short.length >= 5 && long.startsWith(short)) return true;
+  return short.length >= 5 && align(Array.from(a), Array.from(b)).slips <= 1;
+};
 
 /** What a card accepts as its meaning: all of it, and each short alternative it lists. */
 function acceptedMeanings(expected: string): string[] {
   const forms = new Set<string>(acceptedForms(expected).map(fold));
-  // "happy, glad" lists two answers; "a large, slow river" is one. Only short pieces are alternatives.
+  // "happy, glad" lists two answers, and so does "to run, to jog"; "a large, slow river"
+  // is one answer with a comma in it. Pieces are alternatives when each is a single
+  // word, or when they all open the same way.
   const pieces = expected.split(/\s*[,，、]\s*/).map(fold).filter(Boolean);
-  if (pieces.length > 1 && pieces.every((piece) => piece.split(' ').length <= 3)) pieces.forEach((piece) => forms.add(piece));
+  const words = (piece: string) => piece.split(' ').length;
+  const opening = (piece: string) => /^(to|an?|the)\s/.exec(piece)?.[1].replace(/^an?$|^the$/, 'article') ?? '';
+  const listed = pieces.length > 1 && (
+    pieces.every((piece) => CJK.test(piece) ? Array.from(piece).length <= 6 : words(piece) === 1)
+    || (opening(pieces[0]) !== '' && pieces.every((piece) => opening(piece) === opening(pieces[0]) && words(piece) <= 4))
+  );
+  if (listed) pieces.forEach((piece) => forms.add(piece));
   forms.delete('');
   return Array.from(forms);
 }
