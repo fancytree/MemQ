@@ -98,3 +98,32 @@ entrypoint = "./functions/generate-vocab-questions/index.ts"
 enabled = true
 verify_jwt = false
 entrypoint = "./functions/mcp/index.ts"
+
+# The chat line. Follows the mcp function: no import map, because it resolves
+# npm: and https: specifiers directly. The function validates the caller itself;
+# verify_jwt is the gateway saying no first.
+[functions.chat]
+enabled = true
+verify_jwt = true
+entrypoint = "./functions/chat/index.ts"
+
+# ---------------------------------------------------------------------------
+# Local ports. The defaults (54321+) are held by another project on this machine,
+# and two other MemQ stacks hold 554xx and 564xx, so this project gets its own
+# range. Nothing here affects deployed functions.
+# ---------------------------------------------------------------------------
+[api]
+port = 54721
+
+[db]
+port = 54722
+shadow_port = 54720
+
+[studio]
+port = 54723
+
+[inbucket]
+port = 54724
+
+[analytics]
+port = 54727

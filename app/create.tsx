@@ -416,6 +416,25 @@ export default function CreateScreen() {
                 <Text style={styles.actionLabel}>Attach</Text>
               </View>
             </Pressable>
+            {/* For when one line is not enough: it can ask what you mean and look at
+                the lessons you already have. Quiet, and beside Attach rather than
+                opposite Generate, because Generate is still the way through. */}
+            <Pressable accessibilityRole="button"
+              accessibilityLabel="Talk it through instead of typing one line"
+              disabled={isGenerating}
+              onPress={() => router.push('/create-chat' as never)}
+              style={[styles.actionBtn, isGenerating && styles.actionDisabled]}
+            >
+              <View style={styles.actionLabelRow}>
+                {/* Not `zap`: that one already means Pro here (unlock-pro, you), and
+                    this entry would read as a paid feature. Not `message` either —
+                    that is the help centre, which is a person. `star` was wrong as
+                    well: a five-point star is a rating, not a machine writing
+                    something for you. */}
+                <Icon name="sparkle" size={13} color={colors.faint} />
+                <Text style={styles.actionLabel}>Talk it through</Text>
+              </View>
+            </Pressable>
             <Pressable accessibilityRole="button"
               disabled={isGenerating}
               onPress={genExhausted ? () => void showPaywall() : generate}

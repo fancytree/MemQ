@@ -81,6 +81,14 @@ const ExpoSecureStoreAdapter = {
 const supabaseUrl = 'https://sbwkwfqjpbwmacmrprwn.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNid2t3ZnFqcGJ3bWFjbXJwcnduIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ5OTYyNTQsImV4cCI6MjA4MDU3MjI1NH0.qfYwvgx0lphtX7_QDIOcgcbHRUtfM12UMNy0MmQr-mw';
 
+/** Where the edge functions live.
+ *
+ * `functions.invoke` cannot stream a response, so the chat client calls its
+ * endpoint directly and needs the base address. Exported from here so there is
+ * still one place that says where this project is. */
+export const functionsUrl = `${supabaseUrl}/functions/v1`;
+export const publishableKey = supabaseAnonKey;
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: ExpoSecureStoreAdapter,
