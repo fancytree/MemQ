@@ -1,17 +1,22 @@
+import { oneLine } from '@/theme/typography';
+import { componentTokens } from '@/theme';
+import { LanguageBadge } from '@/components/LanguageBadge';
+import { Card } from '@/components/ui/Card';
 import { LessonCover } from '@/components/LessonCover';
-import { homeColors } from '@/theme/colors';
+import { deadlineLeft } from '@/lib/studyPlan';
 import { HomeAsset } from '@/components/HomeAsset';
-import { Icon } from '@/components/Icon';
+import { Icon } from '@/components/ui/Icon';
 import { LinearGradient } from 'expo-linear-gradient';
-import { MaterialIcons } from '@expo/vector-icons';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
-import { colors, fonts, layout, radius, type } from '@/theme';
+import { space, colors, fonts, layout, radius, type } from '@/theme';
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Animated, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/ui/Button';
+import { SearchField } from '@/components/ui/SearchField';
 import { LedgePressable } from '@/components/ui/LedgePressable';
 import { FilterMenu } from '@/components/ui/FilterMenu';
 import { CountUp, ProgressFill } from '@/components/motion/Grow';
@@ -271,36 +276,37 @@ export default function LibraryScreen() {
         showsVerticalScrollIndicator={false}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         ListHeaderComponent={<View>
-          <LinearGradient colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.48, 1]} style={[styles.hero, { paddingTop: insets.top + 22 }]}>
+          <LinearGradient colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.48, 1]} style={[styles.hero, { paddingTop: insets.top + 22 }]}>
             <View style={{ height: headingHeight }} />
-            <View style={styles.summary}>
+            <Card pad="sm" gap={0} faceStyle={styles.summary}>
               <View style={styles.summaryItem}><CountUp key={`l${visit}`} value={summary.lessons} style={styles.summaryNumber} /><Text style={styles.summaryLabel}>{summary.lessons === 1 ? 'Lesson' : 'Lessons'}</Text></View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}><CountUp key={`c${visit}`} value={summary.cards} delay={70} style={styles.summaryNumber} /><Text style={styles.summaryLabel}>Cards</Text></View>
               <View style={styles.summaryDivider} />
               <View style={styles.summaryItem}><CountUp key={`d${visit}`} value={summary.due} delay={140} style={styles.summaryNumber} /><Text style={styles.summaryLabel}>To review</Text></View>
-            </View>
+            </Card>
           </LinearGradient>
           <View style={styles.tools}>
             <View style={styles.searchRow}>
             <FilterMenu label="Filter lessons" options={filterOptions} value={filter} onChange={setFilter} />
-            <View style={styles.search}><Icon name="search" size={20} color={homeColors.muted} strokeWidth={1.8} /><TextInput value={query} onChangeText={setQuery} placeholder="Search lessons" placeholderTextColor={homeColors.muted} accessibilityLabel="Search lessons" returnKeyType="search" style={styles.searchInput} />{query.length > 0 && <Pressable onPress={() => setQuery('')} accessibilityRole="button" accessibilityLabel="Clear search" hitSlop={8}><Icon name="close" size={20} color={homeColors.deep} /></Pressable>}</View>
+            <SearchField label="Search lessons" value={query} onChangeText={setQuery} />
             </View>
-            <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{filter === 'all' ? 'Lessons' : FILTERS.find((item) => item.id === filter)!.label} <Text style={styles.resultCount}>{filteredLessons.length}</Text></Text><Pressable accessibilityRole="button" accessibilityLabel="Create a new lesson" onPress={() => router.push('/create')} style={styles.newLesson}><Icon name="plus" size={18} color={homeColors.primary} /><Text style={styles.newLessonLabel}>New lesson</Text></Pressable></View>
+            <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{filter === 'all' ? 'Lessons' : FILTERS.find((item) => item.id === filter)!.label} <Text style={styles.resultCount}>{filteredLessons.length}</Text></Text><Pressable accessibilityRole="button" accessibilityLabel="Create a new lesson" onPress={() => router.push('/create')} style={styles.newLesson}><Icon name="plus" size={18} color={colors.action} /><Text style={styles.newLessonLabel}>New lesson</Text></Pressable></View>
           </View>
         </View>}
-        renderItem={({ item, index }) => <LessonCard lesson={item} showDeadline={filter === 'deadline'} order={index} visit={visit} />}
+        renderItem={({ item, index }) => <LessonCard lesson={item} order={index} visit={visit} />}
         ListEmptyComponent={!loading ? <View style={styles.empty}>
           <MascotState kind={emptyContent.art} width={EMPTY_ART} />
           <Text style={styles.emptyTitle}>{emptyContent.title}</Text>
           <Text style={styles.emptyCopy}>{emptyContent.copy}</Text>
-          <LedgePressable accessibilityRole="button" onPress={emptyContent.onPress} style={styles.emptyActionBase}><View style={styles.emptyAction}><Text style={styles.emptyActionText}>{emptyContent.action}</Text><Icon name="arrowRight" size={17} color={homeColors.white} /></View></LedgePressable>
+          <Button size="md" style={styles.emptyActionBase} label={emptyContent.action} onPress={emptyContent.onPress}
+            iconEnd={<Icon name="arrowRight" size={17} color={colors.surf} />} />
         </View> : null}
       />
       <Animated.View pointerEvents="none" style={[styles.topBar, { transform: [{ translateY: pulled }] }]}>
         <Animated.View style={[styles.topBarSky, { height: insets.top + BAR_SKY, opacity: barSky }]}>
           <LinearGradient style={StyleSheet.absoluteFill}
-            colors={[homeColors.gradientStart, homeColors.gradientStart, `${homeColors.gradientStart}00`]} locations={[0, 0.74, 1]} />
+            colors={[colors.limePale, colors.limePale, `${colors.limePale}00`]} locations={[0, 0.74, 1]} />
         </Animated.View>
         <Animated.View
           onLayout={(event) => setHeadingHeight(event.nativeEvent.layout.height)}
@@ -353,23 +359,14 @@ function startOfToday() {
   return today.getTime();
 }
 /** The deadline's day, at its start, in ms; or null when there is none or it does
- * not parse. */
+ * not parse. Sorting and filtering want the instant; the row wants the words,
+ * which are lib/studyPlan's `deadlineLeft`. */
 function deadlineOf(lesson: LessonSummary): number | null {
   if (!lesson.deadline) return null;
   const at = new Date(lesson.deadline);
   if (Number.isNaN(at.getTime())) return null;
   at.setHours(0, 0, 0, 0);
   return at.getTime();
-}
-/** A deadline as time left, which is what a person reading a list of them wants. */
-function timeLeft(lesson: LessonSummary): string | null {
-  const at = deadlineOf(lesson);
-  if (at === null) return null;
-  const days = Math.round((at - startOfToday()) / 86400000);
-  if (days < 0) return `Ended ${new Date(at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`;
-  if (days === 0) return 'Due today';
-  if (days === 1) return 'Due tomorrow';
-  return `${days} days left`;
 }
 
 /** A card opens its lesson, so it is a button and presses like one: the face goes
@@ -382,63 +379,89 @@ const SCROLL_GRACE_MS = 70;
 const FILL_STAGGER_MS = 80;
 const FILL_STAGGER_MAX = 6;
 
-function LessonCard({ lesson, showDeadline = false, order = 0, visit = 0 }: { lesson: LessonSummary; showDeadline?: boolean; order?: number; visit?: number }) {
-  const left = showDeadline ? timeLeft(lesson) : null;
-  return <LedgePressable accessibilityRole="button" accessibilityLabel={`${lesson.title}.${lesson.learningMode === 'language' ? ' Language lesson.' : ''} ${lesson.cards} ${lesson.cards === 1 ? 'card' : 'cards'}. ${lesson.pct} percent mastered. ${lesson.due} cards remaining.`} accessibilityHint="Opens lesson details" onPress={() => router.push(`/lessons/${lesson.id}`)} unstable_pressDelay={SCROLL_GRACE_MS} style={styles.cardBase}>
+/** What a lesson is asking of you, in one phrase.
+ *
+ * The row used to say four things — the card count, the deadline, the percentage
+ * and the number left — in two clusters joined by three middots, all at much the
+ * same weight. The percentage is the bar underneath, drawn rather than written,
+ * so it is gone from the words. The size of the lesson stays, because a library
+ * is a catalogue and "six to review" means something different in a deck of ten
+ * than in one of two hundred — but it rides inside the same phrase rather than
+ * sitting in a cluster of its own, in the wording the lesson's own page uses for
+ * the same pair of numbers ("0 of 14 mastered").
+ */
+function standing(lesson: LessonSummary): string {
+  if (lesson.cards === 0) return 'No cards yet';
+  if (lesson.due === 0) return 'All caught up';
+  return `${lesson.due} of ${lesson.cards} to review`;
+}
+
+function LessonCard({ lesson, order = 0, visit = 0 }: { lesson: LessonSummary; order?: number; visit?: number }) {
+  // It used to appear only under the Deadline filter, which meant that in the list
+  // a person actually reads — all of them — a lesson with a date on it looked
+  // exactly like one without.
+  const left = deadlineLeft(lesson.deadline);
+  return <LedgePressable accessibilityRole="button" accessibilityLabel={`${lesson.title}.${lesson.learningMode === 'language' ? ' Language lesson.' : ''} ${standing(lesson)}.${left ? ` ${left.text}.` : ''} ${lesson.pct} percent mastered.`} accessibilityHint="Opens lesson details" onPress={() => router.push(`/lessons/${lesson.id}`)} unstable_pressDelay={SCROLL_GRACE_MS} style={styles.cardBase}>
     <View style={styles.cardFace}>
-      <View style={styles.cardHeading}><LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={56} height={56} /><View style={styles.cardCopy}><View style={styles.titleRow}><Text numberOfLines={2} style={styles.cardTitle}>{lesson.title}</Text>{lesson.learningMode === 'language' && <View style={styles.languageSticker} accessible={false}><MaterialIcons name="language" size={16} color={homeColors.white} /></View>}</View>{!!lesson.sub && <Text numberOfLines={2} style={styles.description}>{lesson.sub}</Text>}</View><HomeAsset name="chevron" /></View>
-      <View style={styles.cardBottom}><Text style={styles.cardCount}>{lesson.cards} {lesson.cards === 1 ? 'card' : 'cards'}{left ? <Text style={[styles.cardDeadline, left.startsWith('Ended') && styles.cardDeadlinePast]}>{` · ${left}`}</Text> : null}</Text><Text style={styles.review}>{lesson.cards === 0 ? 'No cards yet' : `${lesson.pct}% · ${lesson.due} cards remaining`}</Text></View>
+      <View style={styles.cardHeading}><LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={56} height={56} /><View style={styles.cardCopy}><View style={styles.titleRow}><Text numberOfLines={2} style={styles.cardTitle}>{lesson.title}</Text>{lesson.learningMode === 'language' && <LanguageBadge />}</View>{!!lesson.sub && <Text numberOfLines={2} style={styles.description}>{lesson.sub}</Text>}</View><HomeAsset name="chevron" /></View>
+      <View style={styles.cardBottom}>
+        <Text numberOfLines={1} style={styles.cardLead}>{standing(lesson)}</Text>
+        {left ? <Text style={[styles.cardDeadline, left.past && styles.cardDeadlinePast]}>{left.text}</Text> : null}
+      </View>
       <View accessible={false} style={styles.track}><ProgressFill key={`fill${visit}`} pct={lesson.pct} delay={150 + Math.min(order, FILL_STAGGER_MAX) * FILL_STAGGER_MS} style={styles.fill} /></View>
     </View>
   </LedgePressable>;
 }
 
+const card = componentTokens.card;
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: homeColors.canvas },
+  root: { flex: 1, backgroundColor: colors.bg },
   content: { paddingBottom: 125 },
-  hero: { paddingHorizontal: layout.screenInline, paddingTop: 22, paddingBottom: 22, gap: 24 },
-  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16 },
-  headingCopy: { flex: 1, gap: 4 },
-  title: { fontFamily: fonts.display, fontSize: 36, lineHeight: 46, color: homeColors.deep, alignSelf: 'flex-start', transformOrigin: 'left center' },
-  subtitle: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: homeColors.deep },
+  hero: { paddingHorizontal: layout.screenInline, paddingTop: space[5], paddingBottom: space[5], gap: space[6] },
+  headingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: space[4] },
+  headingCopy: { flex: 1, gap: space[1] },
+  title: { ...oneLine(type.title), color: colors.sub, alignSelf: 'flex-start', transformOrigin: 'left center' },
+  subtitle: { ...type.small, fontFamily: fonts.medium, color: colors.sub },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0 },
   topBarSky: { position: 'absolute', top: 0, left: 0, right: 0 },
   topBarRow: { marginHorizontal: layout.screenInline },
-  summary: { flexDirection: 'row', alignItems: 'center', backgroundColor: homeColors.white, borderRadius: 24, paddingVertical: 14, paddingHorizontal: 8, ...{ boxShadow: `0px 4px 0px ${homeColors.border}` } },
-  summaryItem: { flex: 1, alignItems: 'center', gap: 2 },
-  summaryNumber: { fontFamily: fonts.display, fontSize: 24, color: homeColors.deep },
-  summaryLabel: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.muted },
-  summaryDivider: { width: 1, height: 32, backgroundColor: homeColors.border },
-  tools: { paddingHorizontal: layout.screenInline, gap: 16, paddingBottom: 12 },
-  search: { flex: 1, height: 52, borderRadius: 26, backgroundColor: homeColors.white, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: homeColors.border },
-  searchInput: { flex: 1, fontFamily: fonts.medium, fontSize: 15, color: homeColors.darkest, paddingVertical: 0, height: '100%' },
-  searchRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  sectionHeading: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sectionTitle: { fontFamily: fonts.semibold, fontSize: 20, color: homeColors.darkest },
-  resultCount: { fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
-  newLesson: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  newLessonLabel: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary },
+  summary: { flexDirection: 'row', alignItems: 'center' },
+  summaryItem: { flex: 1, alignItems: 'center', gap: space.hair },
+  summaryNumber: { ...oneLine(type.page), color: colors.sub },
+  summaryLabel: { ...type.caption, color: colors.faint },
+  summaryDivider: { width: 1, height: 32, backgroundColor: colors.line },
+  tools: { paddingHorizontal: layout.screenInline, gap: space[4], paddingBottom: space[3] },
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  sectionHeading: { minHeight: 40, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3] },
+  sectionTitle: { ...oneLine(type.heading), color: colors.text },
+  resultCount: { ...type.small, fontFamily: fonts.medium, color: colors.faint },
+  newLesson: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space[1] },
+  newLessonLabel: { ...type.small, fontFamily: fonts.semibold, color: colors.action },
   separator: { height: 12 },
-  cardBase: { marginHorizontal: layout.screenInline, borderRadius: 24, backgroundColor: homeColors.border, paddingBottom: 4 },
-  cardFace: { borderRadius: 24, backgroundColor: homeColors.white, padding: 16, gap: 12 },
-  cardHeading: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  cardCopy: { flex: 1, gap: 4 },
-  cardTitle: { flexShrink: 1, fontFamily: fonts.display, fontSize: 20, color: homeColors.darkest },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  languageSticker: { width: 22, height: 22, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.primary, transform: [{ rotate: '-8deg' }], boxShadow: `0px 2px 0px ${homeColors.border}` },
-  description: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 19, color: colors.supporting },
-  cardBottom: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: 8 },
-  cardDeadline: { fontFamily: fonts.semibold, color: homeColors.primary },
+  // The two layers of components/ui/Card. They are written out because the row is
+  // a LedgePressable — it presses flat, and the press has to drive both layers.
+  cardBase: { marginHorizontal: layout.screenInline, borderRadius: card.radius.lg, backgroundColor: card.shell, paddingBottom: card.lip },
+  cardFace: { borderRadius: card.radius.lg, backgroundColor: card.face, padding: card.pad.md, gap: card.gap },
+  cardHeading: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  cardCopy: { flex: 1, gap: space[1] },
+  cardTitle: { ...type.heading, fontFamily: fonts.display, flexShrink: 1, color: colors.text },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  description: { ...type.caption, fontFamily: fonts.regular, color: colors.sub },
+  cardBottom: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: space[2] },
+  // The row is one ink in two steps, not an accent beside a neutral: a live
+  // deadline sits at the lead's own weight and colour, and one that has gone by
+  // drops a step back. The action purple it used to take is a different hue, and
+  // against the reading ink two words away it jumped off the line.
+  cardDeadline: { ...type.small, fontFamily: fonts.semibold, color: colors.sub },
+  cardDeadlinePast: { fontFamily: fonts.medium, color: colors.faint },
   // A date already gone is a fact, not a call to hurry.
-  cardDeadlinePast: { fontFamily: fonts.medium, color: homeColors.muted },
-  cardCount: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.deep },
-  review: { ...type.lessonProgress, color: homeColors.muted },
-  track: { height: 5, borderRadius: radius.pill, backgroundColor: homeColors.track, overflow: 'hidden' },
-  fill: { height: 5, borderRadius: radius.pill, backgroundColor: homeColors.primary },
-  empty: { marginHorizontal: layout.screenInline, paddingHorizontal: 24, paddingTop: 14, paddingBottom: 24, alignItems: 'center' },
-  emptyTitle: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 26, color: homeColors.darkest, textAlign: 'center', marginTop: 12 },
-  emptyCopy: { ...type.bodyReading, color: homeColors.muted, textAlign: 'center', marginTop: 2, maxWidth: 290 },
-  emptyActionBase: { marginTop: 16, borderRadius: 24, backgroundColor: homeColors.deep, paddingBottom: 3 },
-  emptyAction: { minHeight: 45, borderRadius: 24, backgroundColor: homeColors.primary, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  emptyActionText: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.white },
+  // The lead: heavier than the description above it, so the eye lands on what
+  // there is to do rather than on what the lesson is about.
+  cardLead: { ...type.small, fontFamily: fonts.semibold, flexShrink: 1, color: colors.sub },
+  track: { height: 5, borderRadius: radius.pill, backgroundColor: colors.tint, overflow: 'hidden' },
+  fill: { height: 5, borderRadius: radius.pill, backgroundColor: colors.action },
+  empty: { marginHorizontal: layout.screenInline, paddingHorizontal: space[6], paddingTop: space[3], paddingBottom: space[6], alignItems: 'center' },
+  emptyTitle: { ...type.body, fontFamily: fonts.semibold, color: colors.text, textAlign: 'center', marginTop: space[3] },
+  emptyCopy: { ...type.small, color: colors.faint, textAlign: 'center', marginTop: space.hair, maxWidth: 290 },
+  emptyActionBase: { marginTop: space[4] },
 });

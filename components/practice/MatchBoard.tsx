@@ -18,8 +18,7 @@
 
 import { clearPair, isDone, isPair, missPair, rowsFor, startBoard, type Board, type Tile } from '@/lib/matchBoard';
 import type { MatchQuestion } from '@/lib/practiceRound';
-import { colors, fonts } from '@/theme';
-import { homeColors } from '@/theme/colors';
+import { space, radius, type, colors, fonts } from '@/theme';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -36,8 +35,10 @@ const TILE_INLINE = 11;
 /** A meaning is longer than its word, so its column gets the larger share. */
 const WORDS_SHARE = 5;
 const MEANINGS_SHARE = 6;
-const TERM_SIZE = 16;
-const TERM_SIZE_MIN = 11;
+/** A word on a tile is body type, shrunk only as far as it must be to fit one line
+ *  of the longest term on the board. Below the caption size it stops. */
+const TERM_SIZE = type.body.fontSize;
+const TERM_SIZE_MIN = type.caption.fontSize;
 /** The width of a semibold letter as a share of the font size, taken on the wide side:
  *  a word full of m's and w's must fit too. */
 const LETTER_WIDTH = 0.68;
@@ -162,26 +163,26 @@ export function MatchBoard({ question, onDone }: {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flex: 1, minHeight: 0, gap: 10 },
-  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  prompt: { flexShrink: 1, fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
-  count: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.deep, fontVariant: ['tabular-nums'] },
+  wrap: { flex: 1, minHeight: 0, gap: space[2] },
+  head: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3] },
+  prompt: { ...type.small, fontFamily: fonts.medium, flexShrink: 1, color: colors.faint },
+  count: { ...type.small, fontFamily: fonts.semibold, color: colors.sub, fontVariant: ['tabular-nums'] },
   area: { flex: 1, minHeight: 0 },
   board: { flexDirection: 'row', gap: COLUMN_GAP },
   column: { gap: GAP },
   words: { flex: WORDS_SHARE },
   meanings: { flex: MEANINGS_SHARE },
   tile: {
-    justifyContent: 'center', paddingHorizontal: TILE_INLINE, paddingVertical: 8,
-    borderRadius: 16, borderWidth: 1.5, borderColor: homeColors.border, backgroundColor: homeColors.white,
+    justifyContent: 'center', paddingHorizontal: TILE_INLINE, paddingVertical: space[2],
+    borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.surf,
   },
   // A row with nothing to take it — the board is running out, or what is waiting is
   // still showing — keeps its place, so nothing around it moves.
-  empty: { borderStyle: 'dashed', backgroundColor: homeColors.nav },
-  chosen: { borderColor: homeColors.primary, backgroundColor: homeColors.track },
-  mistaken: { borderColor: homeColors.quizWrongOutline, backgroundColor: colors.warnL },
+  empty: { borderStyle: 'dashed', backgroundColor: colors.panel },
+  chosen: { borderColor: colors.action, backgroundColor: colors.tint },
+  mistaken: { borderColor: colors.wrong, backgroundColor: colors.warnL },
   done: { borderColor: colors.green, backgroundColor: colors.greenL },
-  term: { fontFamily: fonts.semibold, fontSize: TERM_SIZE, lineHeight: 22, color: homeColors.darkest },
-  meaning: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 19, color: homeColors.darkest },
+  term: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
+  meaning: { ...type.small, color: colors.text },
   doneText: { color: colors.green },
 });

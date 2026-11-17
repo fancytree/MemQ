@@ -397,6 +397,7 @@
         "npm:dotenv@^17.4.2",
         "npm:expo-apple-authentication@~57.0.1",
         "npm:expo-asset@^57.0.16",
+        "npm:expo-audio@~57.0.5",
         "npm:expo-constants@~57.0.17",
         "npm:expo-dev-client@57.0",
         "npm:expo-document-picker@~57.0.1",

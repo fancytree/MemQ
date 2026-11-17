@@ -10,10 +10,10 @@ const fontFaces = Object.entries(tokens.runtime.fonts).filter(([key]) => !['grot
   const [family, variant] = name.split('_');
   return `@font-face { font-family: '${name}'; src: url('../../node_modules/@expo-google-fonts/${family.toLowerCase()}/${variant}/${name}.ttf') format('truetype'); font-display: swap; }`;
 }).join('\n');
-const palette = [['Canvas', 'bg'], ['Primary ink', 'text'], ['Neutral surface', 'surfaceSubtle'], ['Subtle line', 'border'], ['Readable metadata · adapted', 'muted'], ['Control boundary · extension', 'controlBorder']];
+const palette = [['Canvas', 'bg'], ['Primary ink', 'text'], ['Secondary ink', 'sub'], ['Neutral surface', 'panel'], ['Subtle line', 'line'], ['Small print · adapted', 'faint']];
 const papers = [['Today note','todayNote'],['Peach backing','paperPeach'],['Lilac backing','paperLilac'],['Blue backing','paperBlue'],['Inkling body · artwork only','inklingBody'],['Wordmark rays · detail only','wordmarkRays']];
 const swatches = (items, ref = false) => items.map(([name, key]) => `<div class="swatch"><span class="paint" style="background:var(--memq-${ref ? 'reference-' : ''}${kebab(key)})"></span><div><strong>${escape(name)}</strong><code>${escape((ref ? referenceColors : colors)[key])}</code></div></div>`).join('');
-const typeSamples = [['page','A little learning, every day.'],['section','Your courses'],['courseTitle','Everyday Italian'],['button','Start learning'],['meta','8 due · 32 cards'],['greeting','Hi, Alex.'],['annotation',"a little goes a long way"]].map(([role, text]) => `<div class="type-row"><span class="sample" style="font-family:var(--memq-type-${kebab(role)}-family);font-size:var(--memq-type-${kebab(role)}-size);line-height:var(--memq-type-${kebab(role)}-height)">${escape(text)}</span><code>${escape(role)} · ${tokens.runtime.typography[role].fontSize}px</code></div>`).join('');
+const typeSamples = [['display','37'],['title','You did it!'],['page','A little learning, every day.'],['heading','Your courses'],['body','Start learning'],['small','Everyday Italian'],['caption','8 due · 32 cards']].map(([role, text]) => `<div class="type-row"><span class="sample" style="font-family:var(--memq-type-${kebab(role)}-family);font-size:var(--memq-type-${kebab(role)}-size);line-height:var(--memq-type-${kebab(role)}-height)">${escape(text)}</span><code>${escape(role)} · ${tokens.runtime.typography[role].fontSize}px</code></div>`).join('');
 const artworkLinks = (list) => list.map((a) => `<a class="asset" href="${escape(a.url)}" target="_blank" rel="noreferrer"><strong>${escape(a.name)} <span aria-hidden="true">↗</span></strong><span>${escape(a.use)}</span><code>${escape(a.nodeId)} · ${a.availability === 'local-export' ? 'Local SVG export' : 'Figma source'}</code></a>`).join('');
 const arrow = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const navIcons = ['<path d="M4 11l8-7 8 7v9H4z"/>','<circle cx="12" cy="12" r="9"/><path d="M8 12h8M12 8v8"/>','<rect x="5" y="4" width="14" height="16" rx="1.5"/><path d="M9 4v16"/>'];
@@ -24,51 +24,51 @@ ${fontFaces}
 body { margin:0; font-family:'Manrope_400Regular',sans-serif; color:var(--memq-text); background:var(--memq-bg); }
 a { color:inherit; text-underline-offset:4px; }
 .page { max-width:1120px; margin:auto; padding:40px 36px 80px; }
-header { display:flex; align-items:center; justify-content:space-between; gap:24px; padding-bottom:32px; border-bottom:1px solid var(--memq-border); }
+header { display:flex; align-items:center; justify-content:space-between; gap:24px; padding-bottom:32px; border-bottom:1px solid var(--memq-line); }
 .wordmark { font-family:'Manrope_800ExtraBold'; font-size:25px; line-height:32px; letter-spacing:-1.1px; color:var(--memq-wordmark); }
-.version, .eyebrow, code { font-family:'Inter_400Regular',sans-serif; font-size:12px; line-height:18px; color:var(--memq-muted); }
+.version, .eyebrow, code { font-family:'Inter_400Regular',sans-serif; font-size:12px; line-height:18px; color:var(--memq-sub); }
 .intro { display:grid; grid-template-columns:1.2fr 1fr; gap:64px; padding:48px 0; }
 h1 { font-family:'Manrope_700Bold'; font-size:30px; line-height:34px; margin:12px 0 20px; font-weight:normal; }
 h2 { font-family:'Manrope_700Bold'; font-size:19px; line-height:26px; margin:0 0 12px; font-weight:normal; }
 h3 { font-family:'Manrope_600SemiBold'; font-size:15px; margin:28px 0 12px; font-weight:normal; }
-p { margin:0 0 14px; } .muted { color:var(--memq-muted); } .small { font-size:12px; line-height:18px; }
+p { margin:0 0 14px; } .muted { color:var(--memq-sub); } .small { font-size:12px; line-height:18px; }
 .tags { display:flex; flex-wrap:wrap; gap:8px; margin-top:20px; }
-.tag { background:var(--memq-surface-subtle); border-radius:100px; padding:5px 11px; font-family:'Inter_400Regular'; font-size:12px; }
-.rule { border-top:1px solid var(--memq-border); padding:32px 0; }
-.lede { max-width:650px; color:var(--memq-muted); font-size:14px; line-height:23px; }
+.tag { background:var(--memq-panel); border-radius:100px; padding:5px 11px; font-family:'Inter_400Regular'; font-size:12px; }
+.rule { border-top:1px solid var(--memq-line); padding:32px 0; }
+.lede { max-width:650px; color:var(--memq-sub); font-size:14px; line-height:23px; }
 .grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:24px; }
 .swatch { display:flex; align-items:center; gap:12px; min-width:0; }
-.paint { width:52px; height:52px; flex-shrink:0; border:1px solid var(--memq-border); }
+.paint { width:52px; height:52px; flex-shrink:0; border:1px solid var(--memq-line); }
 strong { font-family:'Manrope_600SemiBold'; font-weight:normal; } .swatch strong { display:block; font-size:12px; line-height:18px; }
 code { display:block; margin-top:3px; }
 .two { display:grid; grid-template-columns:1fr 1fr; gap:64px; }
-.type-row { padding:18px 0; border-bottom:1px solid var(--memq-border); }
+.type-row { padding:18px 0; border-bottom:1px solid var(--memq-line); }
 .sample { display:block; }
 .demo { max-width:354px; margin-top:20px; }
 .btn-primary { width:100%; } .btn-primary + .btn-primary { margin-top:12px; }
 .goal-summary { display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px; }
 .goal-label { font-family:'Manrope_400Regular'; font-size:20px; line-height:28px; }
-.goal-count { font-family:'Inter_400Regular'; font-size:15px; color:var(--memq-muted); }
+.goal-count { font-family:'Inter_400Regular'; font-size:15px; color:var(--memq-sub); }
 .goal-count strong { font-family:'Inter_600SemiBold'; color:var(--memq-text); }
-.track { height:5px; background:var(--memq-progress-track); border-radius:100px; overflow:hidden; }
+.track { height:5px; background:var(--memq-tint); border-radius:100px; overflow:hidden; }
 .fill { width:${progressPercent(6,20)}%; height:100%; background:var(--memq-action); border-radius:100px; }
 .course { min-height:72px; display:flex; align-items:center; gap:14px; text-decoration:none; }
 .course > div { flex:1; padding:12px 0; } .course strong { display:block; font-size:15px; line-height:19px; }
-.course span { display:block; font-size:12px; line-height:17px; color:var(--memq-muted); margin-top:6px; }
-.chevron { color:var(--memq-muted); width:32px; text-align:right; }
-.course:hover { background:var(--memq-surface-subtle); }
-.nav { display:flex; border-top:1px solid var(--memq-border); padding:10px 12px 8px; }
-.nav button { flex:1; min-height:48px; display:flex; flex-direction:column; align-items:center; gap:4px; background:var(--memq-bg); border:0; color:var(--memq-muted); font-family:'Manrope_400Regular'; font-size:12px; padding:0; cursor:pointer; }
+.course span { display:block; font-size:12px; line-height:17px; color:var(--memq-sub); margin-top:6px; }
+.chevron { color:var(--memq-sub); width:32px; text-align:right; }
+.course:hover { background:var(--memq-panel); }
+.nav { display:flex; border-top:1px solid var(--memq-line); padding:10px 12px 8px; }
+.nav button { flex:1; min-height:48px; display:flex; flex-direction:column; align-items:center; gap:4px; background:var(--memq-bg); border:0; color:var(--memq-sub); font-family:'Manrope_400Regular'; font-size:12px; padding:0; cursor:pointer; }
 .capsule { width:52px; min-height:28px; display:flex; align-items:center; justify-content:center; border-radius:100px; }
 .nav button[aria-selected=true] { color:var(--memq-text); font-family:'Manrope_600SemiBold'; }
-.nav button[aria-selected=true] .capsule { background:var(--memq-surface-subtle); }
+.nav button[aria-selected=true] .capsule { background:var(--memq-panel); }
 .nav svg { width:21px; height:21px; stroke:currentColor; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:miter; fill:none; }
 .assets { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:0 24px; }
-.asset { padding:16px 0; border-bottom:1px solid var(--memq-border); text-decoration:none; }
-.asset strong { font-size:13px; } .asset > span { display:block; color:var(--memq-muted); font-size:12px; line-height:18px; margin-top:5px; }
-.asset:hover strong { text-decoration:underline; } .notice { border-left:2px solid var(--memq-control-border); padding-left:16px; }
+.asset { padding:16px 0; border-bottom:1px solid var(--memq-line); text-decoration:none; }
+.asset strong { font-size:13px; } .asset > span { display:block; color:var(--memq-sub); font-size:12px; line-height:18px; margin-top:5px; }
+.asset:hover strong { text-decoration:underline; } .notice { border-left:2px solid var(--memq-faint); padding-left:16px; }
 ul { padding-left:20px; } li { margin-bottom:8px; }
-footer { border-top:1px solid var(--memq-border); padding-top:24px; font-size:12px; line-height:20px; color:var(--memq-muted); }
+footer { border-top:1px solid var(--memq-line); padding-top:24px; font-size:12px; line-height:20px; color:var(--memq-sub); }
 @media(max-width:720px) { .page { padding:24px; } .intro,.two { grid-template-columns:1fr; gap:28px; } .grid,.assets { grid-template-columns:repeat(2,minmax(0,1fr)); } header { align-items:flex-start; } }
 @media(max-width:400px) { .grid,.assets { grid-template-columns:1fr; } }
 </style></head><body><main class="page">

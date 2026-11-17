@@ -25,19 +25,12 @@
  * raised, taken, and never seen.
  */
 
-import { colors, fonts, layout } from '@/theme';
-import { homeColors } from '@/theme/colors';
-import { ledge } from '@/theme/ledge';
+import { Dialog, type DialogButton, type DialogChoice } from '@/components/ui/Dialog';
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
-export type DialogButton = {
-  text: string;
-  onPress?: () => void;
-  style?: 'default' | 'cancel' | 'destructive';
-};
+export type { DialogButton, DialogChoice };
 
-type Dialog = { title: string; message?: string; buttons: DialogButton[] };
+type Dialog = { title: string; message?: string; buttons: DialogButton[]; choices?: DialogChoice[] };
 
 const OK: DialogButton[] = [{ text: 'OK' }];
 
@@ -58,9 +51,14 @@ const store: Store = ((globalThis as unknown as { __memqDialog?: Store }).__memq
 store.queue ??= [];
 store.hosts ??= [];
 
-/** Raise a dialog. Same arguments as the system one it replaces. */
-export function dialog(title: string, message?: string, buttons?: DialogButton[]) {
-  store.queue.push({ title, message, buttons: buttons?.length ? buttons : OK });
+/** Raise a dialog. The first three arguments are the system one's, so a call site
+ *  changes by its name alone.
+ *
+ *  `choices` is the one thing the system dialog has no equivalent for: several
+ *  things to pick between, drawn as a list above the buttons rather than as more
+ *  buttons. It is a question with answers, not a pile of actions. */
+export function dialog(title: string, message?: string, buttons?: DialogButton[], choices?: DialogChoice[]) {
+  store.queue.push({ title, message, buttons: buttons?.length ? buttons : OK, choices });
   store.hosts[store.hosts.length - 1]?.();
 }
 
@@ -92,10 +90,13 @@ export function DialogHost() {
     };
   }, []);
 
-  const dismiss = (button?: DialogButton) => {
+  // The answer's own handler is run by the button in the dialog, so this only
+  // takes the dialog down — except when the back gesture answers for it, which
+  // nothing else has run.
+  const dismiss = (button?: DialogButton, run = false) => {
     showing.current = null;
     setCurrent(null);
-    button?.onPress?.();
+    if (run) button?.onPress?.();
     // Anything raised while this one was up waits its turn, the way the system
     // dialog stacks them rather than dropping them.
     setTimeout(() => store.hosts[store.hosts.length - 1]?.(), 0);
@@ -103,80 +104,16 @@ export function DialogHost() {
 
   if (!current) return null;
 
-  const { title, message, buttons } = current;
-  // Two short choices sit side by side; anything else stacks, because a row of
-  // three squeezes every label into something unreadable.
-  const side = buttons.length === 2 && buttons.every((b) => b.text.length <= 14);
-  const ordered = side
-    ? [...buttons].sort((a, b) => Number(b.style === 'cancel') - Number(a.style === 'cancel'))
-    : [...buttons].sort((a, b) => Number(a.style === 'cancel') - Number(b.style === 'cancel'));
-  const escape = buttons.find((b) => b.style === 'cancel') ?? (buttons.length === 1 ? buttons[0] : undefined);
+  const { title, message, buttons, choices } = current;
+  const escape = buttons.find((b) => b.style === 'cancel')
+    ?? (buttons.length === 1 ? buttons[0] : undefined);
 
   return (
-    <Modal visible transparent animationType="fade" statusBarTranslucent
-      onRequestClose={() => dismiss(escape)}>
-      <View style={styles.scrim}>
-        <View accessibilityViewIsModal style={styles.shell}>
-          <View style={styles.face}>
-            <ScrollView bounces={false} contentContainerStyle={styles.copy}>
-              <Text accessibilityRole="header" style={styles.title}>{title}</Text>
-              {!!message && <Text style={styles.message}>{message}</Text>}
-            </ScrollView>
-            <View style={[styles.actions, side ? styles.actionsRow : styles.actionsColumn]}>
-              {ordered.map((button, i) => {
-                const quiet = button.style === 'cancel';
-                const harm = button.style === 'destructive';
-                return (
-                  <Pressable key={`${button.text}-${i}`} accessibilityRole="button"
-                    accessibilityLabel={button.text}
-                    onPress={() => dismiss(button)}
-                    style={({ pressed }) => [
-                      styles.button, side && styles.buttonShare,
-                      quiet ? styles.quiet : harm ? styles.harm : styles.lead,
-                      pressed && styles.pressed,
-                    ]}>
-                    <Text numberOfLines={1} style={quiet ? styles.quietText : styles.leadText}>
-                      {button.text}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
-          </View>
-        </View>
-      </View>
-    </Modal>
+    <Dialog visible title={title} message={message} buttons={buttons}
+      // Picking one answers the dialog, the same as pressing a button does, so it
+      // comes down before the choice's own work runs.
+      choices={choices?.map((choice) => ({ ...choice, onPress: () => { dismiss(); choice.onPress(); } }))}
+      onAnswer={(button) => dismiss(button)}
+      onDismiss={() => dismiss(escape, true)} />
   );
 }
-
-const styles = StyleSheet.create({
-  scrim: {
-    flex: 1, justifyContent: 'center',
-    paddingHorizontal: layout.screenInline, backgroundColor: colors.modalScrim,
-  },
-  // The same shell-and-face a card carries, at the depth of a raised surface.
-  shell: {
-    width: '100%', maxWidth: 440, alignSelf: 'center',
-    borderRadius: 28, backgroundColor: homeColors.border, paddingBottom: ledge.raised,
-  },
-  face: { borderRadius: 28, backgroundColor: homeColors.white, padding: 24, gap: 22 },
-
-  copy: { gap: 8 },
-  title: { fontFamily: fonts.display, fontSize: 25, lineHeight: 33, color: homeColors.deep },
-  message: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: homeColors.muted },
-
-  actions: { gap: 10 },
-  actionsRow: { flexDirection: 'row' },
-  actionsColumn: { flexDirection: 'column' },
-  button: {
-    minHeight: 50, paddingHorizontal: 16, borderRadius: 25,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  buttonShare: { flex: 1, minWidth: 0 },
-  lead: { backgroundColor: homeColors.primary },
-  harm: { backgroundColor: colors.red },
-  quiet: { backgroundColor: homeColors.nav },
-  pressed: { opacity: 0.7 },
-  leadText: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.white },
-  quietText: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.deep },
-});

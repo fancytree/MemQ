@@ -1,14 +1,12 @@
 import { fonts } from '@/theme/typography';
-import { colors } from '@/theme';
-import { homeColors } from '@/theme/colors';
-import { Feather } from '@expo/vector-icons';
-import { RowIcon, type RowIconName } from '@/components/RowIcon';
+import { space, radius, type, colors } from '@/theme';
+import { Icon, type IconName } from '@/components/ui/Icon';
 import React from 'react';
 import { Toggle } from '@/components/ui/Toggle';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 interface MenuItemProps {
-  icon: RowIconName;
+  icon: IconName;
   iconColor: string;
   iconBgColor: string;
   title: string;
@@ -46,7 +44,7 @@ export default function MenuItem({
         {/* 左侧图标和文字 */}
         <View style={styles.leftSection}>
           <View style={styles.iconContainer}>
-            <RowIcon name={icon} color={homeColors.deep} />
+            <Icon name={icon} color={colors.sub} />
           </View>
           <View style={styles.textContainer}>
             <Text style={styles.title}>{title}</Text>
@@ -60,7 +58,7 @@ export default function MenuItem({
           {type === 'toggle' ? (
             <Toggle label={title} value={!!toggleValue} onValueChange={onToggle ?? (() => {})} />
           ) : (
-            <Feather name="chevron-right" size={20} color={colors.muted} />
+            <Icon name="chevronRight" size={20} color={colors.sub} />
           )}
         </View>
       </TouchableOpacity>
@@ -74,8 +72,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
     backgroundColor: colors.surf,
   },
   leftSection: {
@@ -86,46 +84,38 @@ const styles = StyleSheet.create({
   iconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 14,
-    backgroundColor: homeColors.nav,
+    borderRadius: radius.md,
+    backgroundColor: colors.panel,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: space[3],
   },
   textContainer: {
     flex: 1,
   },
   title: {
-    fontSize: 15,
-    lineHeight: 22,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
+    ...type.small, fontFamily: fonts.medium,
     color: colors.text,
-    marginBottom: 2,
+    marginBottom: space.hair,
   },
   subtitle: {
-    fontSize: 12,
-    lineHeight: 17,
+    ...type.caption, fontFamily: fonts.regular,
     letterSpacing: -0.1,
-    fontFamily: fonts.regular,
-    color: colors.muted,
-    marginTop: 2,
+    color: colors.sub,
+    marginTop: space.hair,
   },
   value: {
-    fontSize: 13,
-    lineHeight: 18,
+    ...type.caption, fontFamily: fonts.regular,
     letterSpacing: -0.1,
     color: colors.text,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    marginTop: 2,
+    marginTop: space.hair,
   },
   rightSection: {
-    marginLeft: 12,
+    marginLeft: space[3],
   },
   divider: {
     height: 1,
-    backgroundColor: colors.border,
+    backgroundColor: colors.line,
     marginLeft: 68, // 对齐文字部分
   },
 });

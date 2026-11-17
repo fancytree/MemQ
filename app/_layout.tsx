@@ -6,6 +6,7 @@ import '@/theme/web.css';
 import { SubscriptionPaywallHost } from '@/components/SubscriptionPaywallHost';
 import { LoadingProvider } from '@/context/LoadingContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
+import { SoundHintHost } from '@/components/SpeakingPulse';
 import { DialogHost } from '@/lib/dialog';
 import { colors } from '@/theme';
 import { Stack } from 'expo-router';
@@ -32,6 +33,7 @@ export default function RootLayout() {
         <SubscriptionProvider>
           <SubscriptionPaywallHost />
           <DialogHost />
+          <SoundHintHost />
           <StatusBar style="dark" />
           <Stack
             screenOptions={{

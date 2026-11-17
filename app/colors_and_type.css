@@ -8,18 +8,17 @@
 :root {
   --color-bg: var(--memq-bg);
   --color-surf: var(--memq-surf);
-  --color-inner: var(--memq-surface-subtle);
-  --color-inner-warm: var(--memq-surface-subtle);
-  --color-border: var(--memq-border);
-  --color-control-border: var(--memq-control-border);
+  --color-inner: var(--memq-panel);
+  --color-inner-warm: var(--memq-panel);
+  --color-border: var(--memq-line);
+  --color-control-border: var(--memq-faint);
   --color-accent: var(--memq-action);
-  --color-accent-dark: var(--memq-action-pressed);
+  --color-accent-dark: var(--memq-action-shell);
   --color-accent-text: var(--memq-text);
-  --color-accent-light: var(--memq-surface-subtle);
+  --color-accent-light: var(--memq-panel);
   --color-text-high: var(--memq-text);
   --color-text: var(--memq-sub);
-  --color-muted: var(--memq-muted);
-  --color-dim: var(--memq-dim);
+  --color-muted: var(--memq-sub);
   --color-green: var(--memq-green);
   --color-green-light: var(--memq-green-l);
   --color-green-border: var(--memq-green);
@@ -104,8 +103,8 @@
   --input-radius: var(--radius-md);
   --input-padding: 14px 16px;
   --input-font-size: 16px;
-  --input-focus-border: 1px solid var(--memq-focus);
-  --badge-bg: var(--memq-surface-subtle);
+  --input-focus-border: 1px solid var(--memq-action-shell);
+  --badge-bg: var(--memq-panel);
   --badge-color: var(--memq-text);
   --badge-radius: var(--radius-pill);
   --badge-padding: 4px 11px;
@@ -125,9 +124,9 @@ body { font-family: var(--font-family); background: var(--color-bg); color: var(
 /* Legacy containers: new course rows and goal summaries sit directly on white. */
 .card, .card-primary { background: var(--card-bg); border: var(--card-border); border-radius: var(--card-radius); padding: var(--card-padding-y) var(--card-padding-x); box-shadow: none; }
 .btn-primary { display: inline-flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 16px; background: var(--btn-bg); color: var(--btn-color); border: none; border-radius: var(--btn-radius); padding: var(--btn-padding); font-family: var(--memq-type-button-family); font-size: var(--btn-font-size); cursor: pointer; }
-.btn-primary:hover, .btn-primary:active { background: var(--memq-action-pressed); }
-.btn-primary:disabled { background: var(--memq-disabled-bg); color: var(--memq-disabled-text); cursor: default; }
+.btn-primary:hover, .btn-primary:active { background: var(--memq-action-shell); }
+.btn-primary:disabled { background: var(--memq-panel); color: var(--memq-disabled); cursor: default; }
 .badge { display: inline-flex; align-items: center; background: var(--badge-bg); color: var(--badge-color); border-radius: var(--badge-radius); padding: var(--badge-padding); font-size: var(--badge-font-size); }
 .divider { height: 1px; background: var(--color-border); }
-:where(button, a, input, textarea, select, [tabindex]):focus-visible { outline: 3px solid var(--memq-focus); outline-offset: 3px; }
+:where(button, a, input, textarea, select, [tabindex]):focus-visible { outline: 3px solid var(--memq-action-shell); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }

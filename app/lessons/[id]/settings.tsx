@@ -1,3 +1,6 @@
+import { Card } from '@/components/ui/Card';
+import { FieldLabel, fieldGroup, fieldWell } from '@/components/ui/Field';
+import { oneLine } from '@/theme/typography';
 import { MascotState } from '@/components/mascot/MascotState';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { dialog } from '@/lib/dialog';
@@ -6,22 +9,20 @@ import { LessonCover } from '@/components/LessonCover';
 import { encodeLessonCover, getStoredLessonCover, knowledgeSymbols, languageSymbols, removeStoredLessonCover, resolveLessonCover, setStoredLessonCover } from '@/lib/lessonCover';
 import { lessonCoverPalettes } from '@/theme/colors';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
-import { homeColors } from '@/theme/colors';
-import { ledge } from '@/theme/ledge';
 import { LinearGradient } from 'expo-linear-gradient';
 import { DeadlineSheet } from '@/components/DeadlineSheet';
 import { DesignAsset } from '@/components/DesignAsset';
-import { ActionButton } from '@/components/ui/ActionButton';
 import { clearCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
-import { colors, componentTokens, fonts, layout, type } from '@/theme';
+import { space, radius, colors, fonts, layout, type } from '@/theme';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LedgePressable } from '@/components/ui/LedgePressable';
+import { Button } from '@/components/ui/Button';
 import { MascotLoading } from '@/components/mascot/MascotLoading';
+import { Field } from '@/components/ui/Field';
 
 export const options = { headerShown: false };
 
@@ -41,6 +42,7 @@ export default function LessonSettingsScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [coverStyle, setCoverStyle] = useState<string | null>(null);
+  const [cardCount, setCardCount] = useState(0);
   const [coverSupported, setCoverSupported] = useState(false);
   const [showCoverPicker, setShowCoverPicker] = useState(false);
   const coverChoice = resolveLessonCover(id || '', learningMode, coverStyle);
@@ -57,7 +59,11 @@ export default function LessonSettingsScreen() {
         const { data, error: failure } = await supabase.from('lessons').select('*').eq('id', id).eq('user_id', user.id).single();
         if (failure || !data) throw new Error('Failed to load lesson');
         const localCover = data.cover_style ? null : await getStoredLessonCover(id);
+        // Only the count: the deadline sheet needs it to say what a date asks for
+        // a day, and nothing on this screen needs the cards themselves.
+        const { count } = await supabase.from('terms').select('id', { count: 'exact', head: true }).eq('lesson_id', id);
         if (!active) return;
+        setCardCount(count ?? 0);
         setCoverSupported(Object.prototype.hasOwnProperty.call(data, 'cover_style'));
         setCoverStyle(data.cover_style || localCover);
         setLessonName(data.name || ''); setDescription(data.description || '');
@@ -110,25 +116,25 @@ export default function LessonSettingsScreen() {
   if (loading) return <SafeAreaView style={styles.screen}><MascotLoading /></SafeAreaView>;
   if (loadError) return <SafeAreaView style={styles.screen}>
     <View style={styles.status}>
-      <MascotState kind="error" width={160} /><Text style={styles.message}>{loadError}</Text><ActionButton label="Go back" onPress={goBack} />
+      <MascotState kind="error" width={160} /><Text style={styles.message}>{loadError}</Text><Button size="md" label="Go back" onPress={goBack} />
     </View>
   </SafeAreaView>;
 
   return <SafeAreaView style={styles.screen} edges={['top']}>
-    <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 170 }]} />
+    <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 170 }]} />
     <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <View style={styles.navigation}>
         <CloseButton onPress={goBack} label="Cancel lesson editing" />
         <Text accessibilityRole="header" style={styles.navTitle}>Edit lesson</Text>
-        <RoundAction icon="trash-2" label="Delete lesson" disabled={busy}
+        <RoundAction icon="delete" label="Delete lesson" disabled={busy}
           onPress={() => { Keyboard.dismiss(); setShowDelete(true); }} />
       </View>
       <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.content}>
         {!!error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-        <View style={styles.formBase}><View style={styles.formCard}>
-        <View style={styles.group}>
-          <Text style={styles.label}>Cover</Text>
+        <Card pad="lg" gap={space[5]}>
+        <View style={[fieldGroup, styles.group]}>
+          <FieldLabel>Cover</FieldLabel>
           <View style={styles.coverRow}>
             <LessonCover id={id || ''} mode={learningMode} width={64} height={64} choice={coverChoice} />
             <View style={styles.coverCopy}><Text style={styles.coverTitle}>Make it yours</Text><Text style={styles.coverHint}>Choose a color and icon.</Text></View>
@@ -145,21 +151,17 @@ export default function LessonSettingsScreen() {
             </ScrollView>
           </View>}
         </View>
-        <View style={styles.group}>
-          <Text style={styles.label}>Lesson Name *</Text>
-          <TextInput accessibilityLabel="Lesson name, required" placeholder="Enter lesson name" placeholderTextColor={homeColors.placeholder}
-            value={lessonName} onChangeText={(value) => { setLessonName(value); setError(null); }} editable={!busy} style={styles.input} />
-        </View>
-        <View style={styles.group}>
-          <Text style={styles.label}>Description (optional)</Text>
-          <TextInput accessibilityLabel="Description, optional" placeholder="Add a description" placeholderTextColor={homeColors.placeholder}
-            value={description} onChangeText={setDescription} editable={!busy} multiline textAlignVertical="top" style={[styles.input, styles.description]} />
-        </View>
-        <View style={styles.group}>
-          <Text style={styles.label}>Deadline (optional)</Text>
+        <Field label="Lesson Name *" accessibilityLabel="Lesson name, required" placeholder="Enter lesson name"
+          value={lessonName} onChangeText={(value) => { setLessonName(value); setError(null); }} editable={!busy} />
+        <Field label="Description (optional)" accessibilityLabel="Description, optional" placeholder="Add a description"
+          value={description} onChangeText={setDescription} editable={!busy} multiline />
+        {/* Shaped like the two fields above it, from the same tokens: it was drawn
+            on the canvas colour and came out yellow beside them. */}
+        <View style={[fieldGroup, styles.group]}>
+          <FieldLabel>Deadline (optional)</FieldLabel>
           <View style={styles.deadlineRow}>
             <Pressable accessibilityRole="button" accessibilityLabel={`Choose deadline, ${deadline ? deadline.toLocaleDateString('en-GB') : 'not set'}`}
-              disabled={busy} onPress={() => { Keyboard.dismiss(); setShowDatePicker(true); }} style={[styles.input, styles.dateField]}>
+              disabled={busy} onPress={() => { Keyboard.dismiss(); setShowDatePicker(true); }} style={[fieldWell, styles.dateField]}>
               <DesignAsset name="editCalendar" />
               <Text style={styles.dateText}>{deadline ? deadline.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : 'Not set'}</Text>
               <DesignAsset name="editDown" />
@@ -169,7 +171,7 @@ export default function LessonSettingsScreen() {
             </Pressable>
           </View>
         </View>
-        </View></View>
+        </Card>
 
         {/* Outside the card, on the page's own ground. Its surface is white and so is
             the card's, so within it the row showed only as its lip. */}
@@ -179,67 +181,50 @@ export default function LessonSettingsScreen() {
         </View>
       </ScrollView>
       <View style={[styles.footer, { paddingBottom: Math.max(8, insets.bottom) }]}>
-        <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: busy || !lessonName.trim(), busy: saving }} disabled={busy || !lessonName.trim()} onPress={save} style={[styles.saveBase, (busy || !lessonName.trim()) && styles.saveDisabled]}><View style={styles.saveFace}>{saving ? <ActivityIndicator color={homeColors.white} /> : <Text style={styles.saveText}>Save changes</Text>}</View></LedgePressable>
+        <Button size="xl" label="Save changes" loading={saving} disabled={busy || !lessonName.trim()} onPress={save} />
       </View>
     </KeyboardAvoidingView>
-    <DeadlineSheet visible={showDatePicker} value={deadline} onClose={() => setShowDatePicker(false)} onConfirm={(date) => { setDeadline(date); setShowDatePicker(false); }} />
+    <DeadlineSheet visible={showDatePicker} value={deadline} cards={cardCount}
+      onClose={() => setShowDatePicker(false)} onConfirm={(date) => { setDeadline(date); setShowDatePicker(false); }} />
     <ConfirmDialog visible={showDelete} title="Delete lesson?" subject={lessonName}
       message="This lesson and its cards will be permanently deleted."
       confirmLabel="Delete lesson" loading={deleting}
       onCancel={() => setShowDelete(false)} onConfirm={deleteLesson} />
   </SafeAreaView>;
 }
-const t = componentTokens.lessonEditor;
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   headerGradient: { position: 'absolute', left: 0, right: 0 },
   flex: { flex: 1 },
-  navigation: { paddingHorizontal: layout.screenInline, paddingTop: 12, minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  navTitle: { fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep },
-  link: { ...type.controlLink, color: colors.text },
-  save: { width: 80, paddingHorizontal: 0 },
-  content: { paddingHorizontal: layout.screenInline, paddingTop: 12, paddingBottom: 24, gap: 16 },
-  formBase: { borderRadius: 28, backgroundColor: homeColors.border, paddingBottom: ledge.raised },
-  formCard: { borderRadius: 28, backgroundColor: homeColors.white, padding: 20, gap: 20 },
-  footer: { paddingHorizontal: layout.screenInline, paddingTop: 8 },
-  saveBase: { height: 59 + ledge.lead, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: ledge.lead },
-  saveFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
-  saveText: { fontFamily: fonts.medium, fontSize: 22, lineHeight: 30, color: homeColors.white },
-  saveDisabled: { opacity: 0.45 },
-  group: { gap: 8 },
-  coverRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  coverCopy: { flex: 1, gap: 3 },
-  coverTitle: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.deep },
-  coverHint: { fontFamily: fonts.regular, fontSize: 13, color: homeColors.muted },
+  navigation: { paddingHorizontal: layout.screenInline, paddingTop: space[3], minHeight: 64, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  navTitle: { ...type.page, color: colors.sub },
+  link: { ...type.small, fontFamily: fonts.semibold, color: colors.text },
+  save: { width: 80, paddingHorizontal: space[0] },
+  content: { paddingHorizontal: layout.screenInline, paddingTop: space[3], paddingBottom: space[6], gap: space[4] },
+  footer: { paddingHorizontal: layout.screenInline, paddingTop: space[2] },
+  group: { gap: space[2] },
+  coverRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  coverCopy: { flex: 1, gap: space.hair },
+  coverTitle: { ...type.small, fontFamily: fonts.semibold, color: colors.sub },
+  coverHint: { ...type.caption, fontFamily: fonts.regular, color: colors.faint },
   coverButton: { minHeight: 44, justifyContent: 'center' },
-  coverOptions: { gap: 8, paddingTop: 8 },
-  coverOptionLabel: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.muted },
-  coverChoices: { gap: 8, paddingVertical: 2 },
-  coverChoice: { width: 46, height: 46, borderRadius: 14, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: homeColors.white },
-  coverChoiceSelected: { borderColor: homeColors.primary },
-  coverSwatch: { width: 38, height: 38, borderRadius: 10 },
-  label: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: homeColors.muted },
-  // A well sunk into the card's face, not a bordered box — the same field the create
-  // screens use.
-  input: {
-    minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontFamily: fonts.medium, fontSize: 16, lineHeight: 22, color: homeColors.darkest,
-  },
-  description: { minHeight: 96 },
-  modeSection: { gap: 10 },
-  sectionLabel: {
-    fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24, color: homeColors.darkest,
-  },
-  deadlineRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  dateField: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  dateText: { fontFamily: fonts.medium, fontSize: 16, color: homeColors.darkest, flex: 1 },
+  coverOptions: { gap: space[2], paddingTop: space[2] },
+  coverOptionLabel: { ...type.caption, fontFamily: fonts.semibold, color: colors.faint },
+  coverChoices: { gap: space[2], paddingVertical: space.hair },
+  coverChoice: { width: 46, height: 46, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: colors.surf },
+  coverChoiceSelected: { borderColor: colors.action },
+  coverSwatch: { width: 38, height: 38, borderRadius: radius.sm },
+  modeSection: { gap: space[2] },
+  sectionLabel: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
+  deadlineRow: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  dateField: { flex: 1 },
+  dateText: { ...oneLine(type.body), color: colors.text, flex: 1 },
   clear: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
-  muted: { color: colors.muted },
-  deleteSection: { paddingHorizontal: 4 },
-  delete: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  deleteLabel: { ...type.controlLink, color: colors.red },
-  status: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: layout.screenInline, gap: 20 },
-  message: { ...type.bodyReading, color: colors.text },
-  error: { ...type.bodySmall, color: colors.red },
+  muted: { color: colors.sub },
+  deleteSection: { paddingHorizontal: space[1] },
+  delete: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  deleteLabel: { ...type.small, fontFamily: fonts.semibold, color: colors.red },
+  status: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: layout.screenInline, gap: space[5] },
+  message: { ...type.small, color: colors.text },
+  error: { ...type.small, color: colors.red },
 });

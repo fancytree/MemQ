@@ -1,11 +1,10 @@
-import { AuthPerch, authField } from '@/components/auth/AuthPerch';
+import { AuthPerch } from '@/components/auth/AuthPerch';
+import { Field } from '@/components/ui/Field';
 import { dialog } from '@/lib/dialog';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
-import { homeColors } from '@/theme/colors';
 import * as Linking from 'expo-linking';
 import React, { useEffect, useRef, useState } from 'react';
-import { TextInput, View } from 'react-native';
 
 const COOLDOWN_SECONDS = 120;
 
@@ -129,21 +128,17 @@ export default function ForgotPasswordScreen() {
         onPress: handleResetPassword, disabled: cooldown > 0, busy: loading,
       }}
       footer={{ label: 'Back to sign in', onPress: () => safeBack('/login'), disabled: loading }}>
-      <View style={authField.well}>
-        <TextInput accessibilityLabel="Email"
-          style={authField.input}
-          placeholder="Email"
-          placeholderTextColor={homeColors.placeholder}
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoComplete="email"
-          returnKeyType="send"
-          onSubmitEditing={handleResetPassword}
-          editable={!loading}
-        />
-      </View>
+      <Field accessibilityLabel="Email"
+        placeholder="Email"
+        value={email}
+        onChangeText={setEmail}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        autoComplete="email"
+        returnKeyType="send"
+        onSubmitEditing={handleResetPassword}
+        editable={!loading}
+      />
     </AuthPerch>
   );
 }

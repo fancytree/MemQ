@@ -1,4 +1,4 @@
-import { homeColors } from '@/theme/colors';
+import { colors } from '@/theme/colors';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
   Easing, interpolateColor, useAnimatedStyle, useDerivedValue, useReducedMotion, withTiming,
@@ -35,7 +35,7 @@ export function Toggle({ value, onValueChange, disabled = false, label, hint }: 
   }, [value, reduce]);
 
   const track = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(at.value, [0, 1], [homeColors.border, homeColors.primary]),
+    backgroundColor: interpolateColor(at.value, [0, 1], [colors.line, colors.action]),
   }));
   const thumb = useAnimatedStyle(() => ({
     transform: [{ translateX: at.value * TRAVEL }],
@@ -63,6 +63,6 @@ const styles = StyleSheet.create({
   },
   off: { opacity: 0.45 },
   thumb: {
-    width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: homeColors.white,
+    width: THUMB, height: THUMB, borderRadius: THUMB / 2, backgroundColor: colors.surf,
   },
 });

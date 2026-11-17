@@ -1,4 +1,4 @@
-import { colors, fonts } from '@/theme';
+import { space, type, colors, fonts } from '@/theme';
 import { StyleProp, ViewStyle, Text, View } from 'react-native';
 import { DesignAsset } from '../DesignAsset';
 
@@ -27,9 +27,9 @@ export default function Logo({ width = 120, height, style, color = colors.wordma
   return <View accessibilityRole="image" accessibilityLabel="MemQ" style={[{ width, height: finalHeight }, style]}>
     <View style={{ position: 'absolute', top: (finalHeight - 36) / 2,
       left: align === 'left' ? (116 * scale - 116) / 2 : (width - 116) / 2,
-      width: 116, height: 36, flexDirection: 'row', alignItems: 'center', gap: 3,
+      width: 116, height: 36, flexDirection: 'row', alignItems: 'center', gap: space.hair,
       justifyContent: align === 'left' ? 'flex-start' : 'center', transform: [{ scale }] }}>
-      <Text style={{ fontFamily: fonts.extraBold, fontSize: 25, lineHeight: 32, letterSpacing: -1.1, color }}>MemQ</Text>
+      <Text style={{ ...type.page, fontFamily: fonts.extraBold, letterSpacing: -1.1, color }}>MemQ</Text>
       <DesignAsset name="rays" />
     </View>
   </View>;

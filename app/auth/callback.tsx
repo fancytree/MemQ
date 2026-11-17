@@ -1,6 +1,6 @@
 import { navigateAfterAuth } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme';
+import { space, type, colors } from '@/theme';
 import { useLocalSearchParams } from 'expo-router';
 import React, { useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
@@ -96,7 +96,7 @@ export default function AuthCallbackScreen() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color={colors.accentText} />
+      <ActivityIndicator size="large" color={colors.sub} />
       <Text style={styles.text}>Signing you in...</Text>
     </View>
   );
@@ -110,8 +110,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   text: {
-    marginTop: 12,
-    fontSize: 14,
-    color: colors.muted,
+    ...type.small,
+    marginTop: space[3],
+    color: colors.sub,
   },
 });

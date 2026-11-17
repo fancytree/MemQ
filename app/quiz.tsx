@@ -1,15 +1,19 @@
+import { hasLanguageData } from '@/lib/languageCard';
+import { PracticeBack } from '@/components/practice/PracticeBack';
+import { PracticeCard } from '@/components/practice/PracticeCard';
+import { Card } from '@/components/ui/Card';
+import { Dialog } from '@/components/ui/Dialog';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { ledge } from '@/theme/ledge';
-import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
-import { elevation as cardElevation } from '@/theme';
+import { space, radius, type, componentTokens } from '@/theme';
+
+const cardToken = componentTokens.card;
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
-import { Icon } from '@/components/Icon';
-import { CloseButton } from '@/components/ui/RoundButtons';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
+import { CloseButton, RoundAction } from '@/components/ui/RoundButtons';
 import { MascotRig } from '@/components/mascot/rig/MascotRig';
-import { LanguageCardDetails, PlayButton } from '@/components/LanguageCardFields';
+import { PlayButton } from '@/components/LanguageCardFields';
 import { ListenPrompt } from '@/components/practice/ListenPrompt';
 import { MatchBoard } from '@/components/practice/MatchBoard';
 import { SentenceBuilder, isBuiltCorrectly } from '@/components/practice/SentenceBuilder';
@@ -30,13 +34,20 @@ import { colors, fonts } from '@/theme';
 import PracticeSettingsModal, {
   DEFAULT_PRACTICE_SETTINGS, type PracticeSettings,
 } from '@/components/PracticeSettingsModal';
+import { dialog } from '@/lib/dialog';
+import { hideSoundHint, resetSoundHint } from '@/lib/speech';
 import { loadPracticeSettings, savePracticeSettings } from '@/lib/practiceSettings';
+import {
+  LISTEN_BREAK_CHOICES, clearListenBreak, listenBreakActive, listenBreakEnd,
+  loadListenBreak, saveListenBreak,
+} from '@/lib/listenBreak';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, ActivityIndicator, Animated, Keyboard, KeyboardAvoidingView, InteractionManager, Modal, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { AccessibilityInfo, ActivityIndicator, Animated, Keyboard, KeyboardAvoidingView, InteractionManager, PanResponder, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TextInput } from 'react-native';
-import { LedgePressable } from '@/components/ui/LedgePressable';
+import { Button } from '@/components/ui/Button';
+import { IconButton } from '@/components/ui/IconButton';
 import { MascotState } from '@/components/mascot/MascotState';
 import type { MascotStateKind } from '@/components/mascot/states';
 import { isOffline } from '@/lib/networkError';
@@ -123,7 +134,6 @@ export default function QuizScreen() {
   const { height: windowHeight, fontScale } = useWindowDimensions();
   const swipeProgress = useRef(new Animated.Value(0)).current;
   const insets = useSafeAreaInsets();
-  const [navHeight, setNavHeight] = useState(72);
   const { entry, lessonId } = useLocalSearchParams<{ entry?: string; lessonId?: string }>();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -137,9 +147,43 @@ export default function QuizScreen() {
   // The round is built out of these, so it waits for them: read a frame late, the
   // first question would already have been picked under the defaults.
   const [settingsReady, setSettingsReady] = useState(false);
+  /** When the person asked not to be made to listen until, or null.
+   *
+   *  It is held twice on purpose. The ref is what picks the next question, and it
+   *  has to be true the instant the choice is made: the question right after the
+   *  dialog is chosen in the same tick, and reading this from state there gave the
+   *  value from before the choice — so the first thing you saw after asking for
+   *  quiet was another listening question. The state is for what is drawn. */
+  const listenBreakRef = useRef<number | null>(null);
+  const [listenBreak, setListenBreak] = useState<number | null>(null);
+  const applyListenBreak = (until: number | null) => {
+    listenBreakRef.current = until;
+    setListenBreak(until);
+  };
   useEffect(() => {
-    void loadPracticeSettings().then((saved) => { setSettings(saved); setSettingsReady(true); });
+    // A round of practice is one hearing of the volume sign, at most, and one
+    // offer to stop listening.
+    resetSoundHint();
+    firstHeard.current = null;
+    void Promise.all([loadPracticeSettings(), loadListenBreak()]).then(([saved, until]) => {
+      setSettings(saved);
+      applyListenBreak(until);
+      setSettingsReady(true);
+    });
   }, []);
+  /** Which kinds a round may ask: the ones switched on, less listening while a
+   *  break is running. A break that has passed is the same as no break at all.
+   *
+   *  Someone who practises by listening and nothing else would be left with no
+   *  kind of question at all, and the round would quietly end — which is not what
+   *  "can't listen now" asks for. It asks to carry on without the sound. So when
+   *  taking listening away would leave nothing, the other kinds are let back in
+   *  for as long as the break lasts. */
+  const quietModes = (modes: PracticeSettings['modes']) => {
+    if (!listenBreakActive(listenBreakRef.current)) return modes;
+    const quiet = { ...modes, listen: false };
+    return Object.values(quiet).some(Boolean) ? quiet : { ...DEFAULT_PRACTICE_SETTINGS.modes, listen: false };
+  };
   const updateSettings = (next: PracticeSettings) => {
     setSettings(next);
     void savePracticeSettings(next);
@@ -170,6 +214,15 @@ export default function QuizScreen() {
   const round = useRef({ retried: {} as Record<string, boolean>, lastVariant: {} as Record<string, string> });
   /** Counts questions shown, so an answer to a slow check is not applied to the next question. */
   const shown = useRef(0);
+  /** Which heard question was the round's first, so "Can't listen now" is
+   *  offered once.
+   *
+   *  It is an offer to trade the whole round for one you can read, and a round
+   *  can be most of a dozen heard questions. Repeating it under every one of
+   *  them makes it the thing on the screen, and makes the round look as though
+   *  it keeps asking whether you really want to be here. Asked once, at the
+   *  first one, it is an offer; asked every time, it is nagging. */
+  const firstHeard = useRef<string | null>(null);
   /** A typed answer's mark, held until the person moves on: until then they may overrule it. */
   const pending = useRef<{ termId: string; correct: boolean } | null>(null);
 
@@ -197,7 +250,7 @@ export default function QuizScreen() {
    *  stops being asked from the next question on. */
   const roundContext = (): RoundContext => {
     const e = engineRef.current;
-    return { modes: e.modes, topicByLesson: e.lessonTopicByLessonId, pool: e.pool };
+    return { modes: quietModes(e.modes), topicByLesson: e.lessonTopicByLessonId, pool: e.pool };
   };
 
   useEffect(() => {
@@ -408,9 +461,14 @@ export default function QuizScreen() {
         // The kinds switched on may have nothing to ask of these cards — only listening
         // and matching, say, in a lesson that is not a language. Practising them with
         // every kind is better than a round that cannot start.
-        let first = layOut(settings.modes);
-        const everyKind = !first.q;
-        if (everyKind) first = layOut(DEFAULT_PRACTICE_SETTINGS.modes);
+        let first = layOut(quietModes(settings.modes));
+        let everyKind = !first.q;
+        if (everyKind) first = layOut(quietModes(DEFAULT_PRACTICE_SETTINGS.modes));
+        // These cards have nothing to ask that is not heard. A round that cannot
+        // start is worse than one that asks you to listen, so the break gives way
+        // — it is a preference, and this is the one case where honouring it would
+        // mean no practice at all.
+        if (!first.q) { first = layOut(DEFAULT_PRACTICE_SETTINGS.modes); everyKind = true; }
         if (!first.q) {
           setLoadError('Could not build quiz session.');
           return;
@@ -479,11 +537,13 @@ export default function QuizScreen() {
         <View style={styles.loadingWrap}>
           <MascotState kind={stateFor(loadError)} width={STATE_ART} style={styles.stateArt} />
           <Text style={[styles.loadingText, styles.stateText]}>{loadError}</Text>
-          <LedgePressable accessibilityRole="button" onPress={() => {
-            if (entry === 'lesson' && lessonId && loadError.startsWith('No terms')) router.replace(`/lessons/${lessonId}/add-terms`);
-            else if (entry === 'home' && (loadError.startsWith('No cards') || loadError.startsWith('You’re all caught up'))) router.replace('/(tabs)/library');
-            else handleClose();
-          }} style={styles.emptyAction}><View style={styles.emptyActionFace}><Text style={styles.emptyActionText}>{entry === 'lesson' && lessonId && loadError.startsWith('No terms') ? 'Add cards' : entry === 'home' && (loadError.startsWith('No cards') || loadError.startsWith('You’re all caught up')) ? 'View lessons' : 'Go back'}</Text></View></LedgePressable>
+          <Button size="md" style={styles.emptyAction}
+            label={entry === 'lesson' && lessonId && loadError.startsWith('No terms') ? 'Add cards' : entry === 'home' && (loadError.startsWith('No cards') || loadError.startsWith('You’re all caught up')) ? 'View lessons' : 'Go back'}
+            onPress={() => {
+              if (entry === 'lesson' && lessonId && loadError.startsWith('No terms')) router.replace(`/lessons/${lessonId}/add-terms`);
+              else if (entry === 'home' && (loadError.startsWith('No cards') || loadError.startsWith('You’re all caught up'))) router.replace('/(tabs)/library');
+              else handleClose();
+            }} />
         </View>
       </EdBase>
     );
@@ -502,7 +562,7 @@ export default function QuizScreen() {
         <View style={styles.loadingWrap}>
           <MascotState kind="empty" width={STATE_ART} style={styles.stateArt} />
           <Text style={[styles.loadingText, styles.stateText]}>No quiz data available.</Text>
-          <LedgePressable accessibilityRole="button" onPress={handleClose} style={styles.emptyAction}><View style={styles.emptyActionFace}><Text style={styles.emptyActionText}>Go back</Text></View></LedgePressable>
+          <Button size="md" style={styles.emptyAction} label="Go back" onPress={handleClose} />
         </View>
       </EdBase>
     );
@@ -568,7 +628,7 @@ export default function QuizScreen() {
   };
 
   /** Trade a question that has to be heard for one that can be read, unmarked. */
-  const cannotListen = () => {
+  const readThisOneInstead = () => {
     const e = engineRef.current;
     const term = e.sessionTerms.find((item) => item.id === q.termId);
     const step = e.queues[q.termId]?.[0];
@@ -583,6 +643,28 @@ export default function QuizScreen() {
     }
     // Nothing else can ask this step: let it go.
     moveOn({ ...e.queues, [q.termId]: e.queues[q.termId].slice(1) }, 0);
+  };
+
+  /** "Can't listen now" almost never means this one card. On a bus, in a meeting,
+   *  or with someone asleep next door it means "not for a while" — so it asks how
+   *  long, and the rest of the round stops asking. */
+  const cannotListen = () => {
+    // Whatever is chosen here, the sign asking for more volume has been answered.
+    hideSoundHint();
+    dialog('Quiet for how long?', 'You’ll get questions you can read instead.',
+      // The only thing to DO here is decline, so it is the only button. The
+      // lengths are answers to the question in the title, and are picked from a
+      // list — three filled buttons made the dialog heavier than the round.
+      [{ text: 'Just this one', style: 'cancel' as const, onPress: readThisOneInstead }],
+      LISTEN_BREAK_CHOICES.map((choice) => ({
+        label: choice.label,
+        onPress: () => {
+          const until = listenBreakEnd(choice);
+          applyListenBreak(until);
+          void saveListenBreak(until);
+          readThisOneInstead();
+        },
+      })));
   };
 
   /** Mark a typed answer. Letters are marked here; a meaning the words leave open is
@@ -624,10 +706,25 @@ export default function QuizScreen() {
   };
 
   const isAudio = (q.mode === 'mcq' || q.mode === 'recall') && !!q.audio;
+  // This presentation of this term, which is also what remounts ListenPrompt.
+  // The first heard question of the round claims it, here rather than in an
+  // effect: an effect runs after the paint, so the offer would appear a frame
+  // late on the one question that is supposed to carry it.
+  const heardKey = `${q.termId}-${shown.current}`;
+  if (isAudio && firstHeard.current === null) firstHeard.current = heardKey;
   const mcqRight = q.mode === 'mcq' && selected === q.correct;
   const buildRight = q.mode === 'build' && isBuiltCorrectly(q, placed);
-  /** The card can be turned over for the answer and its explanation. */
-  const canExplain = q.mode === 'mcq' || q.mode === 'recall' || q.mode === 'build';
+  /** The card can be turned over — but only when there is something behind it.
+   *  A card with no explanation written and nothing language-specific to show has
+   *  only its correct answer back there, and the answer is already on this face:
+   *  offering to turn it over promised something and delivered a line saying there
+   *  was nothing. */
+  const canExplain = (q.mode === 'mcq' || q.mode === 'recall' || q.mode === 'build')
+    // hasLanguageData, not merely having the object: a card carrying an empty
+    // `{}` would otherwise open a back with nothing on it.
+    && (!!q.explain?.trim() || (!!q.languageData && hasLanguageData(q.languageData)));
+  /** The card is turned over and showing what is behind the answer. */
+  const onExplanation = showExplanation && revealed && canExplain;
   const correctAnswerText = q.mode === 'mcq' ? q.opts[q.correct] : q.mode === 'recall' ? q.answer : q.mode === 'build' ? q.answer.join(' ') : '';
   const chip = q.mode === 'match' ? 'Match' : q.mode === 'build' ? 'Build' : q.mode === 'flip' ? '' : q.chip;
   const questionText = q.mode === 'match' || q.mode === 'flip' ? '' : q.q;
@@ -680,20 +777,17 @@ export default function QuizScreen() {
 
   return (
     <EdBase bottomInset={0} scroll={false} style={{ paddingBottom: keyboardVisible ? 0 : insets.bottom }}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={[styles.headerGradient, { top: -insets.top }]} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={[styles.headerGradient, { top: -insets.top }]} />
       {q.mode === 'flip' && <View pointerEvents="none" style={[styles.pageSwipeBackground, { top: -insets.top, height: windowHeight }]}>
-        <Animated.View style={[styles.pageSwipeGradient, { opacity: swipeProgress.interpolate({ inputRange: [0, 24, 110], outputRange: [0, 0.2, 1], extrapolate: 'clamp' }) }]}><LinearGradient colors={[homeColors.swipeGreen, homeColors.swipeGreenLight, homeColors.canvas]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /></Animated.View>
-        <Animated.View style={[styles.pageSwipeGradient, { opacity: swipeProgress.interpolate({ inputRange: [-110, -24, 0], outputRange: [1, 0.2, 0], extrapolate: 'clamp' }) }]}><LinearGradient colors={[homeColors.swipeRed, homeColors.swipeRedLight, homeColors.canvas]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} /></Animated.View>
+        <Animated.View style={[styles.pageSwipeGradient, { opacity: swipeProgress.interpolate({ inputRange: [0, 24, 110], outputRange: [0, 0.2, 1], extrapolate: 'clamp' }) }]}><LinearGradient colors={[colors.swipeGreen, colors.greenL, colors.bg]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={StyleSheet.absoluteFill} /></Animated.View>
+        <Animated.View style={[styles.pageSwipeGradient, { opacity: swipeProgress.interpolate({ inputRange: [-110, -24, 0], outputRange: [1, 0.2, 0], extrapolate: 'clamp' }) }]}><LinearGradient colors={[colors.swipeRed, colors.redL, colors.bg]} start={{ x: 1, y: 0 }} end={{ x: 0, y: 1 }} style={StyleSheet.absoluteFill} /></Animated.View>
       </View>}
       <KeyboardAvoidingView style={styles.practiceLayout} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       {/* Nav */}
-      <View style={styles.nav} onLayout={(event) => setNavHeight(event.nativeEvent.layout.height)}>
+      <View style={styles.nav}>
         <CloseButton onPress={handleClose} label="Close practice" />
         <Text style={styles.roundTitle}>Practice</Text>
-        <Pressable accessibilityRole="button" accessibilityLabel="Practice settings"
-          onPress={() => setSettingsOpen(true)} style={styles.navButton}>
-          <Feather name="settings" size={22} color={homeColors.deep} />
-        </Pressable>
+        <RoundAction icon="settings" onPress={() => setSettingsOpen(true)} label="Practice settings" size={22} />
       </View>
 
       {/* Progress */}
@@ -701,30 +795,34 @@ export default function QuizScreen() {
         <Text style={styles.progressCount}>{completedSteps}</Text><View style={styles.progressTrack}><View style={[styles.progressFill, { width: `${progressPct}%` }]} /></View><Text style={styles.progressCount}>{totalSteps}</Text>
       </View>
 
-      <ScrollView style={styles.practiceScroll} contentContainerStyle={[styles.practiceScrollContent, q.mode !== 'flip' && styles.fixedCardContent]} scrollEnabled={q.mode === 'flip'} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      {/* Nothing here scrolls. A question is one screenful: what does not fit
+          scrolls inside the card that holds it, so a sideways swipe on a flashcard
+          is never fighting a page that wants to move up and down. */}
+      <ScrollView style={styles.practiceScroll} contentContainerStyle={[styles.practiceScrollContent, styles.fixedCardContent]} scrollEnabled={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       {q.mode !== 'flip' ? (
         <Animated.View style={[styles.fixedQuestionCard, { transform: [{ perspective: 1000 }, { rotateY: explanationRotation }] }]}>
-        <View style={[styles.questionCard, styles.fixedQuestionCard, q.mode === 'match' && styles.matchCard]}>
-          <View style={[styles.questionArea, styles.compactQuestionArea, (q.mode === 'match' || q.mode === 'build') && styles.briefQuestionArea]}>
-            <View style={styles.topicRow}><Text numberOfLines={2} style={styles.cardTopic}>{q.topic}</Text><View style={styles.modeChip}><Text style={styles.modeChipText}>{chip}</Text></View></View>
-            {/* A matching board is its own question: the card is all board. */}
-            {q.mode !== 'match' && <View style={q.mode === 'build' ? styles.briefQuestionCenter : styles.questionCenter}>
+        <PracticeCard topic={q.topic} kind={chip} style={styles.questionCard}
+          faceStyle={[styles.questionFace, q.mode === 'match' && styles.matchCard]}>
+          {/* A matching board is its own question: the card is all board. */}
+          {q.mode !== 'match' && (
+          <View style={[styles.questionArea, styles.compactQuestionArea,
+            (q.mode === 'build' || onExplanation) && styles.briefQuestionArea]}>
+            <View style={q.mode === 'build' || onExplanation ? styles.briefQuestionCenter : styles.questionCenter}>
               {q.mode === 'mcq' && <View style={styles.retryBadgeSlot}>{revealed && !mcqRight && <Text style={styles.retryBadge}>Let’s try again</Text>}</View>}
               {isAudio && !revealed
-                ? <ListenPrompt key={`${q.termId}-${shown.current}`} text={q.termText || q.q} languageCode={q.languageData?.language_code} onCannotListen={checking ? undefined : cannotListen} />
+                ? <ListenPrompt key={heardKey} text={q.termText || q.q} languageCode={q.languageData?.language_code} onCannotListen={checking || !firstHeard.current || firstHeard.current !== heardKey ? undefined : cannotListen} />
                 : <ScrollView style={[styles.questionTextScroll, q.mode !== 'mcq' && { maxHeight: 120 * fontScale }]} nestedScrollEnabled showsVerticalScrollIndicator><Text style={[styles.qText, longQuestion && styles.qTextLong]}>{questionText}</Text></ScrollView>}
               {showPlay && <PlayButton text={q.termText!} languageCode={q.languageData?.language_code} label={`Play ${q.termText}`} />}
-            </View>}
-          </View>
-          {showExplanation && revealed && canExplain ? <View style={styles.answerArea}>
+            </View>
+          </View>)}
+          {onExplanation ? <View style={[styles.answerArea, styles.explanationArea]}>
             <ScrollView style={styles.backExplanationScroll} nestedScrollEnabled showsVerticalScrollIndicator>
               <View style={styles.backExplanationContent}>
-                <View style={styles.correctAnswerBox}><Text style={styles.explanationTitle}>Correct answer</Text><Text style={styles.correctAnswerText}>{correctAnswerText}</Text></View>
-                <View style={styles.explanation}><Text style={styles.explanationTitle}>Explanation</Text><Text style={styles.explanationText}>{q.explain?.trim() || 'No explanation available for this card yet.'}</Text></View>
-                {q.languageData && <LanguageCardDetails data={q.languageData} />}
+                <PracticeBack answerLabel="Correct answer" answer={correctAnswerText}
+                  explain={q.explain} languageData={q.languageData} />
               </View>
             </ScrollView>
-            <Pressable accessibilityRole="button" accessibilityLabel="Return to answers" onPress={flipExplanation} hitSlop={10} style={styles.explanationToggle}><Text style={styles.explanationLink}>Tap to see your answer again</Text></Pressable>
+            <Button variant="quiet" size="sm" label="Tap to see your answer again" accessibilityLabel="Return to answers" onPress={flipExplanation} />
           </View> : <View style={[styles.answerArea, q.mode === 'mcq' && styles.mcqAnswerArea, q.mode === 'match' && styles.matchAnswerArea]}>
             {q.mode === 'mcq' && <>
               <Text style={[styles.answerPrompt, revealed && { color: mcqRight ? colors.green : colors.warn }]}>{revealed ? (mcqRight ? 'You got it!' : 'Keep going — learning takes practice.') : q.prompt}</Text>
@@ -750,20 +848,19 @@ export default function QuizScreen() {
               <SentenceBuilder question={q} placed={placed} onChange={setPlaced} revealed={revealed} correct={buildRight} />
             </>}
             {q.mode === 'recall' && (checking
-              ? <View style={styles.checking} accessibilityLiveRegion="polite"><ActivityIndicator size="small" color={colors.accentText} /><Text style={styles.checkingText}>Checking your answer…</Text></View>
+              ? <View style={styles.checking} accessibilityLiveRegion="polite"><ActivityIndicator size="small" color={colors.sub} /><Text style={styles.checkingText}>Checking your answer…</Text></View>
               : revealed && verdict ? <RecallResult q={q} recallText={recallText} verdict={verdict} onOverrule={overrule} /> : null)}
-            {(q.mode === 'mcq' || (revealed && canExplain)) && <View pointerEvents={revealed ? 'auto' : 'none'} style={styles.explanationSlot}>
-              {revealed && <Pressable accessibilityRole="button" accessibilityLabel="Reveal explanation" onPress={flipExplanation} hitSlop={10} style={styles.explanationToggle}><Text style={styles.explanationLink}>Tap to reveal explanation</Text></Pressable>}
+            {canExplain && (q.mode === 'mcq' || revealed) && <View pointerEvents={revealed ? 'auto' : 'none'} style={styles.explanationSlot}>
+              {revealed && <Button variant="quiet" size="sm" label="Tap to reveal explanation" accessibilityLabel="Reveal explanation" onPress={flipExplanation} />}
             </View>}
           </View>}
-        </View>
+        </PracticeCard>
         </Animated.View>
       ) : null}
 
       {q.mode === 'flip' && (
         <FlipView
           swipeProgress={swipeProgress}
-          cardMinHeight={Math.max(200, windowHeight - insets.top - insets.bottom - navHeight - 78 - (flipped ? 80 : 0))}
           q={q}
           flipped={flipped}
           onFlip={() => setFlipped(!flipped)}
@@ -778,17 +875,23 @@ export default function QuizScreen() {
 
       </ScrollView>
       {/* The recall composer stays above the keyboard; feedback uses the fixed Continue action. */}
-      {q.mode === 'recall' && !revealed && !checking ? <View style={styles.recallComposer}>
-        <TextInput key={q.answerKind} ref={recallInputRef} accessibilityLabel={q.placeholder} value={recallText} onChangeText={setRecallText} placeholder={q.placeholder} placeholderTextColor={homeColors.muted} multiline style={styles.recallComposerInput}
+      {q.mode === 'recall' && !revealed && !checking ? <Card pad="sm" gap={space[2]}
+        style={styles.recallComposer} faceStyle={styles.recallComposerRow}>
+        <TextInput key={q.answerKind} ref={recallInputRef} accessibilityLabel={q.placeholder} value={recallText} onChangeText={setRecallText} placeholder={q.placeholder} placeholderTextColor={colors.placeholder} multiline style={styles.recallComposerInput}
           // Spelling is the exercise: the keyboard must not correct it or capitalise it.
           {...(q.answerKind === 'spelling' ? { autoCapitalize: 'none' as const, autoCorrect: false, spellCheck: false, autoComplete: 'off' as const } : {})} />
-        <Pressable accessibilityRole="button" accessibilityLabel="Don't know" onPress={() => { void submitRecall(q, true); }} style={styles.recallSkip}><Text style={styles.recallSkipText}>Don’t know</Text></Pressable>
-        <Pressable accessibilityRole="button" accessibilityLabel="Submit answer" accessibilityState={{ disabled: checkDisabled }} disabled={checkDisabled} onPress={onCheckOrNext} style={[styles.recallSubmit, checkDisabled && styles.recallSubmitDisabled]}><Icon name="arrowRight" size={20} color={homeColors.white} strokeWidth={2} /></Pressable>
-      </View> : q.mode !== 'flip' && q.mode !== 'match' && <View style={styles.practiceFooter} pointerEvents={footerWaiting ? 'none' : 'auto'} accessibilityElementsHidden={footerWaiting} importantForAccessibility={footerWaiting ? 'no-hide-descendants' : 'auto'}>
-        <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: checkDisabled }} onPress={onCheckOrNext} disabled={checkDisabled} style={[styles.cta, checkDisabled && styles.ctaDisabled, footerWaiting && styles.reservedInvisible]}><View style={styles.ctaFace}><Text style={styles.ctaText}>{checking ? 'Checking…' : q.mode === 'build' && !revealed ? 'Check' : 'Continue →'}</Text></View></LedgePressable>
+        <Button variant="ghost" size="sm" label="Don’t know" accessibilityLabel="Don't know" onPress={() => { void submitRecall(q, true); }} />
+        <IconButton size="sm" variant="primary" label="Submit answer" disabled={checkDisabled} onPress={onCheckOrNext}>
+          <Icon name="arrowRight" size={20} color={colors.onAction} />
+        </IconButton>
+      </Card> : q.mode !== 'flip' && q.mode !== 'match' && <View style={styles.practiceFooter} pointerEvents={footerWaiting ? 'none' : 'auto'} accessibilityElementsHidden={footerWaiting} importantForAccessibility={footerWaiting ? 'no-hide-descendants' : 'auto'}>
+        <Button onPress={onCheckOrNext} disabled={checkDisabled} style={footerWaiting && styles.reservedInvisible}
+          label={checking ? 'Checking…' : q.mode === 'build' && !revealed ? 'Check' : 'Continue →'} />
       </View>}
       </KeyboardAvoidingView>
       <PracticeSettingsModal visible={settingsOpen} settings={settings}
+        listenBreak={listenBreak}
+        onEndListenBreak={() => { applyListenBreak(null); void clearListenBreak(); }}
         onChange={updateSettings} onClose={() => setSettingsOpen(false)} />
     </EdBase>
   );
@@ -815,13 +918,13 @@ function PracticeComplete({ cards, steps, onClose, onContinue }: { cards: number
     return () => { active = false; entrance.stopAnimation(); mascotCelebrate.stopAnimation(); };
   }, [entrance, mascotCelebrate]);
   return <EdBase bottomInset={0} scroll={false}>
-    <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.38, 1]} style={[styles.completeGradient, { top: -insets.top }]} />
+    <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.38, 1]} style={[styles.completeGradient, { top: -insets.top }]} />
     <View style={styles.nav}><CloseButton onPress={onClose} label="Close practice" /></View>
     <ScrollView contentContainerStyle={styles.completeContent} showsVerticalScrollIndicator={false}>
       <Animated.View style={[styles.completeCardBase, { opacity: entrance, transform: [{ translateY: entrance.interpolate({ inputRange: [0, 1], outputRange: [24, 0] }) }, { scale: entrance.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
         <View style={styles.completeCard}>
           <View style={styles.completeMascot}><Animated.View style={{ transform: [{ translateY: mascotCelebrate.interpolate({ inputRange: [0, 1], outputRange: [16, 0] }) }, { scale: mascotCelebrate.interpolate({ inputRange: [0, 1], outputRange: [0.74, 1] }) }] }}><MascotRig width={COMPLETE_MASCOT} mood="learningComplete" /></Animated.View></View>
-          <View style={styles.completeBadge}><Icon name="check" size={16} color={homeColors.deep} strokeWidth={2.5} /><Text style={styles.completeBadgeText}>Practice complete</Text></View>
+          <View style={styles.completeBadge}><Icon name="check" size={16} color={colors.sub} /><Text style={styles.completeBadgeText}>Practice complete</Text></View>
           <Text accessibilityRole="header" style={styles.completeTitle}>You did it!</Text>
           <Text style={styles.completeCopy}>A little practice goes a long way.</Text>
           <View style={styles.completeStats}>
@@ -832,8 +935,8 @@ function PracticeComplete({ cards, steps, onClose, onContinue }: { cards: number
         </View>
       </Animated.View>
       <View style={styles.completeActions}>
-        <LedgePressable accessibilityRole="button" onPress={onContinue} style={styles.completePrimaryBase}><View style={styles.completePrimary}><Text style={styles.completePrimaryText}>Keep practicing</Text></View></LedgePressable>
-        <Pressable accessibilityRole="button" onPress={onClose} style={styles.completeDone}><Text style={styles.completeDoneText}>Done</Text></Pressable>
+        <Button label="Keep practicing" onPress={onContinue} />
+        <Button variant="quiet" size="sm" label="Done" onPress={onClose} />
       </View>
     </ScrollView>
   </EdBase>;
@@ -872,12 +975,12 @@ function MCQView({ q, selected, revealed, onSelect }: MCQViewProps) {
 
 const mcqStyles = StyleSheet.create({
   scroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
-  wrap: { gap: 8, paddingBottom: 5 },
-  row: { minHeight: 52, justifyContent: 'center', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 16, borderWidth: 1, borderColor: homeColors.border, backgroundColor: homeColors.white },
+  wrap: { gap: space[2], paddingBottom: space[1] },
+  row: { minHeight: 52, justifyContent: 'center', paddingHorizontal: space[4], paddingVertical: space[2], borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surf },
   correct: { borderColor: colors.green, borderWidth: 1.5 },
   correctDashed: { borderStyle: 'dashed' },
-  wrong: { borderColor: homeColors.quizWrongOutline, borderWidth: 1.5 },
-  optText: { fontSize: 16, lineHeight: 23, color: homeColors.darkest, fontFamily: fonts.regular },
+  wrong: { borderColor: colors.wrong, borderWidth: 1.5 },
+  optText: { ...type.body, color: colors.text },
 });
 
 // ── Recall ──────────────────────────────────────────────────────
@@ -888,25 +991,24 @@ function RecallResult({ q, recallText, verdict, onOverrule }: { q: RecallQuestio
   const differs = recallText.trim().toLocaleLowerCase() !== q.answer.trim().toLocaleLowerCase();
   return <View style={recallStyles.result}>
     <Text style={[recallStyles.resultLabel, { color: correct ? colors.green : colors.warn }]}>{skipped ? 'Give this one another try later' : correct ? 'You got it!' : 'Keep going — learning takes practice.'}</Text>
-    <View style={[recallStyles.resultAnswer, { borderColor: correct ? colors.green : homeColors.quizWrongOutline }]}><Text style={recallStyles.resultText}>{skipped ? 'Skipped' : recallText}</Text></View>
+    <View style={[recallStyles.resultAnswer, { borderColor: correct ? colors.green : colors.wrong }]}><Text style={recallStyles.resultText}>{skipped ? 'Skipped' : recallText}</Text></View>
     {/* A right answer in other words is still worth comparing with the card's own. */}
     {(!correct || differs) && <><Text style={[recallStyles.resultLabel, { color: colors.green }]}>{correct ? 'On the card' : 'Correct answer'}</Text><View style={[recallStyles.resultAnswer, { borderColor: colors.green }]}><Text style={recallStyles.resultText}>{q.answer}</Text></View></>}
     {verdict.canOverrule && !correct && <Pressable accessibilityRole="button" accessibilityHint="Counts this answer as right" onPress={onOverrule} hitSlop={6} style={recallStyles.overrule}><Text style={recallStyles.overruleText}>My answer means the same</Text></Pressable>}
   </View>;
 }
 const recallStyles = StyleSheet.create({
-  result: { gap: 8 },
-  resultLabel: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20 },
-  resultAnswer: { minHeight: 52, justifyContent: 'center', borderWidth: 1.5, borderRadius: 16, backgroundColor: homeColors.white, paddingHorizontal: 16, paddingVertical: 10 },
-  resultText: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, color: homeColors.darkest },
+  result: { gap: space[2] },
+  resultLabel: { ...type.small, fontFamily: fonts.medium },
+  resultAnswer: { minHeight: 52, justifyContent: 'center', borderWidth: 1.5, borderRadius: radius.md, backgroundColor: colors.surf, paddingHorizontal: space[4], paddingVertical: space[2] },
+  resultText: { ...type.body, color: colors.text },
   overrule: { minHeight: 44, alignSelf: 'flex-start', justifyContent: 'center' },
-  overruleText: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary },
+  overruleText: { ...type.small, fontFamily: fonts.semibold, color: colors.action },
 });
 
 // ── Flip ────────────────────────────────────────────────────────
 interface FlipViewProps {
   swipeProgress: Animated.Value;
-  cardMinHeight: number;
   q: FlipQuestion;
   flipped: boolean;
   onFlip: () => void;
@@ -918,14 +1020,13 @@ let flashcardGuideDismissedThisSession = false;
 
 const CONFIDENCE_BUTTONS = [
   { label: 'Need review', color: colors.red },
-  { label: 'I got it',  color: colors.accentText },
+  { label: 'I got it',  color: colors.sub },
 ] as const;
 
-function FlipView({ q, flipped, onFlip, onConfidence, cardMinHeight, swipeProgress }: FlipViewProps) {
+function FlipView({ q, flipped, onFlip, onConfidence, swipeProgress }: FlipViewProps) {
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const [showGuide, setShowGuide] = useState(false);
-  const [cardHeight, setCardHeight] = useState(cardMinHeight);
   const [shownBack, setShownBack] = useState(flipped);
   const flipAngle = useRef(new Animated.Value(0)).current;
   const flipping = useRef(false);
@@ -970,8 +1071,15 @@ function FlipView({ q, flipped, onFlip, onConfidence, cardMinHeight, swipeProgre
     return () => { cancelled = true; flipAngle.stopAnimation(); flipping.current = false; };
   }, [flipped, flipAngle]);
 
+  // A sideways move is claimed on the way down, before the card's own scroller can
+  // take it, and is not given back once taken. Caught on the way up instead, a
+  // scroll view inside the card answered first and the swipe barely moved.
+  const sideways = (gesture: { dx: number; dy: number }) =>
+    !submitting.current && Math.abs(gesture.dx) > 8 && Math.abs(gesture.dx) > Math.abs(gesture.dy);
   const swipe = useRef(PanResponder.create({
-    onMoveShouldSetPanResponder: (_, gesture) => !submitting.current && Math.abs(gesture.dx) > 12 && Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.4,
+    onMoveShouldSetPanResponderCapture: (_, gesture) => sideways(gesture),
+    onMoveShouldSetPanResponder: (_, gesture) => sideways(gesture),
+    onPanResponderTerminationRequest: () => false,
     onPanResponderMove: (_, gesture) => translateX.setValue(gesture.dx),
     onPanResponderRelease: (_, gesture) => {
       const threshold = Math.min(110, widthRef.current * 0.25);
@@ -992,7 +1100,10 @@ function FlipView({ q, flipped, onFlip, onConfidence, cardMinHeight, swipeProgre
   const flipRotation = flipAngle.interpolate({ inputRange: [-90, 0, 90], outputRange: ['-90deg', '0deg', '90deg'] });
   const rotate = translateX.interpolate({ inputRange: [-width, 0, width], outputRange: ['-10deg', '0deg', '10deg'], extrapolate: 'clamp' });
   const rememberedOpacity = translateX.interpolate({ inputRange: [0, 24, 80], outputRange: [0, 0.25, 1], extrapolate: 'clamp' });
-  const reviewOpacity = translateX.interpolate({ inputRange: [-100, -15, 0], outputRange: [1, 0.15, 0], extrapolate: 'clamp' });
+  // Mirrored on the one to its right: the left label used to need a hundred points
+  // to come up where the right one was there at eighty, which made the same swipe
+  // feel like less had happened.
+  const reviewOpacity = translateX.interpolate({ inputRange: [-80, -24, 0], outputRange: [1, 0.25, 0], extrapolate: 'clamp' });
   const rememberedOffset = translateX.interpolate({ inputRange: [0, 100], outputRange: [18, 0], extrapolate: 'clamp' });
   const reviewOffset = translateX.interpolate({ inputRange: [-100, 0], outputRange: [0, 18], extrapolate: 'clamp' });
   const rememberedScale = translateX.interpolate({ inputRange: [0, 100], outputRange: [0.92, 1], extrapolate: 'clamp' });
@@ -1000,128 +1111,112 @@ function FlipView({ q, flipped, onFlip, onConfidence, cardMinHeight, swipeProgre
 
   return (
     <View style={flipStyles.wrap}>
-      <View pointerEvents="none" style={[flipStyles.swipeBackdrop, { height: Math.max(cardMinHeight, cardHeight) }]}>
-        <Animated.View style={[flipStyles.swipeFeedback, flipStyles.rememberedFeedback, { opacity: rememberedOpacity, transform: [{ translateY: rememberedOffset }, { scale: rememberedScale }] }]}><View style={flipStyles.feedbackIcon}><Icon name="check" size={22} color={colors.green} strokeWidth={2.5} /></View><Text style={[flipStyles.swipeFeedbackText, { color: colors.green }]}>I got it</Text></Animated.View>
-        <Animated.View style={[flipStyles.swipeFeedback, flipStyles.reviewFeedback, { opacity: reviewOpacity, transform: [{ translateY: reviewOffset }, { scale: reviewScale }] }]}><View style={flipStyles.feedbackIcon}><Icon name="close" size={22} color={colors.red} strokeWidth={2.5} /></View><Text style={[flipStyles.swipeFeedbackText, { color: colors.red }]}>Need review</Text></Animated.View>
+      <View style={flipStyles.cardArea}>
+      <View pointerEvents="none" style={flipStyles.swipeBackdrop}>
+        <Animated.View style={[flipStyles.swipeFeedback, flipStyles.rememberedFeedback, { opacity: rememberedOpacity, transform: [{ translateY: rememberedOffset }, { scale: rememberedScale }] }]}><View style={flipStyles.feedbackIcon}><Icon name="check" size={22} color={colors.green} /></View><Text style={[flipStyles.swipeFeedbackText, { color: colors.green }]}>I got it</Text></Animated.View>
+        <Animated.View style={[flipStyles.swipeFeedback, flipStyles.reviewFeedback, { opacity: reviewOpacity, transform: [{ translateY: reviewOffset }, { scale: reviewScale }] }]}><View style={flipStyles.feedbackIcon}><Icon name="close" size={22} color={colors.red} /></View><Text style={[flipStyles.swipeFeedbackText, { color: colors.red }]}>Need review</Text></Animated.View>
       </View>
-      <Animated.View {...swipe.panHandlers} style={{ transform: [{ translateX }, { rotate }] }}>
-      <Animated.View style={{ transform: [{ perspective: 1000 }, { rotateY: flipRotation }] }}>
-      <Pressable accessibilityRole="button" accessibilityLabel={shownBack ? "Show front of card" : "Reveal answer"} accessibilityHint="Swipe right if you remember, or left if you need review." accessibilityActions={[{ name: 'remembered', label: 'I got it' }, { name: 'review', label: 'Need review' }]} onAccessibilityAction={(event) => { if (event.nativeEvent.actionName === 'remembered') onConfidence('I got it'); else if (event.nativeEvent.actionName === 'review') onConfidence('Need review'); }} onPress={() => { if (!flipping.current) onFlip(); }} onLayout={(event) => setCardHeight(event.nativeEvent.layout.height)} style={[flipStyles.card, { minHeight: cardMinHeight }, shownBack && flipStyles.cardRevealed]}>
-        <View style={flipStyles.cardHeader}><Text numberOfLines={2} style={flipStyles.topic}>{q.topic}</Text><View style={flipStyles.typeBadge}><Text style={flipStyles.typeBadgeText}>Flashcard</Text></View></View>
-        {shownBack ? <View style={flipStyles.backLayout}>
-          <View style={flipStyles.backQuestion}>
-            <Text style={flipStyles.backTermLabel}>Term</Text>
+      <Animated.View {...swipe.panHandlers} style={[flipStyles.cardMotion, { transform: [{ translateX }, { rotate }] }]}>
+      <Animated.View style={[flipStyles.cardMotion, { transform: [{ perspective: 1000 }, { rotateY: flipRotation }] }]}>
+      <PracticeCard topic={q.topic} kind="Flashcard"
+        hint={shownBack ? 'Tap to see question again' : 'Tap to reveal answer'}
+        onPress={() => { if (!flipping.current) onFlip(); }}
+        accessibilityLabel={shownBack ? 'Show front of card' : 'Reveal answer'}
+        accessibilityHint="Swipe right if you remember, or left if you need review."
+        accessibilityActions={[{ name: 'remembered', label: 'I got it' }, { name: 'review', label: 'Need review' }]}
+        onAccessibilityAction={(event) => { if (event.nativeEvent.actionName === 'remembered') onConfidence('I got it'); else if (event.nativeEvent.actionName === 'review') onConfidence('Need review'); }}>
+        {shownBack ? <ScrollView style={flipStyles.faceScroll} contentContainerStyle={flipStyles.backContent} nestedScrollEnabled showsVerticalScrollIndicator>
+          {/* The word and the button that says it read as one thing: a label over
+              them and a tall button under them had pushed the three apart. */}
+          <View style={flipStyles.termRow}>
             <Text style={flipStyles.termRevealed}>{q.q}</Text>
-            {q.languageData && !!q.termText && <PlayButton text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />}
+            {q.languageData && !!q.termText && <PlayButton iconOnly iconSize={20} text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />}
           </View>
-          <View style={flipStyles.answer}>
-            <View style={flipStyles.correctAnswer}><Text style={flipStyles.meaningLabel}>Meaning</Text><Text style={flipStyles.definition}>{q.back}</Text></View>
-            {!!q.explain && <View style={flipStyles.explanationBlock}><Text style={flipStyles.answerLabel}>Explanation</Text><Text style={flipStyles.back}>{q.explain}</Text></View>}
-            {q.languageData && <LanguageCardDetails data={q.languageData} variant="flashcard" />}
-          </View>
-        </View> : <View style={flipStyles.cardContent}>
-          <Text style={flipStyles.frontLabel}>Term</Text>
-          <Text style={flipStyles.term}>{q.q}</Text>
-          {!!q.languageData?.pronunciation && <Text style={flipStyles.pronunciation}>{q.languageData.pronunciation}</Text>}
-          {!!q.languageData?.part_of_speech && <View style={flipStyles.wordType}><Text style={flipStyles.wordTypeText}>{q.languageData.part_of_speech}</Text></View>}
-          {q.languageData && !!q.termText && <View style={flipStyles.audioControl}><PlayButton text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} /></View>}
-        </View>}
-        <View style={flipStyles.cornerHint}><Text style={flipStyles.hintText}>{shownBack ? 'Tap to see question again' : 'Tap to reveal answer'}</Text></View>
-      </Pressable>
-      </Animated.View>
-      </Animated.View>
-
-      <Modal visible={showGuide} transparent animationType="fade" onRequestClose={dismissGuide}>
-        <View style={[flipStyles.guideOverlay, { paddingBottom: Math.max(insets.bottom, 20) + 12 }]}>
-          <View style={flipStyles.guideCard} accessibilityViewIsModal>
-            <View style={flipStyles.guideHeadingRow}><View style={flipStyles.guideIcon}><Icon name="library" size={22} color={homeColors.deep} strokeWidth={2} /></View><CloseButton onPress={dismissGuide} label="Close flashcard guide" size={20} /></View>
-            <Text accessibilityRole="header" style={flipStyles.guideTitle}>Study with flashcards</Text>
-            <Text style={flipStyles.guideDescription}>Tap the card to reveal the answer. When you’re ready, swipe to continue.</Text>
-            <View style={flipStyles.guideDirections}>
-              <View style={flipStyles.guideDirection}><Text style={flipStyles.guideArrow}>←</Text><View style={flipStyles.guideDirectionCopy}><Text style={flipStyles.guideDirectionTitle}>Need review</Text><Text style={flipStyles.guideDirectionHint}>Swipe left</Text></View></View>
-              <View style={flipStyles.guideDirection}><Text style={flipStyles.guideArrow}>→</Text><View style={flipStyles.guideDirectionCopy}><Text style={flipStyles.guideDirectionTitle}>I got it</Text><Text style={flipStyles.guideDirectionHint}>Swipe right</Text></View></View>
+          <PracticeBack answerLabel="Meaning" answer={q.back}
+            explain={q.explain} languageData={q.languageData} />
+        </ScrollView> : <ScrollView style={flipStyles.faceScroll} contentContainerStyle={flipStyles.frontContent} nestedScrollEnabled showsVerticalScrollIndicator>
+          <View style={flipStyles.cardContent}>
+            <View style={flipStyles.frontTerm}>
+              <Text style={flipStyles.term}>{q.q}</Text>
+              {!!q.languageData?.pronunciation && <Text style={flipStyles.pronunciation}>{q.languageData.pronunciation}</Text>}
             </View>
-            <LedgePressable accessibilityRole="button" onPress={dismissGuide} style={flipStyles.guideButton}><View style={flipStyles.guideFace}><Text style={flipStyles.guideButtonText}>Got it</Text></View></LedgePressable>
+            {!!q.languageData?.part_of_speech && <View style={flipStyles.wordType}><Text style={flipStyles.wordTypeText}>{q.languageData.part_of_speech}</Text></View>}
+            {q.languageData && !!q.termText && <PlayButton centred text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />}
           </View>
+        </ScrollView>}
+      </PracticeCard>
+      </Animated.View>
+      </Animated.View>
+      </View>
+
+      <Dialog visible={showGuide} place="bottom" onDismiss={dismissGuide}
+        title="Study with flashcards"
+        message={'Tap the card to reveal the answer. When you\u2019re ready, swipe to continue.'}
+        head={<View style={flipStyles.guideHeadingRow}><View style={flipStyles.guideIcon}><Icon name="library" size={22} color={colors.sub} /></View><CloseButton onPress={dismissGuide} label="Close flashcard guide" size={20} /></View>}
+        buttons={[{ text: 'Got it', onPress: dismissGuide }]}>
+        <View style={flipStyles.guideDirections}>
+          <View style={flipStyles.guideDirection}><Text style={flipStyles.guideArrow}>←</Text><View style={flipStyles.guideDirectionCopy}><Text style={flipStyles.guideDirectionTitle}>Need review</Text><Text style={flipStyles.guideDirectionHint}>Swipe left</Text></View></View>
+          <View style={flipStyles.guideDirection}><Text style={flipStyles.guideArrow}>→</Text><View style={flipStyles.guideDirectionCopy}><Text style={flipStyles.guideDirectionTitle}>I got it</Text><Text style={flipStyles.guideDirectionHint}>Swipe right</Text></View></View>
         </View>
-      </Modal>
-      {flipped && (
-        <View style={flipStyles.confRow}>
-          {CONFIDENCE_BUTTONS.map((b) => (
-            <Pressable accessibilityRole="button" key={b.label} onPress={() => onConfidence(b.label)} style={flipStyles.confBtn}>
-              <Text style={[flipStyles.confLabel, { color: b.color }]}>{b.label}</Text>
-            </Pressable>
-          ))}
-        </View>
-      )}
+      </Dialog>
+      {/* The row is always here, and only shows once the card is over. Letting it
+          arrive with the answer gave the card that space to grow into beforehand, so
+          the card stood taller on its front than on its back and changed height
+          under the finger that turned it. */}
+      <View style={flipStyles.confRow} pointerEvents={flipped ? 'auto' : 'none'}
+        accessibilityElementsHidden={!flipped} importantForAccessibility={flipped ? 'auto' : 'no-hide-descendants'}>
+        {CONFIDENCE_BUTTONS.map((b) => (
+          <Button key={b.label} size="md" variant="secondary" label={b.label}
+            labelStyle={{ color: b.color }} style={[flipStyles.confBtn, !flipped && styles.reservedInvisible]}
+            onPress={() => onConfidence(b.label)} />
+        ))}
+      </View>
     </View>
   );
 }
 
 const flipStyles = StyleSheet.create({
   wrap: {
+    flex: 1,
     marginHorizontal: layout.screenInline,
-    marginTop: 20,
+    marginTop: space[5],
   },
-  swipeBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, borderRadius: 24, overflow: 'hidden' },
-  swipeFeedback: { position: 'absolute', bottom: 28, paddingHorizontal: 16, gap: 8 },
+  // The card fills whatever the screen has left once the bar, the progress and the
+  // two confidence buttons have taken theirs, so nothing is cut off and nothing has
+  // to be guessed at in points.
+  cardArea: { flex: 1 },
+  cardMotion: { flex: 1 },
+  swipeBackdrop: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, borderRadius: radius.lg, overflow: 'hidden' },
+  swipeFeedback: { position: 'absolute', bottom: 28, paddingHorizontal: space[4], gap: space[2] },
   rememberedFeedback: { left: 0, alignItems: 'flex-start' },
   reviewFeedback: { right: 0, alignItems: 'flex-end' },
-  feedbackIcon: { width: 42, height: 42, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.white },
-  swipeFeedbackText: { fontFamily: fonts.display, fontSize: 20 },
-  card: { backgroundColor: colors.surf, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 24, paddingTop: 76, paddingBottom: 64, position: 'relative', alignItems: 'center', justifyContent: 'center', ...cardElevation.card },
-  cardRevealed: { alignItems: 'stretch', justifyContent: 'flex-start' },
-  cardHeader: { position: 'absolute', top: 20, left: 20, right: 20, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  topic: { flexShrink: 1, fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
-  typeBadge: { borderRadius: 16, backgroundColor: homeColors.selected, paddingHorizontal: 10, paddingVertical: 5 },
-  typeBadgeText: { fontFamily: fonts.semibold, fontSize: 12, color: homeColors.deep },
-  cardContent: { width: '100%', alignItems: 'center', gap: 12 },
-  frontLabel: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.muted },
-  pronunciation: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, color: homeColors.muted, textAlign: 'center' },
-  wordType: { borderRadius: 16, backgroundColor: homeColors.nav, paddingHorizontal: 10, paddingVertical: 5 },
-  wordTypeText: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.deep },
-  audioControl: { alignItems: 'center', marginTop: 4 },
-  backTermLabel: { fontFamily: fonts.medium, fontSize: 13, color: homeColors.muted },
-  backLayout: { width: '100%', flexGrow: 1, gap: 20 },
-  backQuestion: { flexGrow: 1, minHeight: 120, justifyContent: 'center', alignItems: 'flex-start', gap: 8 },
-  term: { fontFamily: fonts.display, fontSize: 36, lineHeight: 46, color: homeColors.darkest, textAlign: 'center' },
-  termRevealed: { fontFamily: fonts.display, fontSize: 26, lineHeight: 36, color: homeColors.deep, textAlign: 'left' },
-  answer: { flexGrow: 1, alignSelf: 'stretch', gap: 16 },
-  correctAnswer: { borderRadius: 18, backgroundColor: homeColors.selected, padding: 16, gap: 8 },
-  meaningLabel: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.deep },
-  explanationBlock: { gap: 6 },
-  front: { fontSize: 14, lineHeight: 21, color: homeColors.muted, fontFamily: fonts.medium, textAlign: 'center', maxWidth: 280 },
-  answerLabel: { fontSize: 13, color: homeColors.muted, fontFamily: fonts.medium },
-  definition: { fontSize: 20, lineHeight: 29, color: homeColors.darkest, fontFamily: fonts.semibold },
-  back:  { fontSize: 15, lineHeight: 23, color: homeColors.deep, fontFamily: fonts.regular },
-  cornerHint: {
-    position: 'absolute', bottom: 16, left: 20, right: 20, alignItems: 'center', gap: 5,
-  },
-  hintText: { fontSize: 13, color: homeColors.muted, fontFamily: fonts.medium,
-  },
-  guideOverlay: { flex: 1, backgroundColor: colors.modalScrim, justifyContent: 'flex-end', paddingHorizontal: 16 },
-  guideCard: { backgroundColor: homeColors.white, borderRadius: 24, padding: 20, gap: 14, boxShadow: `0px 4px 0px ${homeColors.border}` },
+  feedbackIcon: { width: 42, height: 42, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surf },
+  swipeFeedbackText: { ...type.heading, fontFamily: fonts.display },
+  // Both faces scroll within the card. The card used to grow with its answer, which
+  // pushed the hint off the screen and left nothing to swipe but a long page.
+  faceScroll: { flex: 1, alignSelf: 'stretch' },
+  frontContent: { flexGrow: 1, justifyContent: 'center', alignItems: 'center' },
+  backContent: { flexGrow: 1, gap: space[4], paddingBottom: space[1] },
+  cardContent: { width: '100%', alignItems: 'center', gap: space[3] },
+  // The word and its reading are one block; what is said about it comes after.
+  frontTerm: { alignItems: 'center', gap: space.hair },
+  pronunciation: { ...type.body, color: colors.faint, textAlign: 'center' },
+  wordType: { borderRadius: radius.md, backgroundColor: colors.panel, paddingHorizontal: space[2], paddingVertical: space[1] },
+  wordTypeText: { ...type.caption, color: colors.sub },
+  termRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  term: { ...type.title, color: colors.text, textAlign: 'center' },
+  termRevealed: { ...type.page, flexShrink: 1, color: colors.sub, textAlign: 'left' },
   guideHeadingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  guideIcon: { width: 44, height: 44, borderRadius: 14, backgroundColor: homeColors.selected, alignItems: 'center', justifyContent: 'center' },
-  guideClose: { width: 44, height: 44, borderRadius: 22, backgroundColor: homeColors.nav, alignItems: 'center', justifyContent: 'center' },
-  guideTitle: { fontFamily: fonts.display, fontSize: 26, lineHeight: 34, color: homeColors.darkest },
-  guideDescription: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: homeColors.deep },
-  guideDirections: { flexDirection: 'row', gap: 10 },
-  guideDirection: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 16, backgroundColor: homeColors.nav, padding: 12 },
-  guideDirectionCopy: { flex: 1, gap: 2 },
-  guideArrow: { fontFamily: fonts.semibold, fontSize: 22, color: homeColors.primary },
-  guideDirectionTitle: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.darkest },
-  guideDirectionHint: { fontFamily: fonts.regular, fontSize: 12, color: homeColors.muted },
-  guideButton: { height: 52 + ledge.lead, borderRadius: 26, backgroundColor: homeColors.deep, paddingBottom: ledge.lead },
-  guideFace: { flex: 1, borderRadius: 26, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
-  guideButtonText: { fontFamily: fonts.semibold, fontSize: 16, color: homeColors.white },
-  confRow: { flexDirection: 'row', gap: 12, marginTop: 18, marginBottom: 10 },
-  confBtn: {
-    flex: 1, minHeight: 52, paddingVertical: 14, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: colors.surf,
-    borderWidth: 1, borderColor: colors.border, borderRadius: 26, boxShadow: `0px 4px 0px ${homeColors.border}`,
-  },
-  confLabel: { fontSize: 15, fontFamily: fonts.semibold },
+  guideIcon: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.panel, alignItems: 'center', justifyContent: 'center' },
+  guideDirections: { flexDirection: 'row', gap: space[2] },
+  guideDirection: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: space[2], borderRadius: radius.md, backgroundColor: colors.panel, padding: space[3] },
+  guideDirectionCopy: { flex: 1, gap: space.hair },
+  guideArrow: { ...type.heading, color: colors.action },
+  guideDirectionTitle: { ...type.caption, fontFamily: fonts.semibold, color: colors.text },
+  guideDirectionHint: { ...type.caption, fontFamily: fonts.regular, color: colors.faint },
+  confRow: { flexDirection: 'row', gap: space[3], marginTop: space[4], marginBottom: space[2] },
+  // Side by side, each taking half the row; the surface is the button's own.
+  confBtn: { flex: 1 },
 });
 
 // ── Feedback ────────────────────────────────────────────────────
@@ -1154,133 +1249,105 @@ function FeedbackBlock({
 
 const fbStyles = StyleSheet.create({
   block: {
-    marginHorizontal: layout.screenInline, marginTop: 12,
-    paddingHorizontal: 12, paddingVertical: 10,
-    borderWidth: 1, borderRadius: 18,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    marginHorizontal: layout.screenInline, marginTop: space[3],
+    paddingHorizontal: space[3], paddingVertical: space[2],
+    borderWidth: 1, borderRadius: radius.md,
+    flexDirection: 'row', alignItems: 'center', gap: space[2],
   },
   copy: { flex: 1, minWidth: 0 },
-  heading: { fontSize: 15, fontWeight: '700', marginBottom: 3, letterSpacing: 0.3, fontFamily: fonts.bold },
-  body:    { fontSize: 14, color: colors.sub, lineHeight: 21, fontFamily: fonts.regular },
+  heading: { ...type.small, fontFamily: fonts.bold, marginBottom: space.hair, letterSpacing: 0.3 },
+  body:    { ...type.small, color: colors.sub },
 });
 
 // ── Host styles ─────────────────────────────────────────────────
 const styles = StyleSheet.create({
   headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 340 },
   completeGradient: { position: 'absolute', left: 0, right: 0, height: 680 },
-  completeContent: { flexGrow: 1, paddingHorizontal: 16, paddingBottom: 16, justifyContent: 'center', gap: 20 },
-  completeCardBase: { backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
-  completeCard: { alignItems: 'center', backgroundColor: homeColors.white, borderRadius: 24, paddingHorizontal: 20, paddingVertical: 24, gap: 10 },
+  completeContent: { flexGrow: 1, paddingHorizontal: space[4], paddingBottom: space[4], justifyContent: 'center', gap: space[5] },
+  completeCardBase: { backgroundColor: cardToken.shell, borderRadius: cardToken.radius.lg, paddingBottom: cardToken.lip },
+  completeCard: { alignItems: 'center', backgroundColor: cardToken.face, borderRadius: cardToken.radius.lg, paddingHorizontal: space[5], paddingVertical: space[6], gap: space[2] },
   completeMascot: { width: 150, height: 130, alignItems: 'center', justifyContent: 'center' },
-  completeBadge: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: homeColors.selected, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 7 },
-  completeBadgeText: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.deep },
-  completeTitle: { fontFamily: fonts.display, fontSize: 36, lineHeight: 46, color: homeColors.darkest, textAlign: 'center' },
-  completeCopy: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 22, color: homeColors.muted, textAlign: 'center' },
-  completeStats: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', backgroundColor: homeColors.nav, borderRadius: 18, paddingVertical: 14, marginTop: 10 },
-  completeStat: { flex: 1, alignItems: 'center', gap: 2 },
-  completeNumber: { fontFamily: fonts.display, fontSize: 24, color: homeColors.deep },
-  completeStatLabel: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.muted },
-  completeDivider: { width: 1, height: 34, backgroundColor: homeColors.border },
-  completeActions: { gap: 8 },
-  completePrimaryBase: { height: 56, paddingBottom: 4, borderRadius: 28, backgroundColor: homeColors.deep },
-  completePrimary: { flex: 1, borderRadius: 28, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
-  completePrimaryText: { fontFamily: fonts.semibold, fontSize: 16, color: homeColors.white },
-  completeDone: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  completeDoneText: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.deep },
+  completeBadge: { flexDirection: 'row', alignItems: 'center', gap: space[1], backgroundColor: colors.limeSurface, borderRadius: radius.lg, paddingHorizontal: space[3], paddingVertical: space[2] },
+  completeBadgeText: { ...type.caption, fontFamily: fonts.semibold, color: colors.sub },
+  completeTitle: { ...type.title, color: colors.text, textAlign: 'center' },
+  completeCopy: { ...type.small, fontFamily: fonts.medium, color: colors.faint, textAlign: 'center' },
+  completeStats: { alignSelf: 'stretch', flexDirection: 'row', alignItems: 'center', backgroundColor: colors.panel, borderRadius: radius.md, paddingVertical: space[3], marginTop: space[2] },
+  completeStat: { flex: 1, alignItems: 'center', gap: space.hair },
+  completeNumber: { ...type.page, color: colors.sub },
+  completeStatLabel: { ...type.caption, color: colors.faint },
+  completeDivider: { width: 1, height: 34, backgroundColor: colors.line },
+  completeActions: { gap: space[2] },
   pageSwipeBackground: { position: 'absolute', top: 0, left: 0, right: 0 },
   pageSwipeGradient: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 },
   practiceLayout: { flex: 1 },
   practiceScroll: { flex: 1 },
-  practiceScrollContent: { flexGrow: 1, paddingBottom: 8 },
+  practiceScrollContent: { flexGrow: 1, paddingBottom: space[2] },
   fixedCardContent: { flexShrink: 1 },
-  practiceFooter: { paddingHorizontal: layout.screenInline, paddingTop: 10, paddingBottom: 8 },
-  recallComposer: { flexDirection: 'row', alignItems: 'center', gap: 8, marginHorizontal: layout.screenInline, marginTop: 8, marginBottom: 8, paddingHorizontal: 12, paddingVertical: 8, borderWidth: 1, borderColor: homeColors.border, borderRadius: 24, backgroundColor: homeColors.white, boxShadow: `0px 4px 0px ${homeColors.border}` },
-  recallComposerInput: { flex: 1, minHeight: 40, maxHeight: 100, paddingVertical: 8, fontFamily: fonts.regular, fontSize: 16, lineHeight: 22, color: homeColors.darkest },
-  recallSkip: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 4 },
-  recallSkipText: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.primary },
-  recallSubmit: { width: 40, height: 40, borderRadius: 20, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
-  recallSubmitDisabled: { opacity: 0.4 },
-  // Lipped like Library's empty-state button, so every "nothing here" offers the
-  // same kind of way out.
-  emptyAction: { borderRadius: 24, backgroundColor: homeColors.deep, paddingBottom: 3, marginTop: 8 },
-  emptyActionFace: { minHeight: 45, paddingHorizontal: 20, borderRadius: 24, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
-  emptyActionText: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.white },
-  stateArt: { marginBottom: 14 },
-  stateText: { fontSize: 15, lineHeight: 22, textAlign: 'center', maxWidth: 300, color: colors.text },
+  practiceFooter: { paddingHorizontal: layout.screenInline, paddingTop: space[2], paddingBottom: space[2] },
+  recallComposer: { marginHorizontal: layout.screenInline, marginTop: space[2], marginBottom: space[2] },
+  recallComposerRow: { flexDirection: 'row', alignItems: 'center' },
+  recallComposerInput: { ...type.body, flex: 1, minHeight: 40, maxHeight: 100, paddingVertical: space[2], color: colors.text },
+  // Where the empty state's way out sits; the button itself is components/ui/Button.
+  emptyAction: { marginTop: space[2] },
+  stateArt: { marginBottom: space[3] },
+  stateText: { ...type.small, textAlign: 'center', maxWidth: 300, color: colors.text },
   loadingWrap: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
+    gap: space[2],
   },
   loadingText: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.muted,
-    fontFamily: fonts.regular,
+    ...type.caption, fontFamily: fonts.regular,
+    color: colors.sub,
   },
-  progressRow: { marginHorizontal: layout.screenInline, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  progressCount: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.deep },
-  progressTrack: { flex: 1, height: 10, backgroundColor: homeColors.track, borderRadius: 6, overflow: 'hidden' },
-  progressFill:  { height: '100%', backgroundColor: colors.accent, borderRadius: 5 },
+  progressRow: { marginHorizontal: layout.screenInline, flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  progressCount: { ...type.caption, color: colors.sub },
+  progressTrack: { flex: 1, height: 10, backgroundColor: colors.tint, borderRadius: radius.sm, overflow: 'hidden' },
+  progressFill:  { height: '100%', backgroundColor: colors.action, borderRadius: radius.sm },
 
   nav: {
-    paddingHorizontal: layout.screenInline, paddingVertical: 14,
+    paddingHorizontal: layout.screenInline, paddingVertical: space[3],
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderBottomWidth: 0, zIndex: 10,
   },
-  navButton: { width: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  roundTitle: { fontFamily: fonts.semibold, fontSize: 20, color: homeColors.deep },
-  navBack: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
-  navCount: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
+  roundTitle: { ...type.heading, color: colors.sub },
+  navBack: { ...type.small, fontFamily: fonts.medium, color: colors.sub },
+  navCount: { ...type.small, fontFamily: fonts.medium, color: colors.sub },
 
-  questionCard: { marginHorizontal: layout.screenInline, marginTop: 16, padding: 20, paddingBottom: 8, borderRadius: 24, backgroundColor: homeColors.white, gap: 20, boxShadow: `0px 4px 0px ${homeColors.border}` },
+  questionCard: { marginHorizontal: layout.screenInline, marginTop: space[4] },
+  questionFace: { paddingBottom: space[2] },
   fixedQuestionCard: { flex: 1, minHeight: 0 },
-  questionArea: { flexGrow: 1, flexShrink: 0, minHeight: 70, justifyContent: 'flex-start', gap: 10, paddingTop: 0, paddingBottom: 12 },
-  compactQuestionArea: { flexGrow: 1, flexShrink: 1, minHeight: 100, gap: 6, paddingTop: 0, paddingBottom: 0 },
-  questionCenter: { flex: 1, minHeight: 0, justifyContent: 'center', gap: 6 },
+  questionArea: { flexGrow: 1, flexShrink: 0, minHeight: 70, justifyContent: 'flex-start', gap: space[2], paddingTop: space[0], paddingBottom: space[3] },
+  compactQuestionArea: { flexGrow: 1, flexShrink: 1, minHeight: 100, gap: space[1], paddingTop: space[0], paddingBottom: space[0] },
+  questionCenter: { flex: 1, minHeight: 0, justifyContent: 'center', gap: space[1] },
   questionTextScroll: { flexGrow: 0, flexShrink: 1 },
   retryBadgeSlot: { height: 20, alignItems: 'flex-start', justifyContent: 'center' },
-  retryBadge: { overflow: 'hidden', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3, fontFamily: fonts.medium, fontSize: 12, color: colors.warn, backgroundColor: colors.warnL },
-  cardTopic: { flexShrink: 1, fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
-  answerArea: { flexShrink: 1, minHeight: 0, gap: 10 },
+  retryBadge: { ...type.caption, overflow: 'hidden', borderRadius: radius.sm, paddingHorizontal: space[2], paddingVertical: space.hair, color: colors.warn, backgroundColor: colors.warnL },
+  answerArea: { flexShrink: 1, minHeight: 0, gap: space[2] },
   mcqAnswerArea: { flexGrow: 0 },
-  answerPrompt: { fontFamily: fonts.medium, fontSize: 14, color: homeColors.muted },
+  answerPrompt: { ...type.small, fontFamily: fonts.medium, color: colors.faint },
   explanationSlot: { height: 44, marginTop: -14, marginBottom: -6, justifyContent: 'center' },
-  explanationToggle: { minHeight: 44, justifyContent: 'center', alignItems: 'center' },
-  explanationLink: { fontFamily: fonts.medium, fontSize: 13, color: homeColors.muted },
-  backExplanationScroll: { flexShrink: 1, minHeight: 0 },
-  backExplanationContent: { gap: 16, paddingBottom: 4 },
-  correctAnswerBox: { padding: 16, borderRadius: 16, backgroundColor: homeColors.nav, gap: 8 },
-  correctAnswerText: { fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: homeColors.deep },
-  explanation: { gap: 8 },
-  explanationTitle: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.deep },
-  explanationText: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: homeColors.darkest },
-  qBlock: { paddingHorizontal: layout.screenInline, paddingTop: 24, gap: 8 },
-  topicRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  topicText: { flexShrink: 1, fontSize: 14, color: homeColors.deep, fontFamily: fonts.medium },
-  modeChip: { paddingHorizontal: 10, paddingVertical: 5, backgroundColor: homeColors.nav, borderRadius: 16 },
-  modeChipText: { fontSize: 12, color: homeColors.deep, fontFamily: fonts.semibold },
-  qText: {
-    fontSize: 30, lineHeight: 40, color: homeColors.deep, fontFamily: fonts.display,
-  },
-  qTextLong: { fontSize: 20, lineHeight: 29, fontFamily: fonts.semibold },
+  // Once the card is over the answer stack takes the room the question gave up,
+  // and reads from the top — the same way a flashcard's back does.
+  explanationArea: { flexGrow: 1 },
+  backExplanationScroll: { flexGrow: 1, flexShrink: 1, minHeight: 0 },
+  backExplanationContent: { gap: space[4], paddingBottom: space[1] },
+  qBlock: { paddingHorizontal: layout.screenInline, paddingTop: space[6], gap: space[2] },
+  qText: { ...type.title, color: colors.sub },
+  qTextLong: { ...type.heading },
   // Matching and building need the card for the answer, so the question takes only
   // the room its one line needs instead of half the card.
   briefQuestionArea: { flexGrow: 0, flexShrink: 0, minHeight: 0 },
-  briefQuestionCenter: { gap: 6 },
+  briefQuestionCenter: { gap: space[1] },
   // Matching has no button under it, so its card runs to the bottom of the screen
   // (the home indicator's inset is kept by the screen itself) and the board fills it.
-  matchCard: { paddingBottom: 20, gap: 14 },
+  matchCard: { paddingBottom: space[5], gap: space[3] },
   matchAnswerArea: { flex: 1 },
-  checking: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 10 },
-  checkingText: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: homeColors.muted },
+  checking: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  checkingText: { ...type.small, fontFamily: fonts.medium, color: colors.faint },
 
   // It had a lip painted on as a shadow, which stayed put when pressed; now the lip
   // is the shell showing under the face, and pressing uses it up.
-  cta: { height: 56 + ledge.lead, borderRadius: 100, backgroundColor: homeColors.deep, paddingBottom: ledge.lead },
-  ctaFace: { flex: 1, borderRadius: 100, backgroundColor: colors.action, alignItems: 'center', justifyContent: 'center' },
-  ctaDisabled: { opacity: 0.45 },
   reservedInvisible: { opacity: 0 },
-  ctaText: { color: colors.onAction, fontSize: 17, fontFamily: fonts.semibold },
 });

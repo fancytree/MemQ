@@ -1,3 +1,5 @@
+import { Card } from '@/components/ui/Card';
+import { space, radius } from '@/theme/spacing';
 import { useState, type ReactNode } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type TextStyle, type ViewStyle } from 'react-native';
 import Animated, { useAnimatedProps, useAnimatedStyle, type SharedValue } from 'react-native-reanimated';
@@ -6,9 +8,8 @@ import { CountUp, GROW_MS, useEased } from '@/components/motion/Grow';
 import Svg, { Circle, Line, Polyline } from 'react-native-svg';
 
 import { STAGES, type Stage } from '@/lib/scheduler';
-import { chartColors, homeColors } from '@/theme/colors';
-import { ledge } from '@/theme/ledge';
-import { fonts } from '@/theme/typography';
+import { colors, chartColors } from '@/theme/colors';
+import { type, fonts } from '@/theme/typography';
 
 /** The You page's charts.
  *
@@ -47,16 +48,14 @@ export function ChartCard({ label, value, unit, note, children }: {
   label: string; value: string; unit?: string; note?: string; children: ReactNode;
 }) {
   return (
-    <View style={styles.shell}>
-      <View style={styles.face}>
-        <View style={styles.head}>
-          <Text style={styles.label}>{label}</Text>
-          <Text style={styles.value}><Figure value={value} />{!!unit && <Text style={styles.unit}> {unit}</Text>}</Text>
-          {!!note && <Text style={styles.note}>{note}</Text>}
-        </View>
-        {children}
+    <Card gap={space[4]}>
+      <View style={styles.head}>
+        <Text style={styles.label}>{label}</Text>
+        <Text style={styles.value}><Figure value={value} />{!!unit && <Text style={styles.unit}> {unit}</Text>}</Text>
+        {!!note && <Text style={styles.note}>{note}</Text>}
       </View>
-    </View>
+      {children}
+    </Card>
   );
 }
 
@@ -110,7 +109,7 @@ export function ForecastChart({ counts, labels }: { counts: number[]; labels: st
           <View style={styles.columnTrack}>
             <GrowBar delay={i * STAGGER_MS} height={count === 0 ? 4 : Math.max(8, (count / most) * COLUMN_HEIGHT)}
               style={[styles.columnBar, {
-                backgroundColor: count === 0 ? chartColors.empty : i === 0 ? homeColors.primary : chartColors.stages[2],
+                backgroundColor: count === 0 ? chartColors.empty : i === 0 ? colors.action : chartColors.stages[2],
               }]} />
           </View>
           <Text style={[styles.columnLabel, i === 0 && styles.columnLabelToday]}>{labels[i]}</Text>
@@ -200,7 +199,7 @@ export function GoalChart({ values, labels, goal }: { values: number[]; labels: 
             <View key={i} style={styles.goalSlot} accessible accessibilityLabel={`${labels[i]}, ${v} cards`}>
               <GrowBar delay={i * 30} height={v === 0 ? 3 : Math.max(5, (v / top) * PLOT_HEIGHT)}
                 style={[styles.goalBar, {
-                  backgroundColor: v === 0 ? chartColors.empty : v >= goal ? homeColors.primary : chartColors.faint,
+                  backgroundColor: v === 0 ? chartColors.empty : v >= goal ? colors.action : chartColors.faint,
                 }]} />
             </View>
           ))}
@@ -209,7 +208,7 @@ export function GoalChart({ values, labels, goal }: { values: number[]; labels: 
           <Animated.View pointerEvents="none" style={[StyleSheet.absoluteFill, goalFade]}>
             {width > 0 && (
               <Svg width={width} height={PLOT_HEIGHT}>
-                <Line x1={0} x2={width} y1={goalY} y2={goalY} stroke={homeColors.deep} strokeWidth={1.5} strokeDasharray="4 4" />
+                <Line x1={0} x2={width} y1={goalY} y2={goalY} stroke={colors.sub} strokeWidth={1.5} strokeDasharray="4 4" />
               </Svg>
             )}
             <Text style={[styles.goalTag, { top: Math.max(0, goalY - 18) }]}>Goal {goal}</Text>
@@ -250,7 +249,7 @@ export function AccuracyChart({ values, labels }: { values: (number | null)[]; l
             ))}
             {points.length > 1 && (
               <AnimatedPolyline points={points.map((p) => `${p.x},${p.y}`).join(' ')} fill="none"
-                stroke={homeColors.primary} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
+                stroke={colors.action} strokeWidth={2.5} strokeLinejoin="round" strokeLinecap="round"
                 strokeDasharray={[length, length]} animatedProps={lineProps} />
             )}
             {points.map((p, i) => (
@@ -277,8 +276,8 @@ const AnimatedCircle = Animated.createAnimatedComponent(Circle);
 function Dot({ x, y, last, drawn, at }: { x: number; y: number; last: boolean; drawn: SharedValue<number>; at: number }) {
   const reached = useAnimatedProps(() => ({ opacity: drawn.value >= at - 0.001 ? 1 : 0 }));
   return (
-    <AnimatedCircle cx={x} cy={y} r={last ? 5 : 3.5} fill={last ? homeColors.primary : homeColors.white}
-      stroke={homeColors.primary} strokeWidth={2} animatedProps={reached} />
+    <AnimatedCircle cx={x} cy={y} r={last ? 5 : 3.5} fill={last ? colors.action : colors.surf}
+      stroke={colors.action} strokeWidth={2} animatedProps={reached} />
   );
 }
 
@@ -288,50 +287,48 @@ export function ChartWaiting({ children }: { children: string }) {
 }
 
 const styles = StyleSheet.create({
-  shell: { borderRadius: 24, backgroundColor: homeColors.border, paddingBottom: ledge.raised },
-  face: { borderRadius: 24, backgroundColor: homeColors.white, padding: 18, gap: 16 },
-  head: { gap: 2 },
-  label: { fontFamily: fonts.semibold, fontSize: 13, color: homeColors.muted },
-  value: { fontFamily: fonts.display, fontSize: 34, lineHeight: 42, color: homeColors.deep },
-  unit: { fontFamily: fonts.medium, fontSize: 15, color: homeColors.muted },
-  note: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: homeColors.darkest },
+  head: { gap: space.hair },
+  label: { ...type.caption, fontFamily: fonts.semibold, color: colors.faint },
+  value: { ...type.title, color: colors.sub },
+  unit: { ...type.small, fontFamily: fonts.medium, color: colors.faint },
+  note: { ...type.small, fontFamily: fonts.medium, color: colors.text },
 
-  stageWrap: { gap: 14 },
-  stageBar: { height: 16, borderRadius: 8, overflow: 'hidden', backgroundColor: chartColors.empty },
+  stageWrap: { gap: space[3] },
+  stageBar: { height: 16, borderRadius: radius.sm, overflow: 'hidden', backgroundColor: chartColors.empty },
   stageReveal: { height: '100%', overflow: 'hidden' },
-  stageSegments: { height: '100%', flexDirection: 'row', gap: 2 },
+  stageSegments: { height: '100%', flexDirection: 'row', gap: space.hair },
   stageSegment: { height: '100%' },
-  legend: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 8 },
-  legendItem: { width: '33.33%', flexDirection: 'row', alignItems: 'center', gap: 6 },
-  legendDot: { width: 10, height: 10, borderRadius: 5 },
-  legendName: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.muted },
-  legendCount: { fontFamily: fonts.semibold, fontSize: 12, color: homeColors.deep },
+  legend: { flexDirection: 'row', flexWrap: 'wrap', rowGap: space[2] },
+  legendItem: { width: '33.33%', flexDirection: 'row', alignItems: 'center', gap: space[1] },
+  legendDot: { width: 10, height: 10, borderRadius: radius.sm },
+  legendName: { ...type.caption, color: colors.faint },
+  legendCount: { ...type.caption, fontFamily: fonts.semibold, color: colors.sub },
 
-  columns: { flexDirection: 'row', gap: 8 },
-  column: { flex: 1, alignItems: 'center', gap: 6 },
-  columnCount: { fontFamily: fonts.semibold, fontSize: 12, color: homeColors.deep },
-  columnCountNone: { color: homeColors.muted },
+  columns: { flexDirection: 'row', gap: space[2] },
+  column: { flex: 1, alignItems: 'center', gap: space[1] },
+  columnCount: { ...type.caption, fontFamily: fonts.semibold, color: colors.sub },
+  columnCountNone: { color: colors.faint },
   columnTrack: { height: COLUMN_HEIGHT, width: '100%', justifyContent: 'flex-end' },
-  columnBar: { width: '100%', borderRadius: 8 },
-  columnLabel: { fontFamily: fonts.medium, fontSize: 12, color: homeColors.muted },
-  columnLabelToday: { fontFamily: fonts.semibold, color: homeColors.deep },
+  columnBar: { width: '100%', borderRadius: radius.sm },
+  columnLabel: { ...type.caption, color: colors.faint },
+  columnLabelToday: { fontFamily: fonts.semibold, color: colors.sub },
 
-  grid: { gap: 4 },
-  gridRow: { flexDirection: 'row', gap: 4 },
-  weekday: { width: CELL, textAlign: 'center', fontFamily: fonts.semibold, fontSize: 9, color: homeColors.muted },
-  tile: { width: CELL, height: CELL, borderRadius: 6, overflow: 'hidden' },
-  tileFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: 6 },
-  tileToday: { borderWidth: 1.5, borderColor: homeColors.deep },
-  footText: { fontFamily: fonts.medium, fontSize: 11, color: homeColors.muted },
+  grid: { gap: space[1] },
+  gridRow: { flexDirection: 'row', gap: space[1] },
+  weekday: { ...type.caption, fontFamily: fonts.semibold, width: CELL, textAlign: 'center', color: colors.faint },
+  tile: { width: CELL, height: CELL, borderRadius: radius.sm, overflow: 'hidden' },
+  tileFill: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, borderRadius: radius.sm },
+  tileToday: { borderWidth: 1.5, borderColor: colors.actionShell },
+  footText: { ...type.caption, color: colors.faint },
 
   plot: { height: PLOT_HEIGHT },
-  goalBars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: 4 },
+  goalBars: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', gap: space[1] },
   goalSlot: { flex: 1, height: '100%', justifyContent: 'flex-end' },
-  goalBar: { width: '100%', borderRadius: 5 },
-  goalTag: { position: 'absolute', right: 0, fontFamily: fonts.semibold, fontSize: 11, color: homeColors.deep, backgroundColor: homeColors.white, paddingHorizontal: 4 },
-  gridTag: { position: 'absolute', left: 0, fontFamily: fonts.medium, fontSize: 10, color: homeColors.muted, backgroundColor: homeColors.white, paddingRight: 4 },
-  axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
+  goalBar: { width: '100%', borderRadius: radius.sm },
+  goalTag: { ...type.caption, fontFamily: fonts.semibold, position: 'absolute', right: 0, color: colors.sub, backgroundColor: colors.surf, paddingHorizontal: space[1] },
+  gridTag: { ...type.caption, position: 'absolute', left: 0, color: colors.faint, backgroundColor: colors.surf, paddingRight: space[1] },
+  axis: { flexDirection: 'row', justifyContent: 'space-between', marginTop: space[2] },
 
-  waiting: { minHeight: 72, borderRadius: 16, backgroundColor: homeColors.nav, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 16 },
-  waitingText: { fontFamily: fonts.medium, fontSize: 13, lineHeight: 19, color: homeColors.muted, textAlign: 'center' },
+  waiting: { minHeight: 72, borderRadius: radius.md, backgroundColor: colors.panel, alignItems: 'center', justifyContent: 'center', paddingHorizontal: space[4] },
+  waitingText: { ...type.caption, color: colors.faint, textAlign: 'center' },
 });

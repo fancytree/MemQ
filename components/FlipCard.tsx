@@ -1,4 +1,6 @@
-import { elevation as cardElevation } from '@/theme';
+import { space, componentTokens } from '@/theme';
+
+const card = componentTokens.card;
 import { colors } from '@/theme/colors';
 import React, { useEffect } from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
@@ -62,15 +64,17 @@ export default function FlipCard({
         style={[styles.card, frontAnimatedStyle]}
         pointerEvents={isFlipped ? 'none' : 'box-none'}
       >
-        {frontContent}
-        {/* 透明的点击覆盖层，只在允许翻转时显示 */}
-        {!isFlipped && canFlip && (
-          <TouchableOpacity accessibilityRole="button"
-            onPress={onFlip}
-            activeOpacity={1}
-            style={styles.overlay}
-          />
-        )}
+        <View style={styles.face}>
+          {frontContent}
+          {/* 透明的点击覆盖层，只在允许翻转时显示 */}
+          {!isFlipped && canFlip && (
+            <TouchableOpacity accessibilityRole="button"
+              onPress={onFlip}
+              activeOpacity={1}
+              style={styles.overlay}
+            />
+          )}
+        </View>
       </Animated.View>
 
       {/* 背面（答案面） */}
@@ -78,7 +82,7 @@ export default function FlipCard({
         style={[styles.card, styles.backCard, backAnimatedStyle]}
         pointerEvents={isFlipped ? 'auto' : 'none'}
       >
-        {backContent}
+        <View style={styles.face}>{backContent}</View>
       </Animated.View>
     </View>
   );
@@ -95,30 +99,27 @@ const styles = StyleSheet.create({
     // 确保卡片占满宽度和高度
     alignSelf: 'stretch',
   },
+  // The shell of a raised surface — the same two layers as components/ui/Card,
+  // written out here because the face has to carry the flip's animated style and
+  // only an Animated.View can.
   card: {
     position: 'absolute',
     width: '100%',
     height: '100%',
-    backgroundColor: colors.surf,
-    borderWidth: 1,
-    borderColor: colors.border,
-    paddingHorizontal: 20,
-    paddingTop: 24,
-    paddingBottom: 14,
-    gap: 12,
-    // 阴影：0px_12px_20px_-5px_rgba(0,0,0,0.05),0px_6px_8px_-6px_rgba(0,0,0,0.05)
-    shadowColor: colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 16,
-    elevation: 0,
-    // 确保圆角和阴影不被裁剪
-    overflow: 'visible',
-    // 确保背面不可见
-    backfaceVisibility: 'hidden', ...cardElevation.card, },
+    borderRadius: card.radius.lg,
+    backgroundColor: card.shell,
+    paddingBottom: card.lip,
+    backfaceVisibility: 'hidden',
+  },
+  face: {
+    flex: 1,
+    borderRadius: card.radius.lg,
+    backgroundColor: card.face,
+    paddingHorizontal: space[5],
+    paddingTop: space[6],
+    paddingBottom: space[3],
+    gap: space[3],
+  },
   backCard: {
     // 背面初始状态，已通过动画样式控制
   },

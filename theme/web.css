@@ -2,7 +2,7 @@
 
 /* React Native Web retains keyboard focus outlines on every interactive control. */
 :where(button, a, input, textarea, select, [tabindex]):focus-visible {
-  outline: 3px solid var(--memq-focus);
+  outline: 3px solid var(--memq-action-shell);
   outline-offset: 3px;
 }
 @media (prefers-reduced-motion: reduce) {

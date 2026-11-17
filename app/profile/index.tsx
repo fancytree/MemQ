@@ -1,23 +1,26 @@
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
+import { Icon } from '@/components/ui/Icon';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
-import { elevation as cardElevation } from '@/theme';
-import { ledge } from '@/theme/ledge';
-import { LedgePressable } from '@/components/ui/LedgePressable';
+import { space, radius, type } from '@/theme';
+import { Button } from '@/components/ui/Button';
+import { Chip } from '@/components/ui/Chip';
+import { IconButton } from '@/components/ui/IconButton';
 import { dialog } from '@/lib/dialog';
 import { mcpEnabled } from '@/lib/mcp';
 import { layout } from '@/theme/spacing';
-import { sheet } from '@/theme/sheet';
+import { Sheet } from '@/components/ui/Sheet';
+import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { fonts } from '@/theme/typography';
-import { colors, homeColors } from '@/theme/colors';
+import { colors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import MenuItem from '@/components/MenuItem';
-import { RowIcon } from '@/components/RowIcon';
 import { MemQTheme } from '@/constants/theme';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { clearAllCache, formatCacheSize, getCacheSize } from '@/lib/cache';
 import { updateNotificationSchedule } from '@/lib/notificationService';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
-import { Feather } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from 'expo-router/react-navigation';
 import * as FileSystem from 'expo-file-system';
@@ -25,9 +28,7 @@ import { router, useFocusEffect } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  Animated,
   Image,
-  Modal,
   Platform,
   ScrollView,
   StyleSheet,
@@ -96,7 +97,6 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const [loadingCacheSize, setLoadingCacheSize] = useState(false);
 
   // 时间选择器动画
-  const slideAnim = useRef(new Animated.Value(300)).current;
 
   // 隐藏系统导航栏
   useEffect(() => {
@@ -392,20 +392,6 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
     const name = getUserDisplayName();
     return name.charAt(0).toUpperCase();
   };
-
-  // 时间选择器动画
-  useEffect(() => {
-    if (showTimePicker) {
-      Animated.spring(slideAnim, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 65,
-        friction: 11,
-      }).start();
-    } else {
-      slideAnim.setValue(300);
-    }
-  }, [showTimePicker, slideAnim]);
 
   // 处理 notification 开关切换
   const handleNotificationToggle = async (value: boolean) => {
@@ -713,7 +699,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
       {/* The way back stays above the scroll view. No page name under it: the person's
           own name and picture open the page, and a heading saying "Profile" over a
           profile only repeats what is already the first thing on it. */}
@@ -734,7 +720,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             >
               {uploadingAvatar ? (
                 <View style={styles.avatar}>
-                  <ActivityIndicator size="small" color={colors.accentText} />
+                  <ActivityIndicator size="small" color={colors.sub} />
                 </View>
               ) : avatarUrl ? (
                 <Image
@@ -747,7 +733,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                 </View>
               )}
               <View style={styles.avatarEditBadge}>
-                <Feather name="camera" size={14} color={colors.accentText} />
+                <Icon name="camera" size={14} color={colors.sub} />
               </View>
             </TouchableOpacity>
             <Text style={styles.userName}>{getUserDisplayName()}</Text>
@@ -756,27 +742,20 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
 
         {/* Pro Banner */}
         {!isPro && (
-          <View style={styles.premiumBanner}>
+          <Card pad="lg" gap={0} style={styles.premiumBanner}>
             <View style={styles.premiumHeader}>
-              <Feather name="star" size={20} color={t.color.muted} />
+              <Icon name="star" size={20} color={t.color.muted} />
               <Text style={styles.premiumLabel}>Pro</Text>
             </View>
             <Text style={styles.premiumTitle}>Unlock Your Full Potential</Text>
-            <LedgePressable accessibilityRole="button"
-              style={styles.premiumButton}
-              onPress={showPaywall}
-            >
-              <View style={styles.premiumFace}>
-                <Text style={styles.premiumButtonText}>Start Free Trial</Text>
-              </View>
-            </LedgePressable>
-          </View>
+            <Button size="sm" width="hug" label="Start Free Trial" onPress={showPaywall} />
+          </Card>
         )}
 
         {/* PERSONAL INFO Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal info</Text>
-          <View style={styles.menuCard}>
+          <Card pad="none" gap={0} faceStyle={styles.menuRows}>
             <MenuItem
               icon="user"
               iconColor={t.color.muted}
@@ -812,13 +791,13 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
               icon="connections" iconColor={t.color.muted} iconBgColor={t.color.bg} title="Connected apps"
               subtitle="Manage AI and other connections" onPress={() => router.push('/profile/connections')} showDivider={false}
             />}
-          </View>
+          </Card>
         </View>
 
         {/* PREFERENCE Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Preferences</Text>
-          <View style={styles.menuCard}>
+          <Card pad="none" gap={0} faceStyle={styles.menuRows}>
             <MenuItem
               icon="bell"
               iconColor={t.color.muted}
@@ -842,20 +821,16 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                     activeOpacity={0.7}
                   >
                     <View style={styles.timeItemContent}>
-                      <Feather name="clock" size={16} color={t.color.muted} />
+                      <Icon name="clock" size={16} color={t.color.muted} />
                       <Text style={styles.timeItemText}>
                         {formatTime(timeStr)}
                       </Text>
-                      <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete"
-                        onPress={(e) => {
-                          e.stopPropagation();
+                      <IconButton size="sm" label="Delete reminder" onPress={(event) => {
+                          event.stopPropagation();
                           handleDeleteTime(index);
-                        }}
-                        style={styles.deleteTimeButton}
-                        activeOpacity={0.7}
-                      >
-                        <Feather name="trash-2" size={16} color={t.color.muted} />
-                      </TouchableOpacity>
+                        }}>
+                        <Icon name="delete" size={16} color={t.color.muted} />
+                      </IconButton>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -865,7 +840,7 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                   activeOpacity={0.7}
                 >
                   <View style={styles.addTimeButtonContent}>
-                    <Feather name="plus" size={16} color={colors.accentText} />
+                    <Icon name="plus" size={16} color={colors.sub} />
                     <Text style={styles.addTimeButtonText}>Add reminder time</Text>
                   </View>
                 </TouchableOpacity>
@@ -883,21 +858,10 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             {showDailyStudyOptions && (
               <>
                 <View style={styles.inlineOptionWrap}>
-                  {[15, 30, 45, 60, 90].map((mins) => {
-                    const active = dailyStudyMinutes === mins;
-                    return (
-                      <TouchableOpacity accessibilityRole="button"
-                        key={mins}
-                        style={[styles.inlineOptionChip, active && styles.inlineOptionChipActive]}
-                        onPress={() => handleSetDailyStudyMinutes(mins)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.inlineOptionChipText, active && styles.inlineOptionChipTextActive]}>
-                          {mins} min
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {[15, 30, 45, 60, 90].map((mins) => (
+                    <Chip key={mins} label={`${mins} min`} selected={dailyStudyMinutes === mins}
+                      onPress={() => handleSetDailyStudyMinutes(mins)} />
+                  ))}
                 </View>
                 <View style={styles.divider} />
               </>
@@ -914,36 +878,25 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             {showDailyGoalOptions && (
               <>
                 <View style={styles.inlineOptionWrap}>
-                  {[10, 20, 30, 50, 80].map((cards) => {
-                    const active = dailyGoalCards === cards;
-                    return (
-                      <TouchableOpacity accessibilityRole="button"
-                        key={cards}
-                        style={[styles.inlineOptionChip, active && styles.inlineOptionChipActive]}
-                        onPress={() => handleSetDailyGoal(cards)}
-                        activeOpacity={0.7}
-                      >
-                        <Text style={[styles.inlineOptionChipText, active && styles.inlineOptionChipTextActive]}>
-                          {cards} cards
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
+                  {[10, 20, 30, 50, 80].map((cards) => (
+                    <Chip key={cards} label={`${cards} cards`} selected={dailyGoalCards === cards}
+                      onPress={() => handleSetDailyGoal(cards)} />
+                  ))}
                 </View>
                 <View style={styles.divider} />
               </>
             )}
-          </View>
+          </Card>
         </View>
 
         {/* STORAGE Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Storage</Text>
-          <View style={styles.menuCard}>
+          <Card pad="none" gap={0} faceStyle={styles.menuRows}>
             <View style={styles.cacheItem}>
               <View style={styles.cacheItemLeft}>
                 <View style={styles.cacheIconContainer}>
-                  <RowIcon name="storage" color={homeColors.deep} />
+                  <Icon name="storage" color={colors.sub} />
                 </View>
                 <View style={styles.cacheItemContent}>
                   <Text style={styles.cacheItemTitle}>Local Data</Text>
@@ -952,21 +905,17 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                   </Text>
                 </View>
               </View>
-              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Delete"
-                onPress={handleClearCache}
-                style={styles.clearCacheButton}
-                activeOpacity={0.7}
-              >
-                <Feather name="trash-2" size={18} color={t.color.muted} />
-              </TouchableOpacity>
+              <IconButton size="sm" label="Clear local data" onPress={handleClearCache}>
+                <Icon name="delete" size={16} color={t.color.muted} />
+              </IconButton>
             </View>
-          </View>
+          </Card>
         </View>
 
         {/* ABOUT Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>About</Text>
-          <View style={styles.menuCard}>
+          <Card pad="none" gap={0} faceStyle={styles.menuRows}>
             <MenuItem
               icon="privacy"
               iconColor={t.color.muted}
@@ -1010,96 +959,71 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
                 onPress={() => {
                   router.push('/motion-lab' as any);
                 }}
+              />
+            )}
+            {__DEV__ && (
+              <MenuItem
+                icon="library"
+                iconColor={t.color.muted}
+                iconBgColor={t.color.bg}
+                title="Design system"
+                subtitle="Colour, type, space and every component"
+                onPress={() => {
+                  router.push('/design-system' as any);
+                }}
                 showDivider={false}
               />
             )}
-          </View>
+          </Card>
         </View>
 
         {/* Footer Actions */}
         <View style={styles.footerActions}>
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.actionButton}
-            onPress={handleSignOut}
-            disabled={signingOut}
-            activeOpacity={0.7}
-          >
+          <Card onPress={handleSignOut} disabled={signingOut} accessibilityLabel="Logout"
+            style={styles.actionButton} faceStyle={styles.actionRow}>
             <View style={styles.actionButtonIconContainer}>
-              <RowIcon name="signOut" color={homeColors.deep} />
+              <Icon name="signOut" color={colors.sub} />
             </View>
             <Text style={styles.actionButtonText}>Logout</Text>
-          </TouchableOpacity>
+          </Card>
 
-          <TouchableOpacity accessibilityRole="button"
-            style={styles.actionButton}
-            onPress={handleDeleteAccount}
-            disabled={signingOut}
-            activeOpacity={0.7}
-          >
+          <Card onPress={handleDeleteAccount} disabled={signingOut} accessibilityLabel="Delete account"
+            style={styles.actionButton} faceStyle={styles.actionRow}>
             <View style={[styles.actionButtonIconContainer, styles.deleteIconContainer]}>
-              <RowIcon name="delete" color={t.color.danger} />
+              <Icon name="delete" color={t.color.danger} />
             </View>
             <Text style={styles.deleteButtonText}>Delete account</Text>
-          </TouchableOpacity>
+          </Card>
         </View>
 
         {/* Version */}
         <Text style={styles.versionText}>Version 1.0.0</Text>
       </ScrollView>
 
-      {/* 时间选择器 Modal */}
+      {/* When to be reminded. */}
       {showTimePicker && (
         <>
           {Platform.OS === 'ios' ? (
-            <Modal
-              visible={showTimePicker}
-              transparent
-              animationType="none"
-              onRequestClose={() => setShowTimePicker(false)}
-            >
-              <TouchableOpacity accessibilityRole="button"
-                style={styles.modalOverlay}
-                activeOpacity={1}
-                onPress={handleTimePickerCancel}
-              >
-                <Animated.View
-                  style={[
-                    styles.modalContent,
-                    {
-                      transform: [{ translateY: slideAnim }],
-                    },
-                  ]}
-                >
-                  <View style={styles.modalHeader}>
-                    <TouchableOpacity accessibilityRole="button"
-                      onPress={handleTimePickerCancel}
-                      style={styles.modalButton}
-                    >
-                      <Text style={styles.modalCancelText}>Cancel</Text>
-                    </TouchableOpacity>
-                    <Text style={styles.modalTitle}>
-                      {editingTimeIndex !== null ? 'Edit Study Time' : 'Add Study Time'}
-                    </Text>
-                    <TouchableOpacity accessibilityRole="button"
-                      onPress={() => handleTimePickerDone()}
-                      style={styles.modalButton}
-                    >
-                      <Text style={styles.modalDoneText}>Done</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.timePickerContainer}>
-                    <DateTimePicker
-                      value={tempTime}
-                      mode="time"
-                      display="spinner"
-                      onChange={handleTimeChange}
-                      textColor={colors.text}
-                      themeVariant="light"
-                    />
-                  </View>
-                </Animated.View>
-              </TouchableOpacity>
-            </Modal>
+            /* Cancel and Done were two words in a bar nothing else in the app has:
+               every other sheet dismisses with the cross and commits with the tick,
+               and this one ran its own spring against a TouchableOpacity scrim. */
+            <Sheet visible={showTimePicker} onClose={handleTimePickerCancel}
+              align="center" grab={false} close={false}
+              closeLabel="Cancel"
+              lead={<CloseButton onPress={handleTimePickerCancel} label="Cancel" />}
+              action={<ConfirmButton onPress={() => handleTimePickerDone()} label="Save this time" />}
+              title={editingTimeIndex !== null ? 'Edit Study Time' : 'Add Study Time'}>
+              <View style={styles.timePickerContainer}>
+                <DateTimePicker
+                  value={tempTime}
+                  mode="time"
+                  display="spinner"
+                  onChange={handleTimeChange}
+                  textColor={colors.text}
+                  themeVariant="light"
+                />
+              </View>
+            </Sheet>
           ) : (
             <DateTimePicker
               value={tempTime}
@@ -1133,16 +1057,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: layout.screenInline,
-    paddingVertical: 18,
-    marginBottom: 22,
+    paddingVertical: space[4],
+    marginBottom: space[5],
   },
   avatarContainer: {
-    marginRight: 16,
+    marginRight: space[4],
   },
   avatar: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: radius.xl,
     backgroundColor: t.color.accentLight,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1150,13 +1074,11 @@ const styles = StyleSheet.create({
   avatarImage: {
     width: 64,
     height: 64,
-    borderRadius: 32,
+    borderRadius: radius.xl,
   },
   avatarText: {
-    fontSize: 24,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-    color: colors.accentText,
+    ...type.page, fontFamily: fonts.bold,
+    color: colors.sub,
   },
   avatarEditBadge: {
     position: 'absolute',
@@ -1164,7 +1086,7 @@ const styles = StyleSheet.create({
     right: 0,
     width: 24,
     height: 24,
-    borderRadius: 12,
+    borderRadius: radius.md,
     backgroundColor: t.color.bg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1173,123 +1095,76 @@ const styles = StyleSheet.create({
   },
   // Under the page's own title now, so a step down from it.
   userName: {
-    fontSize: 24,
-    lineHeight: 32,
-    fontFamily: fonts.display,
-    color: homeColors.deep,
+    ...type.page,
+    color: colors.sub,
     flex: 1,
   },
-  premiumBanner: {
-    marginHorizontal: layout.screenInline,
-    marginBottom: 22,
-    borderRadius: 24,
-    padding: 20,
-    backgroundColor: homeColors.white,
-    boxShadow: `0px 4px 0px ${homeColors.border}`,
-  },
+  premiumBanner: { marginHorizontal: layout.screenInline, marginBottom: space[5] },
   premiumHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: space[3],
   },
   premiumLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    fontFamily: fonts.semibold,
+    ...type.caption, fontFamily: fonts.semibold,
     color: t.color.muted,
-    marginLeft: 8,
+    marginLeft: space[2],
   },
   premiumTitle: {
-    fontSize: 20,
-    lineHeight: 28,
+    ...type.heading, fontFamily: fonts.bold,
     letterSpacing: -0.2,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
     color: t.color.textHigh,
-    marginBottom: 14,
-  },
-  // A small control inside the banner, so the shallow lip.
-  premiumButton: {
-    borderRadius: 100, backgroundColor: homeColors.deep, paddingBottom: ledge.control, alignSelf: 'flex-start',
-  },
-  premiumFace: {
-    minHeight: 44, borderRadius: 100, backgroundColor: homeColors.primary,
-    paddingVertical: 11, paddingHorizontal: 16, alignItems: 'center', justifyContent: 'center',
-  },
-  premiumButtonText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-    color: colors.onAction,
+    marginBottom: space[3],
   },
   section: {
-    marginBottom: 20,
+    marginBottom: space[5],
     paddingHorizontal: layout.screenInline,
   },
   sectionTitle: {
-    fontSize: 18,
-    lineHeight: 25,
-    fontFamily: fonts.semibold,
-    color: homeColors.darkest,
-    marginBottom: 10,
+    ...oneLine(type.body), fontFamily: fonts.semibold,
+    color: colors.text,
+    marginBottom: space[2],
   },
-  menuCard: {
-    backgroundColor: t.color.surface,
-    overflow: 'hidden', ...cardElevation.card, },
+  // A list, not a padded card: the rows pad themselves and are clipped to the corner.
+  menuRows: { overflow: 'hidden' },
   footerActions: {
     paddingHorizontal: layout.screenInline,
-    marginTop: 4,
-    marginBottom: 20,
+    marginTop: space[1],
+    marginBottom: space[5],
   },
-  actionButton: { minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: t.color.surface,
-    borderRadius: 20,
-    boxShadow: `0px 4px 0px ${homeColors.border}`,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 10,
-  },
+  actionButton: { marginBottom: space[2] },
+  actionRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center' },
   // The same tile every settings row's icon sits in.
   actionButtonIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 14,
-    backgroundColor: homeColors.nav,
+    borderRadius: radius.md,
+    backgroundColor: colors.panel,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: space[3],
   },
   deleteIconContainer: {
     backgroundColor: t.color.dangerBg,
   },
   actionButtonText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
+    ...type.small, fontFamily: fonts.medium,
     color: t.color.textHigh,
   },
   deleteButtonText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
+    ...type.small, fontFamily: fonts.medium,
     color: t.color.danger,
   },
   versionText: {
-    fontSize: 12,
-    fontFamily: fonts.regular,
+    ...type.caption, fontFamily: fonts.regular,
     color: t.color.muted,
     textAlign: 'center',
-    marginTop: 8,
+    marginTop: space[2],
   },
   timeItem: {
     backgroundColor: t.color.surface,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
   },
   timeItemContent: {
     flexDirection: 'row',
@@ -1297,22 +1172,16 @@ const styles = StyleSheet.create({
     marginLeft: 68, // 与 MenuItem 的文字对齐
   },
   timeItemText: {
+    ...type.caption, fontFamily: fonts.regular,
     flex: 1,
-    fontSize: 13,
-    lineHeight: 18,
     letterSpacing: -0.1,
     color: t.color.textHigh,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    marginLeft: 8,
-  },
-  deleteTimeButton: { minHeight: 44,
-    padding: 4,
+    marginLeft: space[2],
   },
   addTimeButton: { minHeight: 44,
     backgroundColor: t.color.surface,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
   },
   addTimeButtonContent: {
     flexDirection: 'row',
@@ -1320,120 +1189,50 @@ const styles = StyleSheet.create({
     marginLeft: 68, // 与 MenuItem 的文字对齐
   },
   addTimeButtonText: {
-    fontSize: 13,
-    lineHeight: 18,
+    ...type.caption,
     letterSpacing: -0.1,
     color: t.color.muted,
-    marginLeft: 8,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
+    marginLeft: space[2],
   },
   inlineOptionWrap: {
     marginLeft: 68,
-    marginRight: 16,
-    marginTop: 8,
-    marginBottom: 8,
+    marginRight: space[4],
+    marginTop: space[2],
+    marginBottom: space[2],
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-  },
-  inlineOptionChip: { minHeight: 44,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: homeColors.border,
-    backgroundColor: homeColors.white,
-  },
-  inlineOptionChipActive: {
-    borderColor: colors.action,
-    backgroundColor: homeColors.selected,
-  },
-  inlineOptionChipText: {
-    fontSize: 12,
-    lineHeight: 16,
-    color: t.color.muted,
-    fontFamily: fonts.medium,
-    fontWeight: '500',
-  },
-  inlineOptionChipTextActive: {
-    color: colors.accentText,
-    fontFamily: fonts.bold,
+    gap: space[2],
   },
   divider: {
     height: 1,
     backgroundColor: t.color.border,
     marginLeft: 68, // 对齐文字部分，与 MenuItem 的分割线对齐
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: colors.modalScrim,
-    justifyContent: 'flex-end',
-  },
-  modalContent: { ...sheet.surface, paddingBottom: 40 },
-  // No rule under the title: the gap does that work, as on every other sheet.
-  modalHeader: { ...sheet.head, paddingTop: 18 },
-  modalButton: { minHeight: 44,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-  },
-  modalCancelText: {
-    fontSize: 14,
-    fontFamily: fonts.regular,
-    color: t.color.muted,
-  },
-  modalTitle: {
-    fontSize: 16,
-    letterSpacing: -0.2,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-    color: t.color.textHigh,
-  },
-  modalDoneText: {
-    fontSize: 14,
-    color: t.color.muted,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
-  },
+  // No fill of its own: a white block under the sheet's head drew a seam across
+  // the sheet and squared off what the corners had just rounded.
   timePickerContainer: {
     paddingHorizontal: layout.screenInline,
-    paddingVertical: 20,
-    backgroundColor: t.color.surface,
+    paddingVertical: space[5],
   },
-  statsCard: {
-    backgroundColor: t.color.surface,
-    borderWidth: 1,
-    borderColor: t.color.border,
-    padding: 20,
-    shadowColor: colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 2,
-    elevation: 0, ...cardElevation.card, },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: space[4],
   },
   statsRowLast: {
-    marginBottom: 0,
+    marginBottom: space[0],
   },
   statItem: {
     flex: 1,
     alignItems: 'center',
   },
   statValue: {
-    fontSize: 28,
-    fontWeight: '700',
+    ...type.page,
     color: t.color.textHigh,
-    marginBottom: 4,
+    marginBottom: space[1],
   },
   statLabel: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...type.caption,
     color: t.color.muted,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
@@ -1442,19 +1241,18 @@ const styles = StyleSheet.create({
     width: 1,
     height: 40,
     backgroundColor: t.color.border,
-    marginHorizontal: 20,
+    marginHorizontal: space[5],
   },
   recentDaysContainer: {
-    marginBottom: 20,
-    paddingBottom: 20,
+    marginBottom: space[5],
+    paddingBottom: space[5],
     borderBottomWidth: 1,
     borderBottomColor: t.color.border,
   },
   recentDaysTitle: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...type.small,
     color: t.color.textHigh,
-    marginBottom: 12,
+    marginBottom: space[3],
   },
   recentDaysRow: {
     flexDirection: 'row',
@@ -1466,16 +1264,15 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dayName: {
-    fontSize: 12,
-    fontWeight: '500',
+    ...type.caption,
     color: t.color.muted,
-    marginBottom: 8,
+    marginBottom: space[2],
     textTransform: 'uppercase',
   },
   dayCircle: {
     width: 36,
     height: 36,
-    borderRadius: 18,
+    borderRadius: radius.md,
     backgroundColor: t.color.inner,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1491,22 +1288,21 @@ const styles = StyleSheet.create({
     borderColor: colors.action,
   },
   dayNumber: {
-    fontSize: 14,
-    fontWeight: '600',
+    ...type.small,
     color: t.color.muted,
   },
   dayNumberStudied: {
     color: colors.onAction,
   },
   dayNumberToday: {
-    color: colors.accentText,
+    color: colors.sub,
   },
   cacheItem: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: space[3],
+    paddingHorizontal: space[4],
   },
   cacheItemLeft: {
     flexDirection: 'row',
@@ -1516,38 +1312,23 @@ const styles = StyleSheet.create({
   cacheIconContainer: {
     width: 40,
     height: 40,
-    borderRadius: 14,
-    backgroundColor: homeColors.nav,
+    borderRadius: radius.md,
+    backgroundColor: colors.panel,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: space[3],
   },
   cacheItemContent: {
     flex: 1,
   },
   cacheItemTitle: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-    fontFamily: fonts.medium,
+    ...type.small, fontFamily: fonts.medium,
     color: t.color.textHigh,
-    marginBottom: 2,
+    marginBottom: space.hair,
   },
   cacheItemSubtitle: {
-    fontSize: 12,
-    lineHeight: 17,
-    fontFamily: fonts.regular,
+    ...type.caption, fontFamily: fonts.regular,
     color: t.color.muted,
-  },
-  clearCacheButton: {
-    width: 44,
-    minHeight: 44,
-    borderRadius: 20,
-    backgroundColor: t.color.bg,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
 

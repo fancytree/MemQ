@@ -1,5 +1,6 @@
-import { elevation as cardElevation } from '@/theme';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
+import { oneLine } from '@/theme/typography';
+import { space, radius, type } from '@/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { colors } from '@/theme';
 import React, { useMemo } from 'react';
@@ -145,14 +146,14 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
     <View style={styles.container}>
       {/* 标题区 - 带渐变背景 */}
       <LinearGradient
-        colors={[colors.studyGradientStart, colors.learningBg]}
+        colors={[colors.surf, colors.panel]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.headerGradient}
       >
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Feather name="trending-up" size={20} color={colors.text} />
+            <Icon name="trendingUp" size={20} color={colors.text} />
             <Text style={styles.title}>Overall Progress</Text>
           </View>
 
@@ -160,7 +161,7 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
           {lesson.deadline && (
             <View style={styles.deadlineRow}>
               <View style={styles.deadlineBadge}>
-                <Feather name="calendar" size={14} color={colors.accentText} />
+                <Icon name="calendar" size={14} color={colors.sub} />
                 <Text style={styles.deadlineText}>Due: {deadlineFormatted}</Text>
               </View>
               {daysLeft !== null && (
@@ -246,30 +247,29 @@ export default function LessonStatsCard({ lesson, terms }: LessonStatsCardProps)
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.surf,
-    borderRadius: 20,
-    padding: 0.615,
-    marginBottom: 12,
+    borderRadius: radius.lg,
+    padding: space[0],
+    marginBottom: space[3],
     borderWidth: 0.615,
-    borderColor: colors.border,
+    borderColor: colors.line,
     overflow: 'hidden',
   },
   headerGradient: {
     width: '100%',
   },
   header: {
-    padding: 18,
-    paddingTop: 18.615,
-    paddingBottom: 18,
+    padding: space[4],
+    paddingTop: space[4],
+    paddingBottom: space[4],
   },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: 12,
+    gap: space[2],
+    marginBottom: space[3],
   },
   title: {
-    fontSize: 20,
-    fontWeight: '600',
+    ...oneLine(type.heading),
     color: colors.text,
     letterSpacing: -0.45,
   },
@@ -281,135 +281,129 @@ const styles = StyleSheet.create({
   deadlineBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: colors.accentL,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
+    gap: space[1],
+    backgroundColor: colors.tint,
+    paddingHorizontal: space[2],
+    paddingVertical: space[1],
+    borderRadius: radius.pill,
     height: 24,
   },
   deadlineText: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.accentText,
+    ...type.caption,
+    color: colors.sub,
   },
   daysLeftText: {
-    fontSize: 12,
+    ...type.caption,
     color: colors.text,
-    fontWeight: '400',
   },
   progressSection: {
-    padding: 18,
-    paddingTop: 18,
-    paddingBottom: 18,
+    padding: space[4],
+    paddingTop: space[4],
+    paddingBottom: space[4],
   },
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: space[4],
   },
   progressLabel: {
-    fontSize: 14,
-    fontWeight: '400',
+    ...type.small,
     color: colors.text,
     letterSpacing: -0.15,
   },
   progressText: {
-    fontSize: 14,
-    fontWeight: '400',
+    ...type.small,
     color: colors.sub,
     letterSpacing: -0.15,
   },
   progressBarBackground: {
     height: 12,
-    backgroundColor: colors.borderS,
-    borderRadius: 999,
+    backgroundColor: colors.line,
+    borderRadius: radius.pill,
     overflow: 'hidden',
   },
   progressBarFill: {
     height: '100%',
-    backgroundColor: colors.accent,
-    borderRadius: 999,
+    backgroundColor: colors.action,
+    borderRadius: radius.pill,
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 18,
-    paddingBottom: 18.615,
+    paddingHorizontal: space[4],
+    paddingBottom: space[4],
     justifyContent: 'space-between',
   },
   statCard: {
     width: '31%',
     height: 67,
-    paddingTop: 8,
-    paddingHorizontal: 8,
+    paddingTop: space[2],
+    paddingHorizontal: space[2],
     justifyContent: 'flex-start',
     alignItems: 'center',
-    marginBottom: 8, ...cardElevation.card, },
+    marginBottom: space[2],
+    borderRadius: radius.md,
+  },
   statNumber: {
-    fontSize: 16,
-    fontWeight: '400',
-    marginBottom: 0,
-    lineHeight: 25.6,
+    ...type.body,
+    marginBottom: space[0],
     letterSpacing: -0.31,
   },
   statLabel: {
-    fontSize: 16,
-    fontWeight: '400',
-    lineHeight: 25.6,
+    ...type.body,
     letterSpacing: -0.31,
     textTransform: 'none',
   },
   // New 样式
   statCardNew: {
-    backgroundColor: colors.surfaceSubtle,
+    backgroundColor: colors.panel,
   },
   statNumberNew: {
     color: colors.sub,
   },
   statLabelNew: {
-    color: colors.muted,
+    color: colors.sub,
   },
   // Learning 样式
   statCardLearning: {
-    backgroundColor: colors.accentL,
+    backgroundColor: colors.tint,
   },
   statNumberLearning: {
-    color: colors.accentText,
+    color: colors.sub,
   },
   statLabelLearning: {
-    color: colors.muted,
+    color: colors.sub,
   },
   // Familiar 样式
   statCardFamiliar: {
-    backgroundColor: colors.learningBg,
+    backgroundColor: colors.panel,
   },
   statNumberFamiliar: {
-    color: colors.accentText,
+    color: colors.sub,
   },
   statLabelFamiliar: {
-    color: colors.muted,
+    color: colors.sub,
   },
   // Good 样式
   statCardGood: {
-    backgroundColor: colors.familiarBg,
+    backgroundColor: colors.panel,
   },
   statNumberGood: {
-    color: colors.accentText,
+    color: colors.sub,
   },
   statLabelGood: {
-    color: colors.muted,
+    color: colors.sub,
   },
   // Strong 样式
   statCardStrong: {
-    backgroundColor: colors.proficientBg,
+    backgroundColor: colors.panel,
   },
   statNumberStrong: {
-    color: colors.proficientText,
+    color: colors.text,
   },
   statLabelStrong: {
-    color: colors.proficientText,
+    color: colors.text,
   },
   // Mastered 样式
   statCardMastered: {
@@ -419,7 +413,7 @@ const styles = StyleSheet.create({
     color: colors.green,
   },
   statLabelMastered: {
-    color: colors.muted,
+    color: colors.sub,
   },
 });
 

@@ -1,4 +1,6 @@
-import { RowIcon } from '@/components/RowIcon';
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
+import { Icon } from '@/components/ui/Icon';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { MascotState } from '@/components/mascot/MascotState';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
@@ -6,9 +8,7 @@ import { mcpBrokerUrl as brokerBaseUrl } from '@/lib/mcp';
 import { McpSetupSheet } from '@/components/McpSetupSheet';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
-import { colors, fonts, layout } from '@/theme';
-import { homeColors } from '@/theme/colors';
-import { Feather } from '@expo/vector-icons';
+import { space, radius, type, colors, fonts, layout } from '@/theme';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useRef, useState } from 'react';
@@ -78,59 +78,54 @@ export default function ConnectionsScreen() {
     finally { setRevoking(false); }
   };
   return <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
-    <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.gradient} />
+    <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={styles.gradient} />
     <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
     <ScrollView contentContainerStyle={styles.content}>
       <Text accessibilityRole="header" style={styles.title}>Connected apps</Text>
       <Text style={styles.intro}>Manage the apps you’ve connected to your MemQ account.</Text>
       {/* The half this screen was missing: it could show what was connected and take
           it away, but never said how to connect anything in the first place. */}
-      <Pressable accessibilityRole="button" accessibilityLabel="How to connect an app"
-        onPress={() => setShowHow(true)} style={styles.how}>
-        <View style={styles.howIcon}><RowIcon name="help" color={homeColors.deep} /></View>
+      <Card onPress={() => setShowHow(true)} accessibilityLabel="How to connect an app"
+        pad="sm" faceStyle={styles.how}>
+        <View style={styles.howIcon}><Icon name="help" color={colors.sub} /></View>
         <Text style={styles.howText}>How to connect an app</Text>
-        <Feather name="chevron-right" size={18} color={homeColors.muted} />
-      </Pressable>
+        <Icon name="chevronRight" size={18} color={colors.faint} />
+      </Card>
       {error && <Text accessibilityRole="alert" style={styles.error}>{error}</Text>}
-      {loading ? <ActivityIndicator color={homeColors.primary} style={styles.loading} /> : error && grants.length === 0 ? <View style={styles.empty}><MascotState kind="error" width={148} /><Pressable accessibilityRole="button" onPress={load} style={[styles.retry, styles.retryCentered]}><Text style={styles.retryText}>Try again</Text></Pressable></View> : grants.length === 0 ? <View style={styles.empty}><MascotState kind="empty" width={148} /><Text style={styles.emptyTitle}>{brokerBaseUrl ? 'No connected apps' : 'Not available yet'}</Text><Text style={styles.emptyText}>{brokerBaseUrl ? 'Apps you authorize will appear here.' : 'Connecting isn’t switched on in this build. The steps above are what it will look like.'}</Text></View> : grants.map((grant) => <View key={grant.id} style={styles.card}>
-        <View style={styles.cardTop}><View style={styles.icon}><RowIcon name="connections" color={homeColors.deep} /></View><View style={styles.copy}><Text style={styles.name}>{grant.name || 'Connected app'}</Text><Text style={styles.meta}>Connected {new Date(grant.createdAt * 1000).toLocaleDateString()}</Text></View></View>
+      {loading ? <ActivityIndicator color={colors.action} style={styles.loading} /> : error && grants.length === 0 ? <View style={styles.empty}><MascotState kind="error" width={148} /><Pressable accessibilityRole="button" onPress={load} style={[styles.retry, styles.retryCentered]}><Text style={styles.retryText}>Try again</Text></Pressable></View> : grants.length === 0 ? <View style={styles.empty}><MascotState kind="empty" width={148} /><Text style={styles.emptyTitle}>{brokerBaseUrl ? 'No connected apps' : 'Not available yet'}</Text><Text style={styles.emptyText}>{brokerBaseUrl ? 'Apps you authorize will appear here.' : 'Connecting isn’t switched on in this build. The steps above are what it will look like.'}</Text></View> : grants.map((grant) => <Card key={grant.id}>
+        <View style={styles.cardTop}><View style={styles.icon}><Icon name="connections" color={colors.sub} /></View><View style={styles.copy}><Text style={styles.name}>{grant.name || 'Connected app'}</Text><Text style={styles.meta}>Connected {new Date(grant.createdAt * 1000).toLocaleDateString()}</Text></View></View>
         <Pressable accessibilityRole="button" accessibilityLabel={`Disconnect ${grant.name || 'connected app'}`} onPress={() => setSelected(grant)} style={styles.disconnect}><Text style={styles.disconnectText}>Disconnect</Text></Pressable>
-      </View>)}
+      </Card>)}
     </ScrollView>
     <McpSetupSheet visible={showHow} onClose={() => setShowHow(false)} />
     <ConfirmDialog visible={!!selected} title="Disconnect app?" subject={selected?.name || 'Connected app'} message="This app will need your permission again to connect." confirmLabel="Disconnect" loading={revoking} onCancel={() => setSelected(null)} onConfirm={revoke} />
   </SafeAreaView>;
 }
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: homeColors.canvas },
+  screen: { flex: 1, backgroundColor: colors.bg },
   gradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 250 },
-  content: { paddingHorizontal: layout.screenInline, paddingTop: 16, paddingBottom: 32, gap: 14 },
-  title: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep },
-  intro: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 22, color: homeColors.muted, marginBottom: 8 },
-  how: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 60,
-    backgroundColor: homeColors.white, borderRadius: 24, paddingHorizontal: 14,
-    boxShadow: `0px 4px 0px ${homeColors.border}`,
-  },
+  content: { paddingHorizontal: layout.screenInline, paddingTop: space[4], paddingBottom: space[8], gap: space[3] },
+  title: { ...oneLine(type.title), color: colors.sub },
+  intro: { ...type.small, color: colors.faint, marginBottom: space[2] },
+  how: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 54 },
   howIcon: {
-    width: 40, height: 40, borderRadius: 13, backgroundColor: homeColors.selected,
+    width: 40, height: 40, borderRadius: radius.md, backgroundColor: colors.limeSurface,
     alignItems: 'center', justifyContent: 'center',
   },
-  howText: { flex: 1, fontFamily: fonts.semibold, fontSize: 16, color: homeColors.deep },
-  error: { color: colors.red, fontFamily: fonts.medium, fontSize: 14 },
-  loading: { marginTop: 28 },
-  empty: { alignItems: 'center', padding: 30, gap: 10 },
-  emptyTitle: { fontFamily: fonts.semibold, fontSize: 17, color: homeColors.deep },
-  emptyText: { fontFamily: fonts.regular, fontSize: 14, color: homeColors.muted, textAlign: 'center' },
-  card: { backgroundColor: homeColors.white, borderRadius: 24, padding: 18, gap: 12, boxShadow: `0px 4px 0px ${homeColors.border}` },
-  cardTop: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  icon: { width: 44, height: 44, borderRadius: 15, backgroundColor: homeColors.selected, alignItems: 'center', justifyContent: 'center' },
-  copy: { flex: 1, gap: 3 },
-  name: { fontFamily: fonts.semibold, fontSize: 16, color: homeColors.deep },
-  meta: { fontFamily: fonts.regular, fontSize: 12, color: homeColors.muted },
-  disconnect: { minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center', paddingHorizontal: 8 },
-  disconnectText: { color: colors.red, fontFamily: fonts.semibold, fontSize: 14 },
+  howText: { ...type.body, fontFamily: fonts.semibold, flex: 1, color: colors.sub },
+  error: { ...type.small, fontFamily: fonts.medium, color: colors.red },
+  loading: { marginTop: space[6] },
+  empty: { alignItems: 'center', padding: space[8], gap: space[2] },
+  emptyTitle: { ...type.body, fontFamily: fonts.semibold, color: colors.sub },
+  emptyText: { ...type.small, color: colors.faint, textAlign: 'center' },
+  cardTop: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  icon: { width: 44, height: 44, borderRadius: radius.md, backgroundColor: colors.limeSurface, alignItems: 'center', justifyContent: 'center' },
+  copy: { flex: 1, gap: space.hair },
+  name: { ...type.body, fontFamily: fonts.semibold, color: colors.sub },
+  meta: { ...type.caption, fontFamily: fonts.regular, color: colors.faint },
+  disconnect: { minHeight: 44, alignSelf: 'flex-end', justifyContent: 'center', paddingHorizontal: space[2] },
+  disconnectText: { ...type.small, fontFamily: fonts.semibold, color: colors.red },
   retry: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center' },
   retryCentered: { alignSelf: 'center' },
-  retryText: { color: homeColors.primary, fontFamily: fonts.semibold, fontSize: 15 },
+  retryText: { ...type.small, fontFamily: fonts.semibold, color: colors.action },
 });

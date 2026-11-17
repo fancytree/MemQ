@@ -1,22 +1,25 @@
+import { Card } from '@/components/ui/Card';
+import { EyeToggle } from '@/components/ui/EyeToggle';
+import { Field } from '@/components/ui/Field';
 import { layout } from '@/theme/spacing';
 import { dialog } from '@/lib/dialog';
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotRig, RIG_HAND_LINE, RIG_INK_OFFSET } from '@/components/mascot/rig/MascotRig';
 import LoadingScreen from '@/components/LoadingScreen';
-import { homeColors, referenceColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { signInWithOAuth, startGoogleOAuthInSafari } from '@/lib/auth';
 import { navigateAfterAuth } from '@/lib/navigation';
 import { supabase } from '@/lib/supabase';
-import { colors } from '@/theme';
-import { Feather, FontAwesome5 } from '@expo/vector-icons';
+import { space, radius, type, colors } from '@/theme';
+import { FontAwesome5 } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/ui/Button';
 import { LedgePressable } from '@/components/ui/LedgePressable';
 import Animated, {
   Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming,
@@ -27,7 +30,6 @@ import {
     ScrollView,
     StyleSheet,
     Text,
-    TextInput,
     TouchableOpacity,
     View,
 } from 'react-native';
@@ -80,17 +82,6 @@ const INK_OFFSET = RIG_INK_OFFSET;
 
 const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH_MASCOT;
 const SOCIAL_MASCOT = 54;
-
-/** Placeholder ink. A hint is not content: `muted` measures 5.3:1 against the field
- * it sits in, which is body-text contrast, and that is why it read as something
- * already typed. This is 2.5:1 — a light grey, still readable, and plainly behind
- * anything the person enters. The next lighter thing in the palette is 1.4:1, which
- * is not readable at all.
- *
- * The palette has no placeholder ink of its own, so this borrows the lightest grey
- * in it. The name belongs to the palette; the use is this, and it is worth giving it
- * a name of its own next time theme/colors.ts is being edited anyway. */
-const HINT = referenceColors.planeTrail;
 
 const SUBSCRIPTION_REFRESH_TIMEOUT_MS = 4000;
 
@@ -316,7 +307,7 @@ export default function SignUpScreen() {
       style={styles.container}>
       <LoadingScreen visible={busy} />
       <LinearGradient pointerEvents="none"
-        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
       <Flow name="waveBack" style={styles.waveBack} seconds={13} shiftX={-15} shiftY={16} />
       <Flow name="waveFront" style={styles.waveFront} seconds={9} shiftX={15} shiftY={-20} />
@@ -335,78 +326,44 @@ export default function SignUpScreen() {
             eyesShut={typingPassword}
             style={[styles.perch, { marginLeft: (perchShift + INK_OFFSET * PERCH_MASCOT) * 2 }]}
             behind={(
-              <View style={[styles.card, { marginLeft: cardBleed - perchShift, marginRight: cardBleed + perchShift }]}>
-                <View style={styles.cardFace}>
-                  <View style={styles.field}>
-                    <TextInput accessibilityLabel="Email"
-                      style={styles.input}
-                      placeholder="Email"
-                      placeholderTextColor={HINT}
-                      value={identifier}
-                      onChangeText={setIdentifier}
-                      keyboardType="email-address"
-                      autoCapitalize="none"
-                      autoComplete="email"
-                      editable={!loading}
-                    />
-                  </View>
+              <Card corner="xl" style={[styles.card, { marginLeft: cardBleed - perchShift, marginRight: cardBleed + perchShift }]}>
+                  <Field accessibilityLabel="Email"
+                    placeholder="Email"
+                    value={identifier}
+                    onChangeText={setIdentifier}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoComplete="email"
+                    editable={!loading}
+                  />
 
-                  <View style={styles.field}>
-                    <TextInput accessibilityLabel="Password"
-                      style={[styles.input, styles.passwordInput]}
-                      placeholder="Password"
-                      placeholderTextColor={HINT}
-                      value={password}
-                      onChangeText={setPassword}
-                      onFocus={() => setTypingPassword(true)}
-                      onBlur={() => setTypingPassword(false)}
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
-                      editable={!loading}
-                    />
-                    <TouchableOpacity accessibilityRole="button"
-                      accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-                      style={styles.eyeButton}
-                      onPress={() => setShowPassword(!showPassword)}
-                      activeOpacity={0.7}>
-                      <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
-                    </TouchableOpacity>
-                  </View>
+                  <Field accessibilityLabel="Password"
+                    placeholder="Password"
+                    value={password}
+                    onChangeText={setPassword}
+                    onFocus={() => setTypingPassword(true)}
+                    onBlur={() => setTypingPassword(false)}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    editable={!loading}
+                    trailing={<EyeToggle shown={showPassword} onPress={() => setShowPassword(!showPassword)} />}
+                  />
 
-                  <View style={styles.field}>
-                    <TextInput accessibilityLabel="Confirm Password"
-                      style={[styles.input, styles.passwordInput]}
-                      placeholder="Confirm Password"
-                      placeholderTextColor={HINT}
-                      value={confirmPassword}
-                      onChangeText={setConfirmPassword}
-                      onFocus={() => setTypingPassword(true)}
-                      onBlur={() => setTypingPassword(false)}
-                      secureTextEntry={!showConfirmPassword}
-                      autoCapitalize="none"
-                      editable={!loading}
-                    />
-                    <TouchableOpacity accessibilityRole="button"
-                      accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
-                      style={styles.eyeButton}
-                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                      activeOpacity={0.7}>
-                      <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
+                  <Field accessibilityLabel="Confirm Password"
+                    placeholder="Confirm Password"
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    onFocus={() => setTypingPassword(true)}
+                    onBlur={() => setTypingPassword(false)}
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    editable={!loading}
+                    trailing={<EyeToggle shown={showConfirmPassword} onPress={() => setShowConfirmPassword(!showConfirmPassword)} />}
+                  />
+              </Card>
             )} />
 
-          <LedgePressable accessibilityRole="button"
-            accessibilityState={{ disabled: busy }}
-            style={[styles.signUp, busy && styles.signUpBusy]}
-            onPress={signUp}
-            disabled={busy}>
-            <View style={styles.signUpFace}>
-              <Text style={styles.signUpText}>Sign Up</Text>
-            </View>
-          </LedgePressable>
+          <Button size="xl" label="Sign Up" onPress={signUp} disabled={busy} />
 
           <View style={styles.divider}>
             <View style={styles.dividerLine} />
@@ -430,7 +387,7 @@ export default function SignUpScreen() {
                 <View style={styles.socialFace}>
                   {oauthLoading === 'apple'
                     ? <MascotRig width={SOCIAL_MASCOT} mood="thinking" />
-                    : <FontAwesome5 name="apple" size={22} color={homeColors.darkest} />}
+                    : <FontAwesome5 name="apple" size={22} color={colors.text} />}
                 </View>
               </LedgePressable>
             )}
@@ -450,46 +407,42 @@ export default function SignUpScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: homeColors.canvas },
+  // Ridden up under the character's hands, so it reads as the thing being held.
+  card: { marginTop: CARD_LIFT },
+  container: { flex: 1, backgroundColor: colors.bg },
   background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', top: 96, left: -19 },
   waveFront: { position: 'absolute', top: 133, left: -19 },
   scrollContent: { flexGrow: 1 },
-  content: { flex: 1, paddingHorizontal: layout.screenInline, gap: 16 },
+  content: { flex: 1, paddingHorizontal: layout.screenInline, gap: space[4] },
 
   // Left-aligned, so the page has mass on both sides: the wordmark answers the
   // character rather than sitting above it. Nothing decorative was added to
   // balance the composition — balancing ornament with ornament is how a screen
   // fills up.
-  hero: { alignItems: 'flex-start', gap: 6, paddingTop: 28 },
+  hero: { alignItems: 'flex-start', gap: space[1], paddingTop: space[6] },
   perch: { alignSelf: 'center' },
-  tagline: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
+  tagline: { ...type.body, fontFamily: 'Geist_500Medium', color: colors.faint },
 
-  card: { marginTop: CARD_LIFT, backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: ledge.raised },
-  cardFace: { backgroundColor: homeColors.white, borderRadius: 32, padding: 16, gap: 12 },
-  field: { minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas, justifyContent: 'center', paddingHorizontal: 16 },
-  input: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest, paddingVertical: 14 },
-  passwordInput: { paddingRight: 44 },
-  eyeButton: { position: 'absolute', right: 4, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
 
-  signUp: { height: 59 + ledge.lead, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: ledge.lead },
+  signUp: { height: 59 + ledge.lead, borderRadius: radius.pill, backgroundColor: colors.actionShell, paddingBottom: ledge.lead },
   signUpBusy: { opacity: 0.75 },
-  signUpFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  signUpText: { fontFamily: 'Geist_500Medium', fontSize: 24, lineHeight: 32, color: homeColors.white },
+  signUpFace: { flex: 1, borderRadius: radius.pill, backgroundColor: colors.action, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  signUpText: { ...type.page, fontFamily: 'Geist_500Medium', color: colors.surf },
 
-  divider: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
-  dividerLine: { flex: 1, height: 1, backgroundColor: homeColors.border },
-  dividerText: { fontFamily: 'Geist_500Medium', fontSize: 13, color: homeColors.muted },
+  divider: { flexDirection: 'row', alignItems: 'center', gap: space[3], paddingVertical: space[1] },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.line },
+  dividerText: { ...type.caption, fontFamily: 'Geist_500Medium', color: colors.faint },
 
   // Side by side and identical: two doors to the same room, neither of them the
   // main one. The shell is the face plus its lip, so a square face needs a shell
   // two points taller — see theme/ledge.ts.
-  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: 16 },
-  social: { width: 60, height: 60 + ledge.control, borderRadius: 22, backgroundColor: homeColors.border, paddingBottom: ledge.control },
-  socialFace: { flex: 1, borderRadius: 22, backgroundColor: homeColors.white,
+  socialRow: { flexDirection: 'row', justifyContent: 'center', gap: space[4] },
+  social: { width: 60, height: 60 + ledge.control, borderRadius: radius.lg, backgroundColor: colors.line, paddingBottom: ledge.control },
+  socialFace: { flex: 1, borderRadius: radius.lg, backgroundColor: colors.surf,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
 
   signInRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', minHeight: 44, marginTop: 'auto' },
-  signInText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted },
-  signInLink: { fontFamily: 'Geist_600SemiBold', fontSize: 14, color: homeColors.primary },
+  signInText: { ...type.small, fontFamily: 'Geist_500Medium', color: colors.faint },
+  signInLink: { ...type.small, fontFamily: 'Geist_600SemiBold', color: colors.action },
 });

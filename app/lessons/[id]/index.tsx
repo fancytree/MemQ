@@ -1,37 +1,35 @@
+import { Card } from '@/components/ui/Card';
+import { LanguageBadge } from '@/components/LanguageBadge';
 import { LessonCover } from '@/components/LessonCover';
 import { dialog } from '@/lib/dialog';
 import { fonts } from '@/theme/typography';
-import { DesignAsset } from '@/components/DesignAsset';
 import { HomeAsset } from '@/components/HomeAsset';
-import { Icon } from '@/components/Icon';
-import { homeColors } from '@/theme/colors';
+import { Icon } from '@/components/ui/Icon';
 import { sheet } from '@/theme/sheet';
-import { BackButton, CloseButton, RoundAction } from '@/components/ui/RoundButtons';
+import { BackButton, RoundAction } from '@/components/ui/RoundButtons';
 import { LinearGradient } from 'expo-linear-gradient';
 import TermCard from '@/components/TermCard';
 import { LanguageCardModal } from '@/components/LanguageCardModal';
 import { Button } from '@/components/ui/Button';
+import { FilterMenu, type FilterOption } from '@/components/ui/FilterMenu';
+import { SearchField } from '@/components/ui/SearchField';
+import { TapTarget } from '@/components/ui/TapTarget';
 import { isCacheExpired, loadFromCache, saveToCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
-import { colors, componentTokens, layout, radius, type } from '@/theme';
-import { Feather, MaterialIcons } from '@expo/vector-icons';
+import { space, colors, layout, radius, type } from '@/theme';
 import { useNavigation } from 'expo-router/react-navigation';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Modal,
-  Platform,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LedgePressable } from '@/components/ui/LedgePressable';
 import { MascotState } from '@/components/mascot/MascotState';
 import { StageBar } from '@/components/stats/ProgressCharts';
 import { CountUp } from '@/components/motion/Grow';
@@ -101,10 +99,12 @@ export default function LessonDetailScreen() {
   const [generating, setGenerating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [isLoadingFromCache, setIsLoadingFromCache] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  /** What went wrong, as the screen says it. `missing` is the ordinary one — the
+   *  lesson is gone, or the link is to someone else's — and reads differently
+   *  from a load that failed, which is worth trying again. */
+  const [error, setError] = useState<'missing' | 'failed' | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterLevel, setFilterLevel] = useState<'All' | LearningStage>('All');
-  const [showFilterModal, setShowFilterModal] = useState(false);
   const [openTerm, setOpenTerm] = useState<Term | null>(null);
 
   // 动态设置导航栏隐藏（使用自定义 header）
@@ -119,7 +119,7 @@ export default function LessonDetailScreen() {
   // 获取课程详情（提取为独立函数以便重新调用）
   const fetchLessonDetail = useCallback(async (useCache: boolean = true) => {
     if (!id) {
-      setError('Lesson ID is required');
+      setError('missing');
       setLoading(false);
       setIsLoadingFromCache(false);
       return;
@@ -128,7 +128,7 @@ export default function LessonDetailScreen() {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        setError('User not authenticated');
+        setError('failed');
         setLoading(false);
         setIsLoadingFromCache(false);
         return;
@@ -166,18 +166,19 @@ export default function LessonDetailScreen() {
 
       // 处理课程信息
       if (lessonResult.error) {
-        console.error('Error fetching lesson:', lessonResult.error);
-        if (lessonResult.error.code === 'PGRST116') {
-          setError('Lesson not found');
-        } else {
-          setError('Failed to load lesson');
-        }
+        // PGRST116 is "no rows": the lesson has been deleted, or the link is to
+        // someone else's. That is not a failure — it is an outcome this screen is
+        // built for, and it has a face. Logging it as an error put a red banner
+        // over that face every time, for something nothing had gone wrong with.
+        const missing = lessonResult.error.code === 'PGRST116';
+        if (!missing) console.error('Error fetching lesson:', lessonResult.error);
+        setError(missing ? 'missing' : 'failed');
         setLoading(false);
         return;
       }
 
       if (!lessonResult.data) {
-        setError('Lesson not found');
+        setError('missing');
         setLoading(false);
         return;
       }
@@ -249,7 +250,7 @@ export default function LessonDetailScreen() {
       setLoading(false);
     } catch (err) {
       console.error('Error:', err);
-      setError('Something went wrong');
+      setError('failed');
       // 如果从缓存加载失败，且没有缓存数据，则保持默认值
       if (!useCache || (lesson === null && terms.length === 0)) {
         // 不重置数据，保持当前状态
@@ -436,6 +437,18 @@ export default function LessonDetailScreen() {
     return matchesSearch && matchesFilter;
   });
 
+  /** What the filter menu offers. A card with no progress row has never been seen,
+   *  which is what New means here, so the counts follow the same rule the filter
+   *  above does rather than a second one that can drift from it. */
+  const levelOptions: FilterOption<'All' | LearningStage>[] = [
+    { id: 'All', label: 'All levels', count: terms.length },
+    ...(Object.keys(LEARNING_STAGE_WEIGHTS) as LearningStage[]).map((stage) => ({
+      id: stage,
+      label: stage,
+      count: terms.filter((term) => (term.user_term_progress?.[0]?.status ?? 'New') === stage).length,
+    })),
+  ];
+
   // 加载中
   if (loading) {
     return (
@@ -451,13 +464,15 @@ export default function LessonDetailScreen() {
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.errorContainer}>
           <MascotState kind="error" width={156} />
-          <Text style={styles.errorTitle}>Lesson not found</Text>
-          <Text style={styles.errorText}>
-            {error || 'The lesson you are looking for does not exist.'}
+          <Text style={styles.errorTitle}>
+            {error === 'failed' ? 'Couldn’t load this lesson' : 'Lesson not found'}
           </Text>
-          <LedgePressable accessibilityRole="button" style={styles.backButton} onPress={handleGoBack}>
-            <View style={styles.backButtonFace}><Text style={styles.backButtonText}>Back to lessons</Text></View>
-          </LedgePressable>
+          <Text style={styles.errorText}>
+            {error === 'failed'
+              ? 'Check your connection and try again.'
+              : 'It may have been deleted, or the link points somewhere else.'}
+          </Text>
+          <Button size="md" label="Back to lessons" onPress={handleGoBack} />
         </View>
       </SafeAreaView>
     );
@@ -476,31 +491,27 @@ export default function LessonDetailScreen() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.45, 1]} style={styles.headerGradient} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.45, 1]} style={styles.headerGradient} />
       <SafeAreaView style={styles.safeAreaTop} edges={['top']}>
         {/* Top nav */}
         <View style={styles.nav}>
           <BackButton onPress={handleGoBack} label="Back to Library" />
-          <RoundAction icon="edit-2" label="Edit lesson"
+          <RoundAction icon="edit" label="Edit lesson"
             onPress={() => router.push(`/lessons/${id}/settings` as any)} />
         </View>
 
       <ScrollView
         style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { paddingBottom: 28 + insets.bottom }]}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: space[6] + insets.bottom }]}
       >
 
-        <View style={styles.overview}><View style={styles.overviewFace}>
+        <Card gap={space[5]}>
           <View style={styles.identity}>
             <View style={styles.identityHeading}><LessonCover id={lesson.id} mode={lesson.learning_mode} coverStyle={lesson.cover_style} width={72} height={72} />
             <View style={styles.titleCopy}>
               <View style={styles.titleRow}>
                 <Text accessibilityRole="header" style={styles.lessonTitle}>{lesson.name}</Text>
-                {lesson.learning_mode === 'language' && (
-                  <View accessible accessibilityLabel="Language learning" style={styles.languageTag}>
-                    <MaterialIcons name="language" size={16} color={homeColors.white} />
-                  </View>
-                )}
+                {lesson.learning_mode === 'language' && <LanguageBadge labelled />}
               </View>
             </View></View>
             {!!lesson.description && <Text style={styles.lessonDescription}>{lesson.description}</Text>}
@@ -514,28 +525,23 @@ export default function LessonDetailScreen() {
             </View>
             <StageBar counts={stageCounts(terms.map((term) => term.id), new Map(terms.map((term) => [term.id, term.user_term_progress?.[0]?.status ?? null])))} />
           </View>
-          <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: totalCards === 0 }} disabled={totalCards === 0} onPress={handleStartStudy} style={[styles.reviewButton, totalCards === 0 && styles.reviewDisabled]}><View style={styles.reviewButtonFace}><View style={styles.playIcon}><HomeAsset name="play" /></View><Text style={styles.reviewButtonText}>Start review</Text></View></LedgePressable>
-        </View></View>
+          <Button label="Start review" disabled={totalCards === 0} onPress={handleStartStudy}
+            icon={<View style={styles.playIcon}><HomeAsset name="play" height={16} /></View>} />
+        </Card>
 
         <View style={styles.termsSection}>
           <View style={styles.controls}>
             <View style={styles.sectionHead}>
               <Text accessibilityRole="header" style={styles.sectionTitle}>Cards</Text>
-              <Button accessibilityLabel="Add cards" onPress={handleEditTerms} style={styles.addTerm}>
-                <Icon name="plus" size={18} color={homeColors.primary} /><Text style={styles.sectionAction}>Add cards</Text>
-              </Button>
+              <TapTarget accessibilityLabel="Add cards" onPress={handleEditTerms} style={styles.addTerm}>
+                <Icon name="plus" size={18} color={colors.action} /><Text style={styles.sectionAction}>Add cards</Text>
+              </TapTarget>
             </View>
-            <View style={styles.searchContainer}>
-              <Icon name="search" size={20} color={homeColors.muted} strokeWidth={1.8} />
-              <TextInput accessibilityLabel="Search cards" style={styles.searchInput} placeholder="Search cards"
-                placeholderTextColor={colors.muted} value={searchQuery} onChangeText={setSearchQuery}
-                autoCorrect={false} returnKeyType="search" />
+            <View style={styles.searchRow}>
+              <FilterMenu label="Filter by level" options={levelOptions} value={filterLevel} onChange={setFilterLevel} />
+              <SearchField label="Search cards" value={searchQuery} onChangeText={setSearchQuery} autoCorrect={false} />
             </View>
             <View style={styles.filterRow}>
-              <Button accessibilityLabel={`Filter by level: ${filterLevel}`} style={styles.filterButton}
-                onPress={() => setShowFilterModal(true)}>
-                <Text style={styles.filterButtonText}>Level: {filterLevel}</Text><DesignAsset name="termChevronDown" />
-              </Button>
               <Text style={styles.resultCount}>Showing {filteredTerms.length} of {totalCards} cards</Text>
             </View>
           </View>
@@ -555,9 +561,7 @@ export default function LessonDetailScreen() {
                   : 'Add a few to start learning.'}
               </Text>
               {!searchQuery && filterLevel === 'All' && (
-              <LedgePressable accessibilityRole="button" style={styles.addTermsButtonEmpty} onPress={handleEditTerms}>
-                <View style={styles.addTermsFaceEmpty}><Text style={styles.addTermsButtonTextEmpty}>Add cards</Text></View>
-              </LedgePressable>
+              <Button size="md" label="Add cards" onPress={handleEditTerms} />
               )}
             </View>
           ) : (
@@ -589,228 +593,6 @@ export default function LessonDetailScreen() {
         onEdit={openTerm && lesson.learning_mode !== 'language' ? () => handleEditTerm(openTerm.id) : undefined}
         onDelete={openTerm ? () => handleDeleteTerm(openTerm.id, openTerm.term) : undefined} />
 
-      {/* Filter Modal */}
-      <Modal
-        visible={showFilterModal}
-        transparent={true}
-        animationType="fade"
-        statusBarTranslucent
-        onRequestClose={() => setShowFilterModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <Button
-            style={styles.modalOverlayBackdrop}
-            activeOpacity={1}
-            onPress={() => setShowFilterModal(false)}
-          />
-          <View style={styles.filterModalContainer}>
-            <View style={[styles.filterModalContent, { paddingBottom: Math.max(20, insets.bottom) }]}>
-                <View style={styles.filterModalHeader}>
-                  <View style={styles.filterModalHeaderRow}>
-                    <Text style={styles.filterModalTitle}>Filter by Level</Text>
-                    <CloseButton onPress={() => setShowFilterModal(false)}
-                      label="Close level filter" size={20} />
-                  </View>
-                </View>
-
-                <ScrollView
-                  style={styles.filterOptionsList}
-                  showsVerticalScrollIndicator={false}
-                  bounces={false}
-                >
-              {/* All Levels */}
-              <Button
-                style={[
-                  styles.filterOption,
-                  styles.filterOptionAll,
-                  filterLevel === 'All' && styles.filterOptionSelected,
-                  filterLevel === 'All' && styles.filterOptionSelectedAll,
-                ]}
-                onPress={() => {
-                  setFilterLevel('All');
-                  setShowFilterModal(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    filterLevel === 'All' && styles.filterOptionTextSelected,
-                  ]}
-                >
-                  All Levels
-                </Text>
-                {filterLevel === 'All' && (
-                  <Feather name="check" size={20} color={colors.accentText} />
-                )}
-              </Button>
-
-              {/* New */}
-              <Button
-                style={[
-                  styles.filterOption,
-                  styles.filterOptionNew,
-                  filterLevel === 'New' && styles.filterOptionSelectedNew,
-                ]}
-                onPress={() => {
-                  setFilterLevel('New');
-                  setShowFilterModal(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    styles.filterOptionTextNew,
-                    filterLevel === 'New' && styles.filterOptionTextSelectedNew,
-                  ]}
-                >
-                  New
-                </Text>
-                {filterLevel === 'New' && (
-                  <Feather name="check" size={20} color={colors.muted} />
-                )}
-              </Button>
-
-              {/* Learning */}
-              <Button
-                style={[
-                  styles.filterOption,
-                  styles.filterOptionLearning,
-                  filterLevel === 'Learning' && styles.filterOptionSelectedLearning,
-                ]}
-                onPress={() => {
-                  setFilterLevel('Learning');
-                  setShowFilterModal(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    styles.filterOptionTextLearning,
-                    filterLevel === 'Learning' && styles.filterOptionTextSelectedLearning,
-                  ]}
-                >
-                  Learning
-                </Text>
-                {filterLevel === 'Learning' && (
-                  <Feather name="check" size={20} color={colors.red} />
-                )}
-              </Button>
-
-              {/* Familiar */}
-              <Button
-                style={[
-                  styles.filterOption,
-                  styles.filterOptionFamiliar,
-                  filterLevel === 'Familiar' && styles.filterOptionSelectedFamiliar,
-                ]}
-                onPress={() => {
-                  setFilterLevel('Familiar');
-                  setShowFilterModal(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    styles.filterOptionTextFamiliar,
-                    filterLevel === 'Familiar' && styles.filterOptionTextSelectedFamiliar,
-                  ]}
-                >
-                  Familiar
-                </Text>
-                {filterLevel === 'Familiar' && (
-                  <Feather name="check" size={20} color={colors.accentText} />
-                )}
-              </Button>
-
-              {/* Good */}
-              <Button
-                style={[
-                  styles.filterOption,
-                  styles.filterOptionGood,
-                  filterLevel === 'Good' && styles.filterOptionSelectedGood,
-                ]}
-                onPress={() => {
-                  setFilterLevel('Good');
-                  setShowFilterModal(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    styles.filterOptionTextGood,
-                    filterLevel === 'Good' && styles.filterOptionTextSelectedGood,
-                  ]}
-                >
-                  Good
-                </Text>
-                {filterLevel === 'Good' && (
-                  <Feather name="check" size={20} color={colors.warn} />
-                )}
-              </Button>
-
-              {/* Strong */}
-              <Button
-                style={[
-                  styles.filterOption,
-                  styles.filterOptionStrong,
-                  filterLevel === 'Strong' && styles.filterOptionSelectedStrong,
-                ]}
-                onPress={() => {
-                  setFilterLevel('Strong');
-                  setShowFilterModal(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    styles.filterOptionTextStrong,
-                    filterLevel === 'Strong' && styles.filterOptionTextSelectedStrong,
-                  ]}
-                >
-                  Strong
-                </Text>
-                {filterLevel === 'Strong' && (
-                  <Feather name="check" size={20} color={colors.accentText} />
-                )}
-              </Button>
-
-              {/* Mastered */}
-              <Button
-                style={[
-                  styles.filterOption,
-                  styles.filterOptionMastered,
-                  filterLevel === 'Mastered' && styles.filterOptionSelectedMastered,
-                ]}
-                onPress={() => {
-                  setFilterLevel('Mastered');
-                  setShowFilterModal(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.filterOptionText,
-                    styles.filterOptionTextMastered,
-                    filterLevel === 'Mastered' && styles.filterOptionTextSelectedMastered,
-                  ]}
-                >
-                  Mastered
-                </Text>
-                {filterLevel === 'Mastered' && (
-                  <Feather name="check" size={20} color={colors.green} />
-                )}
-              </Button>
-                </ScrollView>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
     </View>
   );
@@ -820,57 +602,42 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
   safeAreaTop: { flex: 1 },
   headerGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 450 },
-  errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  errorTitle: { ...type.section, color: colors.text, marginTop: 16, marginBottom: 8 },
-  errorText: { ...type.bodySmall, color: colors.muted, textAlign: 'center', marginBottom: 24 },
+  errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: space[10] },
+  errorTitle: { ...type.heading, fontFamily: fonts.bold, color: colors.text, marginTop: space[4], marginBottom: space[2] },
+  errorText: { ...type.small, color: colors.sub, textAlign: 'center', marginBottom: space[6] },
   // The empty and error states' one button, lipped the way Library's are.
-  backButton: { backgroundColor: homeColors.deep, borderRadius: radius.pill, paddingBottom: 3 },
-  backButtonFace: { minHeight: 45, backgroundColor: homeColors.primary, paddingHorizontal: 20, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  backButtonText: { ...type.controlLink, color: colors.onAction },
   nav: { paddingHorizontal: layout.screenInline, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   scrollView: { flex: 1 },
-  scrollContent: { paddingHorizontal: layout.screenInline, paddingTop: 12, gap: componentTokens.lessonDetail.sectionGap },
-  overview: { borderRadius: 24, paddingBottom: 4, backgroundColor: homeColors.border },
-  overviewFace: { gap: 20, padding: 16, borderRadius: 24, backgroundColor: homeColors.white },
-  identity: { gap: 12 },
-  identityHeading: { flexDirection: 'row', alignItems: 'center', gap: 14 },
-  titleCopy: { gap: 5, flex: 1 },
-  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  lessonTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, flexShrink: 1 },
-  lessonMetadata: { ...type.meta, color: colors.supporting },
-  languageTag: { width: 22, height: 22, borderRadius: 11, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center', transform: [{ rotate: '-8deg' }], boxShadow: `0px 2px 0px ${homeColors.border}` },
-  lessonDescription: { ...type.bodyReading, color: colors.supporting },
-  stageBlock: { gap: 12 },
+  scrollContent: { paddingHorizontal: layout.screenInline, paddingTop: space[3], gap: space[6] },
+  identity: { gap: space[3] },
+  identityHeading: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  titleCopy: { gap: space[1], flex: 1 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  lessonTitle: { ...type.title, color: colors.sub, flexShrink: 1 },
+  lessonMetadata: { ...type.caption, color: colors.sub },
+  lessonDescription: { ...type.small, color: colors.sub },
+  stageBlock: { gap: space[3] },
   masteryLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'baseline' },
-  masteredLine: { fontFamily: fonts.medium, fontSize: 15, color: homeColors.muted },
-  masteredNumber: { fontFamily: fonts.display, fontSize: 28, color: homeColors.deep },
-  masteryValue: { ...type.courseTitle, color: colors.text },
-  reviewButton: { height: 56, borderRadius: 42, paddingBottom: 4, backgroundColor: homeColors.deep },
-  reviewButtonFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
-  reviewButtonText: { fontFamily: fonts.semibold, fontSize: 18, color: homeColors.white },
-  reviewDisabled: { opacity: 0.45 },
+  masteredLine: { ...type.small, fontFamily: fonts.medium, color: colors.faint },
+  masteredNumber: { ...type.page, color: colors.sub },
+  masteryValue: { ...type.small, fontFamily: fonts.display, color: colors.text },
   playIcon: { transform: [{ rotate: '90deg' }, { scale: 0.7 }] },
-  termsSection: { gap: 16 },
-  controls: { gap: 10 },
+  termsSection: { gap: space[4] },
+  controls: { gap: space[2] },
   sectionHead: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { ...type.section, color: colors.text },
+  sectionTitle: { ...type.heading, fontFamily: fonts.bold, color: colors.text },
   // Drawn the way Library's "New lesson" is: the section's way to add more, in the
   // primary colour.
-  addTerm: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  sectionAction: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary },
-  searchContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: homeColors.white, borderWidth: 1, borderColor: homeColors.border, borderRadius: 26, paddingHorizontal: 16, minHeight: 52, gap: 10 },
-  searchInput: { ...type.input, color: colors.text, flex: 1, minHeight: 46, paddingVertical: 10 },
-  filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
-  filterButton: { minHeight: 44, borderRadius: radius.pill, borderWidth: 1, borderColor: homeColors.border, backgroundColor: homeColors.white, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 8 },
-  filterButtonText: { ...type.streak, color: colors.text },
-  resultCount: { ...type.meta, color: colors.supporting },
-  emptyTermsContainer: { alignItems: 'center', paddingVertical: 24, gap: 12 },
-  emptyTermsTitle: { ...type.section, color: colors.text },
-  emptyTermsText: { ...type.bodySmall, color: colors.muted, textAlign: 'center' },
-  addTermsButtonEmpty: { backgroundColor: homeColors.deep, borderRadius: radius.pill, paddingBottom: 3 },
-  addTermsFaceEmpty: { minHeight: 45, backgroundColor: homeColors.primary, paddingHorizontal: 24, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  addTermsButtonTextEmpty: { ...type.controlLink, color: colors.onAction },
-  termsList: { gap: 16 },
+  addTerm: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space[1] },
+  sectionAction: { ...type.small, fontFamily: fonts.semibold, color: colors.action },
+  // The filter and the field share a row, the way the library's do.
+  searchRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  filterRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: space[2] },
+  resultCount: { ...type.caption, color: colors.sub },
+  emptyTermsContainer: { alignItems: 'center', paddingVertical: space[6], gap: space[3] },
+  emptyTermsTitle: { ...type.heading, fontFamily: fonts.bold, color: colors.text },
+  emptyTermsText: { ...type.small, color: colors.sub, textAlign: 'center' },
+  termsList: { gap: space[4] },
   // Filter Modal Styles (iOS bottom sheet style)
   modalOverlay: {
     flex: 1,
@@ -882,164 +649,9 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: colors.modalScrim,
-  },
-  filterModalContainer: {
-    width: '100%',
-    justifyContent: 'flex-end',
-    zIndex: 1,
-  },
-  filterModalContent: {
-    ...sheet.surface,
-    paddingBottom: Platform.OS === 'ios' ? 0 : 20,
-    maxHeight: '90%',
+    backgroundColor: colors.scrim,
   },
   // No rule under the title: the gap does that work, as on every other sheet.
-  filterModalHeader: {
-    paddingHorizontal: layout.screenInline,
-    paddingTop: 18,
-    paddingBottom: 16,
-  },
-  filterModalHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  filterModalTitle: {
-    fontSize: 16,
-    lineHeight: 22,
-    letterSpacing: -0.1,
-    fontWeight: '700',
-    color: colors.text,
-    fontFamily: fonts.bold,
-  },
-  filterModalCloseButton: {
-    width: 44,
-    minHeight: 44,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.bg,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-  },
-  filterOptionsList: {
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    maxHeight: 320,
-  },
-  filterOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    marginVertical: 3,
-    borderWidth: 1,
-    borderColor: colors.transparent,
-  },
-  filterOptionSelected: {
-    backgroundColor: colors.bg,
-    borderColor: colors.controlBorder,
-  },
-  filterOptionAll: {
-    backgroundColor: colors.surf,
-  },
-  filterOptionSelectedAll: {
-    backgroundColor: colors.accentL,
-    borderColor: colors.action,
-  },
-  filterOptionText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: '500',
-    color: colors.text,
-    fontFamily: fonts.medium,
-  },
-  filterOptionTextSelected: {
-    fontWeight: '700',
-    color: colors.accentText,
-    fontFamily: fonts.bold,
-  },
   // Filter Option Colors (matching LessonStatsCard)
-  filterOptionNew: {
-    backgroundColor: colors.transparent,
-  },
-  filterOptionSelectedNew: {
-    backgroundColor: colors.bg,
-  },
-  filterOptionTextNew: {
-    color: colors.muted,
-  },
-  filterOptionTextSelectedNew: {
-    color: colors.muted,
-    fontWeight: '600',
-  },
-  filterOptionLearning: {
-    backgroundColor: colors.transparent,
-  },
-  filterOptionSelectedLearning: {
-    backgroundColor: colors.redL,
-  },
-  filterOptionTextLearning: {
-    color: colors.red,
-  },
-  filterOptionTextSelectedLearning: {
-    color: colors.red,
-    fontWeight: '600',
-  },
-  filterOptionFamiliar: {
-    backgroundColor: colors.transparent,
-  },
-  filterOptionSelectedFamiliar: {
-    backgroundColor: colors.accentL,
-  },
-  filterOptionTextFamiliar: {
-    color: colors.accentText,
-  },
-  filterOptionTextSelectedFamiliar: {
-    color: colors.accentText,
-    fontWeight: '600',
-  },
-  filterOptionGood: {
-    backgroundColor: colors.transparent,
-  },
-  filterOptionSelectedGood: {
-    backgroundColor: colors.warnL,
-  },
-  filterOptionTextGood: {
-    color: colors.warn,
-  },
-  filterOptionTextSelectedGood: {
-    color: colors.warn,
-    fontWeight: '600',
-  },
-  filterOptionStrong: {
-    backgroundColor: colors.transparent,
-  },
-  filterOptionSelectedStrong: {
-    backgroundColor: colors.aiL,
-  },
-  filterOptionTextStrong: {
-    color: colors.accentText,
-  },
-  filterOptionTextSelectedStrong: {
-    color: colors.accentText,
-    fontWeight: '600',
-  },
-  filterOptionMastered: {
-    backgroundColor: colors.transparent,
-  },
-  filterOptionSelectedMastered: {
-    backgroundColor: colors.greenL,
-  },
-  filterOptionTextMastered: {
-    color: colors.green,
-  },
-  filterOptionTextSelectedMastered: {
-    color: colors.green,
-    fontWeight: '600',
-  },
 });
 

@@ -1,7 +1,7 @@
-export { colors, referenceColors, semanticColor, decorationOpacity, homeColors } from './colors';
+export { colors, chartColors, referenceColors, decorationOpacity } from './colors';
 export type { ColorToken } from './colors';
 export { fonts, type, referenceTypography } from './typography';
 export type { FontFamily } from './typography';
 export { space, radius, hairline, layout } from './spacing';
-export { componentTokens, interaction, elevation, sourceReference } from './components';
+export { componentTokens, interaction, sourceReference } from './components';
 export { artwork } from './artwork';

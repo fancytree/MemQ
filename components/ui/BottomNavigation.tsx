@@ -1,4 +1,6 @@
-import { homeColors } from '@/theme/colors';
+import { ledge } from '@/theme/ledge';
+import { space, radius } from '@/theme/spacing';
+import { type } from '@/theme/typography';
 import { useEffect, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -6,7 +8,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeAsset } from '../HomeAsset';
-import { RowIcon } from '../RowIcon';
+import { Icon } from '@/components/ui/Icon';
+import { colors } from '@/theme/colors';
 
 export const destinations = [
   { id: 'today', label: 'Today' },
@@ -100,22 +103,24 @@ export function BottomNavigation({ active, onNavigate }: { active: Destination; 
               style={[styles.highlight, { left: INSET, top: (face.height - ITEM) / 2, width: item }, highlight]} />
           )}
           <Item tab selected={active === 'today'} marked={!measured && active === 'today'} label="Today"
-            onPress={() => onNavigate('today')}><RowIcon name="today" color={homeColors.deep} size={26} /></Item>
+            onPress={() => onNavigate('today')}><Icon name="today" color={colors.sub} size={26} /></Item>
           <Item bare label="Create a new lesson" onPress={() => onNavigate('create')}><HomeAsset name="add" /></Item>
           <Item tab selected={active === 'library'} marked={!measured && active === 'library'} label="Library"
-            onPress={() => onNavigate('library')}><RowIcon name="library" color={homeColors.deep} size={26} /></Item>
+            onPress={() => onNavigate('library')}><Icon name="library" color={colors.sub} size={26} /></Item>
         </View>
       </View>
     </View>
   );
 }
 const styles = StyleSheet.create({
-  homeOuter: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 16 },
-  homeBar: { height: 71, backgroundColor: homeColors.border, borderRadius: 44, paddingBottom: 4 },
-  homeBarFace: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: INSET, backgroundColor: homeColors.nav, borderRadius: 44 },
+  homeOuter: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: space[4] },
+  // A bar, not a card — but it stands on the same lip as everything else, and had
+  // been given four points where the scale says three.
+  homeBar: { height: 71, backgroundColor: colors.line, borderRadius: radius.pill, paddingBottom: ledge.raised },
+  homeBarFace: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: INSET, backgroundColor: colors.panel, borderRadius: radius.pill },
   homeItem: { flex: 1, height: ITEM, alignItems: 'center', justifyContent: 'center' },
-  homeContent: { alignItems: 'center', justifyContent: 'center', gap: 2 },
-  homeSelected: { backgroundColor: homeColors.selected, borderRadius: 999 },
-  highlight: { position: 'absolute', height: ITEM, borderRadius: 999, backgroundColor: homeColors.selected },
-  homeLabel: { fontFamily: 'Geist_500Medium', fontSize: 12, color: homeColors.deep },
+  homeContent: { alignItems: 'center', justifyContent: 'center', gap: space.hair },
+  homeSelected: { backgroundColor: colors.limeSurface, borderRadius: radius.pill },
+  highlight: { position: 'absolute', height: ITEM, borderRadius: radius.pill, backgroundColor: colors.limeSurface },
+  homeLabel: { ...type.caption, fontFamily: 'Geist_500Medium', color: colors.sub },
 });

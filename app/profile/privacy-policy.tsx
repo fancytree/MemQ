@@ -1,10 +1,10 @@
+import { oneLine } from '@/theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
-import { homeColors } from '@/theme/colors';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { safeBack } from '@/lib/safeBack';
-import { colors } from '@/theme';
+import { space, type, colors } from '@/theme';
 import { useNavigation } from 'expo-router/react-navigation';
 import React, { useEffect } from 'react';
 import {
@@ -31,7 +31,7 @@ export default function PrivacyPolicyScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
       <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
       <ScrollView
         style={styles.scrollView}
@@ -39,7 +39,7 @@ export default function PrivacyPolicyScreen() {
       >
         {/* Content */}
         <View style={styles.content}>
-          <Text accessibilityRole="header" style={[styles.pageTitle, { marginHorizontal: 0 }]}>Privacy policy</Text>
+          <Text accessibilityRole="header" style={[styles.pageTitle, { marginHorizontal: space[0] }]}>Privacy policy</Text>
           <Text style={styles.lastUpdated}>Last Updated: January 1, 2026</Text>
 
           <Text style={styles.paragraph}>
@@ -164,7 +164,7 @@ export default function PrivacyPolicyScreen() {
 
 const styles = StyleSheet.create({
   pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 250 },
-  pageTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, marginHorizontal: layout.screenInline, marginBottom: 20 },
+  pageTitle: { ...oneLine(type.title), color: colors.sub, marginHorizontal: layout.screenInline, marginBottom: space[5] },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -173,61 +173,46 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: space[10],
   },
   content: {
     paddingHorizontal: layout.screenInline,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: space[4],
+    paddingBottom: space[3],
   },
   lastUpdated: {
-    fontSize: 12,
-    lineHeight: 17,
+    ...type.caption, fontFamily: fonts.regular,
     letterSpacing: -0.1,
-    color: colors.muted,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
+    color: colors.sub,
     fontStyle: 'italic',
-    marginBottom: 20,
+    marginBottom: space[5],
   },
   sectionTitle: {
-    fontSize: 18,
-    lineHeight: 25,
+    ...oneLine(type.body), fontFamily: fonts.bold,
     letterSpacing: -0.1,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
     color: colors.text,
-    marginTop: 24,
-    marginBottom: 12,
+    marginTop: space[6],
+    marginBottom: space[3],
   },
   subsectionTitle: {
-    fontSize: 14,
-    lineHeight: 20,
+    ...type.small, fontFamily: fonts.semibold,
     letterSpacing: -0.1,
-    fontWeight: '600',
-    fontFamily: fonts.semibold,
     color: colors.text,
-    marginTop: 16,
-    marginBottom: 10,
+    marginTop: space[4],
+    marginBottom: space[2],
   },
   paragraph: {
-    fontSize: 13,
-    lineHeight: 20,
+    ...type.caption, fontFamily: fonts.regular,
     letterSpacing: -0.1,
     color: colors.sub,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    marginBottom: 12,
+    marginBottom: space[3],
   },
   bulletPoint: {
-    fontSize: 13,
-    lineHeight: 20,
+    ...type.caption, fontFamily: fonts.regular,
     letterSpacing: -0.1,
     color: colors.sub,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    marginBottom: 8,
-    paddingLeft: 10,
+    marginBottom: space[2],
+    paddingLeft: space[2],
   },
 });
 

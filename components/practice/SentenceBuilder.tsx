@@ -7,9 +7,10 @@
  */
 
 import type { BuildQuestion } from '@/lib/practiceRound';
-import { colors, fonts } from '@/theme';
-import { homeColors } from '@/theme/colors';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { space, radius, type, colors, fonts } from '@/theme';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { LedgePressable } from '@/components/ui/LedgePressable';
+import { ledge } from '@/theme/ledge';
 
 const key = (word: string) => word.normalize('NFC').toLocaleLowerCase().replace(/[^\p{L}\p{N}\p{M}'’-]/gu, '');
 
@@ -36,10 +37,12 @@ export function SentenceBuilder({ question, placed, onChange, revealed, correct 
         style={[styles.line, !revealed && { minHeight: 24 + rows * 52 }, revealed && (correct ? styles.lineRight : styles.lineWrong)]}>
         {placed.length === 0 && <Text style={styles.placeholder}>Your sentence</Text>}
         {placed.map((tile, position) => (
-          <Pressable key={`${tile}`} accessibilityRole="button" accessibilityLabel={`Remove ${question.tiles[tile]}`}
+          <LedgePressable key={`${tile}`} accessibilityRole="button" accessibilityLabel={`Remove ${question.tiles[tile]}`}
             disabled={revealed} onPress={() => onChange(placed.filter((_, index) => index !== position))} style={styles.word}>
-            <Text style={styles.wordText}>{question.tiles[tile]}</Text>
-          </Pressable>
+            <View style={styles.wordFace}>
+              <Text style={styles.wordText}>{question.tiles[tile]}</Text>
+            </View>
+          </LedgePressable>
         ))}
       </View>
       {revealed ? (!correct && <View style={styles.answer}>
@@ -49,11 +52,13 @@ export function SentenceBuilder({ question, placed, onChange, revealed, correct 
         {question.tiles.map((word, tile) => {
           const used = placed.includes(tile);
           return (
-            <Pressable key={`${tile}`} accessibilityRole="button" accessibilityLabel={word}
+            <LedgePressable key={`${tile}`} accessibilityRole="button" accessibilityLabel={word}
               accessibilityState={{ disabled: used }} disabled={used}
-              onPress={() => onChange([...placed, tile])} style={[styles.word, used && styles.used]}>
-              <Text style={[styles.wordText, used && styles.usedText]}>{word}</Text>
-            </Pressable>
+              onPress={() => onChange([...placed, tile])} style={[styles.word, used && styles.wordDown]}>
+              <View style={[styles.wordFace, used && styles.wordFaceUsed]}>
+                <Text style={[styles.wordText, used && styles.usedText]}>{word}</Text>
+              </View>
+            </LedgePressable>
           );
         })}
       </View>}
@@ -63,24 +68,27 @@ export function SentenceBuilder({ question, placed, onChange, revealed, correct 
 
 const styles = StyleSheet.create({
   scroll: { flexGrow: 0, flexShrink: 1, minHeight: 0 },
-  wrap: { gap: 16, paddingBottom: 5 },
+  wrap: { gap: space[4], paddingBottom: space[1] },
   line: {
-    minHeight: 108, flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', gap: 8, padding: 12,
-    borderRadius: 16, borderWidth: 1.5, borderColor: homeColors.border, backgroundColor: homeColors.nav,
+    minHeight: 108, flexDirection: 'row', flexWrap: 'wrap', alignContent: 'flex-start', gap: space[2], padding: space[3],
+    borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.line, backgroundColor: colors.panel,
   },
   lineRight: { borderColor: colors.green, backgroundColor: colors.greenL },
-  lineWrong: { borderColor: homeColors.quizWrongOutline, backgroundColor: colors.warnL },
-  placeholder: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 40, color: homeColors.muted },
-  bank: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: 8 },
-  word: {
-    minHeight: 44, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 14,
-    borderWidth: 1, borderColor: homeColors.border, backgroundColor: homeColors.white,
-    boxShadow: `0px 2px 0px ${homeColors.border}`,
+  lineWrong: { borderColor: colors.wrong, backgroundColor: colors.warnL },
+  placeholder: { ...type.small, color: colors.faint },
+  bank: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', gap: space[2] },
+  // A small control: the shallow lip, drawn as the layer it is rather than a shadow.
+  word: { minHeight: 44, borderRadius: radius.md, backgroundColor: colors.line, paddingBottom: ledge.control },
+  // A word already placed is down, so it has no lip left to show.
+  wordDown: { paddingBottom: 0 },
+  wordFace: {
+    flexGrow: 1, justifyContent: 'center', paddingHorizontal: space[3], paddingVertical: space[2],
+    borderRadius: radius.md, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surf,
   },
-  used: { backgroundColor: homeColors.nav, boxShadow: `0px 0px 0px ${homeColors.border}` },
-  wordText: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 22, color: homeColors.darkest },
+  wordFaceUsed: { backgroundColor: colors.panel, borderColor: colors.panel },
+  wordText: { ...type.body, fontFamily: fonts.medium, color: colors.text },
   usedText: { opacity: 0 },
-  answer: { gap: 6, padding: 14, borderRadius: 16, borderWidth: 1.5, borderColor: colors.green, backgroundColor: homeColors.white },
-  answerLabel: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.green },
-  answerText: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 23, color: homeColors.darkest },
+  answer: { gap: space[1], padding: space[3], borderRadius: radius.md, borderWidth: 1.5, borderColor: colors.green, backgroundColor: colors.surf },
+  answerLabel: { ...type.small, fontFamily: fonts.medium, color: colors.green },
+  answerText: { ...type.body, color: colors.text },
 });

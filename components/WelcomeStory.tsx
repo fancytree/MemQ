@@ -1,3 +1,7 @@
+import { Icon } from '@/components/ui/Icon';
+import { Button } from '@/components/ui/Button';
+import { space, radius } from '@/theme/spacing';
+import { type } from '@/theme/typography';
 /**
  * The three welcome screens, implemented from Figma.
  *
@@ -20,15 +24,16 @@
  * words hang off the top inset, and the scene and the footer hang off the bottom
  * one, so a taller phone opens the gap between them rather than cropping anything.
  */
-import { homeColors } from '@/theme/colors';
 import { Asset } from 'expo-asset';
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing, interpolateColor, useAnimatedStyle, useReducedMotion, useSharedValue, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SvgUri } from 'react-native-svg';
+import { colors } from '@/theme/colors';
+import { componentTokens, interaction } from '@/theme';
 
 /** The frame every number below is measured in. */
 const FRAME_W = 402;
@@ -42,6 +47,8 @@ const DESIGN_FOOT = 840.4;
  *  say, so it went; this keeps the button where the design put it rather than
  *  letting it drop into the space the counter left. */
 const DESIGN_BUTTON_BOTTOM = 814;
+/** How much taller than its word the Skip button's hit target is, halved. */
+const SKIP_LIFT = (interaction.minTarget - componentTokens.button.sm.label.lineHeight) / 2;
 
 type Piece = {
   src: number;
@@ -65,14 +72,16 @@ type Scene = {
   /** Top of the body block in frame coordinates. */
   bodyTop?: number;
   skip: boolean;
-  button: { label: string; bg: string; ink: string };
+  /** The three colours the app's button takes here: its lip, its face and its
+   *  word. The scene owns them because the scene owns the ground it stands on. */
+  button: { label: string; shell: string; face: string; ink: string };
   dot: { on: string; off: string };
 };
 
 const SCENES: Scene[] = [
   {
-    bg: homeColors.hill,
-    ink: homeColors.deep,
+    bg: colors.lime,
+    ink: colors.sub,
     waves: [
       { src: require('../assets/onboarding/w1-lilac-wave.svg'), w: 402, h: 524, top: 372 },
       { src: require('../assets/onboarding/w1-purple-foreground.svg'), w: 402, h: 246.515, top: 629 },
@@ -90,12 +99,12 @@ const SCENES: Scene[] = [
     body: 'Don’t lose your next discovery.\nGive it a place to stay.',
     bodyTop: 288,
     skip: true,
-    button: { label: 'Next  →', bg: homeColors.hill, ink: homeColors.deep },
-    dot: { on: homeColors.hill, off: homeColors.streakBorder },
+    button: { label: 'Next', shell: colors.limeShell, face: colors.lime, ink: colors.sub },
+    dot: { on: colors.lime, off: colors.chartSoft },
   },
   {
-    bg: homeColors.primary,
-    ink: homeColors.white,
+    bg: colors.action,
+    ink: colors.surf,
     waves: [
       { src: require('../assets/onboarding/w2-yellow-wave.svg'), w: 402, h: 516.812, top: 357.19 },
       { src: require('../assets/onboarding/w2-pale-foreground.svg'), w: 402, h: 203, top: 671 },
@@ -114,12 +123,12 @@ const SCENES: Scene[] = [
     body: 'Save the ideas you’ll actually use.\nLeave the rest behind.',
     bodyTop: 250,
     skip: true,
-    button: { label: 'Next  →', bg: homeColors.primary, ink: homeColors.white },
-    dot: { on: homeColors.primary, off: homeColors.streakBorder },
+    button: { label: 'Next', shell: colors.actionShell, face: colors.action, ink: colors.onAction },
+    dot: { on: colors.action, off: colors.chartSoft },
   },
   {
-    bg: homeColors.track,
-    ink: homeColors.deep,
+    bg: colors.tint,
+    ink: colors.sub,
     waves: [
       { src: require('../assets/onboarding/w3-purple-wave.svg'), w: 402, h: 478, top: 396 },
       { src: require('../assets/onboarding/w3-lilac-foreground.svg'), w: 402, h: 216, top: 674 },
@@ -141,8 +150,8 @@ const SCENES: Scene[] = [
     // A two-line title, so the words below it start where screen two's do.
     bodyTop: 250,
     skip: false,
-    button: { label: 'Next  →', bg: homeColors.hill, ink: homeColors.deep },
-    dot: { on: homeColors.deep, off: homeColors.track },
+    button: { label: 'Next', shell: colors.limeShell, face: colors.lime, ink: colors.sub },
+    dot: { on: colors.sub, off: colors.tint },
   },
 ];
 
@@ -154,8 +163,6 @@ export const WELCOME_SCENES = SCENES.length;
 const STEPS = SCENES.map((_, i) => i);
 const DOT_ON = SCENES.map((s) => s.dot.on);
 const DOT_OFF = SCENES.map((s) => s.dot.off);
-const BUTTON_BG = SCENES.map((s) => s.button.bg);
-const BUTTON_INK = SCENES.map((s) => s.button.ink);
 
 /** One step's dot. It is the same view throughout: between screens it grows or
  *  shrinks between the dot and the pill and takes its colour with it, rather
@@ -171,7 +178,7 @@ function Dot({ at, i, k }: { at: { value: number }; i: number; k: number }) {
       ]),
     };
   });
-  return <Animated.View style={[{ height: 6 * k, borderRadius: 3 * k }, shape]} />;
+  return <Animated.View style={[{ height: 6 * k, borderRadius: radius.sm * k }, shape]} />;
 }
 
 /** One exported drawing, at its own proportions.
@@ -234,27 +241,33 @@ function Screen({ scene, i, k, width, top, foot, onSkip }: {
         ))}
       </View>
 
+      {/* The word sits where the design put it. The button around it is a 44pt
+          target, which is taller than the word, so it starts that much higher. */}
       {scene.skip && (
-        <Pressable accessibilityRole="button" accessibilityLabel="Skip the introduction"
-          onPress={onSkip} hitSlop={16}
-          style={{ position: 'absolute', right: 24 * k, top: top + 12 * k }}>
-          <Text style={{
-            fontFamily: 'Geist_500Medium', fontSize: 14 * k, lineHeight: 20 * k, color: scene.ink,
-          }}>Skip</Text>
-        </Pressable>
+        <Button label="Skip" variant="quiet" size="sm" width="hug"
+          accessibilityLabel="Skip the introduction" onPress={onSkip}
+          labelStyle={{ color: scene.ink }}
+          style={{ position: 'absolute', right: 24 * k, top: top + 12 * k - SKIP_LIFT }} />
       )}
 
       <Text accessibilityRole="header" style={{
-        position: 'absolute', left: 24 * k, top: top + (140 - DESIGN_TOP) * k, width: 354 * k,
-        fontFamily: 'Geist_800ExtraBold', fontSize: 40 * k, lineHeight: 43 * k,
-        letterSpacing: -1.4 * k, color: scene.ink,
+        ...type.caption, fontFamily: 'Geist_800ExtraBold',
+        position: 'absolute',
+        left: 24 * k,
+        top: top + (140 - DESIGN_TOP) * k,
+        width: 354 * k,
+        letterSpacing: -1.4 * k,
+        color: scene.ink,
       }}>{scene.title}</Text>
 
       {!!scene.body && (
         <Text style={{
-          position: 'absolute', left: 24 * k, top: top + (scene.bodyTop! - DESIGN_TOP) * k,
+          ...type.caption, fontFamily: 'Geist_400Regular',
+          position: 'absolute',
+          left: 24 * k,
+          top: top + (scene.bodyTop! - DESIGN_TOP) * k,
           width: 330 * k,
-          fontFamily: 'Geist_400Regular', fontSize: 14 * k, lineHeight: 20 * k, color: scene.ink,
+          color: scene.ink,
         }}>{scene.body}</Text>
       )}
     </View>
@@ -287,15 +300,8 @@ export function WelcomeStory({ step, onNext, onSkip }: {
   const track = useAnimatedStyle(() => ({
     transform: [{ translateX: -at.value * width }],
   }));
-  // The footer does not travel — that is the point of it. The button crosses
-  // between the screens' colours in place instead.
-  const button = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(at.value, STEPS, BUTTON_BG),
-  }));
-  const buttonInk = useAnimatedStyle(() => ({
-    color: interpolateColor(at.value, STEPS, BUTTON_INK),
-  }));
-
+  // The footer does not travel — that is the point of it. The button takes the
+  // colours of whichever screen is under the glass.
   const foot = insets.bottom;
 
   return (
@@ -310,19 +316,18 @@ export function WelcomeStory({ step, onNext, onSkip }: {
       <View style={[styles.footer, { bottom: foot + (DESIGN_FOOT - DESIGN_BUTTON_BOTTOM) * k }]}>
         <View accessibilityRole="progressbar"
           accessibilityLabel={`Screen ${step + 1} of ${SCENES.length}`}
-          style={[styles.dots, { gap: 8 * k }]}>
+          style={[styles.dots, { gap: space[2] * k }]}>
           {SCENES.map((_, i) => <Dot key={i} at={at} i={i} k={k} />)}
         </View>
-        <Pressable accessibilityRole="button" onPress={onNext}>
-          <Animated.View style={[{
-            marginTop: 33 * k, width: 354 * k, height: 58 * k, borderRadius: 100 * k,
-            alignItems: 'center', justifyContent: 'center',
-          }, button]}>
-            <Animated.Text style={[{
-              fontFamily: 'Geist_700Bold', fontSize: 16 * k, lineHeight: 22 * k,
-            }, buttonInk]}>{scene.button.label}</Animated.Text>
-          </Animated.View>
-        </Pressable>
+        {/* The app's button, in the scene's colours. It used to be drawn here from
+            the design's own numbers and cross-faded between the screens as they
+            moved; it is the same control the rest of the app presses, so it is now
+            that control, and takes its height, its corner, its lip and its word
+            from the tokens. */}
+        <Button label={scene.button.label} size="xl" onPress={onNext}
+          iconEnd={<Icon name="arrowRight" size={20} color={scene.button.ink} />}
+          tone={{ shell: scene.button.shell, face: scene.button.face, label: scene.button.ink }}
+          style={{ marginTop: space[8] * k, width: 354 * k }} />
       </View>
     </View>
   );
