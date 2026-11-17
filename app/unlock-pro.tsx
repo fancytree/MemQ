@@ -1,3 +1,7 @@
+import { Icon } from '@/components/ui/Icon';
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
+import { type } from '@/theme/typography';
 /**
  * Unlock MemQ Pro — what the subscription is for, before any price is named.
  *
@@ -17,10 +21,8 @@ import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { safeBack } from '@/lib/safeBack';
-import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
-import { layout } from '@/theme/spacing';
-import { Feather } from '@expo/vector-icons';
+import { space, radius, layout } from '@/theme/spacing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -35,7 +37,8 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { LedgePressable } from '@/components/ui/LedgePressable';
+import { Button } from '@/components/ui/Button';
+import { colors } from '@/theme/colors';
 
 const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
@@ -71,7 +74,7 @@ export default function UnlockProScreen() {
     <View style={styles.root}>
       <StatusBar style="dark" />
       <LinearGradient pointerEvents="none"
-        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
         locations={[0, 0.21154, 0.44712, 1]}
         style={styles.background} />
       {/* Two hills, not one. A single one ends on a straight horizontal edge partway
@@ -89,7 +92,7 @@ export default function UnlockProScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}>
         <View style={styles.pill}>
-          <Feather name="zap" size={16} color={homeColors.primary} />
+          <Icon name="zap" size={16} color={colors.action} />
           <Text style={styles.pillText}>MemQ Pro</Text>
         </View>
         <Text accessibilityRole="header" style={styles.title}>Unlock the full stack</Text>
@@ -99,12 +102,11 @@ export default function UnlockProScreen() {
             you get the way it holds the setup questions on the first run. */}
         <MascotRig width={PERCH} mood="excited" calm style={styles.perch}
           behind={(
-            <View style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
-              <View style={styles.cardFace}>
+            <Card corner="xl" pad="lg" gap={space[5]} style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
                 {FEATURES.map((feature) => (
                   <View key={feature.title} style={styles.feature}>
                     <View style={styles.tick}>
-                      <Feather name="check" size={14} color={homeColors.white} />
+                      <Icon name="check" size={14} color={colors.surf} />
                     </View>
                     <View style={styles.featureBody}>
                       <Text style={styles.featureTitle}>{feature.title}</Text>
@@ -112,20 +114,14 @@ export default function UnlockProScreen() {
                     </View>
                   </View>
                 ))}
-              </View>
-            </View>
+            </Card>
           )} />
       </ScrollView>
 
       <SafeAreaView edges={['bottom']}>
         <View style={styles.footer}>
           <Text style={styles.hint}>7-day free trial · Cancel anytime</Text>
-          <LedgePressable accessibilityRole="button" style={styles.lead}
-            onPress={() => setShowPaywallModal(true)}>
-            <View style={styles.leadFace}>
-              <Text style={styles.leadText}>Start free trial</Text>
-            </View>
-          </LedgePressable>
+          <Button size="xl" label="Start free trial" onPress={() => setShowPaywallModal(true)} />
           <View style={styles.legal}>
             <Pressable accessibilityRole="button" onPress={() => Linking.openURL(APPLE_EULA_URL)}>
               <Text style={styles.legalLink}>Terms of Use (EULA)</Text>
@@ -142,7 +138,9 @@ export default function UnlockProScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: homeColors.canvas },
+  // Ridden up under the character's hands, so it reads as the thing being held.
+  card: { marginTop: CARD_LIFT },
+  root: { flex: 1, backgroundColor: colors.bg },
   background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', top: 113, left: -19 },
   waveFront: { position: 'absolute', top: 150, left: -19 },
@@ -152,75 +150,65 @@ const styles = StyleSheet.create({
   // card it holds sit in the middle of the screen rather than pinned under the nav.
   content: {
     flexGrow: 1, justifyContent: 'center',
-    paddingHorizontal: layout.screenInline, paddingBottom: 20,
+    paddingHorizontal: layout.screenInline, paddingBottom: space[5],
   },
 
   // The same shape the Today heading wears: a soft translucent lozenge, not a tracked
   // capitalised kicker.
   pill: {
-    alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6,
-    paddingHorizontal: 12, paddingVertical: 8, borderRadius: 36,
-    backgroundColor: homeColors.focus,
+    alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: space[1],
+    paddingHorizontal: space[3], paddingVertical: space[2], borderRadius: radius.pill,
+    backgroundColor: colors.veil,
   },
-  pillText: {
-    fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.darkest,
-  },
+  pillText: { ...type.body, fontFamily: 'Geist_500Medium', color: colors.text },
   title: {
-    marginTop: 14,
-    fontFamily: 'Geist_800ExtraBold', fontSize: 34, lineHeight: 38,
-    letterSpacing: -1.1, color: homeColors.darkest,
+    ...oneLine(type.title), fontFamily: 'Geist_800ExtraBold',
+    marginTop: space[3],
+    letterSpacing: -1.1,
+    color: colors.text,
   },
   subtitle: {
-    marginTop: 10, marginBottom: 30,
-    fontFamily: 'Geist_500Medium', fontSize: 16, lineHeight: 22, color: homeColors.deep,
+    ...type.body, fontFamily: 'Geist_500Medium',
+    marginTop: space[2],
+    marginBottom: space[8],
+    color: colors.sub,
   },
 
   perch: { alignSelf: 'center' },
   // Ridden up under the character's hands, so it reads as the thing being held.
-  card: {
-    marginTop: CARD_LIFT,
-    backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: ledge.raised,
-  },
-  cardFace: {
-    backgroundColor: homeColors.white, borderRadius: 32, padding: 20, gap: 20,
-  },
 
-  feature: { flexDirection: 'row', gap: 12 },
+  feature: { flexDirection: 'row', gap: space[3] },
   tick: {
-    width: 24, height: 24, borderRadius: 12, marginTop: 1,
-    backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center',
+    width: 24, height: 24, borderRadius: radius.md, marginTop: space[0],
+    backgroundColor: colors.action, alignItems: 'center', justifyContent: 'center',
   },
-  featureBody: { flex: 1, gap: 4 },
-  featureTitle: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 17, lineHeight: 24, color: homeColors.darkest,
-  },
-  featureText: {
-    fontFamily: 'Geist_400Regular', fontSize: 14, lineHeight: 20, color: homeColors.muted,
-  },
+  featureBody: { flex: 1, gap: space[1] },
+  featureTitle: { ...type.body, fontFamily: 'Geist_600SemiBold', color: colors.text },
+  featureText: { ...type.small, fontFamily: 'Geist_400Regular', color: colors.faint },
 
-  footer: { paddingHorizontal: layout.screenInline, paddingTop: 12, gap: 12 },
+  footer: { paddingHorizontal: layout.screenInline, paddingTop: space[3], gap: space[3] },
   hint: {
-    fontFamily: 'Geist_500Medium', fontSize: 14, lineHeight: 20,
-    color: homeColors.muted, textAlign: 'center',
+    ...type.small, fontFamily: 'Geist_500Medium',
+    color: colors.faint,
+    textAlign: 'center',
   },
   lead: {
-    height: 59 + ledge.lead, borderRadius: 42,
-    backgroundColor: homeColors.deep, paddingBottom: ledge.lead,
+    height: 59 + ledge.lead, borderRadius: radius.pill,
+    backgroundColor: colors.actionShell, paddingBottom: ledge.lead,
   },
   leadFace: {
-    flex: 1, borderRadius: 42, backgroundColor: homeColors.primary,
+    flex: 1, borderRadius: radius.pill, backgroundColor: colors.action,
     alignItems: 'center', justifyContent: 'center',
   },
-  leadText: {
-    fontFamily: 'Geist_500Medium', fontSize: 22, lineHeight: 30, color: homeColors.white,
-  },
+  leadText: { ...type.heading, fontFamily: 'Geist_500Medium', color: colors.surf },
 
   legal: {
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: space[2],
   },
   legalLink: {
-    fontFamily: 'Geist_400Regular', fontSize: 13, color: homeColors.muted,
+    ...type.caption, fontFamily: 'Geist_400Regular',
+    color: colors.faint,
     textDecorationLine: 'underline',
   },
-  legalSep: { fontFamily: 'Geist_400Regular', fontSize: 13, color: homeColors.muted },
+  legalSep: { ...type.caption, fontFamily: 'Geist_400Regular', color: colors.faint },
 });

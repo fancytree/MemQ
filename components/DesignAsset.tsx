@@ -16,7 +16,6 @@ export const designAssets = {
   termPlus: { module: require('../assets/design-system/term-plus.svg'), width: 18, height: 18 },
   termSearch: { module: require('../assets/design-system/term-search.svg'), width: 18, height: 18 },
   termChevronDown: { module: require('../assets/design-system/term-chevron-down.svg'), width: 16, height: 16 },
-  termVolume: { module: require('../assets/design-system/term-volume.svg'), width: 18, height: 18 },
   libraryChevron: { module: require('../assets/design-system/library-chevron.svg'), width: 17, height: 17 },
   paper: { module: require('../assets/design-system/notebook-paper.svg'), width: 212, height: 100 },
   flame: { module: require('../assets/design-system/streak-flame.svg'), width: 25, height: 29 },

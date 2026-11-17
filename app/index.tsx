@@ -47,7 +47,7 @@ export default function AuthCheckScreen() {
 
   return (
     <View style={styles.container}>
-      <ActivityIndicator size="large" color={colors.accentText} />
+      <ActivityIndicator size="large" color={colors.sub} />
     </View>
   );
 }

@@ -1,14 +1,16 @@
-import { AuthPerch, authField } from '@/components/auth/AuthPerch';
+import { space } from '@/theme/spacing';
+import { AuthPerch } from '@/components/auth/AuthPerch';
+import { EyeToggle } from '@/components/ui/EyeToggle';
+import { Field } from '@/components/ui/Field';
 import { MascotRig } from '@/components/mascot/rig/MascotRig';
 import { dialog } from '@/lib/dialog';
 import { supabase } from '@/lib/supabase';
-import { homeColors } from '@/theme/colors';
-import { fonts } from '@/theme/typography';
-import { Feather } from '@expo/vector-icons';
+import { colors } from '@/theme/colors';
+import { type, fonts } from '@/theme/typography';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 
 export default function ResetPasswordScreen() {
@@ -144,7 +146,7 @@ export default function ResetPasswordScreen() {
     return (
       <View style={styles.checking}>
         <LinearGradient pointerEvents="none"
-          colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+          colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
           locations={[0, 0.21154, 0.44712, 1]} style={StyleSheet.absoluteFill} />
         <MascotRig width={150} mood="thinking" />
         <Text style={styles.checkingText}>Checking your link…</Text>
@@ -158,52 +160,38 @@ export default function ResetPasswordScreen() {
       mood={loading ? 'thinking' : 'onboarding'} eyesShut={typing}
       action={{ label: 'Save password', onPress: handleResetPassword, busy: loading }}
       footer={{ label: 'Back to sign in', onPress: () => router.replace('/login'), disabled: loading }}>
-      <View style={authField.well}>
-        <TextInput accessibilityLabel="New password"
-          style={[authField.input, authField.secret]}
-          placeholder="New password"
-          placeholderTextColor={homeColors.placeholder}
-          value={newPassword}
-          onChangeText={(text) => { setNewPassword(text); setError(null); }}
-          onFocus={() => setTyping(true)}
-          onBlur={() => setTyping(false)}
-          secureTextEntry={!showPassword}
-          autoCapitalize="none"
-          autoComplete="password-new"
-          editable={!loading}
-        />
-        <Pressable accessibilityRole="button" accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
-          style={authField.eye} onPress={() => setShowPassword(!showPassword)}>
-          <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
-        </Pressable>
-      </View>
-      <View style={authField.well}>
-        <TextInput accessibilityLabel="Confirm new password"
-          style={[authField.input, authField.secret]}
-          placeholder="Confirm new password"
-          placeholderTextColor={homeColors.placeholder}
-          value={confirmPassword}
-          onChangeText={(text) => { setConfirmPassword(text); setError(null); }}
-          onFocus={() => setTyping(true)}
-          onBlur={() => setTyping(false)}
-          secureTextEntry={!showConfirmPassword}
-          autoCapitalize="none"
-          autoComplete="password-new"
-          returnKeyType="done"
-          onSubmitEditing={handleResetPassword}
-          editable={!loading}
-        />
-        <Pressable accessibilityRole="button" accessibilityLabel={showConfirmPassword ? 'Hide password' : 'Show password'}
-          style={authField.eye} onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
-          <Feather name={showConfirmPassword ? 'eye-off' : 'eye'} size={20} color={homeColors.muted} />
-        </Pressable>
-      </View>
-      {!!error && <Text accessibilityRole="alert" style={authField.error}>{error}</Text>}
+      <Field accessibilityLabel="New password"
+        placeholder="New password"
+        value={newPassword}
+        onChangeText={(text) => { setNewPassword(text); setError(null); }}
+        onFocus={() => setTyping(true)}
+        onBlur={() => setTyping(false)}
+        secureTextEntry={!showPassword}
+        autoCapitalize="none"
+        autoComplete="password-new"
+        editable={!loading}
+        trailing={<EyeToggle shown={showPassword} onPress={() => setShowPassword(!showPassword)} />}
+      />
+      <Field accessibilityLabel="Confirm new password"
+        placeholder="Confirm new password"
+        value={confirmPassword}
+        onChangeText={(text) => { setConfirmPassword(text); setError(null); }}
+        onFocus={() => setTyping(true)}
+        onBlur={() => setTyping(false)}
+        secureTextEntry={!showConfirmPassword}
+        autoCapitalize="none"
+        autoComplete="password-new"
+        returnKeyType="done"
+        onSubmitEditing={handleResetPassword}
+        editable={!loading}
+        error={error ?? undefined}
+        trailing={<EyeToggle shown={showConfirmPassword} onPress={() => setShowConfirmPassword(!showConfirmPassword)} />}
+      />
     </AuthPerch>
   );
 }
 
 const styles = StyleSheet.create({
-  checking: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, backgroundColor: homeColors.canvas },
-  checkingText: { fontFamily: fonts.medium, fontSize: 16, color: homeColors.muted },
+  checking: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space[3], backgroundColor: colors.bg },
+  checkingText: { ...type.body, fontFamily: fonts.medium, color: colors.faint },
 });

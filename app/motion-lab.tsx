@@ -1,3 +1,4 @@
+import { oneLine } from '@/theme/typography';
 import { EdBase } from '@/components/EdBase';
 import { MascotRig } from '@/components/mascot/rig/MascotRig';
 import { MascotState } from '@/components/mascot/MascotState';
@@ -9,7 +10,7 @@ import {
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { StreakPill } from '@/components/ui/StreakPill';
 import { safeBack } from '@/lib/safeBack';
-import { colors, componentTokens, fonts, layout, radius, type } from '@/theme';
+import { space, colors, componentTokens, fonts, layout, radius, type } from '@/theme';
 import { Redirect, Stack, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -406,80 +407,80 @@ function MotionLabScreen() {
 
 const THUMB = 22;
 const styles = StyleSheet.create({
-  content: { paddingHorizontal: layout.listInline, paddingBottom: 40 },
-  title: { ...type.page, color: colors.text, marginTop: 4 },
-  lede: { ...type.bodyReading, color: colors.supporting, marginTop: 8 },
+  content: { paddingHorizontal: space[6], paddingBottom: space[10] },
+  title: { ...oneLine(type.page), color: colors.text, marginTop: space[1] },
+  lede: { ...type.small, color: colors.sub, marginTop: space[2] },
   // The page's own colour behind the stage, so what scrolls under it is hidden.
-  pinned: { paddingTop: 16, paddingBottom: 6, backgroundColor: colors.bg },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 34, marginTop: 4 },
+  pinned: { paddingTop: space[4], paddingBottom: space[1], backgroundColor: colors.bg },
+  status: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 34, marginTop: space[1] },
   stage: {
     height: 232,
-    borderRadius: componentTokens.todayHero.borderRadius,
-    backgroundColor: colors.surfaceSubtle,
+    borderRadius: radius.lg,
+    backgroundColor: colors.panel,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
-  hint: { ...type.meta, color: colors.muted, flex: 1 },
+  hint: { ...type.caption, color: colors.sub, flex: 1 },
   hintMoved: { color: colors.text },
   putBack: { minHeight: 34, justifyContent: 'center' },
-  putBackText: { ...type.meta, color: colors.accentText, textDecorationLine: 'underline' },
-  groupLabel: { ...type.meta, color: colors.muted, marginTop: 22, marginBottom: 8, letterSpacing: 0.6 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
-  toggles: { marginTop: 8 },
+  putBackText: { ...type.caption, color: colors.sub, textDecorationLine: 'underline' },
+  groupLabel: { ...type.caption, color: colors.sub, marginTop: space[5], marginBottom: space[2], letterSpacing: 0.6 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: space[2] },
+  toggles: { marginTop: space[2] },
   chip: {
-    minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 13,
-    borderRadius: radius.pill, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.bg,
+    minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: space[1], paddingHorizontal: space[3],
+    borderRadius: radius.pill, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.bg,
   },
   chipActive: { backgroundColor: colors.action, borderColor: colors.action },
-  chipPressed: { backgroundColor: colors.surfaceSubtle },
-  chipText: { ...type.meta, color: colors.sub },
+  chipPressed: { backgroundColor: colors.panel },
+  chipText: { ...type.caption, color: colors.sub },
   chipTextActive: { color: colors.onAction },
   chipMark: { width: 6, height: 6, borderRadius: radius.pill, backgroundColor: colors.action },
   chipMarkActive: { backgroundColor: colors.onAction },
-  when: { ...type.meta, color: colors.muted, marginTop: 14 },
+  when: { ...type.caption, color: colors.sub, marginTop: space[3] },
   panel: {
-    marginTop: 12, paddingHorizontal: 16, paddingTop: 6, paddingBottom: 16,
-    borderRadius: radius.card, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surf,
+    marginTop: space[3], paddingHorizontal: space[4], paddingTop: space[1], paddingBottom: space[4],
+    borderRadius: radius.lg, borderWidth: 1, borderColor: colors.line, backgroundColor: colors.surf,
   },
-  slider: { paddingTop: 10 },
-  sliderHead: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
+  slider: { paddingTop: space[2] },
+  sliderHead: { flexDirection: 'row', justifyContent: 'space-between', gap: space[4] },
   track: { height: 44, justifyContent: 'center', marginHorizontal: THUMB / 2 },
-  trackLine: { height: 4, borderRadius: radius.pill, backgroundColor: colors.border },
+  trackLine: { height: 4, borderRadius: radius.pill, backgroundColor: colors.line },
   trackFill: { position: 'absolute', height: 4, borderRadius: radius.pill, backgroundColor: colors.action },
   trackZero: {
     position: 'absolute', width: 2, height: 12, marginLeft: -1,
-    borderRadius: radius.pill, backgroundColor: colors.controlBorder,
+    borderRadius: radius.pill, backgroundColor: colors.faint,
   },
   thumb: {
     position: 'absolute', width: THUMB, height: THUMB, marginLeft: -THUMB / 2,
     borderRadius: radius.pill, backgroundColor: colors.action,
     borderWidth: 3, borderColor: colors.surf,
   },
-  readout: { borderTopWidth: 1, borderTopColor: colors.border },
+  readout: { borderTopWidth: 1, borderTopColor: colors.line },
   row: {
-    flexDirection: 'row', justifyContent: 'space-between', gap: 16,
-    paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: colors.border,
+    flexDirection: 'row', justifyContent: 'space-between', gap: space[4],
+    paddingVertical: space[3], borderBottomWidth: 1, borderBottomColor: colors.line,
   },
-  rowLabel: { ...type.meta, color: colors.muted },
-  rowValue: { ...type.meta, color: colors.text, flexShrink: 1, textAlign: 'right' },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 16 },
-  streakRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  rowLabel: { ...type.caption, color: colors.sub },
+  rowValue: { ...type.caption, color: colors.text, flexShrink: 1, textAlign: 'right' },
+  actions: { flexDirection: 'row', gap: space[2], marginTop: space[4] },
+  streakRow: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   action: {
-    flex: 1, minHeight: 48, borderRadius: radius.pill, paddingHorizontal: 12,
-    backgroundColor: colors.surfaceSubtle, alignItems: 'center', justifyContent: 'center',
+    flex: 1, minHeight: 48, borderRadius: radius.pill, paddingHorizontal: space[3],
+    backgroundColor: colors.panel, alignItems: 'center', justifyContent: 'center',
   },
-  actionPressed: { backgroundColor: colors.selectionNeutral },
-  actionDisabled: { backgroundColor: colors.disabledBg },
-  actionText: { ...type.meta, color: colors.text },
-  actionTextDisabled: { color: colors.disabledText },
-  pages: { marginTop: 14, marginBottom: 14 },
-  states: { gap: 12 },
+  actionPressed: { backgroundColor: colors.panel },
+  actionDisabled: { backgroundColor: colors.panel },
+  actionText: { ...type.caption, color: colors.text },
+  actionTextDisabled: { color: colors.disabled },
+  pages: { marginTop: space[3], marginBottom: space[3] },
+  states: { gap: space[3] },
   state: {
-    alignItems: 'center', paddingTop: 20, paddingBottom: 22, paddingHorizontal: 20,
-    borderRadius: radius.card, backgroundColor: colors.surf,
-    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border,
+    alignItems: 'center', paddingTop: space[5], paddingBottom: space[5], paddingHorizontal: space[5],
+    borderRadius: radius.lg, backgroundColor: colors.surf,
+    borderWidth: StyleSheet.hairlineWidth, borderColor: colors.line,
   },
-  stateTitle: { fontFamily: fonts.semibold, fontSize: 18, lineHeight: 26, color: colors.text, textAlign: 'center', marginTop: 18 },
-  stateCopy: { ...type.bodyReading, color: colors.sub, textAlign: 'center', marginTop: 4 },
-  stateKind: { ...type.meta, color: colors.muted, marginTop: 10 },
-  footnote: { ...type.meta, color: colors.muted, marginTop: 20 },
+  stateTitle: { ...type.body, fontFamily: fonts.semibold, color: colors.text, textAlign: 'center', marginTop: space[4] },
+  stateCopy: { ...type.small, color: colors.sub, textAlign: 'center', marginTop: space[1] },
+  stateKind: { ...type.caption, color: colors.sub, marginTop: space[2] },
+  footnote: { ...type.caption, color: colors.sub, marginTop: space[5] },
 });

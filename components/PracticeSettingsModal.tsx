@@ -1,3 +1,5 @@
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
 /**
  * What a practice round is made of, and how strictly a typed answer is marked.
  *
@@ -7,12 +9,13 @@
  * turn a card over, pick, match, type, listen, build.
  */
 
+import { Button } from '@/components/ui/Button';
 import { Toggle } from '@/components/ui/Toggle';
 import { CloseButton } from '@/components/ui/RoundButtons';
+import { SheetHead } from '@/components/ui/Sheet';
+import { listenBreakLeft } from '@/lib/listenBreak';
 import type { PracticeMode, PracticeSettings } from '@/lib/practiceModes';
-import { fonts } from '@/theme';
-import { homeColors } from '@/theme/colors';
-import { ledge } from '@/theme/ledge';
+import { space, radius, type, colors, fonts } from '@/theme';
 import { sheet } from '@/theme/sheet';
 import { layout } from '@/theme/spacing';
 import { StatusBar } from 'expo-status-bar';
@@ -35,12 +38,22 @@ const GRADING: { key: PracticeSettings['grading']; label: string; hint: string }
   { key: 'strict', label: 'Strict', hint: 'Spelling must be exact, accents included, and a meaning must be the card’s own. Capitals and punctuation are let go.' },
 ];
 
-export default function PracticeSettingsModal({ visible, onClose, settings, onChange }: {
+export default function PracticeSettingsModal({
+  visible, onClose, settings, onChange, listenBreak, onEndListenBreak,
+}: {
   visible: boolean;
   onClose: () => void;
   settings: PracticeSettings;
   onChange: (settings: PracticeSettings) => void;
+  /** When the person asked not to be made to listen until, or null. */
+  listenBreak?: number | null;
+  onEndListenBreak?: () => void;
 }) {
+  // A break taken from inside a round is switched on from a dialog and would
+  // otherwise have nowhere to be switched off: a person who chose "rest of today"
+  // and then put their headphones on has no way to say so. This is where the
+  // Listening row says it is paused, and the way back.
+  const paused = listenBreakLeft(listenBreak ?? null);
   // Turning the last one off would leave a round with nothing to ask, so the last one
   // on cannot be turned off. Its switch is disabled rather than silently refusing.
   const onCount = MODES.filter((m) => settings.modes[m.key]).length;
@@ -51,15 +64,13 @@ export default function PracticeSettingsModal({ visible, onClose, settings, onCh
       onRequestClose={onClose}>
       <StatusBar style="dark" />
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-        <View style={styles.head}>
-          <CloseButton onPress={onClose} label="Close practice settings" />
-          <Text accessibilityRole="header" style={styles.title}>Practice</Text>
-          <View style={styles.closeSpacer} />
-        </View>
+        <SheetHead align="center" title="Practice" close={false}
+          onClose={onClose} closeLabel="Close practice settings"
+          lead={<CloseButton onPress={onClose} label="Close practice settings" />} />
 
         <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
           <Text style={styles.sectionLabel}>What a round asks</Text>
-          <View style={styles.card}><View style={styles.cardFace}>
+          <Card gap={0}>
             {MODES.map((mode, i) => {
               const on = settings.modes[mode.key];
               const last = on && onCount === 1;
@@ -68,6 +79,13 @@ export default function PracticeSettingsModal({ visible, onClose, settings, onCh
                   <View style={styles.rowCopy}>
                     <Text style={styles.rowLabel}>{mode.label}</Text>
                     <Text style={styles.rowHint}>{mode.hint}</Text>
+                    {mode.key === 'listen' && !!paused && !!onEndListenBreak && (
+                      <View style={styles.paused}>
+                        <Text style={styles.pausedText}>Paused · {paused}</Text>
+                        <Button variant="ghost" size="sm" label="Resume"
+                          accessibilityLabel="Resume listening questions" onPress={onEndListenBreak} />
+                      </View>
+                    )}
                   </View>
                   <Toggle value={on} disabled={last} label={mode.label}
                     hint={last ? 'A round needs at least one kind of question.' : undefined}
@@ -76,10 +94,10 @@ export default function PracticeSettingsModal({ visible, onClose, settings, onCh
                 </View>
               );
             })}
-          </View></View>
+          </Card>
 
           <Text style={styles.sectionLabel}>Marking typed answers</Text>
-          <View style={styles.card}><View style={styles.cardFace}>
+          <Card gap={0}>
             {GRADING.map((option, i) => {
               const chosen = settings.grading === option.key;
               return (
@@ -97,7 +115,7 @@ export default function PracticeSettingsModal({ visible, onClose, settings, onCh
                 </Pressable>
               );
             })}
-          </View></View>
+          </Card>
         </ScrollView>
       </SafeAreaView>
     </Modal>
@@ -106,35 +124,26 @@ export default function PracticeSettingsModal({ visible, onClose, settings, onCh
 
 const styles = StyleSheet.create({
   container: { flex: 1, ...sheet.surface },
-  head: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: layout.screenInline, paddingTop: 8, paddingBottom: 14,
-  },
-  closeSpacer: { width: 44 },
-  title: {
-    fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep,
-  },
 
-  body: { paddingHorizontal: layout.screenInline, paddingBottom: 32, gap: 10 },
+  body: { paddingHorizontal: layout.screenInline, paddingBottom: space[8], gap: space[2] },
   sectionLabel: {
-    fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24,
-    color: homeColors.darkest, marginTop: 14,
+    ...type.body, fontFamily: fonts.semibold,
+    color: colors.text,
+    marginTop: space[3],
   },
-  card: { borderRadius: 28, backgroundColor: homeColors.border, paddingBottom: ledge.raised },
-  cardFace: { borderRadius: 28, backgroundColor: homeColors.white, padding: 18 },
 
-  row: { flexDirection: 'row', alignItems: 'center', gap: 16, minHeight: 56 },
-  rowGap: { marginTop: 14 },
-  rowCopy: { flex: 1, gap: 3 },
-  rowLabel: {
-    fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: homeColors.darkest,
-  },
-  rowHint: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 20, color: homeColors.muted },
+  row: { flexDirection: 'row', alignItems: 'center', gap: space[4], minHeight: 56 },
+  rowGap: { marginTop: space[3] },
+  rowCopy: { flex: 1, gap: space.hair },
+  paused: { flexDirection: 'row', alignItems: 'center', gap: space[2], marginTop: space[1] },
+  pausedText: { ...type.caption, fontFamily: fonts.semibold, color: colors.sub },
+  rowLabel: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
+  rowHint: { ...type.small, color: colors.faint },
 
   ring: {
-    width: 24, height: 24, borderRadius: 12, borderWidth: 2,
-    borderColor: homeColors.border, alignItems: 'center', justifyContent: 'center',
+    width: 24, height: 24, borderRadius: radius.md, borderWidth: 2,
+    borderColor: colors.line, alignItems: 'center', justifyContent: 'center',
   },
-  ringOn: { borderColor: homeColors.primary },
-  dot: { width: 12, height: 12, borderRadius: 6, backgroundColor: homeColors.primary },
+  ringOn: { borderColor: colors.action },
+  dot: { width: 12, height: 12, borderRadius: radius.sm, backgroundColor: colors.action },
 });

@@ -1,31 +1,29 @@
+import { Icon } from '@/components/ui/Icon';
+import { oneLine } from '@/theme/typography';
+import { DeadlineSheet } from '@/components/DeadlineSheet';
+import { Card } from '@/components/ui/Card';
+import { Field, FieldLabel, fieldGroup, fieldWell } from '@/components/ui/Field';
 import { HomeAsset } from '@/components/HomeAsset';
 import { dialog } from '@/lib/dialog';
 import { BackButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
-import { homeColors } from '@/theme/colors';
-import { Feather } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { elevation as cardElevation } from '@/theme';
+import { space, radius, type } from '@/theme';
 import { ledge } from '@/theme/ledge';
-import { sheet } from '@/theme/sheet';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
-import { SectionLabel } from '@/components/SectionLabel';
 import { clearCache } from '@/lib/cache';
 import {
   clearPendingTerms, getPendingLearningMode, getPendingSource, getPendingTerms, lessonFromSource,
 } from '@/lib/createStore';
 import { supabase } from '@/lib/supabase';
 import { colors, fonts } from '@/theme';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
-import { LedgePressable } from '@/components/ui/LedgePressable';
+import { Button } from '@/components/ui/Button';
 import {
-  Animated,
   KeyboardAvoidingView,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -68,19 +66,8 @@ export default function CreateNameScreen() {
   const [saving, setSaving] = useState(false);
 
   const nameInputRef = useRef<TextInput>(null);
-  const slideAnim = useRef(new Animated.Value(300)).current;
 
   const canCreate = lessonName.trim().length > 0;
-
-  const openDatePicker = () => {
-    setShowDatePicker(true);
-    Animated.spring(slideAnim, { toValue: 0, useNativeDriver: true, tension: 65, friction: 11 }).start();
-  };
-
-  const closeDatePicker = () => {
-    slideAnim.setValue(300);
-    setShowDatePicker(false);
-  };
 
   const formatDate = (date: Date | null) => {
     if (!date) return null;
@@ -92,11 +79,8 @@ export default function CreateNameScreen() {
     if (!name) { dialog('Required', 'Please enter a lesson name.'); return; }
     if (saving) return;
 
-    const terms = getPendingTerms();
-    if (!terms || terms.length === 0) {
-      dialog('Error', 'No terms found. Please go back and add terms.');
-      return;
-    }
+    // A lesson may start empty — see the note on handleSavePress in app/create.
+    const terms = getPendingTerms() ?? [];
 
     setSaving(true);
     try {
@@ -121,19 +105,21 @@ export default function CreateNameScreen() {
         return;
       }
 
-      const { error: termsError } = await supabase.from('terms').insert(
-        terms.map((t) => ({
-          lesson_id: lesson.id,
-          term: t.term,
-          definition: t.definition,
-          explanation: t.explanation,
-          language_data: learningMode === 'language' ? t.language_data || null : null,
-        }))
-      );
+      if (terms.length > 0) {
+        const { error: termsError } = await supabase.from('terms').insert(
+          terms.map((t) => ({
+            lesson_id: lesson.id,
+            term: t.term,
+            definition: t.definition,
+            explanation: t.explanation,
+            language_data: learningMode === 'language' ? t.language_data || null : null,
+          }))
+        );
 
-      if (termsError) {
-        dialog('Error', termsError.message || 'Failed to save terms.');
-        return;
+        if (termsError) {
+          dialog('Error', termsError.message || 'Failed to save terms.');
+          return;
+        }
       }
 
       clearPendingTerms();
@@ -151,7 +137,7 @@ export default function CreateNameScreen() {
   return (
     <EdBase bottomInset={0} scroll={false}>
       <LinearGradient pointerEvents="none"
-        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
         locations={[0, 0.21154, 0.44712, 1]}
         style={[styles.background, { top: -insets.top }]} />
       {/* Two hills, not one: a single one ends on a straight horizontal edge partway
@@ -184,122 +170,73 @@ export default function CreateNameScreen() {
               sign-in screens and the first run use. */}
           <MascotRig width={PERCH} mood="onboarding" calm style={styles.perch}
             behind={(
-          <View style={[styles.formCard, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
+          <Card pad="none" gap={0} style={[styles.formCard, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
             <View style={styles.formFace}>
 
-            {/* Lesson Name */}
-            <View style={styles.inputGroup}>
-              <SectionLabel style={styles.label}>
-                Lesson Name <Text style={styles.required}>*</Text>
-              </SectionLabel>
-              <TextInput accessibilityLabel="e.g. French Vocabulary, Biology Ch.3…"
-                ref={nameInputRef}
-                autoFocus
-                style={[styles.input, styles.singleLineInput]}
-                value={lessonName}
-                onChangeText={setLessonName}
-                placeholder="e.g. French Vocabulary, Biology Ch.3…"
-                placeholderTextColor={homeColors.placeholder}
-                autoCapitalize="words"
-                returnKeyType="next"
-                maxLength={80}
-              />
-            </View>
+            <Field accessibilityLabel="Lesson name"
+              label={<>Lesson Name <Text style={styles.required}>*</Text></>}
+              ref={nameInputRef}
+              autoFocus
+              value={lessonName}
+              onChangeText={setLessonName}
+              placeholder="e.g. French Vocabulary, Biology Ch.3…"
+              autoCapitalize="words"
+              returnKeyType="next"
+              maxLength={80}
+              style={styles.inputGroup}
+            />
 
-            {/* Description */}
-            <View style={styles.inputGroup}>
-              <SectionLabel style={styles.label}>Description</SectionLabel>
-              <TextInput accessibilityLabel="Enter description (optional)"
-                style={[styles.input, styles.textarea]}
-                value={description}
-                onChangeText={setDescription}
-                placeholder="Enter description (optional)"
-                placeholderTextColor={homeColors.placeholder}
-                multiline
-                textAlignVertical="top"
-              />
-            </View>
+            <Field label="Description"
+              accessibilityLabel="Enter description (optional)"
+              value={description}
+              onChangeText={setDescription}
+              placeholder="Enter description (optional)"
+              multiline
+              style={styles.inputGroup}
+            />
 
-            {/* Deadline */}
-            <View style={[styles.inputGroup, styles.inputGroupLast]}>
+            {/* Shaped like the two fields above it, because it belongs with them —
+                but it opens a picker instead of taking a cursor, which is what the
+                calendar glyph is there to say. */}
+            <View style={[fieldGroup, styles.inputGroup, styles.inputGroupLast]}>
               <View style={styles.labelRow}>
-                <SectionLabel style={[styles.label, { marginBottom: 0 }]}>Deadline</SectionLabel>
+                <FieldLabel>Deadline</FieldLabel>
                 {deadline && (
                   <Pressable accessibilityRole="button" onPress={() => setDeadline(null)} style={styles.clearBtn}>
                     <Text style={styles.clearBtnText}>Clear</Text>
                   </Pressable>
                 )}
               </View>
-              <TouchableOpacity accessibilityRole="button"
-                style={[styles.input, styles.singleLineInput, styles.dateBtn]}
-                onPress={openDatePicker}
+              <TouchableOpacity accessibilityRole="button" accessibilityLabel="Deadline"
+                style={[fieldWell, styles.dateBtn]}
+                onPress={() => setShowDatePicker(true)}
                 activeOpacity={0.7}
               >
                 <Text style={[styles.dateText, !deadline && styles.datePlaceholder]}>
                   {deadline ? formatDate(deadline) : 'Select deadline (optional)'}
                 </Text>
-                {/* The one field here that opens something instead of taking typing,
-                    and nothing else said so: it looked like the two text boxes above
-                    it and read as a third one that would not accept a cursor. */}
-                <Feather name="calendar" size={18}
-                  color={deadline ? homeColors.deep : homeColors.muted} />
+                <Icon name="calendar" size={18}
+                  color={deadline ? colors.sub : colors.faint} />
               </TouchableOpacity>
             </View>
             </View>
-          </View>
+          </Card>
             )} />
 
           {/* CTA */}
-          <LedgePressable accessibilityRole="button"
-            style={[styles.cta, (!canCreate || saving) && styles.ctaDisabled]}
+          <Button size="xl"
+            label={saving ? 'Creating…' : 'Create Lesson →'}
             onPress={() => void handleCreate()}
             disabled={!canCreate || saving}
-          >
-            <View style={styles.ctaFace}>
-              <Text style={styles.ctaText}>
-                {saving ? 'Creating…' : 'Create Lesson →'}
-              </Text>
-            </View>
-          </LedgePressable>
+          />
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Date picker */}
-      {showDatePicker && Platform.OS === 'ios' && (
-        <Modal visible transparent animationType="none" onRequestClose={closeDatePicker}>
-          <TouchableOpacity accessibilityRole="button" style={styles.modalOverlay} activeOpacity={1} onPress={closeDatePicker}>
-            <Animated.View style={[styles.modalContent, { paddingBottom: Math.max(24, insets.bottom), transform: [{ translateY: slideAnim }] }]}>
-              <View style={styles.modalHeader}>
-                <TouchableOpacity accessibilityRole="button" onPress={closeDatePicker} style={styles.modalBtn}>
-                  <Text style={styles.modalCancel}>Cancel</Text>
-                </TouchableOpacity>
-                <Text style={styles.modalTitle}>Select Deadline</Text>
-                <TouchableOpacity accessibilityRole="button" onPress={closeDatePicker} style={styles.modalBtn}>
-                  <Text style={styles.modalDone}>Done</Text>
-                </TouchableOpacity>
-              </View>
-              <DateTimePicker
-                value={deadline || new Date()}
-                mode="date"
-                display="spinner"
-                onChange={(_, d) => d && setDeadline(d)}
-                minimumDate={new Date()}
-                textColor={colors.text}
-                themeVariant="light"
-              />
-            </Animated.View>
-          </TouchableOpacity>
-        </Modal>
-      )}
-      {showDatePicker && Platform.OS === 'android' && (
-        <DateTimePicker
-          value={deadline || new Date()}
-          mode="date"
-          display="default"
-          onChange={(_, d) => { setShowDatePicker(false); if (d) setDeadline(d); }}
-          minimumDate={new Date()}
-        />
-      )}
+      {/* The same sheet the lesson's own settings use: one way to pick a deadline,
+          not a hand-rolled spinner here and a calendar there. */}
+      <DeadlineSheet visible={showDatePicker} value={deadline}
+        onClose={() => setShowDatePicker(false)}
+        onConfirm={(date) => { setDeadline(date); setShowDatePicker(false); }} />
     </EdBase>
   );
 }
@@ -310,101 +247,54 @@ const styles = StyleSheet.create({
   waveFront: { position: 'absolute', left: -19 },
   perch: { alignSelf: 'center' },
   topbar: {
-    paddingHorizontal: layout.screenInline, paddingTop: 20, paddingBottom: 16,
+    paddingHorizontal: layout.screenInline, paddingTop: space[5], paddingBottom: space[4],
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     position: 'relative',
   },
   title: {
-    fontSize: 23, lineHeight: 32,
-    color: homeColors.deep, fontFamily: fonts.display,
+    ...oneLine(type.page),
+    color: colors.sub,
     // Centred on the bar rather than between the buttons, so it lies across both —
     // and a label has no business taking their taps.
-    position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    pointerEvents: 'none',
   },
 
-  body: { padding: 16, gap: 12 },
+  body: { padding: space[4], gap: space[3] },
 
-  // A shell with a lighter face on it, offset so a band of the shell shows along the
-  // bottom edge — the same depth every other raised surface in the app carries. It was
-  // a hairline outline and a boxShadow, which is the older style.
-  formCard: {
-    backgroundColor: homeColors.border, borderRadius: 28, paddingBottom: ledge.raised,
-  },
-  formFace: {
-    backgroundColor: homeColors.white, borderRadius: 28,
-    paddingHorizontal: 18, paddingTop: 18, paddingBottom: 10,
-  },
-  inputGroup: { marginBottom: 20 },
-  inputGroupLast: { marginBottom: 8 },
+  formCard: {},
+  formFace: { paddingHorizontal: space[4], paddingTop: space[4], paddingBottom: space[2] },
+  inputGroup: { marginBottom: space[5] },
+  inputGroupLast: { marginBottom: space[2] },
 
-  label: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 15, lineHeight: 20,
-    letterSpacing: 0, color: homeColors.muted, marginBottom: 8,
-  },
   required: { color: colors.red },
 
-  labelRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 8,
-  },
+  labelRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
 
-  // Canvas, not a bordered box: the field is a well sunk into the card's white face,
-  // which is how every other input in the app is drawn.
-  input: {
-    minHeight: 52, backgroundColor: homeColors.canvas, borderRadius: 16,
-    paddingHorizontal: 16, fontSize: 16, lineHeight: 22,
-    color: homeColors.darkest, fontFamily: 'Geist_500Medium',
-  },
-  singleLineInput: { minHeight: 52, paddingVertical: 14 },
-  textarea: { minHeight: 96, paddingVertical: 14, textAlignVertical: 'top' },
 
-  dateBtn: {
-    minHeight: 52, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', gap: 12,
-  },
-  dateText: { fontFamily: 'Geist_500Medium', fontSize: 16, lineHeight: 22, color: homeColors.darkest },
-  datePlaceholder: { color: homeColors.placeholder },
+  dateBtn: { justifyContent: 'space-between' },
+  dateText: { ...type.body, flex: 1, color: colors.text },
+  datePlaceholder: { color: colors.placeholder },
 
-  clearBtn: { minHeight: 44, paddingVertical: 4, paddingHorizontal: 8 },
-  clearBtnText: { fontFamily: 'Geist_600SemiBold', fontSize: 13, color: colors.red },
+  clearBtn: { minHeight: 44, paddingVertical: space[1], paddingHorizontal: space[2] },
+  clearBtnText: { ...type.caption, fontFamily: 'Geist_600SemiBold', color: colors.red },
 
   switchRow: { flexDirection: 'row', alignItems: 'center' },
   switchDesc: {
-    fontSize: 12, lineHeight: 17, color: colors.muted,
-    fontFamily: fonts.regular, marginTop: 2,
+    ...type.caption, fontFamily: fonts.regular,
+    color: colors.sub,
+    marginTop: space.hair,
   },
   switch: {
-    width: 50, height: 30, borderRadius: 15,
-    backgroundColor: colors.switchTrack, justifyContent: 'center', paddingHorizontal: 2,
+    width: 50, height: 30, borderRadius: radius.md,
+    backgroundColor: colors.disabled, justifyContent: 'center', paddingHorizontal: space.hair,
   },
   switchActive: { backgroundColor: colors.action },
   switchThumb: {
-    width: 26, height: 26, borderRadius: 13, backgroundColor: colors.surf,
+    width: 26, height: 26, borderRadius: radius.md, backgroundColor: colors.surf,
   },
 
-  // The one thing this screen wants pressed, so it carries the deepest lip.
-  cta: {
-    height: 59 + ledge.lead, borderRadius: 42,
-    backgroundColor: homeColors.deep, paddingBottom: ledge.lead,
-  },
-  ctaFace: {
-    flex: 1, borderRadius: 42, backgroundColor: homeColors.primary,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  ctaDisabled: { opacity: 0.45 },
-  ctaText: {
-    fontFamily: 'Geist_500Medium', fontSize: 22, lineHeight: 30, color: homeColors.white,
-  },
-
-  // Date picker sheet. Shape and scrim come from theme/sheet.ts, which every sheet
-  // in the app now reads, so they stop disagreeing about their own corners.
-  modalOverlay: sheet.scrim,
-  modalContent: { ...sheet.surface, paddingTop: 18, paddingBottom: 24 },
-  modalHeader: sheet.head,
-  modalBtn: { minHeight: 44, paddingVertical: 8, justifyContent: 'center' },
-  modalTitle: {
-    fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: homeColors.darkest,
-  },
-  modalCancel: { fontFamily: fonts.medium, fontSize: 16, color: homeColors.muted },
-  modalDone: { fontFamily: fonts.semibold, fontSize: 16, color: homeColors.primary },
 });

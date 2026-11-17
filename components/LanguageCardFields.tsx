@@ -1,11 +1,11 @@
 import { LanguageCardData, inferLanguageKind, normalizeLanguageData, type LanguageKind } from '@/lib/languageCard';
 import { dialog } from '@/lib/dialog';
-import { DesignAsset, FittedDesignAsset } from '@/components/DesignAsset';
-import { colors, type } from '@/theme';
-import { homeColors } from '@/theme/colors';
-import { Feather } from '@expo/vector-icons';
+import { space, radius, fonts, colors, type } from '@/theme';
+import { SpeakingGlyph } from '@/components/SpeakingPulse';
+import { Field } from '@/components/ui/Field';
+import { useSpeech } from '@/lib/speech';
 import React, { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 const textFields: Array<{ key: keyof LanguageCardData; label: string; hint: string; multiline?: boolean }> = [
   { key: 'language_code', label: 'Pronunciation language', hint: 'e.g. en-US, es-ES, zh-CN' },
@@ -62,32 +62,21 @@ export function LanguageCardEditor({
         </View>
       </View>
       {textFields.map((field) => (
-        <View key={field.key} style={styles.inputGroup}>
-          <Text style={styles.label}>{field.label}</Text>
-          <TextInput
-            accessibilityLabel={field.label}
-            value={String(value[field.key] || '')}
-            onChangeText={(text) => update(field.key, text)}
-            placeholder={field.hint}
-            placeholderTextColor={homeColors.placeholder}
-            style={[styles.input, field.multiline && styles.multiline]}
-            multiline={field.multiline}
-          />
-        </View>
+        <Field key={field.key} label={field.label} placeholder={field.hint}
+          value={String(value[field.key] || '')}
+          onChangeText={(text) => update(field.key, text)}
+          multiline={field.multiline} />
       ))}
       {!!term.trim() && (
         <PlayButton text={term} languageCode={value.language_code} label="Play pronunciation" />
       )}
       {listFields.map((field) => (
-        <View key={field.key} style={styles.inputGroup}>
-          <Text style={styles.label}>{field.label}</Text>
-          <LanguageListInput
-            value={value[field.key] || []}
-            onChange={(text) => update(field.key, text)}
-            placeholder={field.hint}
-            label={field.label}
-          />
-        </View>
+        <LanguageListInput key={field.key}
+          value={value[field.key] || []}
+          onChange={(text) => update(field.key, text)}
+          placeholder={field.hint}
+          label={field.label}
+        />
       ))}
     </View>
   );
@@ -106,61 +95,58 @@ function LanguageListInput({ value, onChange, placeholder, label }: {
     if (!focused) setDraft(joined);
   }, [focused, joined]);
   return (
-    <TextInput
-      accessibilityLabel={label}
+    <Field
+      label={label}
       value={draft}
       onChangeText={(text) => { setDraft(text); onChange(text); }}
       onFocus={() => setFocused(true)}
       onBlur={() => setFocused(false)}
       placeholder={placeholder}
-      placeholderTextColor={homeColors.placeholder}
-      style={styles.input}
     />
   );
 }
 
-export function PlayButton({ text, languageCode, label, iconOnly = false, iconSize = 18 }: {
+export function PlayButton({ text, languageCode, label, iconOnly = false, iconSize = 18, centred = false }: {
   text: string;
   languageCode?: string;
   label: string;
   iconOnly?: boolean;
   iconSize?: number;
+  /** Stand it in the middle of what it is under, rather than at the start of a
+   *  row. It used to carry the "why can't I hear it" note as well; that note now
+   *  points at the volume keys on the edge of the screen, so the button only has
+   *  to say where it sits. */
+  centred?: boolean;
 }) {
-  const play = async () => {
-    const spoken = text.trim();
-    if (!spoken) return;
-    try {
-      // Load on tap so older development builds without ExpoSpeech can still open the app.
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      const Speech = require('expo-speech') as typeof import('expo-speech');
-      await Speech.stop();
-      Speech.speak(spoken, {
-        ...(languageCode?.trim() ? { language: languageCode.trim() } : {}),
-        rate: 0.9,
-      });
-    } catch {
-      dialog('Speech unavailable', 'Install a new iOS development build to enable pronunciation.');
-    }
-  };
+  const { speak, speaking, unavailable } = useSpeech();
+  useEffect(() => {
+    if (unavailable) dialog('Speech unavailable', 'Install a new iOS development build to enable pronunciation.');
+  }, [unavailable]);
 
-  return (
+  const button = (
     <Pressable
-      onPress={(event) => { event.stopPropagation(); void play(); }}
+      onPress={(event) => { event.stopPropagation(); void speak(text, { languageCode }); }}
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ busy: speaking }}
       hitSlop={iconOnly ? 0 : 8}
-      style={iconOnly ? [styles.playIconButton, iconSize > 18 && styles.playIconButtonLarge] : styles.playButton}
+      style={iconOnly ? [styles.playIconButton, iconSize > 18 && styles.playIconButtonLarge] : [styles.playButton, centred && styles.playButtonCentred]}
     >
-      {iconOnly ? (iconSize === 18 ? <DesignAsset name="termVolume" /> : <FittedDesignAsset name="termVolume" width={iconSize} height={iconSize} />) : <><Feather name="volume-2" size={16} color={colors.accentText} /><Text style={styles.playText}>Listen</Text></>}
+      <SpeakingGlyph size={iconOnly ? iconSize : 16} color={colors.sub} active={speaking} />
+      {!iconOnly && <Text style={styles.playText}>Listen</Text>}
     </Pressable>
   );
+  return button;
 }
 
-export function LanguageCardDetails({ data, term, showTermPlay = true, variant = 'default' }: {
+export function LanguageCardDetails({ data, term, showTermPlay = true, variant = 'detail' }: {
   data: LanguageCardData;
   term?: string;
   showTermPlay?: boolean;
-  variant?: 'default' | 'flashcard';
+  /** `detail` is a card being read on its own page; `practice` is the same content
+   *  inside a question card, where it shares the room with the question. It was
+   *  called `flashcard`, which named one question type rather than the place. */
+  variant?: 'detail' | 'practice';
 }) {
   const rows: Array<[string, string]> = [
     ['Pronunciation', data.pronunciation || ''],
@@ -171,21 +157,21 @@ export function LanguageCardDetails({ data, term, showTermPlay = true, variant =
     ['Common combinations', data.collocations?.join(', ') || ''],
   ];
   return (
-    <View style={[styles.details, variant === 'flashcard' && styles.flashcardDetails]}>
+    <View style={[styles.details, variant === 'practice' && styles.practiceDetails]}>
       {showTermPlay && !!term && <PlayButton text={term} languageCode={data.language_code} label={`Play ${term}`} />}
       {rows.filter(([, value]) => !!value).map(([label, value]) => (
-        <View key={label} style={[styles.detailRow, variant === 'flashcard' && styles.flashcardDetailRow]}>
-          <Text style={[styles.detailLabel, variant === 'flashcard' && styles.flashcardDetailLabel]}>{label}</Text>
-          <Text style={[styles.detailText, variant === 'flashcard' && styles.flashcardDetailText]}>{value}</Text>
+        <View key={label} style={[styles.detailRow, variant === 'practice' && styles.practiceDetailRow]}>
+          <Text style={[styles.detailLabel, variant === 'practice' && styles.practiceDetailLabel]}>{label}</Text>
+          <Text style={[styles.detailText, variant === 'practice' && styles.practiceDetailText]}>{value}</Text>
         </View>
       ))}
       {!!data.example && (
-        <View style={[styles.exampleBox, variant === 'flashcard' && styles.flashcardExample]}>
+        <View style={[styles.exampleBox, variant === 'practice' && styles.practiceExample]}>
           <View style={styles.exampleHeading}>
-            <Text style={[styles.detailLabel, variant === 'flashcard' && styles.flashcardDetailLabel]}>Example</Text>
+            <Text style={[styles.detailLabel, variant === 'practice' && styles.practiceDetailLabel]}>Example</Text>
             <PlayButton iconOnly iconSize={18} text={data.example} languageCode={data.language_code} label="Play example sentence" />
           </View>
-          <Text style={[styles.detailText, variant === 'flashcard' && styles.flashcardDetailText]}>{data.example}</Text>
+          <Text style={[styles.detailText, variant === 'practice' && styles.practiceDetailText]}>{data.example}</Text>
         </View>
       )}
     </View>
@@ -193,31 +179,30 @@ export function LanguageCardDetails({ data, term, showTermPlay = true, variant =
 }
 
 const styles = StyleSheet.create({
-  playIconButton: { width: 44, height: 44, borderRadius: 100, backgroundColor: colors.surfaceSubtle, alignItems: 'center', justifyContent: 'center' },
+  playIconButton: { width: 44, height: 44, borderRadius: radius.pill, backgroundColor: colors.panel, alignItems: 'center', justifyContent: 'center' },
   playIconButtonLarge: { width: 48, height: 48 },
-  editor: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: colors.border, gap: 10 },
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: colors.text },
-  hint: { fontSize: 12, lineHeight: 18, color: colors.muted },
-  inputGroup: { gap: 5 },
-  label: { fontSize: 12, fontWeight: '600', color: colors.text },
-  input: { minHeight: 44, borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 9, paddingHorizontal: 12, paddingVertical: 10, color: colors.text, fontSize: 14 },
-  multiline: { minHeight: 64, textAlignVertical: 'top' },
-  kindRow: { flexDirection: 'row', gap: 8 },
-  kind: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.controlBorder, borderRadius: 9 },
-  kindChosen: { borderColor: colors.action, backgroundColor: colors.accentL },
-  kindText: { fontSize: 14, fontWeight: '600', color: colors.text },
-  kindTextChosen: { color: colors.accentText },
-  playButton: { minHeight: 44, minWidth: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 6, paddingRight: 8 },
-  playText: { fontSize: 12, fontWeight: '700', color: colors.accentText },
-  details: { gap: 20, marginTop: 20 },
-  flashcardDetails: { gap: 12, marginTop: 2 },
-  flashcardDetailRow: { paddingTop: 0, gap: 4 },
-  flashcardDetailLabel: { fontFamily: type.label.fontFamily, fontSize: 12, lineHeight: 17, color: homeColors.muted },
-  flashcardDetailText: { fontSize: 15, lineHeight: 22, color: homeColors.darkest },
-  flashcardExample: { padding: 14, borderRadius: 16, backgroundColor: homeColors.nav, gap: 4 },
-  detailRow: { gap: 8, paddingTop: 16 },
-  detailLabel: { ...type.detailLabel, color: colors.text },
+  editor: { marginTop: space[3], paddingTop: space[3], borderTopWidth: 1, borderTopColor: colors.line, gap: space[2] },
+  sectionTitle: { ...type.small, color: colors.text },
+  hint: { ...type.caption, color: colors.sub },
+  inputGroup: { gap: space[1] },
+  label: { ...type.caption, color: colors.text },
+  kindRow: { flexDirection: 'row', gap: space[2] },
+  kind: { flex: 1, minHeight: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.faint, borderRadius: radius.sm },
+  kindChosen: { borderColor: colors.action, backgroundColor: colors.tint },
+  kindText: { ...type.small, color: colors.text },
+  kindTextChosen: { color: colors.sub },
+  playButton: { minHeight: 44, minWidth: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: space[1], paddingVertical: space[1], paddingRight: space[2] },
+  playButtonCentred: { alignSelf: 'center', paddingHorizontal: space[2] },
+  playText: { ...type.caption, color: colors.sub },
+  details: { gap: space[5], marginTop: space[5] },
+  practiceDetails: { gap: space[3], marginTop: space.hair },
+  practiceDetailRow: { paddingTop: space[0], gap: space[1] },
+  practiceDetailLabel: { ...type.caption, fontFamily: type.caption.fontFamily, color: colors.faint },
+  practiceDetailText: { ...type.small, color: colors.text },
+  practiceExample: { padding: space[3], borderRadius: radius.md, backgroundColor: colors.panel, gap: space[1] },
+  detailRow: { gap: space[2], paddingTop: space[4] },
+  detailLabel: { ...type.small, fontFamily: fonts.semibold, color: colors.text },
   detailText: { ...type.body, color: colors.text },
-  exampleBox: { gap: 8, paddingTop: 12 },
-  exampleHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
+  exampleBox: { gap: space[2], paddingTop: space[3] },
+  exampleHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3] },
 });

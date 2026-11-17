@@ -40,15 +40,20 @@ export function LedgePressable({ style, children, onPressIn, onPressOut, ...prop
   // The shell's colour and the layout of what is on it are lifted off the
   // pressable: the colour goes to the layer that can shorten, and the layout to the
   // layer that travels.
+  // Room inside goes to the face too. On the shell it would inset the face and
+  // leave the shell showing down both sides, where the lip is only ever the band
+  // along the bottom — paddingBottom is that band, so it stays here.
   const {
-    backgroundColor, alignItems, justifyContent, flexDirection, gap, ...box
+    backgroundColor, alignItems, justifyContent, flexDirection, gap,
+    paddingHorizontal, paddingLeft, paddingRight, paddingTop, ...box
   } = StyleSheet.flatten(style) ?? {};
   const lip = typeof box.paddingBottom === 'number' ? box.paddingBottom : 0;
-  // A shell given a height has room the face must fill. One that is as tall as its
-  // content has none, and must not be told to grow: under a parent that offers it
-  // more height than it needs, a growing child makes the shell take all of it, and
-  // the button comes out as a face with a slab of shell hanging below.
-  const fills = box.height !== undefined;
+  // A shell with room to spare has a face that must fill it — a fixed height, or a
+  // flex that takes what the parent offers. One that is only as tall as its content
+  // has no room, and must not be told to grow: under a parent offering more height
+  // than it needs, a growing child makes the shell take all of it and the button
+  // comes out as a face with a slab of shell hanging below.
+  const fills = box.height !== undefined || box.flex !== undefined || box.flexGrow !== undefined;
   const floor = !fills && typeof box.minHeight === 'number' ? { minHeight: box.minHeight - lip } : null;
   const still = useReducedMotion();
   const press = useSharedValue(0);
@@ -71,7 +76,10 @@ export function LedgePressable({ style, children, onPressIn, onPressOut, ...prop
     <Pressable {...props} onPressIn={down} onPressOut={up} style={box}>
       <Animated.View pointerEvents="none"
         style={[StyleSheet.absoluteFill, { backgroundColor, borderRadius: box.borderRadius }, shell]} />
-      <Animated.View style={[fills && styles.fills, floor, { alignItems, justifyContent, flexDirection, gap }, face]}>
+      <Animated.View style={[fills && styles.fills, floor, {
+        alignItems, justifyContent, flexDirection, gap,
+        paddingHorizontal, paddingLeft, paddingRight, paddingTop,
+      }, face]}>
         {children}
       </Animated.View>
     </Pressable>

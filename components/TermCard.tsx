@@ -1,9 +1,10 @@
-import { elevation as cardElevation } from '@/theme';
+import { Card } from '@/components/ui/Card';
+import { space } from '@/theme';
 import { PlayButton } from '@/components/LanguageCardFields';
 import { hasLanguageData, languageDataFromLegacyExplanation, normalizeLanguageData } from '@/lib/languageCard';
 import { colors, componentTokens, radius, type } from '@/theme';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { chartColors, homeColors } from '@/theme/colors';
+import { chartColors } from '@/theme/colors';
 import { fonts } from '@/theme/typography';
 
 type LearningStage = 'New' | 'Learning' | 'Familiar' | 'Good' | 'Strong' | 'Mastered';
@@ -15,7 +16,7 @@ export default function TermCard({ term, status, isLanguage = false, onOpen }: T
   const legacy = languageDataFromLegacyExplanation(term.explanation);
   const showNote = !!term.explanation?.trim() && (!isLanguage || !hasLanguageData(legacy));
   return (
-    <View style={styles.card}>
+    <Card faceStyle={styles.card}>
     <Pressable accessibilityRole="button" accessibilityLabel={`Open ${term.term} details. ${term.definition}. ${status}${showNote ? `. ${term.explanation}` : ''}`}
       accessibilityHint={isLanguage ? "Opens the full card with pronunciation details and a delete action" : "Opens the full card with edit and delete actions"} onPress={onOpen}
       style={({ pressed }) => [styles.body, pressed && styles.pressed]}>
@@ -31,7 +32,7 @@ export default function TermCard({ term, status, isLanguage = false, onOpen }: T
     {isLanguage && <View style={styles.play}>
       <PlayButton iconOnly text={term.term} languageCode={normalizeLanguageData(term.language_data).language_code} label={`Play ${term.term}`} />
     </View>}
-    </View>
+    </Card>
   );
 }
 const STAGE_ORDER: LearningStage[] = ['New', 'Learning', 'Familiar', 'Good', 'Strong', 'Mastered'];
@@ -50,21 +51,21 @@ function StageTag({ stage }: { stage: LearningStage }) {
 
 /** The tag's ground, a step deeper for each stage: white for a card not yet
  * started, up through the lilacs, to the deep purple of Mastered. */
-const STAGE_TINTS = [homeColors.white, homeColors.track, chartColors.faint, homeColors.streakBorder, homeColors.primary, homeColors.deep];
+const STAGE_TINTS = [colors.surf, colors.tint, chartColors.faint, colors.chartSoft, colors.action, colors.sub];
 
 const styles = StyleSheet.create({
-  card: { borderWidth: 1, borderColor: colors.border, padding: componentTokens.lessonDetail.termPadding, gap: 6, backgroundColor: colors.surf, ...cardElevation.card, },
-  body: { gap: 6 },
+  card: { gap: space[1] },
+  body: { gap: space[1] },
   play: { position: 'absolute', top: 16, right: 16 },
   languageEntry: { paddingRight: 52 },
-  pressed: { backgroundColor: colors.surfaceSubtle },
-  entry: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: 8 },
-  meaning: { flex: 1, gap: 4 },
-  term: { ...type.termTitle, fontFamily: type.courseTitle.fontFamily, color: colors.text },
-  definition: { ...type.bodyReading, color: colors.text },
-  note: { ...type.bodySmall, color: colors.supporting },
-  badge: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 4 },
-  level: { ...type.meta, fontFamily: fonts.semibold, color: homeColors.deep },
-  levelDone: { color: homeColors.white },
-  badgeNew: { borderWidth: 1, borderColor: homeColors.border },
+  pressed: { backgroundColor: colors.panel },
+  entry: { flexDirection: 'row', alignItems: 'center', minHeight: 44, gap: space[2] },
+  meaning: { flex: 1, gap: space[1] },
+  term: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
+  definition: { ...type.small, color: colors.text },
+  note: { ...type.small, color: colors.sub },
+  badge: { alignSelf: 'flex-start', borderRadius: radius.pill, paddingHorizontal: space[2], paddingVertical: space[1] },
+  level: { ...type.caption, fontFamily: fonts.semibold, color: colors.sub },
+  levelDone: { color: colors.surf },
+  badgeNew: { borderWidth: 1, borderColor: colors.line },
 });

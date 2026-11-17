@@ -80,6 +80,51 @@ export function newCardsPerDay(newLeft: number, metToday: number, daysLeft: numb
   return Math.ceil((newLeft + metToday) / learningDays);
 }
 
+/**
+ * What a deadline asks for: the days left, and the new cards a day that fills.
+ *
+ * It is the same rationing the plan itself uses (newCardsPerDay), so the number a
+ * person is shown while choosing a date is the number they will be given. Days are
+ * counted in whole calendar days from today, so a deadline of today is 0 and one of
+ * tomorrow is 1 — the same way a person counts them.
+ */
+export function deadlinePace(deadline: Date, cards: number, now: Date = new Date()): {
+  days: number;
+  /** Null when there is nothing to pace yet — a lesson with no cards in it. */
+  perDay: number | null;
+} {
+  const from = new Date(now); from.setHours(0, 0, 0, 0);
+  const to = new Date(deadline); to.setHours(0, 0, 0, 0);
+  const days = Math.max(0, Math.round((to.getTime() - from.getTime()) / 86400000));
+  return { days, perDay: cards > 0 ? newCardsPerDay(cards, 0, days) : null };
+}
+
+/** A deadline as the time left before it, which is what a person reading a list of
+ * lessons wants to know — not the date, which they would have to subtract today
+ * from. Null when the lesson has no deadline, or one that does not parse.
+ *
+ * It lives here rather than on a screen because two lists show it: the library's
+ * cards and Today's Continue Learning. The library had it to itself, and only
+ * under its Deadline filter, so a lesson with a date on it looked exactly like one
+ * without until you went looking.
+ */
+export function deadlineLeft(deadline: string | Date | null | undefined, now: Date = new Date()): {
+  text: string;
+  /** The date has gone by, so a screen can set it a step further back. */
+  past: boolean;
+} | null {
+  if (!deadline) return null;
+  const at = new Date(deadline);
+  if (Number.isNaN(at.getTime())) return null;
+  at.setHours(0, 0, 0, 0);
+  const from = new Date(now); from.setHours(0, 0, 0, 0);
+  const days = Math.round((at.getTime() - from.getTime()) / 86400000);
+  if (days < 0) return { text: `Ended ${at.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, past: true };
+  if (days === 0) return { text: 'Due today', past: false };
+  if (days === 1) return { text: 'Due tomorrow', past: false };
+  return { text: `${days} days left`, past: false };
+}
+
 export function planToday(lessons: PlanLesson[], cards: PlanCard[], now: Date = new Date()): TodayPlan {
   const midnight = new Date(now);
   midnight.setHours(0, 0, 0, 0);

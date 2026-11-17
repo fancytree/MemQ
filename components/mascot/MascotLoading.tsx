@@ -1,9 +1,10 @@
+import { space } from '@/theme/spacing';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, { FadeIn } from 'react-native-reanimated';
 
 import { MascotRig } from '@/components/mascot/rig/MascotRig';
-import { homeColors } from '@/theme/colors';
-import { fonts } from '@/theme/typography';
+import { type, fonts } from '@/theme/typography';
+import { colors } from '@/theme/colors';
 
 /** A page waiting for its own content: the character, happy and hopping, and one
  * short line. (Not the working mood: its face is a frown.)
@@ -35,6 +36,6 @@ export function MascotLoading({ label = 'Loading…', width = 140, style }: {
 
 const styles = StyleSheet.create({
   wrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  inner: { alignItems: 'center', gap: 8 },
-  label: { fontFamily: fonts.medium, fontSize: 15, color: homeColors.muted },
+  inner: { alignItems: 'center', gap: space[2] },
+  label: { ...type.small, fontFamily: fonts.medium, color: colors.faint },
 });

@@ -1,3 +1,5 @@
+import { Icon } from '@/components/ui/Icon';
+import { Card } from '@/components/ui/Card';
 /**
  * How to make lessons from somewhere else.
  *
@@ -16,18 +18,14 @@
  */
 
 import { BrandMark, type BrandName } from '@/components/ui/BrandMark';
-import { BackButton, CloseButton } from '@/components/ui/RoundButtons';
+import { BackButton } from '@/components/ui/RoundButtons';
+import { Sheet } from '@/components/ui/Sheet';
 import { mcpServerUrl as serverUrl, setMcpGuidanceDismissed } from '@/lib/mcp';
-import { fonts } from '@/theme';
-import { homeColors } from '@/theme/colors';
-import { ledge } from '@/theme/ledge';
-import { sheet } from '@/theme/sheet';
+import { space, radius, type, colors, fonts } from '@/theme';
 import { layout } from '@/theme/spacing';
-import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 type Step = { title: string; body: string };
 
@@ -110,44 +108,28 @@ export function McpSetupSheet({ visible, onClose, offerDismiss = false }: {
   /** Shown when it opened by itself: the way to stop it doing that. */
   offerDismiss?: boolean;
 }) {
-  const insets = useSafeAreaInsets();
   const [dismissed, setDismissed] = useState(false);
   const [chosen, setChosen] = useState<Client | null>(null);
 
   const close = () => { setChosen(null); onClose(); };
 
   return (
-    <Modal visible={visible} transparent animationType="slide" statusBarTranslucent
-      onRequestClose={() => (chosen ? setChosen(null) : close())}>
-      <View style={sheet.scrim}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Close"
-          style={StyleSheet.absoluteFill} onPress={close} />
-        <View accessibilityViewIsModal style={[styles.surface, { paddingBottom: Math.max(insets.bottom, 18) }]}>
-          <View style={sheet.handle} />
-          <View style={sheet.head}>
-            {chosen
-              ? <BackButton onPress={() => setChosen(null)} label="Back to the list of apps" />
-              : <View style={styles.headSpacer} />}
-            <Text accessibilityRole="header" numberOfLines={1} style={styles.title}>
-              {chosen ? chosen.name : 'From another app'}
-            </Text>
-            <CloseButton onPress={close} label="Close" />
-          </View>
-
-          {chosen
-            ? <Detail client={chosen} />
-            : (
-              <List
-                onChoose={setChosen}
-                offerDismiss={offerDismiss}
-                dismissed={dismissed}
-                onDismiss={(next) => { setDismissed(next); void setMcpGuidanceDismissed(next); }}
-                onConnected={close}
-              />
-            )}
-        </View>
-      </View>
-    </Modal>
+    <Sheet visible={visible} onClose={close} align="center"
+      onBack={() => (chosen ? setChosen(null) : close())}
+      title={chosen ? chosen.name : 'From another app'}
+      lead={chosen ? <BackButton onPress={() => setChosen(null)} label="Back to the list of apps" /> : undefined}>
+      {chosen
+        ? <Detail client={chosen} />
+        : (
+          <List
+            onChoose={setChosen}
+            offerDismiss={offerDismiss}
+            dismissed={dismissed}
+            onDismiss={(next) => { setDismissed(next); void setMcpGuidanceDismissed(next); }}
+            onConnected={close}
+          />
+        )}
+    </Sheet>
   );
 }
 
@@ -166,7 +148,7 @@ function List({ onChoose, offerDismiss, dismissed, onDismiss, onConnected }: {
       </Text>
 
       <Text style={styles.sectionLabel}>Which app are you using?</Text>
-      <View style={styles.card}><View style={styles.cardFace}>
+      <Card gap={0}>
         {CLIENTS.map((client, i) => (
           <Pressable key={client.name} accessibilityRole="button"
             accessibilityLabel={`How to connect ${client.name}`}
@@ -177,10 +159,10 @@ function List({ onChoose, offerDismiss, dismissed, onDismiss, onConnected }: {
               <Text style={styles.clientName}>{client.name}</Text>
               <Text style={styles.clientWhere}>{client.where}</Text>
             </View>
-            <Feather name="chevron-right" size={18} color={homeColors.muted} />
+            <Icon name="chevronRight" size={18} color={colors.faint} />
           </Pressable>
         ))}
-      </View></View>
+      </Card>
 
       <Text style={styles.later}>
         No rush. This lives in Settings under Connected apps, where you can also see
@@ -191,7 +173,7 @@ function List({ onChoose, offerDismiss, dismissed, onDismiss, onConnected }: {
         onPress={() => { onConnected(); router.push('/profile/connections' as never); }}
         style={styles.link}>
         <Text style={styles.linkText}>Open Connected apps</Text>
-        <Feather name="arrow-right" size={18} color={homeColors.primary} />
+        <Icon name="arrowRight" size={18} color={colors.action} />
       </Pressable>
 
       {offerDismiss && (
@@ -200,7 +182,7 @@ function List({ onChoose, offerDismiss, dismissed, onDismiss, onConnected }: {
           onPress={() => onDismiss(!dismissed)}
           style={styles.dismissRow}>
           <View style={[styles.box, dismissed && styles.boxOn]}>
-            {dismissed && <Feather name="check" size={15} color={homeColors.white} />}
+            {dismissed && <Icon name="check" size={15} color={colors.surf} />}
           </View>
           <Text style={styles.dismissText}>Don&apos;t show this again</Text>
         </Pressable>
@@ -213,7 +195,7 @@ function Detail({ client }: { client: Client }) {
   const steps = [...client.steps, ...AFTER];
   return (
     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.body}>
-      <View style={styles.card}><View style={styles.cardFace}>
+      <Card gap={0}>
         {steps.map((step, i) => (
           <View key={step.title} style={[styles.step, i > 0 && styles.stepGap]}>
             <View style={styles.number}><Text style={styles.numberText}>{i + 1}</Text></View>
@@ -223,18 +205,18 @@ function Detail({ client }: { client: Client }) {
             </View>
           </View>
         ))}
-      </View></View>
+      </Card>
 
       {!!serverUrl && (
-        <View style={styles.card}><View style={styles.cardFace}>
+        <Card gap={0}>
           <Text style={styles.addressLabel}>MemQ&apos;s address</Text>
           <Text selectable style={styles.address}>{serverUrl}</Text>
           <Text style={styles.addressHint}>Press and hold to copy.</Text>
-        </View></View>
+        </Card>
       )}
 
       <View style={styles.noteRow}>
-        <Feather name="info" size={16} color={homeColors.muted} style={styles.noteIcon} />
+        <View style={styles.noteIcon}><Icon name="info" size={16} color={colors.faint} /></View>
         <Text style={styles.note}>{client.note}</Text>
       </View>
 
@@ -247,76 +229,65 @@ function Detail({ client }: { client: Client }) {
 }
 
 const styles = StyleSheet.create({
-  surface: { ...sheet.surface, maxHeight: '86%', paddingTop: 0 },
-  headSpacer: { width: 44 },
-  title: {
-    flex: 1, textAlign: 'center',
-    fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep,
-  },
+  body: { paddingHorizontal: layout.screenInline, paddingBottom: space[6], gap: space[3] },
+  intro: { ...type.small, color: colors.faint },
+  sectionLabel: { ...type.body, fontFamily: fonts.semibold, marginTop: space.hair, color: colors.text },
 
-  body: { paddingHorizontal: layout.screenInline, paddingBottom: 28, gap: 12 },
-  intro: { fontFamily: fonts.regular, fontSize: 15, lineHeight: 23, color: homeColors.muted },
-  sectionLabel: {
-    marginTop: 2, fontFamily: fonts.semibold, fontSize: 16, color: homeColors.darkest,
-  },
 
-  card: { borderRadius: 28, backgroundColor: homeColors.border, paddingBottom: ledge.raised },
-  cardFace: { borderRadius: 28, backgroundColor: homeColors.white, padding: 18 },
-
-  client: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 52 },
-  clientGap: { marginTop: 14 },
+  client: { flexDirection: 'row', alignItems: 'center', gap: space[3], minHeight: 52 },
+  clientGap: { marginTop: space[3] },
   pressed: { opacity: 0.6 },
   mark: {
-    width: 38, height: 38, borderRadius: 12, backgroundColor: homeColors.selected,
+    width: 38, height: 38, borderRadius: radius.md, backgroundColor: colors.limeSurface,
     alignItems: 'center', justifyContent: 'center',
   },
-  clientCopy: { flex: 1, gap: 2 },
-  clientName: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: homeColors.darkest },
-  clientWhere: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: homeColors.muted },
+  clientCopy: { flex: 1, gap: space.hair },
+  clientName: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
+  clientWhere: { ...type.small, color: colors.faint },
 
-  step: { flexDirection: 'row', gap: 14 },
-  stepGap: { marginTop: 18 },
+  step: { flexDirection: 'row', gap: space[3] },
+  stepGap: { marginTop: space[4] },
   number: {
-    width: 28, height: 28, borderRadius: 14, backgroundColor: homeColors.selected,
+    width: 28, height: 28, borderRadius: radius.md, backgroundColor: colors.limeSurface,
     alignItems: 'center', justifyContent: 'center',
   },
-  numberText: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.deep },
-  stepCopy: { flex: 1, gap: 3 },
-  stepTitle: { fontFamily: fonts.semibold, fontSize: 16, lineHeight: 22, color: homeColors.darkest },
-  stepBody: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: homeColors.muted },
+  numberText: { ...type.small, fontFamily: fonts.semibold, color: colors.sub },
+  stepCopy: { flex: 1, gap: space.hair },
+  stepTitle: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
+  stepBody: { ...type.small, color: colors.faint },
 
-  addressLabel: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.darkest },
+  addressLabel: { ...type.small, fontFamily: fonts.semibold, color: colors.text },
   address: {
-    marginTop: 8, fontFamily: fonts.regular, fontSize: 14, lineHeight: 21,
-    color: homeColors.deep,
+    ...type.small,
+    marginTop: space[2],
+    color: colors.sub,
   },
-  addressHint: { marginTop: 6, fontFamily: fonts.regular, fontSize: 13, color: homeColors.muted },
+  addressHint: { ...type.caption, fontFamily: fonts.regular, marginTop: space[1], color: colors.faint },
 
-  noteRow: { flexDirection: 'row', gap: 10, paddingHorizontal: 2 },
-  noteIcon: { marginTop: 2 },
-  note: {
-    flex: 1, fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: homeColors.muted,
-  },
+  noteRow: { flexDirection: 'row', gap: space[2], paddingHorizontal: space.hair },
+  noteIcon: { marginTop: space.hair },
+  note: { ...type.small, flex: 1, color: colors.faint },
 
   later: {
-    marginTop: 2, fontFamily: fonts.regular, fontSize: 14, lineHeight: 21,
-    color: homeColors.muted,
+    ...type.small,
+    marginTop: space.hair,
+    color: colors.faint,
   },
 
   dismissRow: {
-    minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 10,
-    alignSelf: 'center', paddingHorizontal: 4,
+    minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space[2],
+    alignSelf: 'center', paddingHorizontal: space[1],
   },
   box: {
-    width: 24, height: 24, borderRadius: 8, borderWidth: 2,
-    borderColor: homeColors.border, alignItems: 'center', justifyContent: 'center',
+    width: 24, height: 24, borderRadius: radius.sm, borderWidth: 2,
+    borderColor: colors.line, alignItems: 'center', justifyContent: 'center',
   },
-  boxOn: { borderColor: homeColors.primary, backgroundColor: homeColors.primary },
-  dismissText: { fontFamily: fonts.regular, fontSize: 14, color: homeColors.muted },
+  boxOn: { borderColor: colors.action, backgroundColor: colors.action },
+  dismissText: { ...type.small, color: colors.faint },
 
   link: {
-    marginTop: 2, minHeight: 50, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'center', gap: 8,
+    marginTop: space.hair, minHeight: 50, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', gap: space[2],
   },
-  linkText: { fontFamily: fonts.semibold, fontSize: 15, color: homeColors.primary },
+  linkText: { ...type.small, fontFamily: fonts.semibold, color: colors.action },
 });

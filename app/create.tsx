@@ -1,13 +1,16 @@
+import { Icon } from '@/components/ui/Icon';
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
+import { Field } from '@/components/ui/Field';
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
 import { dialog } from '@/lib/dialog';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
 import { McpSetupSheet } from '@/components/McpSetupSheet';
 import { mcpEnabled, mcpGuidanceDismissed } from '@/lib/mcp';
 import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
-import { homeColors } from '@/theme/colors';
+import { colors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ledge } from '@/theme/ledge';
 import { layout } from '@/theme/spacing';
 import { EdBase } from '@/components/EdBase';
 import { HomeAsset } from '@/components/HomeAsset';
@@ -21,8 +24,8 @@ import { setPendingTerms } from '@/lib/createStore';
 import { supabase } from '@/lib/supabase';
 import { createPdfProcessingUrl } from '@/lib/pdfSignedUrl';
 import { LanguageCardData, hasLanguageData, normalizeLanguageData } from '@/lib/languageCard';
-import { fonts } from '@/theme';
-import { Feather } from '@expo/vector-icons';
+import { space, radius, type, fonts } from '@/theme';
+import { IconButton } from '@/components/ui/IconButton';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
@@ -340,13 +343,11 @@ export default function CreateScreen() {
     return [...fromGenerated, ...fromManual];
   };
 
+  // An empty lesson is a lesson: a name and a deadline are a plan, and the cards
+  // can be added later from the lesson's own page. Refusing to make one meant the
+  // only way to start was to have the content already.
   const handleSavePress = () => {
-    const terms = collectTerms();
-    if (terms.length === 0) {
-      dialog('Empty', learningMode === 'language' ? 'Generate at least one language card first.' : 'Please add at least one term and definition.');
-      return;
-    }
-    setPendingTerms(terms, learningMode, prompt.trim() || sourceName);
+    setPendingTerms(collectTerms(), learningMode, prompt.trim() || sourceName);
     router.push('/create-name' as any);
   };
 
@@ -355,7 +356,7 @@ export default function CreateScreen() {
   return (
     <EdBase bottomInset={0} scroll={false}>
       <LinearGradient pointerEvents="none"
-        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
         locations={[0, 0.21154, 0.44712, 1]}
         style={[styles.background, { top: -insets.top }]} />
       {/* Two hills, not one: a single one ends on a straight horizontal edge partway
@@ -378,7 +379,7 @@ export default function CreateScreen() {
         contentContainerStyle={styles.contentScrollBody}
         showsVerticalScrollIndicator={false}
       >
-        <View style={{ paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 12 }}>
+        <View style={{ paddingHorizontal: layout.screenInline, paddingTop: space[3], paddingBottom: space[3] }}>
           <SectionLabel style={styles.sectionLabel}>Learning mode</SectionLabel>
           <LearningModeSelector value={learningMode} onChange={setLearningMode} />
         </View>
@@ -388,16 +389,16 @@ export default function CreateScreen() {
           mood={isGenerating ? 'thinking' : 'onboarding'}
           look={isGenerating ? PROMPT_GAZE : undefined}
           behind={(
-        <View style={[styles.promptBlock, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
-          <View style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 6 }}>
-            <SectionLabel style={{ marginBottom: 10, fontSize: 12, lineHeight: 15.4, letterSpacing: -0.1, fontFamily: fonts.medium, fontWeight: '500' }}>
+        <Card pad="none" gap={0} style={[styles.promptBlock, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
+          <View style={{ paddingHorizontal: space[4], paddingTop: space[3], paddingBottom: space[1] }}>
+            <SectionLabel style={styles.promptHeading}>
               What do you want to learn?
             </SectionLabel>
             <TextInput accessibilityLabel="Type what you want to learn, paste text, or enter a topic."
               value={prompt}
               onChangeText={setPrompt}
               placeholder="Type what you want to learn, paste text, or enter a topic."
-              placeholderTextColor={homeColors.placeholder}
+              placeholderTextColor={colors.placeholder}
               multiline
               style={styles.textarea}
             />
@@ -411,7 +412,7 @@ export default function CreateScreen() {
               style={[styles.actionBtn, isGenerating && styles.actionDisabled]}
             >
               <View style={styles.actionLabelRow}>
-                <Feather name="paperclip" size={13} color={homeColors.muted} />
+                <Icon name="paperclip" size={13} color={colors.faint} />
                 <Text style={styles.actionLabel}>Attach</Text>
               </View>
             </Pressable>
@@ -423,13 +424,13 @@ export default function CreateScreen() {
               <View style={styles.generateActionWrap}>
                 {isGenerating ? (
                   <>
-                    <Text style={[styles.generateLabel, { color: homeColors.muted }]}>Generating</Text>
-                    <Text style={[styles.generateLabel, styles.generateDots, { color: homeColors.muted }]}>{generateDots}</Text>
+                    <Text style={[styles.generateLabel, { color: colors.faint }]}>Generating</Text>
+                    <Text style={[styles.generateLabel, styles.generateDots, { color: colors.faint }]}>{generateDots}</Text>
                   </>
                 ) : genExhausted ? (
-                  <Text style={[styles.generateLabel, { color: homeColors.muted }]}>🔒 Upgrade →</Text>
+                  <Text style={[styles.generateLabel, { color: colors.faint }]}>🔒 Upgrade →</Text>
                 ) : (
-                  <Text style={[styles.generateLabel, { color: homeColors.primary }]}>Generate →</Text>
+                  <Text style={[styles.generateLabel, { color: colors.action }]}>Generate →</Text>
                 )}
               </View>
             </Pressable>
@@ -451,7 +452,7 @@ export default function CreateScreen() {
               )}
             </View>
           )}
-        </View>
+        </Card>
           )} />
 
         {/* Generated header. Nothing stands here before there is something to head:
@@ -543,32 +544,24 @@ function FullCard({
   };
 
   return (
-    <View style={styles.fullCard}>
+    <Card pad="none" gap={0} style={styles.fullCard}>
       <View style={[styles.fullCardHead, isEditing && styles.fullCardHeadEditing]}>
         <View style={{ flex: 1 }}>
-          <SectionLabel style={{ marginBottom: 4 }}>Card {c.n} · {c.tag}</SectionLabel>
+          <SectionLabel style={{ marginBottom: space[1] }}>Card {c.n} · {c.tag}</SectionLabel>
           {!isEditing && <Text style={styles.fullCardTitle}>{c.title}</Text>}
         </View>
         {!isEditing && <Pressable accessibilityRole="button" onPress={startEdit}><Text style={styles.editLink}>Edit</Text></Pressable>}
       </View>
-      <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
+      <View style={{ paddingHorizontal: space[3], paddingVertical: space[3] }}>
         {isEditing ? (
           <View>
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>Term</Text>
-              <TextInput accessibilityLabel="e.g. Renaissance" style={styles.manualInput} value={editTitle} onChangeText={setEditTitle}
-                placeholder="e.g. Renaissance" placeholderTextColor={homeColors.placeholder} />
-            </View>
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>Definition</Text>
-              <TextInput accessibilityLabel="e.g. Period of cultural revival in Europe" style={[styles.manualInput, styles.manualTextarea]} value={editBody} onChangeText={setEditBody}
-                placeholder="e.g. Period of cultural revival in Europe" placeholderTextColor={homeColors.placeholder} multiline textAlignVertical="top" />
-            </View>
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>{isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}</Text>
-              <TextInput accessibilityLabel="Add context, examples, or usage notes" style={[styles.manualInput, styles.manualTextarea]} value={editEx} onChangeText={setEditEx}
-                placeholder="Add context, examples, or usage notes" placeholderTextColor={homeColors.placeholder} multiline textAlignVertical="top" />
-            </View>
+            <Field label="Term" style={styles.manualInputGroup}
+              value={editTitle} onChangeText={setEditTitle} placeholder="e.g. Renaissance" />
+            <Field label="Definition" style={styles.manualInputGroup} multiline
+              value={editBody} onChangeText={setEditBody} placeholder="e.g. Period of cultural revival in Europe" />
+            <Field label={isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}
+              style={styles.manualInputGroup} multiline
+              value={editEx} onChangeText={setEditEx} placeholder="Add context, examples, or usage notes" />
             {isLanguage && <LanguageCardEditor value={editLanguage} onChange={setEditLanguage} term={editTitle} />}
           </View>
         ) : (
@@ -576,7 +569,7 @@ function FullCard({
         )}
         {!isEditing && c.ex && (
           <View style={styles.exBlock}>
-            <SectionLabel style={{ marginBottom: 5 }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
+            <SectionLabel style={{ marginBottom: space[1] }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
             <Text style={styles.exText}>{c.ex}</Text>
           </View>
         )}
@@ -588,7 +581,7 @@ function FullCard({
               <Pressable accessibilityRole="button" key={key} onPress={key === 'save' ? saveEdit : cancelEdit}
                 style={[styles.manualCardAction, j > 0 && styles.manualCardActionBorder]}>
                 <Text style={[styles.manualCardActionLabel,
-                  key === 'save' ? { color: homeColors.primary, fontFamily: fonts.semibold } : { color: homeColors.muted }]}>
+                  key === 'save' ? { color: colors.action, fontFamily: fonts.semibold } : { color: colors.faint }]}>
                   {key === 'save' ? 'Save' : 'Cancel'}
                 </Text>
               </Pressable>
@@ -596,17 +589,17 @@ function FullCard({
           : (['discard', 'regen'] as const).map((key, j, arr) => (
               <Pressable accessibilityRole="button" key={key} onPress={key === 'discard' ? onDiscard : onRegenerate}
                 disabled={isRegenerating}
-                style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: homeColors.border },
+                style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.line },
                   isRegenerating && key === 'regen' && { opacity: 0.6 }]}>
                 <Text style={[styles.fullCardActionLabel,
-                  { color: key === 'regen' ? homeColors.primary : homeColors.muted,
+                  { color: key === 'regen' ? colors.action : colors.faint,
                     fontFamily: key === 'regen' ? fonts.semibold : fonts.medium }]}>
                   {key === 'discard' ? 'Discard' : isRegenerating ? `Regenerating${regenerateDots}` : 'Regenerate'}
                 </Text>
               </Pressable>
             ))}
       </View>
-    </View>
+    </Card>
   );
 }
 
@@ -648,18 +641,18 @@ function ManualCard({
   };
 
   return (
-    <View style={styles.manualCard}>
+    <Card pad="none" gap={0} style={styles.manualCard}>
       <View style={styles.manualCardHead}>
         <View style={{ flex: 1 }}>
-          <SectionLabel style={{ marginBottom: 0 }}>Card M{index + 1} · Manual</SectionLabel>
+          <SectionLabel style={{ marginBottom: space[0] }}>Card M{index + 1} · Manual</SectionLabel>
           {row.saved && !row.editing && <Text style={styles.manualSavedTitle}>{row.term}</Text>}
         </View>
         {row.saved && !row.editing ? (
           <Pressable accessibilityRole="button" onPress={onEdit}><Text style={styles.editLink}>Edit</Text></Pressable>
         ) : !disableDelete ? (
-          <Pressable accessibilityRole="button" accessibilityLabel="Remove draft card" onPress={onDelete} hitSlop={10} style={styles.manualRemoveBtn}>
-            <Feather name="x" size={18} color={homeColors.muted} />
-          </Pressable>
+          <IconButton variant="quiet" size="sm" label="Remove draft card" onPress={onDelete}>
+            <Icon name="close" size={18} color={colors.faint} />
+          </IconButton>
         ) : null}
       </View>
 
@@ -669,7 +662,7 @@ function ManualCard({
             <Text style={styles.fullCardBody}>{row.definition}</Text>
             {!!row.explanation && (
               <View style={styles.exBlock}>
-                <SectionLabel style={{ marginBottom: 5 }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
+                <SectionLabel style={{ marginBottom: space[1] }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
                 <Text style={styles.exText}>{row.explanation}</Text>
               </View>
             )}
@@ -690,10 +683,10 @@ function ManualCard({
       {!row.saved || row.editing ? (
         <View style={styles.manualCardActions}>
           <Pressable accessibilityRole="button" style={styles.manualCardAction} onPress={handleCancelEdit}>
-            <Text style={[styles.manualCardActionLabel, { color: homeColors.muted }]}>Cancel</Text>
+            <Text style={[styles.manualCardActionLabel, { color: colors.faint }]}>Cancel</Text>
           </Pressable>
           <Pressable accessibilityRole="button" style={[styles.manualCardAction, styles.manualCardActionBorder]} onPress={handleSaveEdit}>
-            <Text style={[styles.manualCardActionLabel, { color: homeColors.primary, fontFamily: fonts.semibold }]}>Save</Text>
+            <Text style={[styles.manualCardActionLabel, { color: colors.action, fontFamily: fonts.semibold }]}>Save</Text>
           </Pressable>
         </View>
       ) : (
@@ -701,10 +694,10 @@ function ManualCard({
           {(['discard', 'regen'] as const).map((key, j, arr) => (
             <Pressable accessibilityRole="button" key={key} onPress={key === 'discard' ? onDiscard : onRegenerate}
               disabled={isGenerating}
-              style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: homeColors.border },
+              style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.line },
                 isGenerating && key === 'regen' && { opacity: 0.6 }]}>
               <Text style={[styles.fullCardActionLabel,
-                { color: key === 'regen' ? homeColors.primary : homeColors.muted,
+                { color: key === 'regen' ? colors.action : colors.faint,
                     fontFamily: key === 'regen' ? fonts.semibold : fonts.medium }]}>
                 {key === 'discard' ? 'Discard' : isGenerating ? `Regenerating${regenerateDots}` : 'Regenerate'}
               </Text>
@@ -712,148 +705,134 @@ function ManualCard({
           ))}
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-
-/** The lip every raised surface here carries, drawn as a solid offset rather than a
- *  blur: in a palette with no shadows that band is the only depth there is. */
-const lip = (depth: number) => ({ boxShadow: `0px ${depth}px 0px ${homeColors.border}` });
 
 const styles = StyleSheet.create({
   background: { position: 'absolute', left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', left: -19 },
   waveFront: { position: 'absolute', left: -19 },
   topbar: {
-    paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 14,
+    paddingHorizontal: layout.screenInline, paddingTop: space[3], paddingBottom: space[3],
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     position: 'relative',
   },
   contentScroll: { flex: 1 },
-  contentScrollBody: { paddingBottom: 24 },
+  contentScrollBody: { paddingBottom: space[6] },
   title: {
-    fontFamily: fonts.display, fontSize: 23, lineHeight: 32, color: homeColors.deep,
+    ...oneLine(type.page),
+    color: colors.sub,
     // Centred on the bar rather than between the buttons, so it stays centred
     // whatever sits beside it — which means it lies over both of them, and would
     // swallow their taps if it took any.
-    position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none',
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    textAlign: 'center',
+    pointerEvents: 'none',
   },
 
   sectionLabel: {
-    fontFamily: fonts.semibold, fontSize: 18, lineHeight: 24,
-    color: homeColors.darkest, marginBottom: 10,
+    ...type.body, fontFamily: fonts.semibold,
+    color: colors.text,
+    marginBottom: space[2],
   },
   perch: { alignSelf: 'center' },
 
-  // Every card here carries a 4-unit lip that sits outside its layout box, so a
-  // margin of 8 between two of them leaves 4 on screen. These are set so the gaps
-  // read as 12 between cards and 20 between the prompt and the cards it makes.
+  // A card's lip is part of it now — components/ui/Card draws it as a real layer
+  // inside the card's own box — so the margins here are the gaps you see.
   promptBlock: {
-    marginHorizontal: layout.screenInline, marginTop: 8, marginBottom: 8,
-    backgroundColor: homeColors.white, borderRadius: 28, ...lip(ledge.raised),
+    marginHorizontal: layout.screenInline, marginTop: space[2], marginBottom: space[2],
+  },
+  // The question above the box is the screen's instruction, so it is set as one.
+  // At 12 points it sat under the placeholder it was meant to introduce.
+  promptHeading: {
+    ...type.body, fontFamily: fonts.semibold,
+    marginBottom: space[2],
+    letterSpacing: -0.1,
+    color: colors.text,
   },
   textarea: {
-    minHeight: 76, fontFamily: fonts.regular, fontSize: 16, lineHeight: 24,
-    color: homeColors.darkest, padding: 0,
+    ...type.body,
+    minHeight: 76,
+    color: colors.text,
+    padding: space[0],
   },
   // The one row of controls that still needs rules: four targets on one line, and
   // without them the labels read as loose words rather than as separate buttons.
   promptActions: {
     flexDirection: 'row', alignItems: 'center',
-    borderTopWidth: 1, borderTopColor: homeColors.border,
+    borderTopWidth: 1, borderTopColor: colors.line,
   },
-  actionBtn: { minHeight: 44, paddingHorizontal: 12, paddingVertical: 14 },
+  actionBtn: { minHeight: 44, paddingHorizontal: space[3], paddingVertical: space[3] },
   actionDisabled: { opacity: 0.5 },
   generateActionWrap: { flexDirection: 'row', alignItems: 'center' },
   generateDots: { width: 32, textAlign: 'left', flexShrink: 0 },
-  actionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  actionLabel: {
-    fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: homeColors.deep,
-  },
-  generateLabel: { fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20 },
+  actionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
+  actionLabel: { ...type.small, fontFamily: fonts.semibold, color: colors.sub },
+  generateLabel: { ...type.small, fontFamily: fonts.semibold },
 
   quotaBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 18, paddingVertical: 10,
-    borderTopWidth: 1, borderTopColor: homeColors.border,
+    paddingHorizontal: space[4], paddingVertical: space[2],
+    borderTopWidth: 1, borderTopColor: colors.line,
   },
-  quotaBarText: { fontFamily: fonts.regular, fontSize: 13, lineHeight: 18, color: homeColors.muted },
-  quotaUpgradeBtn: { minHeight: 44, paddingVertical: 2, paddingHorizontal: 4, justifyContent: 'center' },
-  quotaUpgradeBtnText: {
-    fontFamily: fonts.semibold, fontSize: 13, lineHeight: 18, color: homeColors.primary,
-  },
+  quotaBarText: { ...type.caption, fontFamily: fonts.regular, color: colors.faint },
+  quotaUpgradeBtn: { minHeight: 44, paddingVertical: space.hair, paddingHorizontal: space[1], justifyContent: 'center' },
+  quotaUpgradeBtnText: { ...type.caption, fontFamily: fonts.semibold, color: colors.action },
 
   genHead: {
-    paddingHorizontal: layout.screenInline, paddingTop: 16, paddingBottom: 2,
+    paddingHorizontal: layout.screenInline, paddingTop: space[4], paddingBottom: space.hair,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   fullCard: {
-    marginHorizontal: layout.screenInline, marginTop: 16,
-    backgroundColor: homeColors.white, borderRadius: 28, ...lip(ledge.raised),
+    marginHorizontal: layout.screenInline, marginTop: space[4],
   },
   fullCardHead: {
-    paddingHorizontal: 18, paddingVertical: 16,
+    paddingHorizontal: space[4], paddingVertical: space[4],
     flexDirection: 'row', alignItems: 'flex-start',
   },
   fullCardHeadEditing: { flexDirection: 'column', alignItems: 'stretch' },
-  fullCardTitle: {
-    fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24, color: homeColors.darkest,
-  },
-  editLink: {
-    fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary, marginLeft: 10,
-  },
+  fullCardTitle: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
+  editLink: { ...type.small, fontFamily: fonts.semibold, color: colors.action, marginLeft: space[2] },
   fullCardBody: {
-    fontFamily: fonts.regular, fontSize: 15, lineHeight: 22,
-    color: homeColors.muted, marginBottom: 12,
+    ...type.small,
+    color: colors.faint,
+    marginBottom: space[3],
   },
   // A well sunk into the card's face, the way every other quoted block is drawn.
-  exBlock: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: homeColors.canvas },
-  exText: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: homeColors.muted },
-  fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: homeColors.border },
-  fullCardAction: { flex: 1, paddingVertical: 16, alignItems: 'center' },
-  fullCardActionLabel: { fontFamily: fonts.medium, fontSize: 16 },
+  exBlock: { borderRadius: radius.md, paddingHorizontal: space[3], paddingVertical: space[3], backgroundColor: colors.bg },
+  exText: { ...type.small, color: colors.faint },
+  fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.line },
+  fullCardAction: { flex: 1, paddingVertical: space[4], alignItems: 'center' },
+  fullCardActionLabel: { ...type.body, fontFamily: fonts.medium },
 
-  manualSection: { marginTop: 16, marginHorizontal: layout.screenInline },
-  manualList: { gap: 12 },
+  manualSection: { marginTop: space[4], marginHorizontal: layout.screenInline },
+  manualList: { gap: space[3] },
   manualCard: {
-    backgroundColor: homeColors.white, borderRadius: 28, ...lip(ledge.raised),
   },
   manualCardHead: {
-    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 12,
+    paddingHorizontal: space[4], paddingTop: space[4], paddingBottom: space[3],
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   manualSavedTitle: {
-    marginTop: 4, fontFamily: fonts.semibold, fontSize: 17, lineHeight: 24,
-    color: homeColors.darkest,
+    ...type.body, fontFamily: fonts.semibold,
+    marginTop: space[1],
+    color: colors.text,
   },
-  manualCardBody: { paddingHorizontal: 18, paddingBottom: 18 },
-  manualCardActions: { borderTopWidth: 1, borderTopColor: homeColors.border, flexDirection: 'row' },
-  manualCardAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 16 },
-  manualCardActionBorder: { borderLeftWidth: 1, borderLeftColor: homeColors.border },
-  manualCardActionLabel: { fontFamily: fonts.medium, fontSize: 16 },
+  manualCardBody: { paddingHorizontal: space[4], paddingBottom: space[4] },
+  manualCardActions: { borderTopWidth: 1, borderTopColor: colors.line, flexDirection: 'row' },
+  manualCardAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: space[4] },
+  manualCardActionBorder: { borderLeftWidth: 1, borderLeftColor: colors.line },
+  manualCardActionLabel: { ...type.body, fontFamily: fonts.medium },
   // A small control, so it carries the shallowest lip.
-  manualRemoveBtn: {
-    width: 30, height: 28 + ledge.control, borderRadius: 15,
-    backgroundColor: homeColors.border, paddingBottom: ledge.control,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  manualInputGroup: { marginBottom: 14 },
+  manualInputGroup: { marginBottom: space[3] },
   manualInputLabelRow: {
-    marginBottom: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-  },
-  manualInputLabel: {
-    fontFamily: fonts.semibold, fontSize: 15, lineHeight: 20, color: homeColors.muted,
+    marginBottom: space[2], flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   manualGenerateButtonDisabled: { opacity: 0.5 },
-  manualGenerateButtonText: {
-    fontFamily: fonts.semibold, fontSize: 14, lineHeight: 19, color: homeColors.primary,
-  },
-  manualInput: {
-    minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas,
-    paddingHorizontal: 16, paddingVertical: 14,
-    fontFamily: fonts.medium, fontSize: 16, lineHeight: 22, color: homeColors.darkest,
-  },
-  manualTextarea: { minHeight: 72, textAlignVertical: 'top' },
+  manualGenerateButtonText: { ...type.small, fontFamily: fonts.semibold, color: colors.action },
 });

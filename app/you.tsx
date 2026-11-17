@@ -1,13 +1,13 @@
+import { Icon } from '@/components/ui/Icon';
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
 import { layout } from '@/theme/spacing';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { RoundAction } from '@/components/ui/RoundButtons';
-import { ledge } from '@/theme/ledge';
 import { safeBack } from '@/lib/safeBack';
 import { EdBase } from '@/components/EdBase';
 import { LinearGradient } from 'expo-linear-gradient';
-import { Feather } from '@expo/vector-icons';
 import { HomeAsset } from '@/components/HomeAsset';
-import { homeColors } from '@/theme/colors';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
   activityDaysFromProgressUpdates,
@@ -16,7 +16,7 @@ import {
 } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
-import { colors, fonts } from '@/theme';
+import { space, radius, type, colors, fonts } from '@/theme';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -25,7 +25,7 @@ import { CountUp } from '@/components/motion/Grow';
 import { cardsByLastReview, dayStart, dueForecast, recentDays, stageCounts, studyLevels, type ReviewDay } from '@/lib/reviewStats';
 import { loadReviewDays } from '@/lib/reviewLog';
 import { STAGES, type Stage } from '@/lib/scheduler';
-import { LedgePressable } from '@/components/ui/LedgePressable';
+import { Button } from '@/components/ui/Button';
 
 const SHORT_DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
 /** How far back each chart looks. */
@@ -154,7 +154,7 @@ export default function ProfileScreen() {
 
   return (
     <EdBase bottomInset={0} scroll={false}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.45, 1]} style={styles.pageGradient} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.45, 1]} style={styles.pageGradient} />
       <SecondaryPageNav backLabel="← Today" onBack={() => safeBack('/(tabs)')}
         right={<RoundAction icon="settings" label="Open profile settings"
           onPress={() => router.push('/profile/settings' as any)} />} />
@@ -178,13 +178,8 @@ export default function ProfileScreen() {
           )}
         </View>
         {!isPro && (
-          <LedgePressable accessibilityRole="button" accessibilityLabel="Go Pro"
-            onPress={showPaywall} style={styles.goPro}>
-            <View style={styles.goProFace}>
-              <Feather name="zap" size={15} color={homeColors.white} />
-              <Text style={styles.goProText}>Go Pro</Text>
-            </View>
-          </LedgePressable>
+          <Button size="sm" label="Go Pro" onPress={showPaywall}
+            icon={<Icon name="zap" size={15} color={colors.surf} />} />
         )}
       </View>
 
@@ -194,7 +189,7 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* Streak */}
-        <View style={styles.streakBlock}>
+        <Card style={styles.streakBlock} faceStyle={styles.streakRow}>
           {/* The streak on the left, the weeks it was made of on the right. */}
           <View style={styles.streakCopy}>
             <View style={styles.flameBadge}><HomeAsset name="flame" /></View>
@@ -206,10 +201,10 @@ export default function ProfileScreen() {
             <Text style={styles.bestLine}>Best <Text style={styles.bestValue}>{bestStreak}</Text></Text>
           </View>
           <WeekGrid levels={heat} weeks={GRID_WEEKS} />
-        </View>
+        </Card>
 
         <View style={styles.progressSection}>
-          <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>Your progress</Text><Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.libraryLink}><Text style={styles.libraryLinkText}>Library</Text><Feather name="arrow-up-right" size={16} color={homeColors.primary} /></Pressable></View>
+          <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>Your progress</Text><Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.libraryLink}><Text style={styles.libraryLinkText}>Library</Text><Icon name="arrowUpRight" size={16} color={colors.action} /></Pressable></View>
           <ChartCard label="Your cards" value={String(masteredCards)} unit={loaded || totalCards > 0 ? `of ${totalCards} mastered` : 'mastered'}
             note={loaded && totalCards === 0 ? 'Add cards to start tracking.' : undefined}>
             <StageBar counts={stages} />
@@ -243,73 +238,57 @@ export default function ProfileScreen() {
 
 const styles = StyleSheet.create({
   pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 330 },
-  avatarRow: { paddingHorizontal: layout.screenInline, paddingTop: 14, paddingBottom: 24, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  avatarRow: { paddingHorizontal: layout.screenInline, paddingTop: space[3], paddingBottom: space[6], flexDirection: 'row', alignItems: 'center', gap: space[3] },
   avatar: {
-    width: 64, height: 64, borderRadius: 32,
-    backgroundColor: homeColors.deep,
+    width: 64, height: 64, borderRadius: radius.xl,
+    backgroundColor: colors.actionShell,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarImage: { width: 64, height: 64, borderRadius: 32 },
-  avatarChar: { color: homeColors.white, fontSize: 24, fontWeight: '700', fontFamily: fonts.bold },
+  avatarImage: { width: 64, height: 64, borderRadius: radius.xl },
+  avatarChar: { ...oneLine(type.page), fontFamily: fonts.bold, color: colors.surf },
   avName: {
+    ...type.page,
     flexShrink: 1,
-    fontSize: 27, fontFamily: fonts.display,
-    lineHeight: 36, color: homeColors.deep,
+    color: colors.sub,
   },
-  memberRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  memberRow: { marginTop: space[1], flexDirection: 'row', alignItems: 'center', gap: space[2] },
   proBadge: {
-    borderWidth: 1, borderColor: colors.action, borderRadius: 999,
-    paddingHorizontal: 8, paddingVertical: 2, backgroundColor: colors.accentL,
+    borderWidth: 1, borderColor: colors.action, borderRadius: radius.pill,
+    paddingHorizontal: space[2], paddingVertical: space.hair, backgroundColor: colors.tint,
   },
   proBadgeText: {
-    fontSize: 12, lineHeight: 14, letterSpacing: 0.4, color: colors.accentText,
-    fontFamily: fonts.bold, fontWeight: '700',
+    ...type.caption, fontFamily: fonts.bold,
+    letterSpacing: 0.4,
+    color: colors.sub,
   },
   // Avatar and name take what they need; the offer is pushed to the far edge of the
   // row, against the same margin everything below it lines up on.
   identity: { flex: 1 },
-  // The filled button of the set. It is the one thing on this page asking for
-  // something, so it is the only filled control here — which is what makes it read
-  // as an offer rather than as another control.
-  goPro: {
-    height: 42 + ledge.control, borderRadius: 22,
-    backgroundColor: homeColors.deep, paddingBottom: ledge.control,
-  },
-  goProFace: {
-    flex: 1, borderRadius: 22, backgroundColor: homeColors.primary,
-    flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 14,
-  },
-  goProText: {
-    fontFamily: fonts.semibold, fontSize: 15, color: homeColors.white,
-  },
   editLink: {
-    fontSize: 13, letterSpacing: -0.1, color: colors.action,
-    fontFamily: fonts.bold, fontWeight: '700',
+    ...type.caption, fontFamily: fonts.bold,
+    letterSpacing: -0.1,
+    color: colors.action,
   },
 
   contentScroll: { flex: 1 },
   contentScrollBody: { paddingBottom: 70 },
 
-  streakBlock: {
-    marginHorizontal: layout.screenInline, marginTop: 14,
-    padding: 16, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: 12,
-    backgroundColor: homeColors.white, borderRadius: 24,
-    boxShadow: `0px 4px 0px ${homeColors.border}`,
-  },
-  bestValue: { fontFamily: fonts.semibold, color: homeColors.deep },
-  flameBadge: { width: 40, height: 40, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.selected, marginBottom: 8 },
-  streakLine: { flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
-  streakNum: { fontSize: 44, lineHeight: 50, fontFamily: fonts.display, color: homeColors.deep },
+  streakBlock: { marginHorizontal: layout.screenInline, marginTop: space[3] },
+  streakRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  bestValue: { fontFamily: fonts.semibold, color: colors.sub },
+  flameBadge: { width: 40, height: 40, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.limeSurface, marginBottom: space[2] },
+  streakLine: { flexDirection: 'row', alignItems: 'flex-end', gap: space[1] },
+  streakNum: { ...oneLine(type.display), color: colors.sub },
   // Down onto the number's baseline: Oswald's figures sit high in their line.
-  streakUnit: { fontSize: 14, color: homeColors.deep, fontFamily: fonts.semibold, marginBottom: 8 },
+  streakUnit: { ...type.small, fontFamily: fonts.semibold, color: colors.sub, marginBottom: space[2] },
   streakCopy: { flex: 1 },
-  bestLine: { fontSize: 12, color: homeColors.muted, fontFamily: fonts.medium, marginTop: 6 },
+  bestLine: { ...type.caption, color: colors.faint, marginTop: space[1] },
 
 
-  chartSection: { paddingHorizontal: layout.screenInline, paddingBottom: 24, gap: 14 },
-  progressSection: { paddingHorizontal: layout.screenInline, paddingTop: 28, paddingBottom: 24, gap: 14 },
-  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
-  sectionTitle: { fontFamily: fonts.semibold, fontSize: 20, lineHeight: 28, color: homeColors.darkest },
-  libraryLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 3 },
-  libraryLinkText: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary },
+  chartSection: { paddingHorizontal: layout.screenInline, paddingBottom: space[6], gap: space[3] },
+  progressSection: { paddingHorizontal: layout.screenInline, paddingTop: space[6], paddingBottom: space[6], gap: space[3] },
+  sectionHeading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[3] },
+  sectionTitle: { ...oneLine(type.heading), color: colors.text },
+  libraryLink: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: space.hair },
+  libraryLinkText: { ...type.small, fontFamily: fonts.semibold, color: colors.action },
 });

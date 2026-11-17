@@ -1,12 +1,12 @@
 import type { StyleProp, ViewStyle } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 
-import { homeColors } from '@/theme/colors';
 
 import { RIG_INK } from './rig/art';
 import { MascotRig } from './rig/MascotRig';
 import { RIG_ORIGIN, RIG_VIEW } from './rig/rig';
 import { MASCOT_STATES, type MascotStateKind, type StateInk } from './states';
+import { colors } from '@/theme/colors';
 
 /** An empty or error state, as a picture: the character and the one thing that
  * says which state it is (see ./states).
@@ -26,10 +26,10 @@ import { MASCOT_STATES, type MascotStateKind, type StateInk } from './states';
 const INK: Record<StateInk, string> = {
   outline: RIG_INK.outline,
   gold: RIG_INK.gold,
-  paper: homeColors.white,
-  soft: homeColors.selected,
-  line: homeColors.muted,
-  faint: homeColors.track,
+  paper: colors.surf,
+  soft: colors.limeSurface,
+  line: colors.faint,
+  faint: colors.tint,
 };
 
 /** How far past the square the drawing may reach, as a fraction of its side. */

@@ -1,14 +1,16 @@
+import { Icon } from '@/components/ui/Icon';
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
+import { Field } from '@/components/ui/Field';
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
 import { dialog } from '@/lib/dialog';
 import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
-import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { elevation as cardElevation } from '@/theme';
+import { space, radius, type } from '@/theme';
 import { layout } from '@/theme/spacing';
-import { ledge } from '@/theme/ledge';
 import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, LanguageCardEditor } from '@/components/LanguageCardFields';
@@ -20,7 +22,7 @@ import { supabase } from '@/lib/supabase';
 import { createPdfProcessingUrl } from '@/lib/pdfSignedUrl';
 import { LanguageCardData, hasLanguageData, languageDataFromLegacyExplanation, normalizeLanguageData } from '@/lib/languageCard';
 import { colors, fonts } from '@/theme';
-import { Feather } from '@expo/vector-icons';
+import { IconButton } from '@/components/ui/IconButton';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
@@ -577,7 +579,7 @@ export default function AddTermsScreen() {
 
     return (
     <EdBase bottomInset={0} scroll={false}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 150 }]} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} style={[styles.headerGradient, { top: -insets.top, height: insets.top + 150 }]} />
       {/* Two hills, not one: a single one ends on a straight horizontal edge partway
           down, which reads as the background stopping rather than as a landscape. */}
       <View pointerEvents="none" style={[styles.waveBack, { top: 113 - insets.top }]}>
@@ -606,17 +608,10 @@ export default function AddTermsScreen() {
         mood={isGenerating ? 'thinking' : 'onboarding'}
         look={isGenerating ? PROMPT_GAZE : undefined}
         behind={(
-      <View style={[styles.promptBlock, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
-        <View style={{ paddingHorizontal: 18, paddingTop: 14, paddingBottom: 6 }}>
+      <Card pad="none" gap={0} style={[styles.promptBlock, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
+        <View style={{ paddingHorizontal: space[4], paddingTop: space[3], paddingBottom: space[1] }}>
           <SectionLabel
-            style={{
-              marginBottom: 10,
-              fontSize: 12,
-              lineHeight: 15.4,
-              letterSpacing: -0.1,
-              fontFamily: fonts.medium,
-              fontWeight: '500',
-            }}
+            style={styles.promptHeading}
           >
             What do you want to learn?
           </SectionLabel>
@@ -624,7 +619,7 @@ export default function AddTermsScreen() {
             value={prompt}
             onChangeText={setPrompt}
             placeholder="Type what you want to learn, paste text, or enter a topic."
-            placeholderTextColor={homeColors.placeholder}
+            placeholderTextColor={colors.placeholder}
             multiline
             style={styles.textarea}
           />
@@ -638,7 +633,7 @@ export default function AddTermsScreen() {
             style={[styles.actionBtn, isGenerating && styles.actionDisabled]}
           >
             <View style={styles.actionLabelRow}>
-              <Feather name="paperclip" size={13} color={colors.muted} />
+              <Icon name="paperclip" size={13} color={colors.sub} />
               <Text style={styles.actionLabel}>Attach</Text>
             </View>
           </Pressable>
@@ -650,15 +645,15 @@ export default function AddTermsScreen() {
             <View style={styles.generateActionWrap}>
               {isGenerating ? (
                 <>
-                  <Text style={[styles.generateLabel, { color: colors.muted }]}>Generating</Text>
-                  <Text style={[styles.generateLabel, styles.generateDots, { color: colors.muted }]}>
+                  <Text style={[styles.generateLabel, { color: colors.sub }]}>Generating</Text>
+                  <Text style={[styles.generateLabel, styles.generateDots, { color: colors.sub }]}>
                     {generateDots}
                   </Text>
                 </>
               ) : genExhausted ? (
-                <Text style={[styles.generateLabel, { color: colors.muted }]}>🔒 Upgrade →</Text>
+                <Text style={[styles.generateLabel, { color: colors.sub }]}>🔒 Upgrade →</Text>
               ) : (
-                <Text style={[styles.generateLabel, { color: colors.accentText }]}>Generate →</Text>
+                <Text style={[styles.generateLabel, { color: colors.sub }]}>Generate →</Text>
               )}
             </View>
           </Pressable>
@@ -680,7 +675,7 @@ export default function AddTermsScreen() {
             )}
           </View>
         )}
-        </View>
+        </Card>
       )} />
 
       {/* Nothing is said while the box is empty: the character is already watching
@@ -762,7 +757,7 @@ export default function AddTermsScreen() {
                 )}
 
       {isSingleTermEdit && !loadingTerm && (
-        <ScrollView style={styles.singleEditWrap} contentContainerStyle={{ paddingBottom: 32 }} keyboardShouldPersistTaps="handled">
+        <ScrollView style={styles.singleEditWrap} contentContainerStyle={{ paddingBottom: space[8] }} keyboardShouldPersistTaps="handled">
           <View style={styles.manualSection}>
             <View style={styles.manualList}>
               {manualTerms.map((row, index) => (
@@ -863,10 +858,10 @@ function FullCard({
   };
 
     return (
-    <View style={styles.fullCard}>
+    <Card pad="none" gap={0} style={styles.fullCard}>
       <View style={[styles.fullCardHead, isEditing && styles.fullCardHeadEditing]}>
         <View style={{ flex: 1 }}>
-          <SectionLabel style={{ marginBottom: 4 }}>
+          <SectionLabel style={{ marginBottom: space[1] }}>
             Card {c.n} · {c.tag}
           </SectionLabel>
           {!isEditing && <Text style={styles.fullCardTitle}>{c.title}</Text>}
@@ -877,45 +872,16 @@ function FullCard({
           </Pressable>
         )}
       </View>
-      <View style={{ paddingHorizontal: 14, paddingVertical: 12 }}>
+      <View style={{ paddingHorizontal: space[3], paddingVertical: space[3] }}>
         {isEditing ? (
               <View>
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>Term</Text>
-                          <TextInput accessibilityLabel="e.g. Renaissance"
-                style={styles.manualInput}
-                value={editTitle}
-                onChangeText={setEditTitle}
-                placeholder="e.g. Renaissance"
-                placeholderTextColor={colors.muted}
-                          />
-                        </View>
-
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>Definition</Text>
-                          <TextInput accessibilityLabel="e.g. Period of cultural revival in Europe"
-                style={[styles.manualInput, styles.manualTextarea]}
-                value={editBody}
-                onChangeText={setEditBody}
-                placeholder="e.g. Period of cultural revival in Europe"
-                placeholderTextColor={colors.muted}
-                            multiline
-                            textAlignVertical="top"
-                          />
-                        </View>
-
-            <View style={styles.manualInputGroup}>
-              <Text style={styles.manualInputLabel}>{isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}</Text>
-                          <TextInput accessibilityLabel="Add context, examples, or usage notes"
-                style={[styles.manualInput, styles.manualTextarea]}
-                value={editEx}
-                onChangeText={setEditEx}
-                placeholder="Add context, examples, or usage notes"
-                placeholderTextColor={colors.muted}
-                            multiline
-                            textAlignVertical="top"
-                          />
-                        </View>
+            <Field label="Term" style={styles.manualInputGroup}
+              value={editTitle} onChangeText={setEditTitle} placeholder="e.g. Renaissance" />
+            <Field label="Definition" style={styles.manualInputGroup} multiline
+              value={editBody} onChangeText={setEditBody} placeholder="e.g. Period of cultural revival in Europe" />
+            <Field label={isLanguage ? 'Usage note (optional)' : 'Explanation (Optional)'}
+              style={styles.manualInputGroup} multiline
+              value={editEx} onChangeText={setEditEx} placeholder="Add context, examples, or usage notes" />
             {isLanguage && <LanguageCardEditor value={editLanguage} onChange={setEditLanguage} term={editTitle} />}
                       </View>
         ) : (
@@ -923,7 +889,7 @@ function FullCard({
         )}
         {!isEditing && c.ex && (
           <View style={styles.exBlock}>
-            <SectionLabel style={{ marginBottom: 5 }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
+            <SectionLabel style={{ marginBottom: space[1] }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
             <Text style={styles.exText}>{c.ex}</Text>
               </View>
                     )}
@@ -946,8 +912,8 @@ function FullCard({
                     style={[
                       styles.manualCardActionLabel,
                       isSave
-                        ? { color: colors.accentText, fontFamily: fonts.bold }
-                        : { color: colors.muted },
+                        ? { color: colors.sub, fontFamily: fonts.bold }
+                        : { color: colors.sub },
                     ]}
                   >
                     {isSave ? 'Save' : 'Cancel'}
@@ -965,14 +931,14 @@ function FullCard({
                   disabled={isRegenerating}
                   style={[
                     styles.fullCardAction,
-                    j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
+                    j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.line },
                     isRegenerating && isRegen && { opacity: 0.6 },
                   ]}
                 >
                   <Text
                     style={[
                       styles.fullCardActionLabel,
-                      { color: isRegen ? colors.accentText : colors.muted, fontWeight: isRegen ? '700' : '400' },
+                      { color: isRegen ? colors.sub : colors.sub, fontWeight: isRegen ? '700' : '400' },
                     ]}
                   >
                     {label}
@@ -981,7 +947,7 @@ function FullCard({
               );
             })}
               </View>
-    </View>
+    </Card>
   );
 }
 
@@ -1069,12 +1035,12 @@ function ManualCard({
   };
 
     return (
-    <View style={styles.manualCard}>
+    <Card pad="none" gap={0} style={styles.manualCard}>
       {shouldRenderHeader && (
         <View style={styles.manualCardHead}>
           <View style={{ flex: 1 }}>
             {!hideManualMeta && (
-              <SectionLabel style={{ marginBottom: 0 }}>Card M{index + 1} · Manual</SectionLabel>
+              <SectionLabel style={{ marginBottom: space[0] }}>Card M{index + 1} · Manual</SectionLabel>
             )}
             {row.saved && !row.editing && <Text style={styles.manualSavedTitle}>{row.term}</Text>}
                   </View>
@@ -1083,9 +1049,9 @@ function ManualCard({
               <Text style={styles.editLink}>Edit</Text>
             </Pressable>
           ) : !hideDeleteButton && !disableDelete ? (
-            <Pressable accessibilityRole="button" accessibilityLabel="Remove draft card" onPress={onDelete} hitSlop={10} style={styles.manualRemoveBtn}>
-              <Feather name="x" size={18} color={colors.muted} />
-            </Pressable>
+            <IconButton variant="quiet" size="sm" label="Remove draft card" onPress={onDelete}>
+              <Icon name="close" size={18} color={colors.sub} />
+            </IconButton>
           ) : null}
                       </View>
                     )}
@@ -1096,7 +1062,7 @@ function ManualCard({
             <Text style={styles.fullCardBody}>{row.definition}</Text>
             {!!row.explanation && (
               <View style={styles.exBlock}>
-                <SectionLabel style={{ marginBottom: 5 }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
+                <SectionLabel style={{ marginBottom: space[1] }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
                 <Text style={styles.exText}>{row.explanation}</Text>
           </View>
           )}
@@ -1116,10 +1082,10 @@ function ManualCard({
       {!hideInlineEditActions && (!row.saved || row.editing) ? (
         <View style={styles.manualCardActions}>
           <Pressable accessibilityRole="button" style={styles.manualCardAction} onPress={handleCancelEdit}>
-            <Text style={[styles.manualCardActionLabel, { color: colors.muted }]}>Cancel</Text>
+            <Text style={[styles.manualCardActionLabel, { color: colors.sub }]}>Cancel</Text>
           </Pressable>
           <Pressable accessibilityRole="button" style={[styles.manualCardAction, styles.manualCardActionBorder]} onPress={handleSaveEdit}>
-            <Text style={[styles.manualCardActionLabel, { color: colors.accentText, fontFamily: fonts.bold }]}>
+            <Text style={[styles.manualCardActionLabel, { color: colors.sub, fontFamily: fonts.bold }]}>
               Save
                     </Text>
           </Pressable>
@@ -1136,14 +1102,14 @@ function ManualCard({
                 disabled={isGenerating}
                     style={[
                   styles.fullCardAction,
-                  j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.border },
+                  j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.line },
                   isGenerating && isRegen && { opacity: 0.6 },
                 ]}
               >
                 <Text
                   style={[
                     styles.fullCardActionLabel,
-                    { color: isRegen ? colors.accentText : colors.muted, fontWeight: isRegen ? '700' : '400' },
+                    { color: isRegen ? colors.sub : colors.sub, fontWeight: isRegen ? '700' : '400' },
                   ]}
                 >
                   {label}
@@ -1153,21 +1119,16 @@ function ManualCard({
           })}
             </View>
           )}
-                </View>
+                </Card>
   );
 }
-
-/** The lip every raised surface here carries, drawn as a solid offset rather than a
- *  blur: in a palette with no shadows that band is the only depth there is. The same
- *  helper New Lesson uses, since these two screens are the same card twice. */
-const lip = (depth: number) => ({ boxShadow: `0px ${depth}px 0px ${homeColors.border}` });
 
 const styles = StyleSheet.create({
   headerGradient: { position: 'absolute', left: 0, right: 0 },
   topbar: {
     paddingHorizontal: layout.screenInline,
-    paddingTop: 20,
-    paddingBottom: 16,
+    paddingTop: space[5],
+    paddingBottom: space[4],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1177,7 +1138,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   contentScrollBody: {
-    paddingBottom: 24,
+    paddingBottom: space[6],
   },
   loadingWrap: {
     flex: 1,
@@ -1185,78 +1146,75 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   loadingText: {
-    fontSize: 13,
-    color: colors.muted,
-    fontFamily: fonts.medium,
+    ...type.caption,
+    color: colors.sub,
   },
   singleEditWrap: {
     flex: 1,
-    paddingTop: 8,
+    paddingTop: space[2],
   },
-  title: { fontSize: 23, lineHeight: 32, color: homeColors.deep, fontFamily: fonts.display, position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' },
+  title: { ...oneLine(type.page), color: colors.sub, position: 'absolute', left: 0, right: 0, textAlign: 'center', pointerEvents: 'none' },
 
   perch: { alignSelf: 'center' },
   waveBack: { position: 'absolute', left: -19 },
   waveFront: { position: 'absolute', left: -19 },
   promptBlock: {
-    marginHorizontal: layout.screenInline, marginTop: 8, marginBottom: 8,
-    backgroundColor: homeColors.white, borderRadius: 28, ...lip(ledge.raised),
+    marginHorizontal: layout.screenInline, marginTop: space[2], marginBottom: space[2],
   },
-  textarea: {
-    minHeight: 76,
-    fontSize: 16,
-    lineHeight: 24,
+  // The question above the box is the screen's instruction, so it is set as one.
+  // At 12 points it sat under the placeholder it was meant to introduce.
+  promptHeading: {
+    ...type.body, fontFamily: fonts.semibold,
+    marginBottom: space[2],
     letterSpacing: -0.1,
     color: colors.text,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    padding: 0,
+  },
+  textarea: {
+    ...type.body,
+    minHeight: 76,
+    letterSpacing: -0.1,
+    color: colors.text,
+    padding: space[0],
   },
   promptActions: {
     flexDirection: 'row',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.line,
   },
-  actionBtn: { minHeight: 44, paddingHorizontal: 14, paddingVertical: 12 },
+  actionBtn: { minHeight: 44, paddingHorizontal: space[3], paddingVertical: space[3] },
   actionDisabled: { opacity: 0.5 },
   generateActionWrap: { flexDirection: 'row', alignItems: 'center' },
   generateDots: { width: 32, textAlign: 'left', flexShrink: 0 },
   quotaBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 14, paddingVertical: 8,
-    borderTopWidth: 1, borderTopColor: colors.border,
+    paddingHorizontal: space[3], paddingVertical: space[2],
+    borderTopWidth: 1, borderTopColor: colors.line,
     backgroundColor: colors.bg,
   },
   quotaBarText: {
-    fontSize: 12, lineHeight: 15, color: colors.muted,
-    fontFamily: fonts.regular, fontWeight: '400',
+    ...type.caption, fontFamily: fonts.regular,
+    color: colors.sub,
   },
-  quotaUpgradeBtn: { minHeight: 44, paddingVertical: 2, paddingHorizontal: 4 },
+  quotaUpgradeBtn: { minHeight: 44, paddingVertical: space.hair, paddingHorizontal: space[1] },
   quotaUpgradeBtnText: {
-    fontSize: 12, lineHeight: 15, color: colors.action,
-    fontFamily: fonts.bold, fontWeight: '700',
+    ...type.caption, fontFamily: fonts.bold,
+    color: colors.action,
   },
-  actionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  actionLabelRow: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
   actionLabel: {
-    fontSize: 12,
-    lineHeight: 16.8,
-    color: colors.muted,
+    ...type.caption, fontFamily: fonts.bold,
+    color: colors.sub,
     letterSpacing: 0.5,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
   },
   generateLabel: {
-    fontSize: 14,
-    lineHeight: 19.6,
-    fontWeight: '700',
-    fontFamily: fonts.bold,
+    ...type.small, fontFamily: fonts.bold,
   },
 
   genHead: {
-    paddingHorizontal: 18,
-    paddingTop: 16,
-    paddingBottom: 2,
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
+    paddingBottom: space.hair,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -1265,25 +1223,19 @@ const styles = StyleSheet.create({
   skeletonCard: {
     backgroundColor: colors.surf,
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 6,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    padding: space[4],
+    marginBottom: space[1],
   },
-  skeletonBar: { height: 8, backgroundColor: colors.dim, borderRadius: 2, opacity: 0.5 },
+  skeletonBar: { height: 8, backgroundColor: colors.line, borderRadius: radius.sm, opacity: 0.5 },
 
-  fullCard: {
-    marginHorizontal: layout.screenInline,
-    marginTop: 8,
-    backgroundColor: colors.surf,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...cardElevation.card, },
+  fullCard: { marginHorizontal: layout.screenInline, marginTop: space[2] },
   fullCardHead: {
-    paddingHorizontal: 14,
-    paddingVertical: 14,
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.line,
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
@@ -1292,134 +1244,96 @@ const styles = StyleSheet.create({
     alignItems: 'stretch',
   },
   fullCardTitle: {
-    fontSize: 15,
-    fontWeight: '700',
+    ...type.small, fontFamily: fonts.bold,
     letterSpacing: -0.3,
-    lineHeight: 20,
     color: colors.text,
-    fontFamily: fonts.bold,
   },
-  editLink: { fontSize: 12, color: colors.action, fontWeight: '600', marginLeft: 10, fontFamily: fonts.semibold },
+  editLink: { ...type.caption, fontFamily: fonts.semibold, color: colors.action, marginLeft: space[2] },
 
-  fullCardBody: { fontSize: 13, color: colors.sub, lineHeight: 21, marginBottom: 12, fontFamily: fonts.regular },
+  fullCardBody: { ...type.caption, fontFamily: fonts.regular, color: colors.sub, marginBottom: space[3] },
   exBlock: {
     borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
+    borderColor: colors.line,
+    borderRadius: radius.sm,
+    paddingHorizontal: space[3],
+    paddingVertical: space[3],
     backgroundColor: colors.bg,
   },
-  exText: { fontSize: 12, color: colors.sub, lineHeight: 19, fontFamily: fonts.utility },
+  exText: { ...type.caption, fontFamily: fonts.utility, color: colors.sub },
 
-  fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.border },
-  fullCardAction: { flex: 1, paddingVertical: 15, alignItems: 'center' },
-  fullCardActionLabel: { fontSize: 16, fontFamily: fonts.medium },
+  fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.line },
+  fullCardAction: { flex: 1, paddingVertical: space[4], alignItems: 'center' },
+  fullCardActionLabel: { ...type.body, fontFamily: fonts.medium },
 
   manualSection: {
-    marginTop: 8,
+    marginTop: space[2],
     marginHorizontal: layout.screenInline,
   },
   manualSectionHead: {
-    marginBottom: 10,
+    marginBottom: space[2],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
   },
   manualList: {
-    gap: 8,
+    gap: space[2],
   },
-  manualCard: {
-    backgroundColor: colors.surf,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...cardElevation.card, },
+  manualCard: {},
   manualCardHead: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingHorizontal: space[3],
+    paddingVertical: space[2],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.line,
   },
   manualSavedTitle: {
-    marginTop: 4,
-    fontSize: 15,
-    fontWeight: '700',
+    ...type.small, fontFamily: fonts.bold,
+    marginTop: space[1],
     letterSpacing: -0.3,
-    lineHeight: 20,
     color: colors.text,
-    fontFamily: fonts.bold,
   },
   manualCardBody: {
-    padding: 20,
+    padding: space[5],
   },
   manualCardActions: {
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.line,
     flexDirection: 'row',
   },
   manualCardAction: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 15,
+    paddingVertical: space[4],
   },
   manualCardActionBorder: {
     borderLeftWidth: 1,
-    borderLeftColor: colors.border,
+    borderLeftColor: colors.line,
   },
   manualCardActionLabel: {
-    fontSize: 16,
-    fontFamily: fonts.medium,
+    ...type.body, fontFamily: fonts.medium,
   },
   manualCardIndex: {
-    fontSize: 12,
-    color: colors.accentText,
-    fontFamily: fonts.bold,
+    ...type.caption, fontFamily: fonts.bold,
+    color: colors.sub,
   },
-  manualRemoveBtn: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center', backgroundColor: homeColors.nav },
   manualInputGroup: {
-    marginBottom: 10,
+    marginBottom: space[2],
   },
   manualInputLabelRow: {
-    marginBottom: 6,
+    marginBottom: space[1],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  manualInputLabel: {
-    fontSize: 12,
-    lineHeight: 15.4,
-    color: colors.muted,
-    letterSpacing: -0.1,
-    fontFamily: fonts.medium,
   },
   manualGenerateButtonDisabled: {
     opacity: 0.5,
   },
   manualGenerateButtonText: {
-    fontSize: 12,
-    lineHeight: 17,
+    ...type.caption, fontFamily: fonts.bold,
     color: colors.action,
-    fontFamily: fonts.bold,
-  },
-  manualInput: { minHeight: 44,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    backgroundColor: homeColors.nav,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    lineHeight: 20,
-    color: colors.text,
-    fontFamily: fonts.regular,
-  },
-  manualTextarea: {
-    minHeight: 62,
-    textAlignVertical: 'top',
   },
 });
 

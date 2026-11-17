@@ -12,18 +12,20 @@
  * a line drawn around them.
  */
 
-import { homeColors } from './colors';
-import { colors } from './index';
+import { colors } from './colors';
+import { layout, radius, space } from './spacing';
 
-/** The same radius the cards carry, so a sheet belongs to the set it opened from. */
-const RADIUS = 28;
+/** The scale's own sheet corner. It was 28 — a number that appears nowhere else in
+ *  the app, sitting between the card's 24 and the large card's 32 and matching
+ *  neither, which is what a measured-by-eye radius looks like six months later. */
+const RADIUS = radius.xl;
 
 export const sheet = {
   /** The dimmed screen behind it. Press it to dismiss. */
   scrim: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: colors.modalScrim,
+    backgroundColor: colors.scrim,
   },
   /** The surface itself: square at the bottom, where the screen edge cuts it off.
    *
@@ -34,7 +36,7 @@ export const sheet = {
   surface: {
     borderTopLeftRadius: RADIUS,
     borderTopRightRadius: RADIUS,
-    backgroundColor: homeColors.canvas,
+    backgroundColor: colors.bg,
     overflow: 'hidden' as const,
   },
   /** The grab bar. It says the sheet can be pulled down, so it belongs on sheets that
@@ -42,19 +44,22 @@ export const sheet = {
   handle: {
     width: 36,
     height: 4,
-    borderRadius: 2,
-    backgroundColor: homeColors.border,
+    borderRadius: radius.pill,
+    backgroundColor: colors.line,
     alignSelf: 'center' as const,
-    marginTop: 10,
-    marginBottom: 14,
+    marginTop: space[2],
+    marginBottom: space[3],
   },
   /** The row of title and actions across the top of a sheet, with no rule under it:
-   *  the gap below does that work. */
+   *  the gap below does that work. It keeps the page's own side margin, which is
+   *  what the bodies underneath it keep: at the 20 it used to take, every sheet's
+   *  title stood four points out from the content it named. */
   head: {
     flexDirection: 'row' as const,
     alignItems: 'center' as const,
-    justifyContent: 'space-between' as const,
-    paddingHorizontal: 20,
-    paddingBottom: 14,
+    gap: space[2],
+    paddingHorizontal: layout.screenInline,
+    paddingTop: space[1],
+    paddingBottom: space[3],
   },
 } as const;

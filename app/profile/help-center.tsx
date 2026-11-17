@@ -1,14 +1,14 @@
+import { Icon } from '@/components/ui/Icon';
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ledge } from '@/theme/ledge';
-import { LedgePressable } from '@/components/ui/LedgePressable';
-import { homeColors } from '@/theme/colors';
+import { Button } from '@/components/ui/Button';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
-import { Feather } from '@expo/vector-icons';
 import { useNavigation } from 'expo-router/react-navigation';
 import { safeBack } from '@/lib/safeBack';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
-import { colors } from '@/theme';
+import { space, radius, type, colors } from '@/theme';
 import React, { useEffect } from 'react';
 import {
     Image,
@@ -58,7 +58,7 @@ export default function HelpCenterScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
       <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
       <ScrollView
         style={styles.scrollView}
@@ -72,35 +72,28 @@ export default function HelpCenterScreen() {
           </Text>
 
           {/* WhatsApp Contact Button */}
-          <LedgePressable accessibilityRole="button"
-            style={styles.whatsappButton}
-            onPress={handleOpenWhatsApp}
-          >
-            <View style={styles.whatsappFace}>
-              <Feather name="message-circle" size={24} color={colors.surf} />
-              <Text style={styles.whatsappButtonText}>Contact via WhatsApp</Text>
-            </View>
-          </LedgePressable>
+          <Button size="md" label="Contact via WhatsApp" onPress={handleOpenWhatsApp} style={styles.whatsappButton}
+            icon={<Icon name="message" size={20} color={colors.surf} />} />
 
           {/* QR Code */}
-          <View style={styles.qrCodeContainer}>
+          <Card style={styles.qrCodeContainer} faceStyle={styles.centred}>
             <Text style={styles.qrCodeTitle}>Or scan the QR code</Text>
             <Image
               source={qrCodeImage}
               style={styles.qrCodeImage}
               resizeMode="contain"
             />
-          </View>
+          </Card>
 
           {/* Alternative: Email Support */}
-          <View style={styles.emailContainer}>
+          <Card faceStyle={styles.centred}>
             <Text style={styles.emailLabel}>Email Support:</Text>
             <TouchableOpacity accessibilityRole="button"
               onPress={() => Linking.openURL('mailto:support@riverstudio.cc')}
             >
               <Text style={styles.emailLink}>support@riverstudio.cc</Text>
             </TouchableOpacity>
-          </View>
+          </Card>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -109,7 +102,7 @@ export default function HelpCenterScreen() {
 
 const styles = StyleSheet.create({
   pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 250 },
-  pageTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, marginHorizontal: layout.screenInline, marginBottom: 20 },
+  pageTitle: { ...type.title, color: colors.sub, marginHorizontal: layout.screenInline, marginBottom: space[5] },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -118,91 +111,45 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: space[10],
   },
   content: {
     paddingHorizontal: layout.screenInline,
-    paddingTop: 16,
+    paddingTop: space[4],
   },
   title: {
-    fontSize: 30,
-    lineHeight: 40,
-    fontFamily: fonts.display,
+    ...oneLine(type.title),
     color: colors.text,
-    marginBottom: 10,
+    marginBottom: space[2],
   },
   description: {
-    fontSize: 13,
-    lineHeight: 20,
+    ...type.caption, fontFamily: fonts.regular,
     letterSpacing: -0.1,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    color: colors.muted,
-    marginBottom: 20,
+    color: colors.sub,
+    marginBottom: space[5],
   },
-  whatsappButton: {
-    borderRadius: 100, backgroundColor: homeColors.deep, paddingBottom: ledge.lead, marginBottom: 20,
-  },
-  whatsappFace: {
-    minHeight: 52, borderRadius: 100, backgroundColor: homeColors.primary,
-    paddingVertical: 14, paddingHorizontal: 16,
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12,
-  },
-  whatsappButtonText: {
-    color: colors.onAction,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: -0.1,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-  },
-  qrCodeContainer: {
-    alignItems: 'center',
-    marginBottom: 20,
-    padding: 16,
-    backgroundColor: colors.surf,
-    borderRadius: 24,
-    boxShadow: `0px 4px 0px ${homeColors.border}`,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  whatsappButton: { marginBottom: space[5] },
+  qrCodeContainer: { marginBottom: space[5] },
+  centred: { alignItems: 'center' },
   qrCodeTitle: {
-    fontSize: 13,
-    lineHeight: 18,
+    ...type.caption,
     letterSpacing: -0.1,
-    fontFamily: fonts.medium,
-    fontWeight: '500',
     color: colors.text,
-    marginBottom: 12,
+    marginBottom: space[3],
   },
   qrCodeImage: {
     width: 180,
     height: 180,
   },
-  emailContainer: {
-    padding: 16,
-    backgroundColor: colors.surf,
-    borderRadius: 24,
-    boxShadow: `0px 4px 0px ${homeColors.border}`,
-    borderWidth: 1,
-    borderColor: colors.border,
-    alignItems: 'center',
-  },
   emailLabel: {
-    fontSize: 12,
-    lineHeight: 17,
+    ...type.caption, fontFamily: fonts.regular,
     letterSpacing: -0.1,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    color: colors.muted,
-    marginBottom: 8,
+    color: colors.sub,
+    marginBottom: space[2],
   },
   emailLink: {
-    fontSize: 14,
-    lineHeight: 20,
+    ...type.small, fontFamily: fonts.semibold,
     letterSpacing: -0.1,
-    fontFamily: fonts.semibold,
-    fontWeight: '600',
     color: colors.action,
   },
 });

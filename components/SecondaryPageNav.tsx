@@ -1,5 +1,5 @@
 import { BackButton } from '@/components/ui/RoundButtons';
-import { layout } from '@/theme/spacing';
+import { space, layout } from '@/theme/spacing';
 import type { ReactNode } from 'react';
 import { StyleSheet, View } from 'react-native';
 
@@ -42,8 +42,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: layout.screenInline,
-    paddingTop: 14,
-    paddingBottom: 14,
+    paddingTop: space[3],
+    paddingBottom: space[3],
   },
   navRightSpacer: {
     width: 52,

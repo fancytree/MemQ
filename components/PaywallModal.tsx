@@ -1,3 +1,6 @@
+import { Icon } from '@/components/ui/Icon';
+import { Card } from '@/components/ui/Card';
+import { type } from '@/theme/typography';
 /**
  * PaywallModal — what each plan costs, and the purchase itself.
  *
@@ -12,13 +15,13 @@
 import { HomeAsset } from '@/components/HomeAsset';
 import { DialogHost, dialog } from '@/lib/dialog';
 import { CloseButton } from '@/components/ui/RoundButtons';
+import { SheetHead } from '@/components/ui/Sheet';
+import { sheet as sheetShape } from '@/theme/sheet';
 import { MascotRig, type MascotMood } from '@/components/mascot/rig/MascotRig';
 import { useSubscription } from '@/context/SubscriptionContext';
 import { supabase } from '@/lib/supabase';
-import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
-import { layout } from '@/theme/spacing';
-import { Feather } from '@expo/vector-icons';
+import { space, radius, layout } from '@/theme/spacing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -35,7 +38,9 @@ import {
 } from 'react-native';
 import Purchases, { CustomerInfo, PurchasesOffering, PurchasesPackage } from 'react-native-purchases';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Button } from '@/components/ui/Button';
 import { LedgePressable } from '@/components/ui/LedgePressable';
+import { colors } from '@/theme/colors';
 
 const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev/stdeula/';
 
@@ -61,9 +66,8 @@ function PlanCard({ title, price, unit, badge, selected, onPress }: {
   onPress: () => void;
 }) {
   return (
-    <TouchableOpacity accessibilityRole="button" accessibilityState={{ selected }}
-      style={[styles.plan, selected && styles.planOn]} onPress={onPress} activeOpacity={0.9}>
-      <View style={[styles.planFace, selected && styles.planFaceOn]}>
+    <Card onPress={onPress} selected={selected} accessibilityLabel={`${title}, ${price} ${unit}`}
+      faceStyle={styles.planFace}>
         <View style={styles.planLeft}>
           <View style={styles.planHead}>
             <Text style={styles.planTitle}>{title}</Text>
@@ -77,10 +81,9 @@ function PlanCard({ title, price, unit, badge, selected, onPress }: {
           </View>
         </View>
         <View style={[styles.tick, selected ? styles.tickOn : styles.tickOff]}>
-          {selected && <Feather name="check" size={13} color={homeColors.white} />}
+          {selected && <Icon name="check" size={13} color={colors.surf} />}
         </View>
-      </View>
-    </TouchableOpacity>
+    </Card>
   );
 }
 
@@ -310,7 +313,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
       <View style={styles.sheetBackdrop}>
         <StatusBar style="dark" />
         <LinearGradient pointerEvents="none"
-          colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+          colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
           locations={[0, 0.21154, 0.44712, 1]}
           style={styles.background} />
         {/* Two hills, not one: a single one ends on a straight horizontal edge partway
@@ -319,21 +322,18 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
         <View pointerEvents="none" style={styles.waveFront}><HomeAsset name="waveFront" /></View>
 
         <SafeAreaView style={styles.sheet} edges={['top', 'bottom']}>
-          <View style={styles.toolbar}>
-            <View style={styles.grabber} />
-
-            <View style={styles.toolbarContent}>
-              <CloseButton onPress={onClose} />
-
-              <View style={styles.titleContainer}>
-                <Text style={styles.title}>Choose your plan</Text>
-              </View>
-            </View>
-          </View>
+          {/* The same grab bar and the same head row as every sheet in the app. It
+              had its own: a 40-point bar with an 8-point corner, and a title
+              absolutely positioned over the row to centre it, set in a different
+              face and a different size from the title on every other sheet. */}
+          <View accessible={false} style={sheetShape.handle} />
+          <SheetHead tight align="center" title="Choose your plan" close={false}
+            onClose={onClose} closeLabel="Close"
+            lead={<CloseButton onPress={onClose} />} />
 
           {loading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color={homeColors.primary} />
+              <ActivityIndicator size="large" color={colors.action} />
               <Text style={styles.loadingText}>Loading subscription options…</Text>
             </View>
           ) : offering ? (
@@ -399,7 +399,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   <View style={styles.subscribeFace}>
                     {purchasing ? (
                       <View style={styles.subscribeButtonContent}>
-                        <ActivityIndicator size="small" color={homeColors.white} />
+                        <ActivityIndicator size="small" color={colors.surf} />
                         <Text style={styles.subscribeButtonText}>Processing…</Text>
                       </View>
                     ) : (
@@ -439,11 +439,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
           ) : (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{loadError || 'No subscription options available.'}</Text>
-              <LedgePressable accessibilityRole="button" onPress={loadOfferings} style={styles.errorButton}>
-                <View style={styles.errorButtonFace}>
-                  <Text style={styles.errorButtonText}>Retry</Text>
-                </View>
-              </LedgePressable>
+              <Button size="md" label="Retry" onPress={loadOfferings} />
               <TouchableOpacity accessibilityRole="button" onPress={onClose} style={styles.restoreButton}>
                 <Text style={styles.restoreButtonText}>Close</Text>
               </TouchableOpacity>
@@ -458,7 +454,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
 }
 
 const styles = StyleSheet.create({
-  sheetBackdrop: { flex: 1, backgroundColor: homeColors.canvas },
+  sheetBackdrop: { flex: 1, backgroundColor: colors.bg },
   background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', top: 113, left: -19 },
   waveFront: { position: 'absolute', top: 150, left: -19 },
@@ -466,138 +462,83 @@ const styles = StyleSheet.create({
   // something glimpsed around a white panel.
   sheet: { flex: 1 },
 
-  toolbar: { paddingTop: 8, paddingBottom: 12 },
-  grabber: {
-    width: 40, height: 4, borderRadius: 2,
-    backgroundColor: homeColors.border, alignSelf: 'center', marginBottom: 14,
-  },
-  toolbarContent: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: layout.screenInline, position: 'relative',
-  },
-  // A small control, so it carries the shallowest lip of the three.
-  closeButton: {
-    width: 44, height: 42 + ledge.control, borderRadius: 22,
-    backgroundColor: homeColors.border, paddingBottom: ledge.control,
-  },
-  closeFace: {
-    flex: 1, borderRadius: 22, backgroundColor: homeColors.white,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  titleContainer: {
-    position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center',
-  },
-  title: {
-    fontFamily: 'Geist_700Bold', fontSize: 20, lineHeight: 26,
-    letterSpacing: -0.5, color: homeColors.darkest,
-  },
 
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 48 },
   loadingText: {
-    marginTop: 20, fontFamily: 'Geist_500Medium', fontSize: 15,
-    color: homeColors.muted, textAlign: 'center',
+    ...type.small, fontFamily: 'Geist_500Medium',
+    marginTop: space[5],
+    color: colors.faint,
+    textAlign: 'center',
   },
 
   contentContainer: { flex: 1, paddingHorizontal: layout.screenInline },
-  logoContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 20 },
-  bottomSection: { paddingBottom: 0 },
-  plansContainer: { gap: 12, marginBottom: 18 },
+  logoContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: space[5] },
+  bottomSection: { paddingBottom: space[0] },
+  plansContainer: { gap: space[3], marginBottom: space[4] },
 
-  // A shell with a lighter face on it, offset so a band of the shell shows along the
-  // bottom edge. In a palette with no shadows that band is the only depth there is.
-  plan: {
-    borderRadius: 24, backgroundColor: homeColors.border, paddingBottom: ledge.raised,
-  },
-  planOn: { backgroundColor: homeColors.deep },
-  planFace: {
-    borderRadius: 24, backgroundColor: homeColors.white,
-    paddingVertical: 16, paddingHorizontal: 18,
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-  },
-  planFaceOn: { backgroundColor: homeColors.track },
-  planLeft: { flex: 1, gap: 4 },
-  planHead: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  planTitle: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 17, lineHeight: 24, color: homeColors.darkest,
-  },
+  planFace: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  planLeft: { flex: 1, gap: space[1] },
+  planHead: { flexDirection: 'row', alignItems: 'center', gap: space[2], flexWrap: 'wrap' },
+  planTitle: { ...type.body, fontFamily: 'Geist_600SemiBold', color: colors.text },
   // The hills' own yellow, which is what this palette shouts with.
   badge: {
-    paddingHorizontal: 9, paddingVertical: 3, borderRadius: 100,
-    backgroundColor: homeColors.hill,
+    paddingHorizontal: space[2], paddingVertical: space.hair, borderRadius: radius.pill,
+    backgroundColor: colors.lime,
   },
-  badgeText: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 12, lineHeight: 16, color: homeColors.darkest,
-  },
-  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: 5 },
-  price: {
-    fontFamily: 'Oswald_600SemiBold', fontSize: 26, lineHeight: 32, color: homeColors.deep,
-  },
-  priceUnit: {
-    fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted,
-  },
-  tick: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  tickOn: { backgroundColor: homeColors.primary },
-  tickOff: { backgroundColor: homeColors.border },
+  badgeText: { ...type.caption, fontFamily: 'Geist_600SemiBold', color: colors.text },
+  priceRow: { flexDirection: 'row', alignItems: 'baseline', gap: space[1] },
+  price: { ...type.page, fontFamily: 'Oswald_600SemiBold', color: colors.sub },
+  priceUnit: { ...type.small, fontFamily: 'Geist_500Medium', color: colors.faint },
+  tick: { width: 24, height: 24, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  tickOn: { backgroundColor: colors.action },
+  tickOff: { backgroundColor: colors.line },
 
-  footer: { paddingTop: 2 },
-  footerCopy: { marginBottom: 16, gap: 4 },
+  footer: { paddingTop: space.hair },
+  footerCopy: { marginBottom: space[4], gap: space[1] },
   footerLead: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 16, lineHeight: 22,
-    color: homeColors.darkest, textAlign: 'center',
+    ...type.body, fontFamily: 'Geist_600SemiBold',
+    color: colors.text,
+    textAlign: 'center',
   },
   autoRenewText: {
-    fontFamily: 'Geist_400Regular', fontSize: 12, lineHeight: 17,
-    color: homeColors.muted, textAlign: 'center',
+    ...type.caption, fontFamily: 'Geist_400Regular',
+    color: colors.faint,
+    textAlign: 'center',
   },
 
   // The one thing the sheet wants pressed, so it carries the deepest lip.
   subscribeButton: {
-    height: 59 + ledge.lead, borderRadius: 42,
-    backgroundColor: homeColors.deep, paddingBottom: ledge.lead,
+    height: 59 + ledge.lead, borderRadius: radius.pill,
+    backgroundColor: colors.actionShell, paddingBottom: ledge.lead,
   },
   subscribeFace: {
-    flex: 1, borderRadius: 42, backgroundColor: homeColors.primary,
+    flex: 1, borderRadius: radius.pill, backgroundColor: colors.action,
     alignItems: 'center', justifyContent: 'center',
   },
   subscribeButtonDisabled: { opacity: 0.45 },
-  subscribeButtonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  subscribeButtonText: {
-    fontFamily: 'Geist_500Medium', fontSize: 22, lineHeight: 30, color: homeColors.white,
-  },
+  subscribeButtonContent: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
+  subscribeButtonText: { ...type.heading, fontFamily: 'Geist_500Medium', color: colors.surf },
 
-  restoreButton: { minHeight: 44, paddingVertical: 10, alignItems: 'center' },
-  restoreButtonText: {
-    fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.muted,
-  },
+  restoreButton: { minHeight: 44, paddingVertical: space[2], alignItems: 'center' },
+  restoreButtonText: { ...type.small, fontFamily: 'Geist_500Medium', color: colors.faint },
 
   legalLinks: {
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 8, paddingTop: 4,
+    flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: space[2], paddingTop: space[1],
   },
   legalLinkText: {
-    fontFamily: 'Geist_400Regular', fontSize: 13, color: homeColors.muted,
+    ...type.caption, fontFamily: 'Geist_400Regular',
+    color: colors.faint,
     textDecorationLine: 'underline',
   },
-  legalLinkSeparator: {
-    fontFamily: 'Geist_400Regular', fontSize: 13, color: homeColors.muted,
-  },
+  legalLinkSeparator: { ...type.caption, fontFamily: 'Geist_400Regular', color: colors.faint },
 
   errorContainer: {
     flex: 1, justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 48, gap: 20,
+    paddingHorizontal: space[5], paddingVertical: 48, gap: space[5],
   },
   errorText: {
-    fontFamily: 'Geist_500Medium', fontSize: 15, lineHeight: 22,
-    color: homeColors.deep, textAlign: 'center',
-  },
-  errorButton: {
-    height: 50 + ledge.lead, borderRadius: 42, minWidth: 160,
-    backgroundColor: homeColors.deep, paddingBottom: ledge.lead,
-  },
-  errorButtonFace: {
-    flex: 1, borderRadius: 42, backgroundColor: homeColors.primary,
-    alignItems: 'center', justifyContent: 'center', paddingHorizontal: 24,
-  },
-  errorButtonText: {
-    fontFamily: 'Geist_500Medium', fontSize: 18, lineHeight: 24, color: homeColors.white,
+    ...type.small, fontFamily: 'Geist_500Medium',
+    color: colors.sub,
+    textAlign: 'center',
   },
 });

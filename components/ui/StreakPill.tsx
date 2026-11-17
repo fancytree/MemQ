@@ -1,3 +1,5 @@
+import { space, radius } from '@/theme/spacing';
+import { type } from '@/theme/typography';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -7,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { HomeAsset } from '@/components/HomeAsset';
-import { homeColors } from '@/theme/colors';
+import { colors } from '@/theme/colors';
 
 /** The streak: a flame and the number of days.
  *
@@ -196,10 +198,10 @@ export function StreakPill({ value, seenKey, active = true }: {
 }
 
 const styles = StyleSheet.create({
-  shell: { height: 40, borderRadius: 27, backgroundColor: homeColors.streakBorder, paddingBottom: 2 },
+  shell: { height: 40, borderRadius: radius.lg, backgroundColor: colors.chartSoft, paddingBottom: space.hair },
   face: {
-    flex: 1, borderRadius: 27, backgroundColor: homeColors.white, paddingHorizontal: 16,
-    flexDirection: 'row', alignItems: 'center', gap: 8,
+    flex: 1, borderRadius: radius.lg, backgroundColor: colors.surf, paddingHorizontal: space[4],
+    flexDirection: 'row', alignItems: 'center', gap: space[2],
   },
   flame: { alignItems: 'center', justifyContent: 'center' },
   spark: { position: 'absolute', top: 2 },
@@ -207,7 +209,7 @@ const styles = StyleSheet.create({
   // on the line.
   window: { height: LINE, overflow: 'hidden', justifyContent: 'center' },
   unread: { opacity: 0 },
-  number: { fontFamily: 'Geist_600SemiBold', fontSize: 22, lineHeight: LINE, color: homeColors.black },
+  number: { ...type.heading, fontFamily: 'Geist_600SemiBold', color: colors.text },
   sizer: { opacity: 0 },
   rolling: { position: 'absolute', left: 0, right: 0, top: 0 },
 });

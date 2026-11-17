@@ -6,6 +6,10 @@ Source: docs/app-icon/app-icon.svg, exported from Figma (MemQ, node 60:5902,
 "Icon"). Writes assets/images/icon.png and icon-ios-{light,dark,tinted}.png at
 1024 x 1024, and favicon.png at 196 x 196. Needs rsvg-convert and Pillow.
 
+Also writes the website's icons into preview/memq-website: favicon.ico (16, 32,
+48), favicon-32.png and icon.svg for browser tabs, which keep the design's
+rounded corners, and apple-touch-icon.png (180, square: iOS rounds it itself).
+
 The Figma frame draws its background as a rounded square. iOS masks every icon
 itself and rejects artwork with transparency, so the background is squared off:
 inside the system's mask, which is rounder than the design's 54/256 corner, the
@@ -76,3 +80,22 @@ with tempfile.TemporaryDirectory() as work:
         if name == 'light':
             rgb.resize((196, 196), Image.LANCZOS).save(os.path.join(OUT, 'favicon.png'), optimize=True)
             print('wrote assets/images/favicon.png')
+
+# ── Website ─────────────────────────────────────────────────────
+# A browser tab shows the icon as drawn, so these keep the design's rounded
+# corners and transparency; only the home-screen icon is squared, like the app's.
+SITE = os.path.join(ROOT, 'preview', 'memq-website')
+with tempfile.TemporaryDirectory() as work:
+    rounded = os.path.join(work, 'rounded.png')
+    subprocess.run(['rsvg-convert', '-w', '512', '-h', '512', '-o', rounded,
+                    os.path.join(ROOT, 'docs', 'app-icon', 'app-icon.svg')], check=True)
+    big = Image.open(rounded).convert('RGBA')
+    big.save(os.path.join(SITE, 'favicon.ico'), sizes=[(16, 16), (32, 32), (48, 48)])
+    big.resize((32, 32), Image.LANCZOS).save(os.path.join(SITE, 'favicon-32.png'), optimize=True)
+    Image.open(os.path.join(OUT, 'icon-ios-light.png')).convert('RGB').resize((180, 180), Image.LANCZOS) \
+        .save(os.path.join(SITE, 'apple-touch-icon.png'), optimize=True)
+    with open(os.path.join(ROOT, 'docs', 'app-icon', 'app-icon.svg'), encoding='utf8') as src, \
+         open(os.path.join(SITE, 'icon.svg'), 'w', encoding='utf8') as dst:
+        dst.write(src.read())
+    for f in ['favicon.ico', 'favicon-32.png', 'apple-touch-icon.png', 'icon.svg']:
+        print('wrote preview/memq-website/' + f)

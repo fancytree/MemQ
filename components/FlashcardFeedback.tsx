@@ -1,4 +1,6 @@
-import { elevation as cardElevation } from '@/theme';
+import { space, type, componentTokens } from '@/theme';
+
+const card = componentTokens.card;
 import { colors } from '@/theme/colors';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -74,11 +76,12 @@ export default function FlashcardFeedback({
     <View style={styles.container}>
       {/* 正面（问题面）- 初始可见，翻转后隐藏 */}
       <Animated.View style={[styles.card, frontAnimatedStyle]}>
-        <View style={styles.placeholder} />
+        <View style={styles.face}><View style={styles.placeholder} /></View>
       </Animated.View>
 
       {/* 背面（答案面）- 初始隐藏，翻转后显示 */}
       <Animated.View style={[styles.card, styles.backCard, backAnimatedStyle]}>
+        <View style={styles.face}>
         <TouchableOpacity accessibilityRole="button"
           style={styles.backContent}
           onPress={handleFlipBack}
@@ -103,6 +106,7 @@ export default function FlashcardFeedback({
             <Text style={styles.actionText}>Tap to see question again</Text>
           </View>
         </TouchableOpacity>
+        </View>
       </Animated.View>
     </View>
   );
@@ -112,7 +116,7 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     minHeight: 400,
-    marginTop: 16,
+    marginTop: space[4],
     // 添加透视效果，让 3D 翻转更真实
     transform: [{ perspective: 1000 }],
   },
@@ -120,18 +124,21 @@ const styles = StyleSheet.create({
     position: 'absolute',
     width: '100%',
     minHeight: 400,
-    backgroundColor: colors.surf,
-    shadowColor: colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 8,
-    elevation: 0,
+    // The same two layers every raised surface carries. The shell is here rather
+    // than a components/ui/Card because the flip's animated style needs an
+    // Animated.View; the face below is the white you see.
+    borderRadius: card.radius.lg,
+    backgroundColor: card.shell,
+    paddingBottom: card.lip,
     overflow: 'hidden',
-    // 确保背面不可见
-    backfaceVisibility: 'hidden', ...cardElevation.card, },
+    backfaceVisibility: 'hidden',
+  },
+  face: {
+    flex: 1,
+    borderRadius: card.radius.lg,
+    backgroundColor: card.face,
+    overflow: 'hidden',
+  },
   backCard: {
     // 背面初始状态，已通过动画样式控制
   },
@@ -144,57 +151,52 @@ const styles = StyleSheet.create({
   // 顶部答案区
   answerSection: {
     backgroundColor: colors.greenL,
-    padding: 20,
+    padding: space[5],
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.line,
   },
   answerLabel: {
-    fontSize: 12,
-    fontWeight: '700',
+    ...type.caption,
     color: colors.green,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    marginBottom: 8,
+    marginBottom: space[2],
   },
   answerText: {
-    fontSize: 24,
-    fontWeight: '900',
+    ...type.page,
     color: colors.green,
-    marginTop: 8,
+    marginTop: space[2],
   },
   // 中间解析区
   explanationSection: {
     backgroundColor: colors.surf,
-    padding: 20,
+    padding: space[5],
     flex: 1,
   },
   explanationLabel: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.muted,
+    ...type.caption,
+    color: colors.sub,
     textTransform: 'uppercase',
     letterSpacing: 1.2,
-    marginBottom: 8,
+    marginBottom: space[2],
   },
   explanationText: {
-    fontSize: 16,
+    ...type.body,
     color: colors.sub,
-    marginTop: 8,
-    lineHeight: 24,
+    marginTop: space[2],
   },
   // 底部操作区
   actionSection: {
-    backgroundColor: colors.surfaceSubtle,
-    padding: 16,
+    backgroundColor: colors.panel,
+    padding: space[4],
     alignItems: 'center',
     justifyContent: 'center',
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.line,
   },
   actionText: {
-    fontSize: 14,
-    color: colors.muted,
-    fontWeight: '500',
+    ...type.small,
+    color: colors.sub,
     textAlign: 'center',
   },
 });

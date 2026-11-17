@@ -1,26 +1,27 @@
+import { componentTokens } from '@/theme';
+import { layout, space, radius } from '@/theme/spacing';
 import { LessonCover } from '@/components/LessonCover';
 import LoadingScreen from '@/components/LoadingScreen';
-import { colors, homeColors } from '@/theme/colors';
-import { type } from '@/theme/typography';
-import { sheet } from '@/theme/sheet';
-import { CloseButton } from '@/components/ui/RoundButtons';
+import { colors } from '@/theme/colors';
+import { fonts, oneLine, type } from '@/theme/typography';
+import { Sheet } from '@/components/ui/Sheet';
 import { HomeAsset } from '@/components/HomeAsset';
-import { Icon } from '@/components/Icon';
+import { Icon } from '@/components/ui/Icon';
 import { MascotRig, type MascotMood } from '@/components/mascot/rig/MascotRig';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
-import { planToday } from '@/lib/studyPlan';
+import { deadlineLeft, planToday } from '@/lib/studyPlan';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AccessibilityInfo, Animated, Easing, Image, Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { AccessibilityInfo, Animated, Easing, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import Reanimated, { useAnimatedProps } from 'react-native-reanimated';
 import { CountUp, ProgressFill, useEased } from '@/components/motion/Grow';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LedgePressable } from '@/components/ui/LedgePressable';
+import { Button } from '@/components/ui/Button';
 import { StreakPill } from '@/components/ui/StreakPill';
 
 interface LessonSummary {
@@ -83,7 +84,7 @@ function GoalRing({ done, goal }: { done: number; goal: number }) {
   const arc = useAnimatedProps(() => ({ strokeDasharray: [circumference * swept.value, circumference] }));
   return (
     <Svg width={30} height={30} viewBox="0 0 30 30">
-      <Circle cx={15} cy={15} r={r} fill="none" stroke={homeColors.white} strokeWidth={4} />
+      <Circle cx={15} cy={15} r={r} fill="none" stroke={colors.surf} strokeWidth={4} />
       {at > 0 && (
         <RingArc cx={15} cy={15} r={r} fill="none" stroke={colors.green} strokeWidth={4}
           strokeLinecap="round" animatedProps={arc}
@@ -389,7 +390,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
       <Animated.ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={[styles.content, { paddingBottom: 90 + Math.max(8, insets.bottom) }]}
         scrollEventThrottle={16}
         onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrolled } } }], { useNativeDriver: true })}>
-        <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]} locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
+        <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]} locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
         <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
         <View pointerEvents="none" style={styles.mascot}>
           <MascotRig width={MASCOT_WIDTH} mood={mood} tilt={MASCOT_TILT} look={MASCOT_LOOK}
@@ -405,10 +406,11 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
             <Text accessibilityRole="header" style={styles.count}><CountUp key={`due${visit}`} value={totalDue} style={styles.count} /><Text style={styles.countUnit}> {totalDue === 1 ? 'card' : 'cards'}</Text></Text>
             <Text style={styles.subtitle}>{lessonsError ? 'Couldn’t load your lessons' : lessonsLoading ? 'Getting your lessons ready' : lessonsCount === 0 ? 'Create a lesson to start learning' : !hasCards ? 'Add cards to a lesson to start learning' : totalDue > 0 ? 'Need your review' : 'All caught up'}</Text>
           </Animated.View>
-          <Animated.View style={entranceStyle(2)}><LedgePressable accessibilityRole="button" accessibilityState={{ disabled: lessonsLoading }} disabled={lessonsLoading} onPress={startLearning} style={[styles.start, lessonsLoading && styles.startLoading]}>
-            <View style={styles.startFace}>{hasCards && !lessonsLoading && !lessonsError && <View style={styles.playIcon}><HomeAsset name="play" /></View>}<Text style={styles.startText}>{startLabel}</Text></View>
-          </LedgePressable></Animated.View>
-          {!lessonsLoading && !lessonsError && lessonsCount > 0 && !hasCards && <Pressable accessibilityRole="button" onPress={() => router.push('/create')} style={styles.createAlternative}><Text style={styles.createAlternativeText}>Or create a new lesson</Text></Pressable>}
+          <Animated.View style={entranceStyle(2)}><Button size="lg" width="hug" style={styles.start}
+            label={startLabel} disabled={lessonsLoading} onPress={startLearning}
+            icon={hasCards && !lessonsLoading && !lessonsError ? <View style={styles.playIcon}><HomeAsset name="play" height={16} /></View> : undefined} />
+          </Animated.View>
+          {!lessonsLoading && !lessonsError && lessonsCount > 0 && !hasCards && <Button variant="quiet" size="sm" label="Or create a new lesson" onPress={() => router.push('/create')} />}
         </View>
         <Animated.View style={[styles.stats, entranceStyle(3)]}><View style={styles.statsFace}>
           <View style={styles.stat}><HomeAsset name="time" /><Text style={styles.statValue}>{totalDue ? <><CountUp key={`min${visit}`} value={estimateMinutes} delay={150} style={styles.statValue} />min</> : '—'}</Text><Text style={styles.statLabel}>Estimated</Text></View>
@@ -417,16 +419,14 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         </View></Animated.View>
         <Animated.View style={[styles.courses, entranceStyle(4)]}><View style={styles.coursesFace}>
           <View style={styles.heading}><Text accessibilityRole="header" style={styles.sectionTitle}>Continue Learning</Text>{lessonsCount > 0 && <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.seeAll}><Text style={styles.seeAllText}>See All</Text><HomeAsset name="chevron" /></Pressable>}</View>
-          {visibleLessons.map((lesson, row) => <Pressable key={lesson.id} accessibilityRole="button" onPress={() => router.push(`/lessons/${lesson.id}`)} style={styles.lesson}>
-            <LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={71} height={56} /><View style={styles.lessonCopy}><Text numberOfLines={1} style={styles.lessonTitle}>{lesson.title}</Text><Text style={styles.lessonMeta}>{lesson.pct}% · {lesson.totalDue} cards remaining</Text><View style={styles.track}><ProgressFill key={`fill${visit}`} pct={lesson.pct} delay={300 + row * 90} style={styles.fill} /></View></View>
-          </Pressable>)}
+          {visibleLessons.map((lesson, row) => <LessonRow key={lesson.id} lesson={lesson} row={row} visit={visit} />)}
           {/* Nothing to continue yet. The place a lesson would be is kept, drawn as
               one that has not been made: the same row, a plus where its cover goes.
               It is the quiet way in — the hero's button is the loud one — so it is
               a row to tap, not a second button. */}
           {!lessonsLoading && !lessonsError && lessonsCount === 0 && <Pressable accessibilityRole="button" accessibilityLabel="Create your first lesson" onPress={() => router.push('/create')} style={({ pressed }) => [styles.lesson, pressed && styles.emptyPressed]}>
-            <View style={styles.emptyCover}><Icon name="plus" size={22} color={homeColors.deep} /></View>
-            <View style={styles.lessonCopy}><Text style={styles.lessonTitle}>Your first lesson is waiting</Text><Text style={styles.lessonMeta}>Turn a topic, a note, or a PDF into learning cards.</Text><View style={styles.track} /></View>
+            <View style={styles.emptyCover}><Icon name="plus" size={22} color={colors.sub} /></View>
+            <View style={styles.lessonCopy}><Text style={styles.lessonTitle}>Your first lesson is waiting</Text><Text style={styles.lessonHint}>Turn a topic, a note, or a PDF into learning cards.</Text><View style={styles.track} /></View>
           </Pressable>}
         </View></Animated.View>
       </Animated.ScrollView>
@@ -439,7 +439,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
       <View pointerEvents="box-none" style={styles.topBar}>
         <Animated.View pointerEvents="none" style={[styles.topBarSky, { height: insets.top + BAR_SKY, opacity: barSky }]}>
           <LinearGradient pointerEvents="none" style={StyleSheet.absoluteFill}
-            colors={[homeColors.gradientStart, homeColors.gradientStart, `${homeColors.gradientStart}00`]}
+            colors={[colors.limePale, colors.limePale, `${colors.limePale}00`]}
             locations={[0, 0.7, 1]} />
         </Animated.View>
         <View pointerEvents="box-none" style={[styles.topBarRow, { paddingTop: insets.top + 10 }]}>
@@ -447,25 +447,54 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
           <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`} onPress={() => router.push('/you')} style={styles.profile}>{avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.profileImage} onError={() => setAvatarUrl(null)} /> : <Text style={styles.profileText}>{initial}</Text>}</Pressable>
         </View>
       </View>
-      <Modal visible={showLessonPicker} transparent animationType="slide" onRequestClose={() => setShowLessonPicker(false)}>
-        <View style={styles.pickerOverlay}>
-          <Pressable accessibilityRole="button" accessibilityLabel="Close lesson picker" style={StyleSheet.absoluteFill} onPress={() => setShowLessonPicker(false)} />
-          <View accessibilityViewIsModal style={[styles.picker, { paddingBottom: Math.max(20, insets.bottom) }]}>
-            <View style={styles.pickerHandle} />
-            <View style={styles.pickerHeading}><View style={styles.pickerCopy}><Text accessibilityRole="header" style={styles.pickerTitle}>Choose a lesson</Text><Text style={styles.pickerSubtitle}>Where would you like to add cards?</Text></View><CloseButton onPress={() => setShowLessonPicker(false)} label="Close lesson picker" /></View>
-            <ScrollView style={styles.pickerList} showsVerticalScrollIndicator={false}>
-              {lessons.map((lesson) => <Pressable key={lesson.id} accessibilityRole="button" accessibilityLabel={`Add cards to ${lesson.title}`} onPress={() => { setShowLessonPicker(false); router.push(`/lessons/${lesson.id}/add-terms`); }} style={styles.pickerLesson}>
-                <LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={48} height={48} /><Text numberOfLines={2} style={styles.pickerLessonName}>{lesson.title}</Text><HomeAsset name="chevron" />
-              </Pressable>)}
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
+      <Sheet visible={showLessonPicker} onClose={() => setShowLessonPicker(false)}
+        closeLabel="Close lesson picker"
+        title="Choose a lesson" subtitle="Where would you like to add cards?">
+        <ScrollView style={styles.pickerList} contentContainerStyle={styles.pickerListContent} showsVerticalScrollIndicator={false}>
+          {lessons.map((lesson) => <Pressable key={lesson.id} accessibilityRole="button" accessibilityLabel={`Add cards to ${lesson.title}`} onPress={() => { setShowLessonPicker(false); router.push(`/lessons/${lesson.id}/add-terms`); }} style={styles.pickerLesson}>
+            <LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={48} height={48} /><Text numberOfLines={2} style={styles.pickerLessonName}>{lesson.title}</Text><HomeAsset name="chevron" />
+          </Pressable>)}
+        </ScrollView>
+      </Sheet>
     </View>
   );
 }
 
-const purple = homeColors.deep;
+/** What a lesson is asking of you, in one phrase — the same one the library's
+ *  cards use, so a lesson reads the same in both lists. The percentage is the bar
+ *  under it, drawn rather than written twice. */
+function standing(lesson: LessonSummary): string {
+  if (lesson.cards === 0) return 'No cards yet';
+  if (lesson.totalDue === 0) return 'All caught up';
+  return `${lesson.totalDue} to review`;
+}
+
+/** A lesson on Today.
+ *
+ * The line under the title is what is left to do, and a deadline belongs in it:
+ * it is the other half of "how much", and the half that says when. It is said in
+ * the action's colour so it reads as the thing with a clock on it, and quietly
+ * once the date has gone by, which is the same way the library says it.
+ */
+function LessonRow({ lesson, row, visit }: { lesson: LessonSummary; row: number; visit: number }) {
+  const left = deadlineLeft(lesson.deadline);
+  return (
+    <Pressable accessibilityRole="button"
+      accessibilityLabel={`${lesson.title}. ${standing(lesson)}.${left ? ` ${left.text}.` : ''} ${lesson.pct} percent mastered.`}
+      onPress={() => router.push(`/lessons/${lesson.id}`)} style={styles.lesson}>
+      <LessonCover id={lesson.id} mode={lesson.learningMode} coverStyle={lesson.coverStyle} width={71} height={56} />
+      <View style={styles.lessonCopy}>
+        <Text numberOfLines={1} style={styles.lessonTitle}>{lesson.title}</Text>
+        <View style={styles.lessonMeta}>
+          <Text numberOfLines={1} style={styles.lessonLead}>{standing(lesson)}</Text>
+          {left ? <Text style={[styles.lessonDeadline, left.past && styles.lessonDeadlinePast]}>{left.text}</Text> : null}
+        </View>
+        <View style={styles.track}><ProgressFill key={`fill${visit}`} pct={lesson.pct} delay={300 + row * 90} style={styles.fill} /></View>
+      </View>
+    </Pressable>
+  );
+}
+
 /** How far below the status bar the band behind the top bar reaches: the bar's own
  * ten points of air and forty of height, and then the length of its fade. */
 const BAR_SKY = 86;
@@ -524,11 +553,12 @@ const MASCOT_TAIL = { x: 6, y: -14 } as const;
  * pill's. 16 keeps the target ring the size the ring it replaced was drawn at:
  * both drawings give their ring about 92% of the canvas, so matching the canvas
  * height matches the ring, and the dart is the part that is new. */
-const FOCUS_ICON = 16;
+const FOCUS_ICON = 14;
 
+const card = componentTokens.card;
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: homeColors.canvas },
-  content: { paddingHorizontal: 16, paddingBottom: 120 },
+  root: { flex: 1, backgroundColor: colors.bg },
+  content: { paddingHorizontal: space[4], paddingBottom: 120 },
   background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', top: 113, left: -19 },
   mascot: { position: 'absolute', top: 89, right: -1 },
@@ -542,63 +572,72 @@ const styles = StyleSheet.create({
   top: { height: 145 },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0 },
   topBarSky: { position: 'absolute', top: 0, left: 0, right: 0 },
-  topBarRow: { paddingHorizontal: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
+  topBarRow: { paddingHorizontal: space[4], flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: space[2] },
   // The same disc the profile page gives someone with no photo: deep, with the
   // initial reversed out of it. It was the one flat grey on a screen made of lime
-  // and purple, and next to the streak it read as something still loading.
-  profile: { width: 40, height: 40, borderRadius: 20, backgroundColor: homeColors.deep, alignItems: 'center', justifyContent: 'center' },
-  profileImage: { width: 40, height: 40, borderRadius: 20 },
-  profileText: { fontFamily: 'Geist_600SemiBold', color: homeColors.white, fontSize: 15 },
-  hero: { gap: 8 },
-  focus: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 36, backgroundColor: homeColors.focus },
-  focusText: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.black },
-  heroCopy: { alignSelf: 'flex-start', maxWidth: '58%', minHeight: 86, justifyContent: 'center', gap: 2 },
-  count: { fontFamily: 'Oswald_600SemiBold', fontSize: 44, lineHeight: 52, color: purple },
-  countUnit: { fontSize: 24 },
-  subtitle: { fontFamily: 'Geist_500Medium', fontSize: 16, lineHeight: 22, color: purple },
-  start: { marginTop: 8, height: 61, borderRadius: 42, backgroundColor: purple, paddingBottom: 4 },
-  startFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 },
+  // and colors.sub, and next to the streak it read as something still loading.
+  profile: { width: 40, height: 40, borderRadius: radius.lg, backgroundColor: colors.actionShell, alignItems: 'center', justifyContent: 'center' },
+  profileImage: { width: 40, height: 40, borderRadius: radius.lg },
+  profileText: { ...type.small, fontFamily: 'Geist_600SemiBold', color: colors.surf },
+  // Three sizes, not three shouts: a small eyebrow, the count as the one large
+  // thing on the screen, and an action that hugs its label. The button was as wide
+  // as the page and taller than the heading, which left the number nothing to be
+  // bigger than.
+  hero: { gap: space[1] },
+  focus: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: space[1], paddingHorizontal: space[2], paddingVertical: space[1], borderRadius: radius.pill, backgroundColor: colors.veil },
+  focusText: { ...type.caption, fontFamily: 'Geist_500Medium', color: colors.text },
+  heroCopy: { alignSelf: 'flex-start', maxWidth: '58%', minHeight: 80, justifyContent: 'center', gap: space.hair },
+  count: { ...oneLine(type.display), fontFamily: 'Oswald_600SemiBold', color: colors.sub },
+  countUnit: { ...type.heading },
+  subtitle: { ...type.small, fontFamily: 'Geist_500Medium', color: colors.faint },
+  start: { marginTop: space[2] },
   playIcon: { transform: [{ rotate: '90deg' }] },
-  startText: { fontFamily: 'Geist_500Medium', fontSize: 24, lineHeight: 32, color: homeColors.white },
-  createAlternative: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
-  createAlternativeText: { fontFamily: 'Geist_600SemiBold', fontSize: 15, color: homeColors.deep },
-  pickerOverlay: sheet.scrim,
-  picker: { ...sheet.surface, maxHeight: '75%', paddingHorizontal: 20, paddingTop: 10 },
-  pickerHandle: { width: 36, height: 4, borderRadius: 2, backgroundColor: homeColors.border, alignSelf: 'center', marginBottom: 18 },
-  pickerHeading: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 16 },
-  pickerCopy: { flex: 1, gap: 4 },
-  pickerTitle: { fontFamily: 'Oswald_600SemiBold', fontSize: 26, lineHeight: 34, color: homeColors.deep },
-  pickerSubtitle: { fontFamily: 'Geist_500Medium', fontSize: 14, lineHeight: 20, color: homeColors.muted },
-  pickerClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
-  pickerCloseText: { fontFamily: 'Geist_500Medium', fontSize: 28, color: homeColors.deep },
   pickerList: { flexGrow: 0 },
-  pickerLesson: { minHeight: 72, padding: 12, marginBottom: 8, borderRadius: 20, backgroundColor: homeColors.white, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  pickerLessonName: { flex: 1, fontFamily: 'Geist_600SemiBold', fontSize: 16, color: homeColors.deep },
-  stats: { marginTop: 16, backgroundColor: homeColors.border, borderRadius: 24, paddingBottom: 4 },
-  statsFace: { backgroundColor: homeColors.white, borderRadius: 24, paddingVertical: 16, paddingHorizontal: 12, flexDirection: 'row' },
-  stat: { flex: 1, alignItems: 'center', gap: 4 },
-  statValue: { fontFamily: 'Oswald_600SemiBold', fontSize: 18, color: purple },
-  statLabel: { fontFamily: 'Geist_500Medium', fontSize: 12, color: homeColors.muted },
-  chartIcon: { width: 42, height: 42, backgroundColor: homeColors.chartBackground, borderRadius: 12, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: 9, gap: 3 },
-  bar: { width: 6, borderRadius: 2, backgroundColor: homeColors.chartBar },
-  goalIcon: { width: 42, height: 42, borderRadius: 12, backgroundColor: homeColors.swipeGreen, alignItems: 'center', justifyContent: 'center' },
-  courses: { marginTop: 16, borderRadius: 24, backgroundColor: homeColors.border, paddingBottom: 4 },
-  coursesFace: { paddingHorizontal: 12, paddingVertical: 24, borderRadius: 24, backgroundColor: homeColors.white, gap: 24 },
+  // The side margin the head above it keeps, so a lesson's cover lines up with
+  // the title that asked which lesson.
+  pickerListContent: { paddingHorizontal: layout.screenInline },
+  pickerLesson: { minHeight: 72, padding: space[3], marginBottom: space[2], borderRadius: radius.lg, backgroundColor: colors.surf, flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  pickerLessonName: { ...type.body, fontFamily: 'Geist_600SemiBold', flex: 1, color: colors.sub },
+  // The two layers of components/ui/Card, written out because the entrance
+  // animation has to ride on them and only an Animated.View can carry it. The lip
+  // was four points here and three everywhere else.
+  stats: { marginTop: space[4], backgroundColor: card.shell, borderRadius: card.radius.lg, paddingBottom: card.lip },
+  statsFace: { backgroundColor: card.face, borderRadius: card.radius.lg, paddingVertical: card.pad.md, paddingHorizontal: space[3], flexDirection: 'row' },
+  stat: { flex: 1, alignItems: 'center', gap: space[1] },
+  statValue: { ...type.body, fontFamily: 'Oswald_600SemiBold', color: colors.sub },
+  statLabel: { ...type.caption, fontFamily: 'Geist_500Medium', color: colors.faint },
+  chartIcon: { width: 42, height: 42, backgroundColor: colors.tint, borderRadius: radius.md, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: space[2], gap: space.hair },
+  bar: { width: 6, borderRadius: radius.sm, backgroundColor: colors.chartBar },
+  goalIcon: { width: 42, height: 42, borderRadius: radius.md, backgroundColor: colors.swipeGreen, alignItems: 'center', justifyContent: 'center' },
+  courses: { marginTop: space[4], borderRadius: card.radius.lg, backgroundColor: card.shell, paddingBottom: card.lip },
+  // A card's title belongs against its top edge: twenty-four points of room above
+  // it read as a gap rather than as the card beginning, and it was the same
+  // twenty-four that separates one lesson from the next.
+  coursesFace: { padding: card.pad.md, borderRadius: card.radius.lg, backgroundColor: card.face, gap: space[5] },
   heading: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontFamily: 'Geist_600SemiBold', fontSize: 20, color: homeColors.darkest },
+  // A heading inside a card is a card's title, not a screen's section: the page's
+  // own sections — Library's "Lessons", a lesson's "Cards" — are the step above.
+  // One line, so it goes without the body's leading: those eight points would sit
+  // above the words and read as padding the card does not have.
+  sectionTitle: { ...oneLine(type.body), fontFamily: fonts.semibold, color: colors.text },
   seeAll: { flexDirection: 'row', alignItems: 'center', minHeight: 24 },
-  seeAllText: { fontFamily: 'Geist_500Medium', fontSize: 12, color: homeColors.muted },
-  lesson: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  thumbnail: { width: 71, height: 56, borderRadius: 16, backgroundColor: homeColors.placeholder },
-  lessonCopy: { flex: 1, gap: 4 },
-  lessonTitle: { fontFamily: 'Oswald_600SemiBold', fontSize: 18, color: homeColors.darkest },
-  lessonMeta: { ...type.lessonProgress, color: homeColors.muted },
-  track: { height: 5, borderRadius: 14, backgroundColor: homeColors.track, overflow: 'hidden' },
-  fill: { height: 5, borderRadius: 10, backgroundColor: homeColors.primary },
-  startLoading: { opacity: 0.6 },
+  seeAllText: { ...type.caption, fontFamily: 'Geist_500Medium', color: colors.faint },
+  lesson: { flexDirection: 'row', alignItems: 'center', gap: space[3] },
+  lessonCopy: { flex: 1, gap: space[1] },
+  lessonTitle: { ...type.body, fontFamily: 'Oswald_600SemiBold', color: colors.text },
+  lessonMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space[2] },
+  // The row that has no lesson behind it yet says a sentence, not a standing.
+  lessonHint: { ...type.small, fontFamily: fonts.medium, color: colors.faint },
+  // The lead, a step below the title and a step above the bar.
+  lessonLead: { ...type.small, fontFamily: fonts.semibold, flexShrink: 1, color: colors.sub },
+  // The same two steps of the one ink as the library's rows.
+  lessonDeadline: { ...type.small, fontFamily: fonts.semibold, color: colors.sub },
+  lessonDeadlinePast: { fontFamily: fonts.medium, color: colors.faint },
+  track: { height: 5, borderRadius: radius.md, backgroundColor: colors.tint, overflow: 'hidden' },
+  fill: { height: 5, borderRadius: radius.sm, backgroundColor: colors.action },
   emptyCover: {
-    width: 71, height: 56, borderRadius: 16, backgroundColor: homeColors.selected,
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: homeColors.muted,
+    width: 71, height: 56, borderRadius: radius.md, backgroundColor: colors.limeSurface,
+    borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.faint,
     alignItems: 'center', justifyContent: 'center',
   },
   emptyPressed: { opacity: 0.7 },

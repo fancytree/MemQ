@@ -1,6 +1,6 @@
-import { homeColors } from '@/theme/colors';
-import { Feather } from '@expo/vector-icons';
+import { Icon } from '@/components/ui/Icon';
 import Svg, { Path } from 'react-native-svg';
+import { colors } from '@/theme/colors';
 
 /** The marks of the apps MemQ can be connected to.
  *
@@ -20,12 +20,14 @@ const MARKS = {
 
 export type BrandName = keyof typeof MARKS | 'editors';
 
-export function BrandMark({ name, size = 20, color = homeColors.deep }: {
+export function BrandMark({ name, size = 20, color = colors.sub }: {
   name: BrandName;
   size?: number;
   color?: string;
 }) {
-  if (name === 'editors') return <Feather name="code" size={size} color={color} />;
+  // Not a mark: the row that is not one product, so it takes the app's own
+  // code glyph rather than either company's logo.
+  if (name === 'editors') return <Icon name="code" size={size} color={color} />;
   return (
     <Svg width={size} height={size} viewBox="0 0 24 24">
       <Path d={MARKS[name]} fill={color} />

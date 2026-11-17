@@ -14,6 +14,13 @@
  *    showing stays empty until one of them is.
  * 3. A wrong match sends both cards it touched round once more, at the back of the
  *    queue. Once: a board that grew with every slip would never end.
+ * 4. A pair just made does not come straight back. Its second coming would land in
+ *    the very rows it left, the same word and meaning in the same places, asking for
+ *    the same two taps again. Another waiting pair takes those rows instead; if it is
+ *    the only one left, its rows stay empty while anything else is on the board, and
+ *    on an otherwise empty board it arrives somewhere other than where it was. The
+ *    same holds later: a card coming round again is not put back in the two rows it
+ *    was made from when any other place, or any other waiting pair, will do.
  *
  * Plain functions over plain data, so the moves can be tested without a screen.
  */
@@ -36,6 +43,10 @@ export type Board = {
   nextId: number;
   /** How many times each pair has been sent round again for a miss. */
   again: Record<number, number>;
+  /** The pair made last (rule 4). */
+  recent?: number;
+  /** Where each pair sat when it was last made, so a second coming lands elsewhere. */
+  lastAt?: Record<number, { left: number; right: number }>;
 };
 
 function shuffled<T>(items: T[], random: () => number): T[] {
@@ -57,10 +68,19 @@ export function fill(board: Board, random: () => number = Math.random): Board {
   if (freeLeft.length === 0) return board;
 
   const onBoard = new Set(board.left.filter((tile): tile is Tile => !!tile).map((tile) => tile.pair));
+  const othersShowing = onBoard.size > 0;
+  const recent = board.recent;
+  // With a single row free on each side there is nowhere else to put a pair, so one
+  // whose last place is exactly those two rows waits for the next.
+  const backInPlace = (pair: number) => freeLeft.length === 1 && freeRight.length === 1
+    && board.lastAt?.[pair]?.left === freeLeft[0] && board.lastAt?.[pair]?.right === freeRight[0];
   const queue = [...board.queue];
   const arriving: number[] = [];
   while (arriving.length < freeLeft.length) {
-    const next = queue.findIndex((pair) => !onBoard.has(pair));
+    // Anything waiting but the pair just made; that one only if nothing else is left
+    // and nothing else is on the board.
+    let next = queue.findIndex((pair) => !onBoard.has(pair) && pair !== recent && !backInPlace(pair));
+    if (next < 0 && !othersShowing && arriving.length === 0) next = queue.findIndex((pair) => !onBoard.has(pair));
     if (next < 0) break;
     onBoard.add(queue[next]);
     arriving.push(queue[next]);
@@ -74,6 +94,39 @@ export function fill(board: Board, random: () => number = Math.random): Board {
   // its meaning is.
   const leftRows = shuffled(freeLeft, random);
   const rightRows = shuffled(freeRight, random);
+  // A card coming round again goes somewhere other than where it was last made.
+  const lastAt = board.lastAt ?? {};
+  const away = (rows: number[], side: 'left' | 'right') => {
+    arriving.forEach((pair, index) => {
+      const was = lastAt[pair]?.[side];
+      if (was === undefined || rows[index] !== was) return;
+      // Trade rows with another arrival, as long as that does not put the other back where it was.
+      const swap = rows.findIndex((row, other) => other !== index && row !== was && lastAt[arriving[other]]?.[side] !== was);
+      const fallback = swap >= 0 ? swap : rows.findIndex((row) => row !== was);
+      if (fallback >= 0) [rows[index], rows[fallback]] = [rows[fallback], rows[index]];
+    });
+  };
+  away(leftRows, 'left');
+  // The meanings are then placed so that no card is back in both of its old rows:
+  // the order that does least of that, searched over the few arrivals there are.
+  const cost = (rows: number[]) => arriving.reduce((sum, pair, index) => {
+    const was = lastAt[pair];
+    if (!was || rows[index] !== was.right) return sum;
+    return sum + (leftRows[index] === was.left ? 10 : 1);
+  }, 0);
+  let best = rightRows.slice(0, arriving.length);
+  let bestCost = cost(best);
+  const search = (chosen: number[], left: number[]) => {
+    if (bestCost === 0) return;
+    if (chosen.length === arriving.length) {
+      const c = cost(chosen);
+      if (c < bestCost) { best = chosen; bestCost = c; }
+      return;
+    }
+    left.forEach((row, i) => search([...chosen, row], left.filter((_, j) => j !== i)));
+  };
+  if (bestCost > 0 && arriving.length <= 6) search([], rightRows);
+  rightRows.splice(0, arriving.length, ...best);
   let nextId = board.nextId;
   arriving.forEach((pair, index) => {
     left[leftRows[index]] = { pair, id: nextId++ };
@@ -98,12 +151,17 @@ export function isPair(board: Board, leftId: number, rightId: number): boolean {
 /** A pair has been made: its tiles leave, and the next pair waiting takes their rows. */
 export function clearPair(board: Board, leftId: number, rightId: number, random: () => number = Math.random): Board {
   if (!isPair(board, leftId, rightId)) return board;
-  return fill({
+  const leftRow = board.left.findIndex((tile) => tile?.id === leftId);
+  const rightRow = board.right.findIndex((tile) => tile?.id === rightId);
+  const cleared: Board = {
     ...board,
     left: board.left.map((tile) => (tile?.id === leftId ? null : tile)),
     right: board.right.map((tile) => (tile?.id === rightId ? null : tile)),
     made: board.made + 1,
-  }, random);
+    recent: board.left[leftRow]!.pair,
+    lastAt: { ...board.lastAt, [board.left[leftRow]!.pair]: { left: leftRow, right: rightRow } },
+  };
+  return fill(cleared, random);
 }
 
 /** A wrong match: each card it touched comes round once more. */

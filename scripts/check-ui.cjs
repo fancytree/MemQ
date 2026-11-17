@@ -25,25 +25,29 @@ function check(fg, bg, minimum, role) {
   pairs.push({ foreground: fg, background: bg, ratio: +ratio.toFixed(2), minimum, role });
   if (ratio < minimum) failures.push(`${role}: ${fg}/${bg} = ${ratio.toFixed(2)}:1; needs ${minimum}:1`);
 }
-const lightSurfaces = ['surf', 'bg', 'surfaceSubtle', 'accentL', 'heroBg', 'learningBg', 'familiarBg', 'greenL', 'redL', 'warnL', 'infoL', 'aiL', 'studyGradientStart', 'studyGradientEnd', 'paperToday', 'paperPeach', 'paperLilac', 'paperBlue'];
+// Every surface the interface actually paints. The illustration colours are not
+// here: nothing is written on them, because screens never use them.
+const lightSurfaces = ['surf', 'bg', 'panel', 'tint', 'greenL', 'redL', 'warnL', 'infoL'];
 for (const bg of lightSurfaces) {
-  for (const fg of ['text', 'sub', 'muted']) check(fg, bg, 4.5, 'Body/helper/placeholder text');
-  check('focus', bg, 3, 'Keyboard focus');
+  for (const fg of ['text', 'sub']) check(fg, bg, 4.5, 'Body and label ink');
+  // A hint that is replaced the moment anything is typed is held to the 3:1 asked
+  // of non-text contrast, not to body-copy contrast.
+  check('placeholder', bg, 3, 'Input placeholder hint');
+  check('actionShell', bg, 3, 'Keyboard focus');
+  check('faint', bg, 3, 'Control boundary');
 }
-for (const bg of ['surf', 'bg', 'accentL', 'heroBg', 'learningBg', 'familiarBg']) {
-  check('accentText', bg, 4.5, 'Neutral status text');
-  check('controlBorder', bg, 3, 'Control boundary');
-}
-for (const bg of ['action', 'actionPressed']) check('onAction', bg, 4.5, 'Primary action label');
-check('onAccent', 'accent', 4.5, 'Neutral compatibility action label');
-for (const [fg, bg] of [['green','greenL'], ['red','redL'], ['warn','warnL'], ['info','infoL'], ['ai','aiL'], ['proficientText','proficientBg']]) {
+// The third ink is small print, so it is held to body contrast on the surfaces a
+// screen actually sets it on — not on the tinted ground, where it only draws edges.
+for (const bg of ['surf', 'bg', 'panel']) check('faint', bg, 4.5, 'Small print');
+// A filled button's label, on its face and on the shell it is pressed down onto.
+for (const bg of ['action', 'actionShell', 'red', 'redShell']) check('onAction', bg, 4.5, 'Filled action label');
+for (const [fg, bg] of [['green','greenL'], ['red','redL'], ['warn','warnL'], ['info','infoL']]) {
   check(fg, bg, 4.5, 'Semantic status');
-  check('onDark', fg, 4.5, 'Solid semantic badge');
+  check('onAction', fg, 4.5, 'Solid semantic badge');
 }
-check('annotation', 'paperToday', 4.5, 'Handwritten annotation');
-check('surf', 'switchTrack', 3, 'Inactive switch thumb');
+check('surf', 'disabled', 3, 'Inactive switch thumb');
 check('surf', 'action', 3, 'Active switch thumb');
-check('disabledText', 'disabledBg', 4.5, 'Disabled control (product choice)');
+check('disabled', 'panel', 4.5, 'Disabled control (product choice)');
 
 function walk(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
@@ -51,6 +55,10 @@ function walk(dir) {
     return entry.isDirectory() ? walk(file) : [file];
   });
 }
+const SCALE_FILES = ['/theme/typography.ts', '/theme/spacing.ts', '/theme/ledge.ts'];
+const SPACING = new Set(['gap', 'rowGap', 'columnGap', 'padding', 'paddingTop', 'paddingBottom',
+  'paddingLeft', 'paddingRight', 'paddingHorizontal', 'paddingVertical', 'margin', 'marginTop',
+  'marginBottom', 'marginLeft', 'marginRight', 'marginHorizontal', 'marginVertical']);
 let files = 0;
 for (const dir of ['app', 'components', 'context', 'data', 'lib', 'constants', 'theme']) {
   for (const file of walk(path.join(root, dir)).filter((f) => /\.tsx?$/.test(f) && !f.endsWith('/theme/colors.ts'))) {
@@ -67,11 +75,29 @@ for (const dir of ['app', 'components', 'context', 'data', 'lib', 'constants', '
       failures.push(`${path.relative(root, file)}:${line + 1}: ${message}`);
     }
     function visit(node) {
-      if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'fontFamily' && /AvenirNext|Space Grotesk/.test(node.initializer.getText(sf))) report(node, 'Use the bundled Manrope/Inter/Caveat font tokens');
+      if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'fontFamily' && /AvenirNext|Space Grotesk/.test(node.initializer.getText(sf))) report(node, 'Use the bundled font tokens');
+      // The scales are only scales if nothing writes its own number. A size, a
+      // corner or a gap chosen in a style is a step nobody agreed to.
+      // The scale files are where the numbers legitimately live.
+      if (!SCALE_FILES.some((name) => file.endsWith(name)) && ts.isPropertyAssignment(node) && ts.isNumericLiteral(node.initializer)) {
+        const prop = node.name.getText(sf);
+        const value = Number(node.initializer.text);
+        if (prop === 'fontSize') report(node, `fontSize: ${value}; spread a type role instead (theme/typography.ts)`);
+        if (prop === 'lineHeight') report(node, `lineHeight: ${value}; a type role carries its own line height`);
+        if (prop === 'borderRadius') report(node, `borderRadius: ${value}; use radius.sm/md/lg/xl/pill`);
+        // Above forty a number is a position or a size, not a step in the rhythm.
+        if (SPACING.has(prop) && value > 0 && value <= 40) report(node, `${prop}: ${value}; use the space scale`);
+      }
       if ((ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) && /^(#[\da-f]{3,8}|rgba?\(.+\)|hsla?\(.+\)|white|black|transparent)$/i.test(node.text)) report(node, `Inline color ${node.text}; use a semantic token`);
+      // Depth in this palette is a painted lip — a darker shell with a lighter face
+      // on it (theme/ledge.ts, components/ui/Card). A shadow is the other language,
+      // and three of them had grown up side by side before this check existed.
+      if (ts.isPropertyAssignment(node) && /^(boxShadow|shadowColor|shadowOffset|shadowOpacity|shadowRadius|elevation|textShadowColor|textShadowOffset|textShadowRadius)$/.test(node.name.getText(sf))) {
+        report(node, `${node.name.getText(sf)}: depth here is a lip, not a shadow — see components/ui/Card`);
+      }
       // Legacy brand and track tokens are never foreground APIs; use semantic ink roles.
-      if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'color' && !ts.isObjectLiteralExpression(node.initializer) && /\bcolors\.(accent|brand|dim)\b/.test(node.initializer.getText(sf))) report(node, 'Use accentText, muted or action for readable text');
-      if (ts.isJsxAttribute(node) && node.name.getText(sf) === 'color' && !ts.isObjectLiteralExpression(node.initializer) && /^{colors\.(accent|brand|dim)}$/.test(node.initializer?.getText(sf) || '')) report(node, 'Essential icons need a contrasting foreground token');
+      if (ts.isPropertyAssignment(node) && node.name.getText(sf) === 'color' && !ts.isObjectLiteralExpression(node.initializer) && /\bcolors\.(accent)\b/.test(node.initializer.getText(sf))) report(node, 'Use accentText, muted or action for readable text');
+      if (ts.isJsxAttribute(node) && node.name.getText(sf) === 'color' && !ts.isObjectLiteralExpression(node.initializer) && /^{colors\.(accent)}$/.test(node.initializer?.getText(sf) || '')) report(node, 'Essential icons need a contrasting foreground token');
       ts.forEachChild(node, visit);
     }
     visit(sf);

@@ -1,6 +1,7 @@
+import { Card } from '@/components/ui/Card';
 import type { ReactNode } from 'react';
 import {
-  ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text,
+  KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text,
   useWindowDimensions, View,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,12 +10,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotRig, RIG_HAND_LINE, type MascotMood } from '@/components/mascot/rig/MascotRig';
 import { BackButton } from '@/components/ui/RoundButtons';
-import { LedgePressable } from '@/components/ui/LedgePressable';
-import { colors } from '@/theme';
-import { homeColors } from '@/theme/colors';
+import { space, radius, type, colors } from '@/theme';
 import { ledge } from '@/theme/ledge';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
+import { Button } from '@/components/ui/Button';
 
 /** The page the account's side doors are drawn on: forgetting a password and
  * setting a new one.
@@ -54,7 +54,7 @@ export function AuthPerch({
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.screen}>
       <LinearGradient pointerEvents="none"
-        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
       <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
       <View pointerEvents="none" style={styles.waveFront}><HomeAsset name="waveFront" /></View>
@@ -69,18 +69,9 @@ export function AuthPerch({
         </View>
         <MascotRig width={PERCH} mood={mood} calm eyesShut={eyesShut} style={styles.perch}
           behind={(
-            <View style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
-              <View style={styles.cardFace}>{children}</View>
-            </View>
+            <Card corner="xl" style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>{children}</Card>
           )} />
-        <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: off, busy: action.busy }}
-          disabled={off} onPress={action.onPress} style={[styles.lead, off && styles.leadOff]}>
-          <View style={styles.leadFace}>
-            {action.busy
-              ? <ActivityIndicator color={homeColors.white} />
-              : <Text style={styles.leadText}>{action.label}</Text>}
-          </View>
-        </LedgePressable>
+        <Button size="xl" label={action.label} loading={action.busy} disabled={off} onPress={action.onPress} />
         {footer && (
           <Pressable accessibilityRole="button" onPress={footer.onPress} disabled={footer.disabled} style={styles.footer}>
             <Text style={styles.footerText}>{footer.label}</Text>
@@ -91,35 +82,20 @@ export function AuthPerch({
   );
 }
 
-/** A filled field for the card's face: a well sunk into the white, not a bordered
- * box. Put a TextInput in it with `authField.input`. */
-export const authField = StyleSheet.create({
-  well: { minHeight: 52, borderRadius: 16, backgroundColor: homeColors.canvas, justifyContent: 'center', paddingHorizontal: 16 },
-  input: { fontFamily: fonts.medium, fontSize: 16, color: homeColors.darkest, paddingVertical: 14 },
-  /** Room on the right for the show-password button. */
-  secret: { paddingRight: 44 },
-  eye: { position: 'absolute', right: 4, top: 0, bottom: 0, width: 44, alignItems: 'center', justifyContent: 'center' },
-  error: { fontFamily: fonts.medium, fontSize: 14, lineHeight: 20, color: colors.red },
-});
-
 const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: homeColors.canvas },
+  // Ridden up under the character's hands, so it reads as the thing being held.
+  card: { marginTop: CARD_LIFT },
+  screen: { flex: 1, backgroundColor: colors.bg },
   background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', top: 196, left: -19 },
   waveFront: { position: 'absolute', top: 233, left: -19 },
   bar: { paddingHorizontal: layout.screenInline, flexDirection: 'row' },
-  content: { flexGrow: 1, paddingHorizontal: layout.screenInline, paddingTop: 12, gap: 16 },
-  heading: { gap: 4 },
-  title: { fontFamily: fonts.display, fontSize: 34, lineHeight: 44, color: homeColors.deep },
-  copy: { fontFamily: fonts.medium, fontSize: 16, lineHeight: 22, color: homeColors.muted },
+  content: { flexGrow: 1, paddingHorizontal: layout.screenInline, paddingTop: space[3], gap: space[4] },
+  heading: { gap: space[1] },
+  title: { ...type.title, color: colors.sub },
+  copy: { ...type.body, fontFamily: fonts.medium, color: colors.faint },
   perch: { alignSelf: 'center' },
-  card: { marginTop: CARD_LIFT, backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: ledge.raised },
-  cardFace: { backgroundColor: homeColors.white, borderRadius: 32, padding: 16, gap: 12 },
   // The one thing these pages want pressed, so it carries the deepest lip.
-  lead: { height: 59 + ledge.lead, borderRadius: 42, backgroundColor: homeColors.deep, paddingBottom: ledge.lead },
-  leadOff: { opacity: 0.45 },
-  leadFace: { flex: 1, borderRadius: 42, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
-  leadText: { fontFamily: fonts.medium, fontSize: 22, lineHeight: 30, color: homeColors.white },
   footer: { minHeight: 44, alignItems: 'center', justifyContent: 'center', marginTop: 'auto' },
-  footerText: { fontFamily: fonts.semibold, fontSize: 14, color: homeColors.primary },
+  footerText: { ...type.small, fontFamily: fonts.semibold, color: colors.action },
 });

@@ -1,6 +1,12 @@
-/** MemQ · Today reference palette, supplied source inspection dated 2026-10-21.
- * Measured values are evidence, not a claim of WCAG compliance or published Figma variables.
- * Structural UI is neutral. Illustration colors must never become action/feedback colors.
+/** What the drawings are painted in, and the record of the supplied source.
+ *
+ * This is NOT the design system. Nothing on a screen reads from here: the colours
+ * below belong to the illustrations — the Inkling, the paper, the tape, the pins
+ * and the flowers — and to the measurements taken from the design that was handed
+ * over on 2026-10-21. They are kept so that the artwork can be re-drawn and so the
+ * source can be checked, not so that a button can be painted in one of them.
+ *
+ * The system itself is `colors`, further down: structural interface only.
  */
 export const referenceColors = {
   canvas: '#FFFFFF',
@@ -55,143 +61,121 @@ export const referenceColors = {
   bookmarkBlue: '#EAF4F7',
 } as const;
 
-/** Implementation extensions. Accessible text/control values and semantic feedback
- * are explicit runtime decisions; they were NOT measured from the supplied references.
+/** The design system's colour.
+ *
+ * One namespace, one name per job. A colour may serve several jobs — the deep
+ * purple is both the secondary ink and the shell under a pressed button — and then
+ * it has a name for each, because those are different decisions that happen to
+ * agree today. What it must not have is synonyms: `muted`, `supporting`,
+ * `accentText` and `homeColors.deep` were four names for one ink, which is how a
+ * palette grows without anyone deciding anything.
+ *
+ * Structural interface only. What the drawings are painted in is `referenceColors`
+ * above, and no screen reads from it.
  */
-const extension = {
-  textSecondary: '#52524F',
-  textMuted: '#686863',
-  controlBorder: '#7A7A74',
-  actionPressed: '#151719',
-  disabledBg: '#EEEEEB',
-  scrim: 'rgba(21, 23, 25, 0.48)',
+const ink = {
+  /** Headings, and anything the eye should land on first. */
+  text: '#301a50',
+  /** Reading copy, labels, most of what is written. The app's workhorse. */
+  sub: '#4b2c78',
+  /** Small print, and the edge of a control.
+   *
+   *  Softened from #795ba3, which made a line like "Tap to see question again"
+   *  read as something to attend to rather than as a note about how the card
+   *  works. This is as far as it goes: on `panel`, the darkest of the three
+   *  surfaces small print is set on, it measures 4.63:1, and scripts/check-ui
+   *  holds this ink to the 4.5:1 that body copy is owed. Anything lighter is a
+   *  different token, not a lighter version of this one. */
+  faint: '#7f61a9',
+  /** A hint inside an input, before anything is typed. */
+  placeholder: '#857098',
+  /** Type and controls that are switched off. */
+  disabled: '#686863',
+  /** Reversed out of a filled action or a dark ground. */
+  onAction: '#ffffff',
+  /** The wordmark's own near-black, and only there. */
+  wordmark: '#151719',
+} as const;
+
+const surface = {
+  /** The page. */
+  bg: '#fcfced',
+  /** A card on the page. */
+  surf: '#ffffff',
+  /** A panel inside a card, and a control that is off. */
+  panel: '#f7f5fa',
+  /** A ground tinted with the action's colour: charts, progress, the AI sheets. */
+  tint: '#ede1fd',
+  /** A hairline, the lip under a raised surface, an empty step in a chart. */
+  line: '#e5dfeb',
+  /** Over the page, under a sheet. */
+  scrim: 'rgba(36, 36, 36, 0.31)',
+  /** White laid over the lime, for a chip that sits on the gradient. */
+  veil: 'rgba(255,255,255,0.6)',
+} as const;
+
+const lime = {
+  /** Whole fields of it on the welcome screens. */
+  lime: '#eefc41',
+  /** The shell a lime button sits on, and what pressing it reveals. Depth here is
+   *  the same colour with the light taken out of it, never a second hue: a purple
+   *  lip under a lime face reads as two things stacked, not as one raised one. */
+  limeShell: '#bccb20',
+  /** The two stops at the head of a page, brightest first. */
+  limeBright: '#f6ff7c',
+  limePale: '#f3ffa6',
+  /** A chip, a cover, and the gradient's last stop before the canvas. */
+  limeSurface: '#f4fab1',
+} as const;
+
+const state = {
   green: '#176B46', greenL: '#EAF7EF',
   red: '#B52F2F', redL: '#FFF0ED',
+  /** The shell a destructive button sits on, and what pressing it reveals. Read
+   *  the same way as `limeShell` and `actionShell`: the same hue with the light
+   *  taken out of it, sixteen points of lightness down, never a second colour. */
+  redShell: '#741E1E',
   warn: '#875807', warnL: '#FFF5E4',
   info: '#304FA8', infoL: '#EEF2FF',
+  /** The ground a flashcard is swiped onto. */
+  swipeGreen: '#c5efd5', swipeRed: '#f8cdc8',
+  /** The outline on a choice that was wrong. */
+  wrong: '#ff6900',
   google: '#4285F4',
   notification: '#FF231F7C',
-  // Quarantined legacy mascot artwork. Not Inkling; replace with authored assets during screen migration.
-  buddyBody: '#F58A35', buddyHighlight: '#FFB86E', buddyInk: '#3B302A',
-  buddyPupil: '#31383C', buddyBlush: '#FFD0AB', buddyBadge: '#FFD06B',
 } as const;
 
-/** Colors from the Today home design. */
-export const homeColors = {
-  gradientStart: '#f3ffa6', gradientBright: '#f6ff7c', gradientSoft: '#f5f7c0', canvas: '#fcfced',
-  deep: '#4b2c78', white: '#ffffff', black: '#000000', placeholder: '#d9d9d9',
-  focus: 'rgba(255,255,255,0.6)', primary: '#6c3cbc', border: '#e5dfeb',
-  muted: '#795ba3', chartBackground: '#ede1fd', chartBar: '#9d66ed',
-  // The hills' own yellow, opaque. It was only ever here at 36% as goalBackground;
-  // the welcome screens stand whole fields of it and need the solid colour.
-  hill: '#eefc41',
-  goalBackground: 'rgba(238,252,71,0.36)', darkest: '#301a50', track: '#f0e4fc',
-  nav: '#f7f5fa', selected: '#f4fab1', streakBorder: '#c59af0',
-  swipeGreen: '#c5efd5', swipeGreenLight: '#eaf7ef',
-  swipeRed: '#f8cdc8', swipeRedLight: '#fff0ed', quizWrongOutline: '#ff6900',
-} as const;
-
-/** The You page's charts. One purple ramp, light to deep, so every chart reads the
- * same way: the deeper the colour, the further along or the more of it. */
-export const chartColors = {
-  /** A cell or a bar with nothing in it, on a white card. */
-  empty: '#efeaf5',
-  faint: '#dcc8f7',
-  /** The stages a card moves through, in order. */
-  stages: ['#efeaf5', '#dcc8f7', homeColors.streakBorder, homeColors.chartBar, homeColors.primary, homeColors.deep],
-  /** How much was studied on a day, from a little to the most. */
-  heat: ['#efeaf5', '#dcc8f7', homeColors.streakBorder, homeColors.chartBar, homeColors.primary],
-} as const;
-
-/** Stable runtime API. Old accent/gradient names are compatibility aliases, neutralized.
- * New components should use semanticColor or the explicit action/text/surface tokens.
- */
 export const colors = {
-  bg: homeColors.canvas,
-  surf: homeColors.white,
-  surfaceSubtle: homeColors.nav,
-  border: homeColors.border,
-  borderS: homeColors.border,
-  controlBorder: homeColors.muted,
-  focus: homeColors.deep,
+  ...ink,
+  ...surface,
+  ...lime,
+  ...state,
 
-  brand: extension.buddyBody, // Deprecated: only for the legacy buddy, never structural UI.
-  accent: homeColors.primary,
-  accentText: homeColors.deep,
-  accentDark: homeColors.darkest,
-  accentL: homeColors.chartBackground,
-  accentRing: homeColors.track,
-  accentShadow: 'transparent',
-  accentShadowLg: 'transparent',
-  onAccent: referenceColors.canvas,
-  action: homeColors.primary,
-  actionPressed: homeColors.deep,
-  onAction: referenceColors.canvas,
-  actionShadow: 'transparent',
-  onDark: referenceColors.canvas,
+  /** The one thing a screen wants pressed, and progress along it. */
+  action: '#6c3cbc',
+  /** The shell a filled action sits on, and what pressing reveals. The secondary
+   *  ink's value: the same purple, a different decision. */
+  actionShell: ink.sub,
 
-  text: homeColors.darkest,
-  sub: homeColors.deep,
-  supporting: homeColors.deep,
-  selectionNeutral: referenceColors.selectionNeutral,
-  sheetHandle: referenceColors.sheetHandle,
-  modalScrim: referenceColors.modalScrim,
-  paperIvory: referenceColors.ruledPage,
-  muted: homeColors.deep,
-  dim: referenceColors.lineSubtle,
-  disabledBg: extension.disabledBg,
-  disabledText: extension.textMuted,
-  switchTrack: extension.controlBorder,
-
-  green: extension.green, greenL: extension.greenL,
-  red: extension.red, redL: extension.redL,
-  warn: extension.warn, warnL: extension.warnL,
-  info: extension.info, infoL: extension.infoL,
-  ai: homeColors.primary,
-  aiL: homeColors.chartBackground,
-  aiGradientEnd: homeColors.deep,
-
-  heroBg: homeColors.chartBackground, // A hero is not automatically a paper note.
-  heroBorder: homeColors.border,
-  progressTrack: homeColors.track,
-  studyGradientStart: referenceColors.canvas,
-  studyGradientEnd: referenceColors.canvas,
-  learningBg: referenceColors.surfaceNeutral,
-  familiarBg: referenceColors.surfaceNeutral,
-  proficientBg: referenceColors.surfaceNeutral,
-  proficientText: referenceColors.inkPrimary,
-
-  paperToday: referenceColors.todayNote,
-  paperPeach: referenceColors.paperPeach,
-  paperLilac: referenceColors.paperLilac,
-  paperBlue: referenceColors.paperBlue,
-  annotation: referenceColors.inkAnnotation,
-  inklingBody: referenceColors.inklingBody,
-  inklingFeatures: referenceColors.inklingFeatures,
-  wordmark: referenceColors.inkWordmark,
-  wordmarkRays: referenceColors.wordmarkRays,
+  /** The chart ramp's middle steps. Its ends are the action and the line. */
+  chartBar: '#9d66ed',
+  chartSoft: '#c59af0',
 
   transparent: 'transparent',
-  scrim: extension.scrim,
-  shadow: 'transparent', // Flat reference language; native overlays remain system-owned.
-  surfaceGlass: referenceColors.canvas,
-  google: extension.google,
-  buddyHighlight: extension.buddyHighlight,
-  buddyInk: extension.buddyInk,
-  buddyPupil: extension.buddyPupil,
-  buddyBlush: extension.buddyBlush,
-  buddyBadge: extension.buddyBadge,
-  notification: extension.notification,
+  /** The language is flat: depth is a painted lip, never a shadow. */
+  shadow: 'transparent',
 } as const;
 
-/** Preferred semantic aliases for new patterns. */
-export const semanticColor = {
-  surface: { canvas: colors.bg, neutral: colors.surfaceSubtle },
-  ink: { primary: colors.text, secondary: colors.sub, muted: colors.muted, annotation: colors.annotation, wordmark: colors.wordmark },
-  line: { subtle: colors.border, control: colors.controlBorder },
-  action: { primary: colors.action, pressed: colors.actionPressed, label: colors.onAction, focus: colors.focus },
-  paper: { todayNote: colors.paperToday, peach: colors.paperPeach, lilac: colors.paperLilac, blue: colors.paperBlue },
-  inkling: { body: colors.inklingBody, features: colors.inklingFeatures },
+/** The You page's charts: one purple ramp, light to deep, so every chart reads the
+ * same way — the deeper the colour, the further along or the more of it. */
+export const chartColors = {
+  /** A cell with nothing in it is a ruled line, not a fifth tint of purple. */
+  empty: colors.line,
+  faint: '#dcc8f7',
+  /** The stages a card moves through, in order. */
+  stages: [colors.line, '#dcc8f7', colors.chartSoft, colors.chartBar, colors.action, colors.actionShell],
+  /** How much was studied on a day, from a little to the most. */
+  heat: [colors.line, '#dcc8f7', colors.chartSoft, colors.chartBar, colors.action],
 } as const;
 
 export const decorationOpacity = { todayTape: 0.51, peachTape: 0.82, lilacTape: 0.90 } as const;

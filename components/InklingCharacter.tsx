@@ -1,4 +1,4 @@
-import { colors } from '@/theme';
+import { space, colors } from '@/theme';
 import { useCallback, useEffect, useRef } from 'react';
 import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 import Animated, {

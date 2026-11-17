@@ -1,3 +1,5 @@
+import { space } from '@/theme/spacing';
+import { type } from '@/theme/typography';
 /**
  * The full-screen wait.
  *
@@ -17,11 +19,11 @@
 import Logo from '@/components/icons/Logo';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotRig } from '@/components/mascot/rig/MascotRig';
-import { homeColors } from '@/theme/colors';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { Modal, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { colors } from '@/theme/colors';
 
 interface LoadingScreenProps {
   visible: boolean;
@@ -44,7 +46,7 @@ export default function LoadingScreen({ visible, label = WORKING }: LoadingScree
     <Modal visible transparent={false} animationType="fade" statusBarTranslucent>
       <View style={styles.container}>
         <LinearGradient pointerEvents="none"
-          colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+          colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
           locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
         <View pointerEvents="none" style={styles.waveBack}><HomeAsset name="waveBack" /></View>
         <View pointerEvents="none" style={styles.waveFront}><HomeAsset name="waveFront" /></View>
@@ -61,12 +63,12 @@ export default function LoadingScreen({ visible, label = WORKING }: LoadingScree
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: homeColors.canvas },
+  container: { flex: 1, backgroundColor: colors.bg },
   background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', top: 150, left: -19 },
   waveFront: { position: 'absolute', top: 187, left: -19 },
   safe: { flex: 1 },
-  content: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  mascot: { marginTop: 8 },
-  label: { fontFamily: 'Geist_500Medium', fontSize: 16, color: homeColors.muted },
+  content: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: space[2] },
+  mascot: { marginTop: space[2] },
+  label: { ...type.body, fontFamily: 'Geist_500Medium', color: colors.faint },
 });

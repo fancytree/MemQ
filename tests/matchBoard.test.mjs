@@ -53,12 +53,79 @@ test('a row stays empty only while everything waiting is already showing', () =>
   board = clearPair(board, zero[0].id, zero[1].id, seeded(12));
   assert.equal(board.left.filter(Boolean).length, 3);
   assert.deepEqual(board.queue, [1, 2]);
-  // Once the first 1 has gone its second coming can arrive; 2 is still showing, so it still waits.
+  // The first 1 goes. Its second coming does not come straight back while 2 and 3 are
+  // still showing; 2 is still showing too, so both rows wait.
   const one = [board.left.find((tile) => tile?.pair === 1), board.right.find((tile) => tile?.pair === 1)];
+  const oneAt = [board.left.indexOf(one[0]), board.right.indexOf(one[1])];
   board = clearPair(board, one[0].id, one[1].id, seeded(13));
-  assert.deepEqual(pairsOn(board.left), [1, 2, 3]);
-  assert.notEqual(board.left.find((tile) => tile?.pair === 1).id, one[0].id);
+  assert.deepEqual(pairsOn(board.left), [2, 3]);
+  assert.deepEqual(board.queue, [1, 2]);
+  // Once another pair is made, 1 comes back, and not in the rows it was made from.
+  const three = [board.left.find((tile) => tile?.pair === 3), board.right.find((tile) => tile?.pair === 3)];
+  board = clearPair(board, three[0].id, three[1].id, seeded(14));
+  assert.deepEqual(pairsOn(board.left), [1, 2]);
+  const back = [board.left.findIndex((tile) => tile?.pair === 1), board.right.findIndex((tile) => tile?.pair === 1)];
+  assert.notDeepEqual(back, oneAt);
   assert.deepEqual(board.queue, [2]);
+});
+
+test('a pair just made does not come straight back while others are waiting', () => {
+  // Every card twice, the first comings in order, the second comings starting with 0.
+  let board = startBoard([0, 1, 2, 3, 0, 4, 1, 2, 3, 4], 4, seeded(21));
+  const zero = [board.left.find((tile) => tile.pair === 0), board.right.find((tile) => tile.pair === 0)];
+  board = clearPair(board, zero[0].id, zero[1].id, seeded(22));
+  // 0 is next in line, but 4 takes the rows 0 left.
+  assert.equal(board.left.filter(Boolean).length, 4);
+  assert.ok(!board.left.some((tile) => tile?.pair === 0));
+  assert.ok(board.left.some((tile) => tile?.pair === 4));
+  assert.deepEqual(board.queue, [0, 1, 2, 3, 4]);
+});
+
+test('a lone last pair on an empty board lands somewhere else', () => {
+  let board = startBoard([0, 1, 0], 4, seeded(31));
+  const zero = [board.left.find((tile) => tile?.pair === 0), board.right.find((tile) => tile?.pair === 0)];
+  const zeroAt = [board.left.indexOf(zero[0]), board.right.indexOf(zero[1])];
+  board = clearPair(board, zero[0].id, zero[1].id, seeded(32));
+  // 1 is still showing, so the second 0 waits.
+  assert.deepEqual(pairsOn(board.left), [1]);
+  const one = [board.left.find((tile) => tile?.pair === 1), board.right.find((tile) => tile?.pair === 1)];
+  board = clearPair(board, one[0].id, one[1].id, seeded(33));
+  // Nothing else is left: it comes back, but not to both of the rows it was made from.
+  assert.deepEqual(pairsOn(board.left), [0]);
+  const back = [board.left.findIndex((tile) => tile?.pair === 0), board.right.findIndex((tile) => tile?.pair === 0)];
+  assert.notDeepEqual(back, zeroAt);
+});
+
+test('over many random games, no card comes back to both of its old rows, and every game ends', () => {
+  const random = seeded(41);
+  let returns = 0;
+  for (let game = 0; game < 2000; game++) {
+    const first = [0, 1, 2, 3, 4, 5].sort(() => random() - 0.5);
+    const again = [...first].sort(() => random() - 0.5);
+    let board = startBoard([...first, ...again], 4 + (game % 3), random);
+    const lastAt = {};
+    for (let step = 0; step < 400 && !isDone(board); step++) {
+      const showing = board.left.map((tile, row) => tile && { tile, row }).filter(Boolean);
+      if (random() < 0.1 && showing.length > 1) {
+        const wrong = board.right.find((tile) => tile && tile.pair !== showing[0].tile.pair);
+        board = missPair(board, showing[0].tile.id, wrong.id);
+        continue;
+      }
+      const { tile, row } = showing[Math.floor(random() * showing.length)];
+      const rightRow = board.right.findIndex((other) => other?.pair === tile.pair);
+      const before = new Set(board.left.filter(Boolean).map((other) => other.id));
+      board = clearPair(board, tile.id, board.right[rightRow].id, random);
+      lastAt[tile.pair] = [row, rightRow];
+      board.left.forEach((arrived, at) => {
+        if (!arrived || before.has(arrived.id) || !lastAt[arrived.pair]) return;
+        returns += 1;
+        const rightAt = board.right.findIndex((other) => other?.pair === arrived.pair);
+        assert.notDeepEqual([at, rightAt], lastAt[arrived.pair], `game ${game}: pair ${arrived.pair} back in its old rows`);
+      });
+    }
+    assert.ok(isDone(board), `game ${game} did not finish`);
+  }
+  assert.ok(returns > 1000);
 });
 
 test('the last pairs still arrive when nothing else is left on the board', () => {

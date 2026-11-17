@@ -1,8 +1,9 @@
-import { layout } from '@/theme/spacing';
+import { Icon } from '@/components/ui/Icon';
+import { type } from '@/theme/typography';
+import { space, radius, layout } from '@/theme/spacing';
 import { dialog } from '@/lib/dialog';
 import { BackButton } from '@/components/ui/RoundButtons';
 import { supabase } from '@/lib/supabase';
-import { Feather } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { safeBack } from '@/lib/safeBack';
 import React, { useState } from 'react';
@@ -13,12 +14,13 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colors } from '@/theme/colors';
+import { IconButton } from '@/components/ui/IconButton';
+import { Field } from '@/components/ui/Field';
 
 interface TermRow {
   id: string;
@@ -155,62 +157,26 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
             <View key={termRow.id} style={styles.termRow}>
               <View style={styles.rowHeader}>
                 <Text style={styles.rowNumber}>Row {index + 1}</Text>
-                <TouchableOpacity accessibilityRole="button" accessibilityLabel="Remove term"
-                  onPress={() => handleDeleteRow(termRow.id)}
-                  style={styles.deleteButton}
-                  activeOpacity={0.7}
-                >
-                  <Feather name="x" size={20} color={colors.red} />
-                </TouchableOpacity>
+                <IconButton variant="quiet" size="sm" label="Remove term" onPress={() => handleDeleteRow(termRow.id)}>
+                  <Icon name="close" size={20} color={colors.red} />
+                </IconButton>
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Term</Text>
-                <TextInput accessibilityLabel="e.g., Ambition"
-                  style={styles.input}
-                  placeholder="e.g., Ambition"
-                  placeholderTextColor={colors.muted}
-                  value={termRow.term}
-                  onChangeText={(value) => handleUpdateTerm(termRow.id, 'term', value)}
-                  editable={!loading}
-                />
-              </View>
+              <Field label="Term" placeholder="e.g., Ambition"
+                value={termRow.term} onChangeText={(value) => handleUpdateTerm(termRow.id, 'term', value)}
+                editable={!loading} />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Definition</Text>
-                <TextInput accessibilityLabel="e.g., A strong desire to achieve something"
-                  style={[styles.input, styles.textarea]}
-                  placeholder="e.g., A strong desire to achieve something"
-                  placeholderTextColor={colors.muted}
-                  value={termRow.definition}
-                  onChangeText={(value) =>
+              <Field label="Definition" placeholder="e.g., A strong desire to achieve something"
+                value={termRow.definition} onChangeText={(value) =>
                     handleUpdateTerm(termRow.id, 'definition', value)
                   }
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                  editable={!loading}
-                />
-              </View>
+                editable={!loading} multiline />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>
-                  Explanation (Optional)
-                </Text>
-                <TextInput accessibilityLabel="Enter explanation (optional)"
-                  style={[styles.input, styles.textarea]}
-                  placeholder="Enter explanation (optional)"
-                  placeholderTextColor={colors.muted}
-                  value={termRow.explanation}
-                  onChangeText={(value) =>
+              <Field label="Explanation (Optional)" placeholder="Enter explanation (optional)"
+                value={termRow.explanation} onChangeText={(value) =>
                     handleUpdateTerm(termRow.id, 'explanation', value)
                   }
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                  editable={!loading}
-                />
-              </View>
+                editable={!loading} multiline />
             </View>
           ))}
 
@@ -221,7 +187,7 @@ export default function CreateTerm({ lessonId }: CreateTermProps) {
             disabled={loading}
             activeOpacity={0.7}
           >
-            <Feather name="plus" size={20} color={colors.accentText} />
+            <Icon name="plus" size={20} color={colors.sub} />
             <Text style={styles.addRowButtonText}>Add Row</Text>
           </TouchableOpacity>
 
@@ -257,13 +223,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: layout.screenInline,
-    paddingVertical: 16,
+    paddingVertical: space[4],
     borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    borderBottomColor: colors.line,
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
+    ...type.body,
     color: colors.text,
   },
   placeholder: {
@@ -273,107 +238,72 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingVertical: 20, paddingHorizontal: layout.screenInline,
-    paddingBottom: 40,
+    paddingVertical: space[5], paddingHorizontal: layout.screenInline,
+    paddingBottom: space[10],
   },
   infoContainer: {
     backgroundColor: colors.infoL,
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
+    borderRadius: radius.sm,
+    padding: space[3],
+    marginBottom: space[5],
     borderWidth: 1,
     borderColor: colors.infoL,
   },
   infoText: {
-    fontSize: 14,
+    ...type.small,
     color: colors.info,
-    lineHeight: 20,
   },
   termRow: {
-    backgroundColor: colors.surfaceSubtle,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: colors.panel,
+    borderRadius: radius.md,
+    padding: space[4],
+    marginBottom: space[4],
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.line,
   },
   rowHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: space[3],
   },
   rowNumber: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.muted,
+    ...type.small,
+    color: colors.sub,
   },
   deleteButton: { minHeight: 44,
-    padding: 4,
-  },
-  inputGroup: {
-    marginBottom: 12,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.text,
-    marginBottom: 6,
-  },
-  input: { minHeight: 44,
-    backgroundColor: colors.surf,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.controlBorder,
-  },
-  textarea: {
-    minHeight: 80,
-    paddingTop: 10,
+    padding: space[1],
   },
   addRowButton: { minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.surf,
-    borderRadius: 12,
-    paddingVertical: 14,
-    marginBottom: 16,
+    borderRadius: radius.md,
+    paddingVertical: space[3],
+    marginBottom: space[4],
     borderWidth: 2,
     borderColor: colors.action,
     borderStyle: 'dashed',
   },
   addRowButtonText: {
+    ...type.body,
     color: colors.action,
-    fontSize: 16,
-    fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: space[2],
   },
   saveButton: { minHeight: 44,
     backgroundColor: colors.action,
-    borderRadius: 100,
-    paddingVertical: 16,
+    borderRadius: radius.pill,
+    paddingVertical: space[4],
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.shadow,
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0,
-    shadowRadius: 4,
-    elevation: 0,
   },
   saveButtonDisabled: {
     opacity: 0.6,
   },
   saveButtonText: {
+    ...type.body,
     color: colors.onAction,
-    fontSize: 18,
-    fontWeight: '600',
   },
 });
 

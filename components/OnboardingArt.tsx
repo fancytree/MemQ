@@ -1,3 +1,5 @@
+import { space, radius } from '@/theme/spacing';
+import { type } from '@/theme/typography';
 /**
  * The three pictures the first run is built on.
  *
@@ -8,7 +10,7 @@
  * the words around it are a title and a line.
  *
  * They are drawn in the app's own language: surfaces are a coloured shell with a
- * lighter face sitting on it (theme/ledge.ts), the palette is homeColors, and
+ * lighter face sitting on it (theme/ledge.ts), the palette is the theme's, and
  * nothing here has a shadow or a gradient of its own.
  *
  * All three hold still under Reduce Motion, each at the end of its own loop —
@@ -16,7 +18,6 @@
  * the finished picture rather than an empty one.
  */
 import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
-import { homeColors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
 import React, { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -25,6 +26,7 @@ import Animated, {
   useSharedValue, withDelay, withRepeat, withSequence, withTiming,
 } from 'react-native-reanimated';
 import Svg, { Circle, Line, Path, Rect } from 'react-native-svg';
+import { colors } from '@/theme/colors';
 
 const AnimatedPath = Animated.createAnimatedComponent(Path);
 const AnimatedCircle = Animated.createAnimatedComponent(Circle);
@@ -128,8 +130,8 @@ function Prompts() {
 function Looked() {
   return (
     <Svg width={26} height={26} viewBox="0 0 26 26">
-      <Circle cx={11} cy={11} r={6.5} fill="none" stroke={homeColors.primary} strokeWidth={2.4} />
-      <Line x1={15.8} y1={15.8} x2={21} y2={21} stroke={homeColors.primary}
+      <Circle cx={11} cy={11} r={6.5} fill="none" stroke={colors.action} strokeWidth={2.4} />
+      <Line x1={15.8} y1={15.8} x2={21} y2={21} stroke={colors.action}
         strokeWidth={2.6} strokeLinecap="round" />
     </Svg>
   );
@@ -138,9 +140,9 @@ function Looked() {
 function Read() {
   return (
     <Svg width={26} height={26} viewBox="0 0 26 26">
-      <Line x1={5} y1={7.5} x2={21} y2={7.5} stroke={homeColors.primary} strokeWidth={2.4} strokeLinecap="round" />
-      <Line x1={5} y1={13} x2={21} y2={13} stroke={homeColors.primary} strokeWidth={2.4} strokeLinecap="round" />
-      <Line x1={5} y1={18.5} x2={14} y2={18.5} stroke={homeColors.primary} strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={5} y1={7.5} x2={21} y2={7.5} stroke={colors.action} strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={5} y1={13} x2={21} y2={13} stroke={colors.action} strokeWidth={2.4} strokeLinecap="round" />
+      <Line x1={5} y1={18.5} x2={14} y2={18.5} stroke={colors.action} strokeWidth={2.4} strokeLinecap="round" />
     </Svg>
   );
 }
@@ -150,9 +152,9 @@ function Read() {
 function Horned() {
   return (
     <Svg width={26} height={26} viewBox="0 0 30 30">
-      <Path d="M8.6 12.2 L5.8 4.4 L14.2 9.6 Z" fill={homeColors.streakBorder} />
-      <Path d="M21.4 12.2 L24.2 4.4 L15.8 9.6 Z" fill={homeColors.streakBorder} />
-      <Circle cx={15} cy={18} r={8.6} fill={homeColors.streakBorder} />
+      <Path d="M8.6 12.2 L5.8 4.4 L14.2 9.6 Z" fill={colors.chartSoft} />
+      <Path d="M21.4 12.2 L24.2 4.4 L15.8 9.6 Z" fill={colors.chartSoft} />
+      <Circle cx={15} cy={18} r={8.6} fill={colors.chartSoft} />
     </Svg>
   );
 }
@@ -187,20 +189,20 @@ export function Forgetting() {
   return (
     <View style={art.curve}>
       <Svg width="100%" height={116} viewBox="0 0 268 116">
-        <Line x1={0} y1={100} x2={268} y2={100} stroke={homeColors.border} strokeWidth={2} />
+        <Line x1={0} y1={100} x2={268} y2={100} stroke={colors.line} strokeWidth={2} />
         <AnimatedPath animatedProps={fade}
           d="M4 14 C 40 62, 80 78, 134 82 S 230 89, 264 90"
-          fill="none" stroke={homeColors.streakBorder} strokeWidth={3}
+          fill="none" stroke={colors.chartSoft} strokeWidth={3}
           strokeLinecap="round" strokeDasharray={GREY_LEN} />
         <AnimatedPath animatedProps={kept}
           d="M4 14 C 28 34, 44 42, 62 45 L 62 16 C 96 34, 116 41, 136 43 L 136 12 C 176 26, 198 31, 218 32 L 218 9 C 240 15, 254 17, 264 18"
-          fill="none" stroke={homeColors.primary} strokeWidth={3}
+          fill="none" stroke={colors.action} strokeWidth={3}
           strokeLinecap="round" strokeLinejoin="round" strokeDasharray={CURVE_LEN} />
         {PEAKS.map((peak) => <Peak key={peak.x} p={p} at={peak.at} x={peak.x} y={peak.y} />)}
       </Svg>
       <View style={art.legend}>
-        <Key tone={homeColors.primary} label="Reviewed as it slips" />
-        <Key tone={homeColors.streakBorder} label="Read once" />
+        <Key tone={colors.action} label="Reviewed as it slips" />
+        <Key tone={colors.chartSoft} label="Read once" />
       </View>
     </View>
   );
@@ -216,7 +218,7 @@ function Peak({ p, at, x, y }: {
   });
   return (
     <AnimatedCircle animatedProps={pop} cx={x} cy={y}
-      fill={homeColors.white} stroke={homeColors.primary} strokeWidth={2.5} />
+      fill={colors.surf} stroke={colors.action} strokeWidth={2.5} />
   );
 }
 
@@ -266,12 +268,12 @@ function Stage({ t, i, label }: { t: { value: number }; i: number; label: string
   const face = useAnimatedStyle(() => {
     const k = Math.max(0, 1 - Math.abs(t.value - mid) / 0.55);
     return {
-      backgroundColor: interpolateColor(k, [0, 1], [homeColors.canvas, homeColors.selected]),
+      backgroundColor: interpolateColor(k, [0, 1], [colors.bg, colors.limeSurface]),
     };
   });
   const word = useAnimatedStyle(() => {
     const k = Math.max(0, 1 - Math.abs(t.value - mid) / 0.55);
-    return { color: interpolateColor(k, [0, 1], [homeColors.muted, homeColors.darkest]) };
+    return { color: interpolateColor(k, [0, 1], [colors.faint, colors.text]) };
   });
   return (
     <Animated.View style={[art.stage, lift]}>
@@ -286,7 +288,7 @@ function Stage({ t, i, label }: { t: { value: number }; i: number; label: string
 }
 
 function Glyph({ which }: { which: number }) {
-  const ink = homeColors.primary;
+  const ink = colors.action;
   if (which === 0) {
     return (
       <Svg width={34} height={34} viewBox="0 0 32 32">
@@ -304,7 +306,7 @@ function Glyph({ which }: { which: number }) {
         <Rect x={4} y={9} width={15} height={19} rx={3}
           fill="none" stroke={ink} strokeWidth={2} transform="rotate(-8,11.5,18.5)" />
         <Rect x={13} y={5} width={15} height={19} rx={3}
-          fill={homeColors.white} stroke={ink} strokeWidth={2} />
+          fill={colors.surf} stroke={ink} strokeWidth={2} />
       </Svg>
     );
   }
@@ -321,54 +323,55 @@ const art = StyleSheet.create({
   desk: { alignItems: 'center' },
   deskMascot: { alignSelf: 'center' },
 
-  prompts: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingBottom: 6 },
+  prompts: { flexDirection: 'row', alignItems: 'center', gap: space[4], paddingBottom: space[1] },
   prompt: {
-    width: 58, borderRadius: 18,
-    backgroundColor: homeColors.border, paddingBottom: ledge.control,
+    width: 58, borderRadius: radius.md,
+    backgroundColor: colors.line, paddingBottom: ledge.control,
   },
   promptFace: {
-    height: 54, borderRadius: 18, backgroundColor: homeColors.white,
+    height: 54, borderRadius: radius.md, backgroundColor: colors.surf,
     alignItems: 'center', justifyContent: 'center',
   },
-  asked: { fontFamily: 'Geist_600SemiBold', fontSize: 24, color: homeColors.primary },
+  asked: { ...type.page, fontFamily: 'Geist_600SemiBold', color: colors.action },
 
   // The lid is wider than the character's box, so it reaches past both paws and
   // reads as a thing being leaned on rather than held.
   laptop: { marginTop: LID_LIFT, marginHorizontal: (DESK_MASCOT - LID_W) / 2, alignItems: 'center' },
   lid: {
-    width: LID_W, borderRadius: 18,
-    backgroundColor: homeColors.border, paddingBottom: ledge.raised,
+    width: LID_W, borderRadius: radius.md,
+    backgroundColor: colors.line, paddingBottom: ledge.raised,
   },
   lidFace: {
-    height: 72, borderRadius: 18, backgroundColor: homeColors.white,
+    height: 72, borderRadius: radius.md, backgroundColor: colors.surf,
     alignItems: 'center', justifyContent: 'center',
   },
   // The deck it stands on, a little wider than the lid, with its own lip so the
   // machine has two planes rather than one flat card.
   base: {
-    width: LID_W + 26, borderRadius: 11,
-    backgroundColor: homeColors.border, paddingBottom: ledge.control, marginTop: 4,
+    width: LID_W + 26, borderRadius: radius.sm,
+    backgroundColor: colors.line, paddingBottom: ledge.control, marginTop: space[1],
   },
-  baseFace: { height: 13, borderRadius: 11, backgroundColor: homeColors.canvas },
+  baseFace: { height: 13, borderRadius: radius.sm, backgroundColor: colors.bg },
 
-  curve: { gap: 10, paddingTop: 2 },
-  legend: { flexDirection: 'row', gap: 16 },
-  key: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  swatch: { width: 14, height: 3, borderRadius: 2 },
-  keyText: { fontFamily: 'Geist_500Medium', fontSize: 12, color: homeColors.muted },
+  curve: { gap: space[2], paddingTop: space.hair },
+  legend: { flexDirection: 'row', gap: space[4] },
+  key: { flexDirection: 'row', alignItems: 'center', gap: space[1] },
+  swatch: { width: 14, height: 3, borderRadius: radius.sm },
+  keyText: { ...type.caption, fontFamily: 'Geist_500Medium', color: colors.faint },
 
-  loop: { flexDirection: 'row', gap: 10, paddingTop: 4 },
-  stage: { flex: 1, alignItems: 'center', gap: 8 },
+  loop: { flexDirection: 'row', gap: space[2], paddingTop: space[1] },
+  stage: { flex: 1, alignItems: 'center', gap: space[2] },
   tile: {
-    width: '100%', borderRadius: 20,
-    backgroundColor: homeColors.border, paddingBottom: ledge.control,
+    width: '100%', borderRadius: radius.lg,
+    backgroundColor: colors.line, paddingBottom: ledge.control,
   },
   tileFace: {
-    borderRadius: 20, backgroundColor: homeColors.canvas,
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 18,
+    borderRadius: radius.lg, backgroundColor: colors.bg,
+    alignItems: 'center', justifyContent: 'center', paddingVertical: space[4],
   },
   stageText: {
-    fontFamily: 'Geist_500Medium', fontSize: 12, lineHeight: 16,
-    color: homeColors.muted, textAlign: 'center',
+    ...type.caption, fontFamily: 'Geist_500Medium',
+    color: colors.faint,
+    textAlign: 'center',
   },
 });

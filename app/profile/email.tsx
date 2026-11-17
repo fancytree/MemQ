@@ -1,17 +1,18 @@
+import { Icon } from '@/components/ui/Icon';
+import { oneLine } from '@/theme/typography';
+import { Card } from '@/components/ui/Card';
 import { LinearGradient } from 'expo-linear-gradient';
-import { ledge } from '@/theme/ledge';
-import { LedgePressable } from '@/components/ui/LedgePressable';
+import { Button } from '@/components/ui/Button';
 import { dialog } from '@/lib/dialog';
-import { homeColors } from '@/theme/colors';
-import { elevation as cardElevation } from '@/theme';
+import { space, radius, type } from '@/theme';
 import { layout } from '@/theme/spacing';
 import { fonts } from '@/theme/typography';
 import { supabase } from '@/lib/supabase';
-import { Feather } from '@expo/vector-icons';
 import { safeBack } from '@/lib/safeBack';
 import { SecondaryPageNav } from '@/components/SecondaryPageNav';
 import { useNavigation } from 'expo-router/react-navigation';
 import { colors } from '@/theme';
+import { Field } from '@/components/ui/Field';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -20,8 +21,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -235,9 +234,9 @@ export default function EmailEditScreen() {
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.accentText} />
+          <ActivityIndicator size="large" color={colors.sub} />
         </View>
       </SafeAreaView>
     );
@@ -245,7 +244,7 @@ export default function EmailEditScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      <LinearGradient pointerEvents="none" colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.canvas]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
+      <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardView}
@@ -268,48 +267,26 @@ export default function EmailEditScreen() {
             )}
 
             {/* 表单区域 */}
-            <View style={styles.formCard}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>
-                  Email <Text style={styles.required}>*</Text>
-                </Text>
-                <TextInput accessibilityLabel="Enter your email"
-                  style={styles.input}
-                  placeholder="Enter your email"
-                  placeholderTextColor={colors.muted}
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    setError(null);
-                  }}
-                  editable={!saving}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+            <Card pad="lg" gap={0} style={styles.formCard}>
+              <Field label="Email" placeholder="Enter your email"
+                accessibilityLabel="Enter your email"
+                value={email}
+                onChangeText={(text) => { setEmail(text); setError(null); }}
+                editable={!saving}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                style={styles.inputGroup} />
               <View style={styles.infoBox}>
-              <Feather name="info" size={16} color={colors.accentText} />
+              <Icon name="info" size={16} color={colors.sub} />
                 <Text style={styles.infoText}>
                   A confirmation email will be sent to your new email address. Please check your inbox to confirm the change.
                 </Text>
               </View>
-            </View>
+            </Card>
 
             {/* Save Changes 按钮 */}
-            <LedgePressable accessibilityRole="button" accessibilityState={{ disabled: saving, busy: saving }}
-              style={[styles.saveButton, saving && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={saving}
-            >
-              <View style={styles.saveFace}>
-              {saving ? (
-                <ActivityIndicator size="small" color={colors.surf} />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Changes</Text>
-              )}
-              </View>
-            </LedgePressable>
+            <Button label="Save Changes" loading={saving} onPress={handleSave} style={styles.saveButton} />
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -319,7 +296,7 @@ export default function EmailEditScreen() {
 
 const styles = StyleSheet.create({
   pageGradient: { position: 'absolute', top: 0, left: 0, right: 0, height: 250 },
-  pageTitle: { fontFamily: fonts.display, fontSize: 30, lineHeight: 40, color: homeColors.deep, marginHorizontal: layout.screenInline, marginBottom: 20 },
+  pageTitle: { ...oneLine(type.title), color: colors.sub, marginHorizontal: layout.screenInline, marginBottom: space[5] },
   container: {
     flex: 1,
     backgroundColor: colors.bg,
@@ -336,100 +313,47 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 40,
+    paddingBottom: space[10],
   },
   bodyContent: {
-    paddingTop: 16,
+    paddingTop: space[4],
   },
   errorBanner: {
     backgroundColor: colors.redL,
-    padding: 12,
+    padding: space[3],
     marginHorizontal: layout.screenInline,
-    marginBottom: 16,
-    borderRadius: 8,
+    marginBottom: space[4],
+    borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: colors.red,
   },
   errorBannerText: {
+    ...type.caption,
     color: colors.red,
-    fontSize: 13,
-    lineHeight: 18,
     letterSpacing: -0.1,
-    fontFamily: fonts.medium,
-    fontWeight: '500',
   },
-  formCard: {
-    backgroundColor: colors.surf,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 20,
-    marginHorizontal: layout.screenInline,
-    marginBottom: 24, ...cardElevation.card, },
+  formCard: { marginHorizontal: layout.screenInline, marginBottom: space[6] },
   inputGroup: {
-    marginBottom: 16,
-  },
-  label: {
-    fontSize: 12,
-    lineHeight: 17,
-    letterSpacing: -0.1,
-    fontFamily: fonts.medium,
-    fontWeight: '500',
-    color: colors.muted,
-    marginBottom: 8,
-  },
-  required: {
-    color: colors.red,
-  },
-  input: { minHeight: 44,
-    backgroundColor: colors.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 13,
-    fontSize: 16,
-    lineHeight: 22,
-    letterSpacing: -0.1,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-    color: colors.text,
+    marginBottom: space[4],
   },
   infoBox: {
     flexDirection: 'row',
-    backgroundColor: colors.accentL,
+    backgroundColor: colors.tint,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 12,
-    borderRadius: 8,
+    borderColor: colors.line,
+    padding: space[3],
+    borderRadius: radius.sm,
     alignItems: 'flex-start',
   },
   infoText: {
+    ...type.caption, fontFamily: fonts.regular,
     flex: 1,
-    fontSize: 12,
-    lineHeight: 17,
     letterSpacing: -0.1,
     color: colors.sub,
-    fontFamily: fonts.regular,
-    fontWeight: '400',
-    marginLeft: 8,
+    marginLeft: space[2],
   },
   // The one thing this page wants pressed: a shell with the face on it, and the
   // deepest lip, which pressing uses up.
-  saveButton: {
-    height: 56 + ledge.lead, borderRadius: 100, backgroundColor: homeColors.deep,
-    paddingBottom: ledge.lead, marginHorizontal: layout.screenInline,
-  },
-  saveFace: { flex: 1, borderRadius: 100, backgroundColor: homeColors.primary, alignItems: 'center', justifyContent: 'center' },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    color: colors.onAction,
-    fontSize: 14,
-    lineHeight: 20,
-    letterSpacing: -0.1,
-    fontFamily: fonts.bold,
-    fontWeight: '700',
-  },
+  saveButton: { marginHorizontal: layout.screenInline },
 });
 

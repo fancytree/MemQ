@@ -1,3 +1,4 @@
+import { radius } from '@/theme/spacing';
 /** One frame of the rig: where every part is, given where the body is going.
  *
  * It runs in three passes, and the order is the point.

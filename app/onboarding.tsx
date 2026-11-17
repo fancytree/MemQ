@@ -1,3 +1,6 @@
+import { Card } from '@/components/ui/Card';
+import { Field } from '@/components/ui/Field';
+import { type } from '@/theme/typography';
 /**
  * The first run.
  *
@@ -29,9 +32,9 @@ import { WELCOME_SCENES, WelcomeStory } from '@/components/WelcomeStory';
 import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { requestNotificationPermissions, scheduleDailyReminders } from '@/lib/notificationService';
 import { supabase } from '@/lib/supabase';
-import { homeColors } from '@/theme/colors';
+import { colors } from '@/theme/colors';
 import { ledge } from '@/theme/ledge';
-import { layout } from '@/theme/spacing';
+import { space, radius, layout } from '@/theme/spacing';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -44,7 +47,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   useWindowDimensions,
   View,
 } from 'react-native';
@@ -52,6 +54,8 @@ import Animated, {
   Easing, useAnimatedStyle, useReducedMotion, useSharedValue, withRepeat, withTiming,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Button } from '@/components/ui/Button';
+import { Chip } from '@/components/ui/Chip';
 import { LedgePressable } from '@/components/ui/LedgePressable';
 
 const { width: SCREEN_W } = Dimensions.get('window');
@@ -230,7 +234,7 @@ export default function OnboardingScreen() {
       style={styles.root}>
       <LoadingScreen visible={saving} />
       <LinearGradient pointerEvents="none"
-        colors={[homeColors.gradientStart, homeColors.gradientBright, homeColors.gradientSoft, homeColors.canvas]}
+        colors={[colors.limePale, colors.limeBright, colors.limeSurface, colors.bg]}
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
       <Flow name="waveBack" style={styles.waveBack} seconds={13} shiftX={-15} shiftY={16} />
       <Flow name="waveFront" style={styles.waveFront} seconds={9} shiftX={15} shiftY={-20} />
@@ -272,7 +276,7 @@ const CARD_LIFT = -(1 - (HAND_LINE + 7 / 256)) * PERCH;
  * The sentence each of these used to carry is gone. Three of them under three
  * headings was a page of explanation around three short answers — and what they
  * explained, the field and the chips say for themselves. */
-function Field({ label, lead, children }: {
+function Question({ label, lead, children }: {
   label: string;
   /** The one question still open. It is asked louder than the two that came with
    *  an answer, so the page says at a glance how much is left to do. */
@@ -288,16 +292,7 @@ function Field({ label, lead, children }: {
 }
 
 function Lead({ label, onPress, off }: { label: string; onPress: () => void; off?: boolean }) {
-  return (
-    <LedgePressable accessibilityRole="button"
-      style={[styles.lead, off && styles.leadOff]}
-      onPress={off ? undefined : onPress}
-      disabled={off}>
-      <View style={styles.leadFace}>
-        <Text style={styles.leadText}>{label}</Text>
-      </View>
-    </LedgePressable>
-  );
+  return <Button size="xl" label={label} onPress={off ? undefined : onPress} disabled={off} />;
 }
 
 function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDone }: {
@@ -327,70 +322,48 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
             on the questions the way it leans on the sign-in form. */}
         <MascotRig width={PERCH} mood="onboarding" calm style={styles.perch}
           behind={(
-            <View style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
-              <View style={styles.cardFace}>
-                <Field label="What should we call you?" lead>
-                  <View style={styles.input}>
-                    <TextInput accessibilityLabel="Your name"
-                      style={styles.inputText}
-                      value={username}
-                      onChangeText={onName}
-                      placeholder="Your name"
-                      placeholderTextColor={homeColors.placeholder}
-                      autoCorrect={false}
-                      autoCapitalize="words"
-                      returnKeyType="done"
-                      maxLength={40}
-                    />
-                  </View>
-                </Field>
+            <Card corner="xl" pad="lg" gap={space[6]} style={[styles.card, { marginLeft: bleed, marginRight: bleed }]}>
+                <Question label="What should we call you?" lead>
+                  <Field accessibilityLabel="Your name"
+                    value={username}
+                    onChangeText={onName}
+                    placeholder="Your name"
+                    autoCorrect={false}
+                    autoCapitalize="words"
+                    returnKeyType="done"
+                    maxLength={40}
+                  />
+                </Question>
 
                 <View style={styles.settings}>
-                <Field label="How many cards a day?">
+                <Question label="How many cards a day?">
                   <View style={styles.chips}>
-                    {GOAL_OPTIONS.map((cards) => {
-                      const on = goal === cards;
-                      return (
-                        <LedgePressable accessibilityRole="button" key={cards}
-                          accessibilityState={{ selected: on }}
-                          style={[styles.chip, on && styles.chipOn]}
-                          onPress={() => onGoal(cards)}>
-                          <View style={[styles.chipFace, on && styles.chipFaceOn]}>
-                            <Text style={[styles.chipNum, on && styles.chipTextOn]}>{cards}</Text>
-                          </View>
-                        </LedgePressable>
-                      );
-                    })}
+                    {GOAL_OPTIONS.map((cards) => (
+                      <Chip key={cards} fill label={String(cards)} labelStyle={styles.chipNum}
+                        accessibilityLabel={`${cards} cards a day`}
+                        selected={goal === cards} onPress={() => onGoal(cards)} />
+                    ))}
                   </View>
-                </Field>
+                </Question>
 
                 {/* The chosen time clears when it is tapped again. A reminder that
                     arrives by default has to be refusable, and this row is the only
                     place to refuse it. */}
-                <Field label="When should we remind you?">
+                <Question label="When should we remind you?">
                   <View style={styles.times}>
                     {TIME_ROWS.map((row, i) => (
                       <View key={i} style={styles.timeRow}>
-                        {row.map((t) => {
-                      const on = reminder === t.value;
-                      return (
-                        <LedgePressable accessibilityRole="button" key={t.value}
-                          accessibilityState={{ selected: on }}
-                          style={[styles.time, on && styles.chipOn]}
-                          onPress={() => onReminder(on ? null : t.value)}>
-                          <View style={[styles.timeFace, on && styles.chipFaceOn]}>
-                            <Text style={[styles.timeText, on && styles.chipTextOn]}>{t.label}</Text>
-                          </View>
-                        </LedgePressable>
-                      );
-                        })}
+                        {row.map((t) => (
+                          <Chip key={t.value} fill label={t.label} style={styles.time}
+                            selected={reminder === t.value}
+                            onPress={() => onReminder(reminder === t.value ? null : t.value)} />
+                        ))}
                       </View>
                     ))}
                   </View>
-                </Field>
+                </Question>
                 </View>
-              </View>
-            </View>
+            </Card>
           )} />
       </ScrollView>
       <View style={styles.footer}>
@@ -403,7 +376,7 @@ function SetupPage({ username, onName, goal, onGoal, reminder, onReminder, onDon
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: homeColors.canvas },
+  root: { flex: 1, backgroundColor: colors.bg },
   background: { position: 'absolute', top: 0, left: 0, right: 0, height: 874 },
   waveBack: { position: 'absolute', top: 150, left: -19 },
   waveFront: { position: 'absolute', top: 187, left: -19 },
@@ -411,7 +384,7 @@ const styles = StyleSheet.create({
 
   topRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: layout.screenInline, paddingBottom: 4,
+    paddingHorizontal: layout.screenInline, paddingBottom: space[1],
   },
   back: { alignItems: 'flex-start' },
   backHidden: { opacity: 0 },
@@ -428,7 +401,7 @@ const styles = StyleSheet.create({
   // left is the air a scrolled-to-the-bottom card wants above the button.
   scrollContent: {
     flexGrow: 1, justifyContent: 'center',
-    paddingHorizontal: layout.screenInline, paddingTop: 4, paddingBottom: 20, gap: 14,
+    paddingHorizontal: layout.screenInline, paddingTop: space[1], paddingBottom: space[5], gap: space[3],
   },
 
   // A shell with a lighter face on it, offset so a band shows along the bottom.
@@ -438,78 +411,43 @@ const styles = StyleSheet.create({
   // Ridden up under the character's hands, so it reads as the thing being held.
   card: {
     marginTop: CARD_LIFT,
-    backgroundColor: homeColors.border, borderRadius: 32, paddingBottom: ledge.raised,
-  },
-  cardFace: {
-    backgroundColor: homeColors.white, borderRadius: 32, padding: 20, gap: 26,
   },
   // The two that came answered, held together as one block under the open one, and
   // closer to each other than either is to it.
-  settings: { gap: 18 },
+  settings: { gap: space[4] },
 
   // A question and the thing it is answered with, kept together.
-  field: { gap: 10 },
-  fieldLead: { gap: 12 },
+  field: { gap: space[2] },
+  fieldLead: { gap: space[3] },
   // Three weights, and they are the three jobs on the page: the question to answer,
   // the answers to pick from, and the questions already answered.
-  label: {
-    fontFamily: 'Geist_600SemiBold', fontSize: 15, lineHeight: 20, color: homeColors.muted,
-  },
-  labelLead: {
-    fontFamily: 'Geist_700Bold', fontSize: 19, lineHeight: 26, color: homeColors.darkest,
-  },
-  input: {
-    minHeight: 56, borderRadius: 18, backgroundColor: homeColors.canvas,
-    justifyContent: 'center', paddingHorizontal: 18,
-  },
-  inputText: {
-    fontFamily: 'Geist_500Medium', fontSize: 17, color: homeColors.darkest,
-    paddingVertical: 15,
-  },
+  label: { ...type.small, fontFamily: 'Geist_600SemiBold', color: colors.faint },
+  labelLead: { ...type.heading, fontFamily: 'Geist_700Bold', color: colors.text },
 
   // One row of five, each taking an equal share of it. Wrapped, the fifth sat alone
   // on a second row, which reads as a mistake rather than as a set. The unit went
   // into the question — "How many cards a day?" — so the chips carry the number
   // alone and fit.
-  chips: { flexDirection: 'row', gap: 8 },
-  chip: {
-    flex: 1, borderRadius: 18, backgroundColor: homeColors.border, paddingBottom: ledge.control,
-  },
-  chipOn: { backgroundColor: homeColors.deep },
-  // The face is canvas, not white: a white face on a white card showed only as its
-  // ledge, which is not enough to read as a thing you can press.
-  chipFace: {
-    borderRadius: 18, backgroundColor: homeColors.canvas,
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 14,
-  },
-  chipFaceOn: { backgroundColor: homeColors.primary },
-  chipNum: { fontFamily: 'Geist_600SemiBold', fontSize: 20, color: homeColors.deep },
-  chipTextOn: { color: homeColors.white },
+  chips: { flexDirection: 'row', gap: space[2] },
+  // The number is the whole chip, so it is set a step up from a chip's own label.
+  chipNum: { ...type.heading },
 
   // Twelve of anything outweighs a field and a row of five however quietly it is
   // asked, so the rows are packed tighter than the chips above them.
-  times: { gap: 7 },
-  timeRow: { flexDirection: 'row', gap: 7 },
-  time: {
-    flex: 1, borderRadius: 16, backgroundColor: homeColors.border, paddingBottom: ledge.control,
-  },
-  timeFace: {
-    borderRadius: 16, backgroundColor: homeColors.canvas,
-    alignItems: 'center', justifyContent: 'center', paddingVertical: 9,
-  },
-  timeText: { fontFamily: 'Geist_500Medium', fontSize: 14, color: homeColors.deep },
+  times: { gap: space[2] },
+  timeRow: { flexDirection: 'row', gap: space[2] },
+  // Twelve of these in a block; they are packed tighter than the row of five above.
+  time: { marginTop: 0 },
 
-  footer: { paddingHorizontal: layout.screenInline, paddingTop: 12 },
+  footer: { paddingHorizontal: layout.screenInline, paddingTop: space[3] },
   lead: {
-    height: 59 + ledge.lead, borderRadius: 42, backgroundColor: homeColors.deep,
+    height: 59 + ledge.lead, borderRadius: radius.pill, backgroundColor: colors.actionShell,
     paddingBottom: ledge.lead,
   },
   leadOff: { opacity: 0.45 },
   leadFace: {
-    flex: 1, borderRadius: 42, backgroundColor: homeColors.primary,
+    flex: 1, borderRadius: radius.pill, backgroundColor: colors.action,
     alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
   },
-  leadText: {
-    fontFamily: 'Geist_500Medium', fontSize: 22, lineHeight: 30, color: homeColors.white,
-  },
+  leadText: { ...type.heading, fontFamily: 'Geist_500Medium', color: colors.surf },
 });
