@@ -12,6 +12,8 @@ import { fonts } from '@/theme';
 const COVER_GLYPH = {
   'book-open': 'book', layers: 'layers', code: 'code',
   briefcase: 'briefcase', star: 'star', zap: 'zap', globe: 'globe',
+  music: 'music', flask: 'flask', palette: 'palette', heart: 'heart',
+  leaf: 'leaf', calculator: 'calculator', clock: 'clock', sparkle: 'sparkle',
 } as const satisfies Record<string, IconName>;
 
 type Props = { id: string; mode?: 'knowledge' | 'language'; coverStyle?: string | null; width: number; height: number; choice?: CoverChoice };

@@ -23,7 +23,7 @@ The user subsequently requested the Today homepage layout from node 33:1146. It 
 Library 57:2036 uses library-chevron.svg, the original 17 × 17 disclosure export from node 57:2066 (also used at 57:2086 and 57:2108). It is separate from the Today disclosure export. Course covers remain intentionally unused.
 
 
-Lesson detail 59:2455 uses the original review-arrow.svg (20.0521 × 19.7, node 59:2494), term-plus.svg (18 × 18, 59:2500), term-search.svg (18 × 18, 59:2504), term-chevron-down.svg (16 × 16, 59:2511) and term-volume.svg (18 × 18, 59:2521). The review arrow keeps its overflowing natural dimensions, centered in the source 18 × 18 slot. Native status/home indicators use the operating system. Course cover artwork remains deferred.
+Lesson detail 59:2455 uses the original review-arrow.svg (20.0521 × 19.7, node 59:2494), term-plus.svg (18 × 18, 59:2500), term-search.svg (18 × 18, 59:2504), term-chevron-down.svg (16 × 16, 59:2511) and the speaking button (components/SpeakingPulse, which replaced term-volume.svg, 59:2521). The review arrow keeps its overflowing natural dimensions, centered in the source 18 × 18 slot. Native status/home indicators use the operating system. Course cover artwork remains deferred.
 
 
 Lesson editor exports: edit-radio-selected.svg (22 × 22, 66:2845), edit-calendar.svg (18 × 18, 66:3282), edit-chevron-down.svg (18 × 18, 66:3285), edit-trash.svg (18 × 18, 66:3288), edit-close.svg (18 × 18, 66:3309), edit-chevron-left.svg (18 × 18, 66:3312), edit-chevron-right.svg (18 × 18, 66:3315). Original SVG roots and contents are retained.

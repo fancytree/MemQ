@@ -27,6 +27,6 @@ function visit(node) {
   ts.forEachChild(node,visit);
 }
 visit(sf);
-assert.equal(count, 27);
+assert.equal(count, 26);
 assert(!source.includes('figma.com/api/mcp/asset'));
 console.log(`${count} original runtime SVG files are non-empty and retain their root dimensions.`);

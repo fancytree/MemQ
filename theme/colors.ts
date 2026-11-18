@@ -182,7 +182,18 @@ export const decorationOpacity = { todayTape: 0.51, peachTape: 0.82, lilacTape: 
 export type ColorToken = keyof typeof colors;
 
 
-/** Preset lesson cover gradients. */
+/**
+ * Preset lesson cover gradients.
+ *
+ * Each is one hue, pale to mid, in the app's own register: a cover is a tile
+ * behind a symbol, not a picture, so the darker stop stays light enough to keep
+ * `colors.sub` legible on it.
+ *
+ * The first six are also the pool a lesson is given one from when nobody has
+ * chosen (see lib/lessonCover.ts). The rest were added later and are offered in
+ * the picker only — a new colour must not quietly repaint shelves of lessons
+ * that were never touched.
+ */
 export const lessonCoverPalettes = [
   { id: 'lime', label: 'Lime', colors: ['#F4FFB5', '#D4EB79'] },
   { id: 'lavender', label: 'Lavender', colors: ['#EDE0FF', '#C9B0F1'] },
@@ -190,4 +201,10 @@ export const lessonCoverPalettes = [
   { id: 'sky', label: 'Sky', colors: ['#DDF4FB', '#A7D8E9'] },
   { id: 'mint', label: 'Mint', colors: ['#DDF7E4', '#A8DFC0'] },
   { id: 'rose', label: 'Rose', colors: ['#FFE2EA', '#EFAFC5'] },
+  { id: 'butter', label: 'Butter', colors: ['#FFF6CC', '#F2DD86'] },
+  { id: 'blue', label: 'Blue', colors: ['#E0E8FF', '#AFC0F0'] },
+  { id: 'teal', label: 'Teal', colors: ['#D6F3EE', '#96D6CA'] },
+  { id: 'plum', label: 'Plum', colors: ['#F7DBEF', '#D9A3CB'] },
+  { id: 'clay', label: 'Clay', colors: ['#FBE4D6', '#DCAB8E'] },
+  { id: 'stone', label: 'Stone', colors: ['#EEEBF3', '#C2BCD1'] },
 ] as const;
