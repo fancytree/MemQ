@@ -409,7 +409,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
             label={startLabel} disabled={lessonsLoading} onPress={startLearning}
             icon={hasCards && !lessonsLoading && !lessonsError ? <View style={styles.playIcon}><HomeAsset name="play" height={16} /></View> : undefined} />
           </Animated.View>
-          {!lessonsLoading && !lessonsError && lessonsCount > 0 && !hasCards && <Button variant="quiet" size="sm" label="Or create a new lesson" onPress={() => router.push('/create')} />}
+          {!lessonsLoading && !lessonsError && lessonsCount > 0 && !hasCards && <Button variant="quiet" size="sm" label="Or start something new" onPress={() => router.push('/create')} />}
         </View>
         <Animated.View style={[styles.stats, entranceStyle(3)]}><View style={styles.statsFace}>
           <View style={styles.stat}><HomeAsset name="time" /><Text style={styles.statValue}>{totalDue ? <><CountUp key={`min${visit}`} value={estimateMinutes} delay={150} style={styles.statValue} />min</> : '—'}</Text><Text style={styles.statLabel}>Estimated</Text></View>

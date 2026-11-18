@@ -6,9 +6,9 @@
 // the answer is phrased another way, or uses a synonym — the app asks here whether
 // the answer *means* the same thing. Nothing is stored; the reply is a yes or a no.
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@6.49.0';
-import { verifyDirectUser } from '../_shared/directSession.ts';
+import { ALLOWANCES, usageOf } from '../_shared/aiGate.ts';
+import { meter, openGate, type Meter } from '../_shared/aiGateStore.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -43,28 +43,24 @@ Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
 
+  let tab: Meter | null = null;
   try {
-    const authorization = req.headers.get('Authorization') || '';
-    const supabaseUrl = Deno.env.get('SUPABASE_URL');
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY');
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
-    if (!supabaseUrl || !supabaseAnonKey) throw new Error('Missing Supabase environment variables');
     if (!openaiApiKey) throw new Error('OPENAI_API_KEY environment variable is not set');
-
-    // Signed-in app sessions only; connected apps reach MemQ through the MCP endpoint.
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authorization } },
-      auth: { autoRefreshToken: false, persistSession: false },
-    });
-    if (!(await verifyDirectUser(authorization, () => supabase.auth.getUser()))) {
-      return json({ error: 'Sign in to check answers.' }, 401);
-    }
 
     const body = await req.json().catch(() => null) as Record<string, unknown> | null;
     const question = text(body?.question, LIMITS.question);
     const expected = text(body?.expected, LIMITS.expected);
     const answer = text(body?.answer, LIMITS.answer);
     if (!question || !expected || !answer) return json({ error: 'question, expected and answer are required, within length limits.' }, 400);
+
+    /* Signed-in app sessions only, and a ceiling on how many a day (aiGate.ts).
+     * It is a ceiling and not a quota: nobody practising meets it. A refusal here
+     * costs the person nothing either — the app keeps the mark it made on the
+     * device, which is what it does whenever this cannot be reached. */
+    const door = await openGate(req, ALLOWANCES.gradeAnswer);
+    if (!door.ok) return door.response;
+    tab = meter(door.admission.gate);
 
     const model = Deno.env.get('OPENAI_MODEL') || 'gpt-6-luna';
     const openai = new OpenAI({ apiKey: openaiApiKey });
@@ -79,13 +75,17 @@ Deno.serve(async (req: Request) => {
       temperature: 0,
     });
 
+    tab.add(model, usageOf(completion.usage));
+
     const raw = completion.choices[0]?.message?.content || '';
     let correct: unknown;
     try { correct = (JSON.parse(raw) as { correct?: unknown }).correct; } catch { correct = undefined; }
     // No verdict is not a "wrong": the app keeps its own mark and lets the person overrule it.
-    if (typeof correct !== 'boolean') return json({ error: 'No verdict' }, 502);
+    if (typeof correct !== 'boolean') { tab.failed(); return json({ error: 'No verdict' }, 502); }
+    tab.done();
     return json({ correct });
   } catch (error) {
+    tab?.failed();
     console.error('Error grading answer:', error);
     return json({ error: 'Internal server error' }, 500);
   }

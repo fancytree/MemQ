@@ -88,9 +88,11 @@ export function forcedTool(mode: ChatMode, intent: 'draft' | null): string | nul
  * The edge function is what enforces these. `lib/aiUsage.ts` in the app shows them,
  * and has to be kept in step by hand; the app cannot import this file.
  */
-export const CHAT_QUOTA: Record<ChatMode, { feature: string; free: number; period: 'month' }> = {
-  create: { feature: 'ai_chat_create', free: 30, period: 'month' },
-  practice: { feature: 'ai_chat', free: 60, period: 'month' },
+export const CHAT_QUOTA: Record<ChatMode, { feature: string; free: number; pro: number; period: 'month' }> = {
+  // `pro` is not a plan limit anyone is sold: it is where one account stops being
+  // a person. Past it the answer is "later", not "upgrade".
+  create: { feature: 'ai_chat_create', free: 30, pro: 1000, period: 'month' },
+  practice: { feature: 'ai_chat', free: 60, pro: 1000, period: 'month' },
 };
 
 /** Which model answers. Create is the only line that leans on model ability, and

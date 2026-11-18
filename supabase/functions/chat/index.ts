@@ -37,7 +37,8 @@ import {
   lookOver, MEMORY_MAX, memoryNote, recentTalk, shouldRemember, type Remembered,
 } from '../_shared/chatMemory.ts';
 import { framing, readAttachments, refusalMessage, type FilePart } from '../_shared/chatFile.ts';
-import { signOwnedPdfReference } from '../_shared/pdfReference.ts';
+import { ownedPdfPath, signOwnedPdfReference } from '../_shared/pdfReference.ts';
+import { internalToken } from '../_shared/aiGate.ts';
 import { encodeEvent, errorStream, SSE_HEADERS, type ChatEvent } from '../_shared/chatStream.ts';
 import { chatToolset } from '../_shared/chatToolset.ts';
 import { MAX_OUTPUT_TOKENS, runTurn, TurnFailed, type ModelEvent } from '../_shared/chatRun.ts';
@@ -173,9 +174,13 @@ Deno.serve(async (req) => {
     return errorStream('daily_budget', 'AI is resting for today. You can still add cards by hand, and it will be back tomorrow.');
   }
   // A failed count must not hand out free capacity, so treat it as spent.
-  const usedCount = used.count ?? quota.free;
-  if (!isPro && usedCount >= quota.free) {
-    return errorStream('quota', 'You have used this month’s AI messages.');
+  const allowed = isPro ? quota.pro : quota.free;
+  const usedCount = used.count ?? allowed;
+  if (usedCount >= allowed) {
+    // Paying lifts the allowance a long way; it does not make an account an API.
+    return errorStream('quota', isPro
+      ? 'That is more than this account can use for now. It will be back next month.'
+      : 'You have used this month’s AI messages.');
   }
 
   const threadId = parsed.body.thread_id ?? crypto.randomUUID();
@@ -198,7 +203,12 @@ Deno.serve(async (req) => {
       if (error) throw new Error('unreadable');
       return { cards: (data ?? []) as Array<{ term: string; definition: string }>, total: count ?? (data ?? []).length };
     },
-    draft: (args) => draftLesson(args, { fetch, functionsUrl: `${supabaseUrl}/functions/v1`, authorization }),
+    draft: (args) => draftLesson(args, {
+      fetch, functionsUrl: `${supabaseUrl}/functions/v1`, authorization,
+      // This turn has already been counted as a chat message. Signed, so the
+      // generator does not also count it as one of their generated lessons.
+      internal: () => (serviceKey ? internalToken(serviceKey, user.id) : Promise.resolve(null)),
+    }),
   });
 
   /* Null when it could not be read. Then nothing is said about them this turn,
@@ -326,6 +336,14 @@ Deno.serve(async (req) => {
            * "remember" or enough messages gone by. `usedCount` is how many they
            * had sent on this line before this one, already counted for the quota,
            * so "every few" costs no query of its own. */
+          /* The files rode on this one message and are not opened again (see
+           * above), so they go now rather than sitting in storage for good. */
+          const spent = attachments
+            .map((file) => ownedPdfPath(file.url, supabaseUrl, user.id, Deno.env.get('SUPABASE_PUBLIC_URL') || undefined))
+            .filter((path): path is string => !!path);
+          if (spent.length && budgetClient) {
+            void Promise.resolve(budgetClient.storage.from('pdfs').remove(spent)).catch(() => {});
+          }
           if (failed || !memories || !shouldRemember(usedCount + 1, message)) return;
           return remember({
             supabase, budgetClient, openai, userId: user.id, mode, model,

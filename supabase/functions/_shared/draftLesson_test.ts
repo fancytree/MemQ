@@ -3,12 +3,13 @@ import { draftLesson, draftLessonInput, generatorFor, PASSAGE_FROM } from './dra
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
 
 function fakeGenerator(body: unknown, ok = true) {
-  const calls: Array<{ url: string; body: Record<string, unknown>; auth: string | null }> = [];
+  const calls: Array<{ url: string; body: Record<string, unknown>; auth: string | null; internal: string | null }> = [];
   const fetcher = (async (url: string | URL | Request, init?: RequestInit) => {
     calls.push({
       url: String(url),
       body: JSON.parse(String(init?.body ?? '{}')),
       auth: new Headers(init?.headers).get('Authorization'),
+      internal: new Headers(init?.headers).get('x-memq-internal'),
     });
     return new Response(JSON.stringify(body), { status: ok ? 200 : 500, headers: { 'Content-Type': 'application/json' } });
   }) as unknown as typeof fetch;
@@ -96,4 +97,26 @@ Deno.test('a subject is written about, and a passage is taken apart', async () =
   const passage = fakeGenerator({ results: [{ term: 'a', definition: 'b' }] });
   await draftLesson({ topic: 'x'.repeat(PASSAGE_FROM + 1), learning_mode: 'knowledge' }, passage.ctx);
   assert(passage.calls[0].body.type === 'text', `a passage should be extracted from, got ${passage.calls[0].body.type}`);
+});
+
+Deno.test('a draft made for chat says so, in a way the generator can check', async () => {
+  const signed = fakeGenerator({ results: [{ term: 'Odin', definition: 'Chief god.' }] });
+  let made = 0;
+  await draftLesson({ topic: 'Norse gods', learning_mode: 'knowledge' }, {
+    ...signed.ctx, internal: () => { made += 1; return Promise.resolve('1700000000000.abc'); },
+  });
+  assert(signed.calls[0].internal === '1700000000000.abc', 'the signature rides on the request');
+  assert(signed.calls[0].auth === 'Bearer token-abc', 'and it is still the person’s own token');
+  assert(made === 1, 'made for this call, because it does not keep');
+
+  // Without one — no service key configured, or the signing failed — the request
+  // still goes, as an ordinary one. Being counted twice is the safe way to be wrong.
+  const plain = fakeGenerator({ results: [{ term: 'Odin', definition: 'Chief god.' }] });
+  await draftLesson({ topic: 'Norse gods', learning_mode: 'knowledge' }, plain.ctx);
+  assert(plain.calls[0].internal === null, 'no header when there is nothing to say');
+  const broken = fakeGenerator({ results: [{ term: 'Odin', definition: 'Chief god.' }] });
+  await draftLesson({ topic: 'Norse gods', learning_mode: 'knowledge' }, {
+    ...broken.ctx, internal: () => Promise.reject(new Error('no key')),
+  });
+  assert(broken.calls[0].internal === null && broken.calls.length === 1, 'a failed signature does not fail the draft');
 });

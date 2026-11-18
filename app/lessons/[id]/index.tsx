@@ -16,6 +16,7 @@ import { SearchField } from '@/components/ui/SearchField';
 import { TapTarget } from '@/components/ui/TapTarget';
 import { isCacheExpired, loadFromCache, saveToCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
+import { callAI } from '@/lib/aiUsage';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { space, colors, layout, radius, type } from '@/theme';
@@ -323,18 +324,12 @@ export default function LessonDetailScreen() {
       }));
 
       // 调用 Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke(
-        lesson?.learning_mode === 'language' ? 'generate-vocab-questions' : 'generate-questions', {
-        body: {
-          lessonId: id,
-          terms: termsList,
-        },
-      });
-
-      if (error) {
-        console.error('Error generating questions:', error);
-        throw new Error(error.message || 'Failed to generate questions');
-      }
+      // Through `callAI`, so that a "no" from the server — there is a ceiling on how
+      // many sets a day — arrives as its own sentence rather than a status code.
+      const data = await callAI<{ success?: boolean; questionsGenerated?: number }>(
+        lesson?.learning_mode === 'language' ? 'generate-vocab-questions' : 'generate-questions',
+        { lessonId: id, terms: termsList }, 'Failed to generate questions',
+      );
 
       if (data && data.success) {
         dialog('Success', `Successfully generated ${data.questionsGenerated || 0} questions!`);

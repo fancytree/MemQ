@@ -4,7 +4,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@4';
 
-import { isDirectAppRequest } from '../_shared/directRequest.ts';
+import { ALLOWANCES, usageOf } from '../_shared/aiGate.ts';
+import { meter, openGate, type Meter } from '../_shared/aiGateStore.ts';
 
 // CORS 响应头
 const corsHeaders = {
@@ -48,12 +49,13 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // What this request has spent, so a failure after the model was paid is still filed.
+  let tab: Meter | null = null;
   try {
-    if (!await isDirectAppRequest(req)) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    // Signed-in app sessions only, counted and limited (see chat-assistant).
+    const door = await openGate(req, ALLOWANCES.legacyExtract);
+    if (!door.ok) return door.response;
+    tab = meter(door.admission.gate);
     // 获取认证信息
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -165,6 +167,8 @@ IMPORTANT RULES:
       response_format: { type: 'json_object' },
     });
 
+    tab.add(openaiModel, usageOf(completion.usage));
+
     const responseContent = completion.choices[0]?.message?.content;
     if (!responseContent) {
       throw new Error('No response from OpenAI');
@@ -218,6 +222,8 @@ IMPORTANT RULES:
       }
     }
 
+    tab.done();
+
     // 返回成功响应
     return new Response(
       JSON.stringify({
@@ -230,6 +236,7 @@ IMPORTANT RULES:
       }
     );
   } catch (error) {
+    tab?.failed();
     console.error('Error in chat-extractor:', error);
     return new Response(
       JSON.stringify({

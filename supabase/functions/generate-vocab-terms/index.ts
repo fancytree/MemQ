@@ -5,7 +5,8 @@
 // @ts-expect-error - Deno supports URL imports, but TypeScript needs type declarations
 import OpenAI from 'https://esm.sh/openai@4';
 
-import { isDirectAppRequest } from '../_shared/directRequest.ts';
+import { ALLOWANCES, usageOf } from '../_shared/aiGate.ts';
+import { meter, openGate, type Meter } from '../_shared/aiGateStore.ts';
 
 // CORS 响应头
 const corsHeaders = {
@@ -16,6 +17,8 @@ const corsHeaders = {
 // 请求体类型定义
 interface GenerateVocabTermsRequest {
   type: 'topic' | 'text';
+  /** 'card' when the app is filling in one card from its term (see generate-terms). */
+  purpose?: 'card';
   content: string;
 }
 
@@ -25,12 +28,9 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // What this request has spent, so a failure after the model was paid is still filed.
+  let tab: Meter | null = null;
   try {
-    if (!await isDirectAppRequest(req)) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
     // 解析请求体
     const body: GenerateVocabTermsRequest = await req.json();
 
@@ -65,6 +65,14 @@ Deno.serve(async (req) => {
       );
     }
 
+    // Who is asking, and whether they have any left — before anything is spent.
+    const single = body.purpose === 'card';
+    const door = await openGate(req, single ? ALLOWANCES.cardFill : ALLOWANCES.lessonGenerate);
+    if (!door.ok) return door.response;
+    tab = meter(door.admission.gate);
+    // A passage, not a book (see generate-terms).
+    const content = body.content.trim().slice(0, 20000);
+
     // 初始化 OpenAI 客户端
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openaiApiKey) {
@@ -86,9 +94,11 @@ Synonyms, antonyms, and collocations are optional arrays. Omit misleading or unn
 For grammar patterns, describe the construction, put a full sentence in example, and leave irrelevant lexical fields empty.
 If no useful cards can be made, return {"results":[]}.`;
 
-    const userPrompt = body.type === 'topic'
-      ? `Create language learning cards for this topic, word, phrase, or grammar pattern: "${body.content}"`
-      : `Extract useful language learning cards from this text:\n\n${body.content}`;
+    const userPrompt = single
+      ? `Create one language learning card for this word, phrase, or grammar pattern: "${content}"\n\nReturn exactly one entry: this item itself.`
+      : body.type === 'topic'
+      ? `Create language learning cards for this topic, word, phrase, or grammar pattern: "${content}"`
+      : `Extract useful language learning cards from this text:\n\n${content}`;
 
     // 调用 OpenAI API
     const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-6-luna';
@@ -102,6 +112,8 @@ If no useful cards can be made, return {"results":[]}.`;
       response_format: { type: 'json_object' },
       temperature: 0.3, // Lower temperature for more consistent, factual output
     });
+
+    tab.add(openaiModel, usageOf(completion.usage));
 
     // 解析 OpenAI 返回的 JSON
     const responseContent = completion.choices[0]?.message?.content;
@@ -163,6 +175,9 @@ If no useful cards can be made, return {"results":[]}.`;
         (item) => item.term.length > 0 && item.definition.length > 0
       );
 
+    // Nothing usable is not a use: the person got nothing for it.
+    if (validatedResults.length) tab.done(); else tab.failed();
+
     // 即使没有提取到 term，也返回 200，只是 results 为空，方便前端做友好提示
     return new Response(
       JSON.stringify({
@@ -180,6 +195,7 @@ If no useful cards can be made, return {"results":[]}.`;
       }
     );
   } catch (error) {
+    tab?.failed();
     console.error('Error generating vocabulary terms:', error);
     return new Response(
       JSON.stringify({

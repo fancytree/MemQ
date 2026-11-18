@@ -67,6 +67,13 @@ export type DraftContext = {
   functionsUrl: string;
   /** The caller's own bearer token: generation runs with their privileges, not ours. */
   authorization: string;
+  /**
+   * Proof to the generator that this is chat asking, so the draft is not counted
+   * a second time as one of the person's generated lessons (aiGate.ts). Made per
+   * call, because it is only good for a few minutes. Absent, the generator treats
+   * this like any other request — which is the safe way to be without it.
+   */
+  internal?: () => Promise<string | null>;
 };
 
 type GeneratedTerm = {
@@ -90,9 +97,13 @@ export async function draftLesson(args: DraftLessonArgs, ctx: DraftContext): Pro
     ? `${args.topic}\n\n(About ${args.card_count} cards.)`
     : args.topic;
 
+  const signed = ctx.internal ? await ctx.internal().catch(() => null) : null;
   const response = await ctx.fetch(`${ctx.functionsUrl}/${generatorFor(mode)}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: ctx.authorization },
+    headers: {
+      'Content-Type': 'application/json', Authorization: ctx.authorization,
+      ...(signed ? { 'x-memq-internal': signed } : {}),
+    },
     body: JSON.stringify({ type: args.topic.length > PASSAGE_FROM ? 'text' : 'topic', content }),
   });
 

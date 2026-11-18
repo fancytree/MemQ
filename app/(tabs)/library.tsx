@@ -291,7 +291,7 @@ export default function LibraryScreen() {
             <FilterMenu label="Filter lessons" options={filterOptions} value={filter} onChange={setFilter} />
             <SearchField label="Search lessons" value={query} onChangeText={setQuery} />
             </View>
-            <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{filter === 'all' ? 'Lessons' : FILTERS.find((item) => item.id === filter)!.label} <Text style={styles.resultCount}>{filteredLessons.length}</Text></Text><Pressable accessibilityRole="button" accessibilityLabel="Create a new lesson" onPress={() => router.push('/create')} style={styles.newLesson}><Icon name="plus" size={18} color={colors.action} /><Text style={styles.newLessonLabel}>New lesson</Text></Pressable></View>
+            <View style={styles.sectionHeading}><Text accessibilityRole="header" style={styles.sectionTitle}>{filter === 'all' ? 'Lessons' : FILTERS.find((item) => item.id === filter)!.label} <Text style={styles.resultCount}>{filteredLessons.length}</Text></Text><Pressable accessibilityRole="button" accessibilityLabel="Make new cards" onPress={() => router.push('/create')} style={styles.newLesson}><Icon name="plus" size={18} color={colors.action} /><Text style={styles.newLessonLabel}>New cards</Text></Pressable></View>
           </View>
         </View>}
         renderItem={({ item, index }) => <LessonCard lesson={item} order={index} visit={visit} />}

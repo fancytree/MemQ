@@ -5,6 +5,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import OpenAI from 'https://esm.sh/openai@6.49.0';
 import { validMcqPool, validTrueFalse } from '../_shared/practiceOptions.ts';
 import { requestPractice } from '../_shared/requestPractice.ts';
+import { ALLOWANCES, usageOf } from '../_shared/aiGate.ts';
+import { meter, openGate, type Meter } from '../_shared/aiGateStore.ts';
 import { checkQuestionAccess, type QuestionAccessClient } from '../_shared/questionAccess.ts';
 
 // CORS 响应头
@@ -29,6 +31,8 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // What this request has spent, so a failure after the model was paid is still filed.
+  let tab: Meter | null = null;
   try {
     // 解析请求体
     const body: GenerateRequest = await req.json();
@@ -82,6 +86,11 @@ Deno.serve(async (req) => {
     // Generate from the verified snapshot, not caller-supplied card text.
     body.terms = access.terms;
     const revisions = new Map(access.terms.map((term) => [term.id, term.content_revision]));
+
+    // After the cards are known to be theirs, and before anything is spent.
+    const door = await openGate(req, ALLOWANCES.questionGenerate);
+    if (!door.ok) return door.response;
+    const spent = tab = meter(door.admission.gate);
 
     // 构建 System Prompt
     const systemPrompt = `You are an expert tutor. Analyze the provided terms and definitions to create the most effective test questions.
@@ -188,7 +197,11 @@ Definition: ${term.definition}`
 
     // 调用 OpenAI API
     const openaiModel = Deno.env.get('OPENAI_MODEL') || 'gpt-6-luna';
-    const questionsData = await requestPractice(openai, openaiModel, systemPrompt, userPrompt, body.terms.map((term) => term.id));
+    const questionsData = await requestPractice(
+      openai, openaiModel, systemPrompt, userPrompt, body.terms.map((term) => term.id),
+      // Every attempt, a repaired batch included.
+      (usage) => spent.add(openaiModel, usageOf(usage)),
+    );
 
     // 验证并构建数据库插入数据
     const insertData = questionsData.questions.map((q) => {
@@ -243,6 +256,7 @@ Definition: ${term.definition}`
       .insert(insertData);
 
     if (insertError) {
+      tab.failed();
       console.error('Database insert error:', insertError);
       return new Response(
         JSON.stringify({
@@ -256,6 +270,8 @@ Definition: ${term.definition}`
       );
     }
 
+    tab.done();
+
     // 返回成功响应
     return new Response(
       JSON.stringify({
@@ -268,6 +284,7 @@ Definition: ${term.definition}`
       }
     );
   } catch (error) {
+    tab?.failed();
     console.error('Error generating questions:', error);
     return new Response(
       JSON.stringify({

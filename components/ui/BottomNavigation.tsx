@@ -104,7 +104,7 @@ export function BottomNavigation({ active, onNavigate }: { active: Destination; 
           )}
           <Item tab selected={active === 'today'} marked={!measured && active === 'today'} label="Today"
             onPress={() => onNavigate('today')}><Icon name="today" color={colors.sub} size={26} /></Item>
-          <Item bare label="Create a new lesson" onPress={() => onNavigate('create')}><HomeAsset name="add" /></Item>
+          <Item bare label="Make new cards" onPress={() => onNavigate('create')}><HomeAsset name="add" /></Item>
           <Item tab selected={active === 'library'} marked={!measured && active === 'library'} label="Library"
             onPress={() => onNavigate('library')}><Icon name="library" color={colors.sub} size={26} /></Item>
         </View>

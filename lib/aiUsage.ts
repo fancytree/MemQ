@@ -1,89 +1,73 @@
 /**
- * AI usage quota helpers.
+ * What is left of the free allowance, and asking an AI function for something.
  *
- * Uses the `ai_usage` table in Supabase to track per-user usage.
- * Free-tier limits are defined here; Pro users are always allowed.
+ * The limits are enforced where the model is called, not here: every AI function
+ * counts and refuses for itself (supabase/functions/_shared/aiGate.ts). This file
+ * used to be the only check there was — the app counted its own requests, wrote
+ * the count itself, and stopped asking when it reached three. Anything that did
+ * not ask through the app was never counted.
  *
- * Table required (run once in Supabase SQL editor):
- *   create table ai_usage (
- *     id         uuid primary key default gen_random_uuid(),
- *     user_id    uuid not null references auth.users(id) on delete cascade,
- *     feature    text not null,
- *     created_at timestamptz not null default now()
- *   );
- *   create index ai_usage_user_feature_idx on ai_usage(user_id, feature, created_at);
- *   alter table ai_usage enable row level security;
- *   create policy "Users can read own usage"   on ai_usage for select using (auth.uid() = user_id);
- *   create policy "Users can insert own usage" on ai_usage for insert with check (auth.uid() = user_id);
+ * What stays here is for the screen: how many are left, so the button can say so
+ * before it is pressed. The numbers below mirror the server's and are only ever
+ * used to draw; if the two disagree the server is right, and its refusal arrives
+ * as an `AIRefused` with a sentence to show.
  */
 
+import { AIRefused, refusalFrom } from '@/lib/aiRefusal';
 import { supabase } from '@/lib/supabase';
 
-export type AIFeature = 'generate_terms' | 'ai_chat';
+export { AIRefused } from '@/lib/aiRefusal';
 
-export const AI_LIMITS: Record<AIFeature, { free: number; period: 'month' | 'day' }> = {
-  generate_terms: { free: 3, period: 'month' },
-  ai_chat:        { free: 10, period: 'day' },
+export type AIFeature = 'lesson_generate' | 'pdf_process';
+
+/** Mirrors ALLOWANCES in supabase/functions/_shared/aiGate.ts. Keep the two in step. */
+export const AI_LIMITS: Record<AIFeature, { free: number; period: 'month' | 'lifetime' }> = {
+  lesson_generate: { free: 5, period: 'month' },
+  pdf_process: { free: 3, period: 'lifetime' },
 };
 
-/** Returns the UTC start of the current period (today or this month). */
-function getPeriodStart(period: 'month' | 'day'): Date {
-  const d = new Date();
-  if (period === 'month') {
-    d.setUTCDate(1);
-  }
-  d.setUTCHours(0, 0, 0, 0);
-  return d;
+/** The UTC start of the window a limit is counted over, or null for "ever". */
+function periodStart(period: 'month' | 'lifetime'): Date | null {
+  if (period === 'lifetime') return null;
+  const now = new Date();
+  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
 }
 
-/** How many times has `userId` used `feature` in the current period? */
+/** How many times this person has used `feature` in the current window. The rows
+ *  are written by the server when a request succeeds; this only reads them. */
 export async function getAIUsageCount(feature: AIFeature, userId: string): Promise<number> {
-  const since = getPeriodStart(AI_LIMITS[feature].period);
-  const { count, error } = await supabase
+  const since = periodStart(AI_LIMITS[feature].period);
+  let query = supabase
     .from('ai_usage')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', userId)
-    .eq('feature', feature)
-    .gte('created_at', since.toISOString());
-  if (error) return 0; // fail open — don't block the user on a query error
+    .eq('feature', feature);
+  if (since) query = query.gte('created_at', since.toISOString());
+  const { count, error } = await query;
+  // Unknown is shown as none used: the button stays live and the server decides.
+  if (error) return 0;
   return count ?? 0;
 }
 
-/** 写入一条使用记录；在 AI 请求成功后再调用。返回 false 表示写入失败（可配合本地计数回滚）。 */
-export async function recordAIUsage(feature: AIFeature, userId: string): Promise<boolean> {
-  const { error } = await supabase.from('ai_usage').insert({ user_id: userId, feature });
-  if (error) {
-    console.warn('[aiUsage] Failed to record usage:', error.message);
-    return false;
-  }
-  return true;
-}
-
-export interface QuotaResult {
-  allowed: boolean;
-  used: number;
-  limit: number;
-  remaining: number;
-}
-
 /**
- * Check if the user is allowed to make one more AI call.
- * Pro users always get `allowed: true` without hitting the DB.
+ * Ask an AI function for something.
+ *
+ * Throws `AIRefused` when the server said no for a reason the person should be
+ * told in its own words, and a plain Error otherwise.
  */
-export async function checkAIQuota(
-  feature: AIFeature,
-  userId: string,
-  isPro: boolean,
-): Promise<QuotaResult> {
-  if (isPro) {
-    return { allowed: true, used: 0, limit: Infinity, remaining: Infinity };
+export async function callAI<T = Record<string, unknown>>(name: string, body: unknown, fallback: string): Promise<T> {
+  const { data, error } = await supabase.functions.invoke(name, { body: body as Record<string, unknown> });
+  if (!error) return data as T;
+
+  // A refusal comes back as a non-2xx reply; its body is on the error's context.
+  const context = (error as { context?: unknown }).context;
+  if (context && typeof (context as Response).json === 'function') {
+    let reply: unknown = null;
+    try { reply = await (context as Response).clone().json(); } catch { /* not JSON: an ordinary failure */ }
+    const refused = refusalFrom(reply);
+    if (refused) throw refused;
+    const said = reply && typeof reply === 'object' ? (reply as Record<string, unknown>).message : null;
+    if (typeof said === 'string' && said.trim()) throw new Error(said.trim());
   }
-  const limit = AI_LIMITS[feature].free;
-  const used = await getAIUsageCount(feature, userId);
-  return {
-    allowed: used < limit,
-    used,
-    limit,
-    remaining: Math.max(0, limit - used),
-  };
+  throw new Error(fallback);
 }
