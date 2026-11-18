@@ -6,6 +6,9 @@ import {
   admit, ALLOWANCES, CHAT_DRAFT_FEATURE, decide, internalToken, isInternalCall, periodStart, usageOf, addUsage, NO_USAGE,
   type GateStore,
 } from './aiGate.ts';
+import {
+  CREDIT_COST, CREDIT_FEATURES, CREDIT_LIMIT, creditPeriodStart, creditReset, creditsSpent, creditVerdict,
+} from './aiCredits.ts';
 import { DEFAULT_CEILING_MICROS } from './chatCost.ts';
 
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
@@ -31,18 +34,21 @@ function fake(over: Partial<{ user: string | null; pro: boolean; used: number | 
   return { store, rows, spend, asked };
 }
 
-Deno.test('the free tier is the one that was agreed', () => {
+Deno.test('what a person asks for is paid in credits, what the app does itself has a ceiling', () => {
   const a = ALLOWANCES;
-  assert(a.lessonGenerate.free.limit === 5 && a.lessonGenerate.free.period === 'month', 'five generated lessons a month');
-  assert(a.pdfProcess.free.limit === 3 && a.pdfProcess.free.period === 'lifetime', 'three PDFs, ever');
-  assert(a.gradeAnswer.free.limit === 200 && a.gradeAnswer.free.period === 'day', 'marking has a ceiling, not a quota');
-  assert(a.questionGenerate.free.period === 'day' && a.cardFill.free.period === 'day', 'everyday things are counted by the day');
-  // Paying raises every limit and removes none: an account is not an API.
-  for (const one of Object.values(a)) {
-    assert(Number.isFinite(one.pro.limit) && one.pro.limit > one.free.limit, `${one.feature} must stay bounded for Pro`);
-    assert(one.refusal.length > 20 && !/quota|limit exceeded/i.test(one.refusal), `${one.feature} must say something a person can act on`);
+  // Asked for: a set of cards, one card, a PDF. Costs come from the one table.
+  for (const asked of [a.lessonGenerate, a.cardFill, a.pdfProcess]) {
+    assert('credits' in asked && asked.credits === CREDIT_COST[asked.feature], `${asked.feature} costs what the table says`);
   }
-  assert(new Set(Object.values(a).map((one) => one.feature)).size === Object.keys(a).length, 'each is counted on its own');
+  assert(a.lessonGenerate.credits === 3 && a.cardFill.credits === 1 && a.pdfProcess.credits === 10, 'three, one and ten');
+  // Done by the app while someone practises: never on the allowance they see.
+  for (const own of [a.questionGenerate, a.gradeAnswer, a.legacyChat, a.legacyExtract]) {
+    assert(!('credits' in own) && own.free.period === 'day', `${own.feature} has a daily ceiling of its own`);
+    // Paying raises every limit and removes none: an account is not an API.
+    assert(Number.isFinite(own.pro.limit) && own.pro.limit > own.free.limit, `${own.feature} is bounded for Pro too`);
+    assert(!(own.feature in CREDIT_COST), `${own.feature} costs no credits`);
+  }
+  assert(a.gradeAnswer.free.limit === 200 && a.questionGenerate.free.limit === 20, 'the ceilings that were agreed');
 });
 
 Deno.test('windows are counted in UTC', () => {
@@ -52,16 +58,49 @@ Deno.test('windows are counted in UTC', () => {
   assert(periodStart('lifetime', now) === null, 'ever has no start');
 });
 
-Deno.test('one more is allowed below the limit and refused at it', () => {
-  const base = { allowance: ALLOWANCES.lessonGenerate, isPro: false, spentMicros: 0, ceilingMicros: DEFAULT_CEILING_MICROS };
-  assert(decide({ ...base, used: 4 }).allowed, 'the fifth is allowed');
-  const full = decide({ ...base, used: 5 });
-  assert(!full.allowed && full.code === 'quota' && full.limit === 5 && full.period === 'month', JSON.stringify(full));
-  assert(!full.allowed && full.message === ALLOWANCES.lessonGenerate.refusal, 'told what they can still do');
-  // Paying moves the limit; it does not remove it.
-  assert(decide({ ...base, isPro: true, used: 5 }).allowed, 'Pro is past the free limit');
-  const proFull = decide({ ...base, isPro: true, used: 300 });
-  assert(!proFull.allowed && proFull.code === 'quota' && !/free/i.test(proFull.message), JSON.stringify(proFull));
+Deno.test('a ceiling allows one more below the limit and refuses at it', () => {
+  const base = { allowance: ALLOWANCES.questionGenerate, isPro: false, spentMicros: 0, ceilingMicros: DEFAULT_CEILING_MICROS };
+  assert(decide({ ...base, used: 19 }).allowed, 'the twentieth is allowed');
+  const full = decide({ ...base, used: 20 });
+  assert(!full.allowed && full.code === 'quota' && full.limit === 20 && full.period === 'day', JSON.stringify(full));
+  assert(!full.allowed && full.message === ALLOWANCES.questionGenerate.refusal, 'told what they can still do');
+  assert(decide({ ...base, isPro: true, used: 20 }).allowed, 'Pro is past the free limit');
+  const proFull = decide({ ...base, isPro: true, used: 200 });
+  assert(!proFull.allowed && proFull.message !== ALLOWANCES.questionGenerate.refusal, 'a paying account is not offered an upgrade');
+});
+
+Deno.test('credits: it has to fit in what is left of the month', () => {
+  const base = { isPro: false, spentMicros: 0, ceilingMicros: DEFAULT_CEILING_MICROS, now: new Date('2026-11-18T10:00:00Z') };
+  // Fifty a month. A set of cards takes three.
+  assert(decide({ ...base, allowance: ALLOWANCES.lessonGenerate, used: 47 }).allowed, 'three left is enough for three');
+  const short = decide({ ...base, allowance: ALLOWANCES.lessonGenerate, used: 48 });
+  assert(!short.allowed && short.code === 'quota' && short.limit === 50 && short.used === 48 && short.left === 2 && short.cost === 3, JSON.stringify(short));
+  assert(!short.allowed && short.period === 'month' && short.resets === '2026-12-01T00:00:00.000Z', 'says when it comes back');
+  assert(!short.allowed && /takes 3 AI credits and you have 2 left/.test(short.message), short.allowed ? '' : short.message);
+  // One left still buys a card or a message, not a PDF.
+  assert(decide({ ...base, allowance: ALLOWANCES.cardFill, used: 49 }).allowed, 'one left is enough for one');
+  assert(!decide({ ...base, allowance: ALLOWANCES.pdfProcess, used: 41 }).allowed, 'nine left is not enough for ten');
+  const none = decide({ ...base, allowance: ALLOWANCES.cardFill, used: 50 });
+  assert(!none.allowed && none.left === 0 && /own AI is always free/.test(none.message), JSON.stringify(none));
+  // Pro: two thousand, and nothing to sell at the end of them.
+  assert(decide({ ...base, isPro: true, allowance: ALLOWANCES.pdfProcess, used: 1990 }).allowed, 'Pro has two thousand');
+  const proOut = decide({ ...base, isPro: true, allowance: ALLOWANCES.cardFill, used: 2000 });
+  assert(!proOut.allowed && !/own AI|Pro/.test(proOut.message), JSON.stringify(proOut));
+  // A count that could not be read is everything spent.
+  assert(!decide({ ...base, allowance: ALLOWANCES.cardFill, used: null }).allowed, 'unknown is not free');
+});
+
+Deno.test('credits spent are every kind of use, each at its price', () => {
+  assert(creditsSpent({ ai_chat_create: 4, ai_chat: 6, card_fill: 5, lesson_generate: 3, pdf_process: 1 }) === 4 + 6 + 5 + 9 + 10, 'weighted');
+  assert(creditsSpent({ ai_chat_create: 0, ai_chat: 0, card_fill: 0, lesson_generate: 0, pdf_process: 0 }) === 0, 'nothing used');
+  assert(creditsSpent({ ai_chat_create: 1, ai_chat: 1, card_fill: 1, lesson_generate: 1 }) === null, 'a missing count is unknown');
+  assert(creditsSpent({ ai_chat_create: 1, ai_chat: null, card_fill: 1, lesson_generate: 1, pdf_process: 1 }) === null, 'a failed count is unknown');
+  assert(CREDIT_FEATURES.length === 5 && CREDIT_LIMIT.free === 50 && CREDIT_LIMIT.pro === 2000, 'the allowance that was agreed');
+  assert(creditPeriodStart(new Date('2026-11-18T23:59:59Z')) === '2026-11-01T00:00:00.000Z', 'from the first, in UTC');
+  assert(creditReset(new Date('2026-12-31T23:59:59Z')) === '2027-01-01T00:00:00.000Z', 'back on the first, across a year');
+  const left = creditVerdict({ isPro: false, spent: 12, cost: 1 });
+  assert(left.allowed && left.left === 38 && left.used === 12 && left.limit === 50, JSON.stringify(left));
+  assert(creditVerdict({ isPro: false, spent: 999, cost: 1 }).left === 0, 'never less than none left');
 });
 
 Deno.test('a count that could not be read is treated as used up', () => {
@@ -71,6 +110,8 @@ Deno.test('a count that could not be read is treated as used up', () => {
 
 Deno.test('the day’s ceiling outranks the allowance, and paying callers pass it', () => {
   const spent = { allowance: ALLOWANCES.lessonGenerate, used: 0, spentMicros: DEFAULT_CEILING_MICROS, ceilingMicros: DEFAULT_CEILING_MICROS };
+  // The same for something with a ceiling of its own.
+  assert(!decide({ ...spent, allowance: ALLOWANCES.gradeAnswer, isPro: false }).allowed, 'the ceiling stops marking too');
   const free = decide({ ...spent, isPro: false });
   assert(!free.allowed && free.code === 'daily_budget', JSON.stringify(free));
   assert(decide({ ...spent, isPro: true }).allowed, 'paying callers are why there is a budget');
@@ -86,20 +127,31 @@ Deno.test('only a signed-in app session gets in', async () => {
 });
 
 Deno.test('a refusal carries what the app needs to explain it', async () => {
+  // Three of everything this month: 3 + 3 + 3 + 9 + 30 = 48 of the fifty spent.
   const world = fake({ used: 3 });
-  const refused = await admit({ store: world.store, allowance: ALLOWANCES.pdfProcess, authorization: SESSION });
+  const now = new Date('2026-11-18T10:00:00Z');
+  const refused = await admit({ store: world.store, allowance: ALLOWANCES.pdfProcess, authorization: SESSION, now });
   assert(!refused.ok && refused.status === 429, 'refused, and not as a server error');
-  assert(!refused.ok && refused.body.code === 'quota' && refused.body.limit === 3 && refused.body.period === 'lifetime', JSON.stringify(!refused.ok && refused.body));
-  // Counted over the right window: ever, for a PDF.
-  assert(world.asked[0].feature === 'pdf_process' && world.asked[0].since === null, JSON.stringify(world.asked));
+  const body = !refused.ok ? refused.body : {};
+  assert(body.code === 'quota' && body.limit === 50 && body.used === 48 && body.left === 2 && body.cost === 10, JSON.stringify(body));
+  assert(body.period === 'month' && body.resets === '2026-12-01T00:00:00.000Z' && typeof body.message === 'string', JSON.stringify(body));
+  // Every kind of use was counted, each from the first of the month.
+  assert(world.asked.length === 5 && world.asked.every((ask) => ask.since === '2026-11-01T00:00:00.000Z'), JSON.stringify(world.asked));
+  assert(['ai_chat_create', 'ai_chat', 'card_fill', 'lesson_generate', 'pdf_process'].every((f) => world.asked.some((ask) => ask.feature === f)), 'all five');
+  // The same person can still do the cheap thing with what is left.
+  assert((await admit({ store: fake({ used: 3 }).store, allowance: ALLOWANCES.cardFill, authorization: SESSION, now })).ok, 'two left buys a card');
 });
 
-Deno.test('Pro is counted over its own window', async () => {
-  const world = fake({ pro: true, used: 10 });
+Deno.test('a ceiling is counted on its own, over its own window', async () => {
+  const world = fake({ used: 10 });
   const now = new Date('2026-11-18T10:00:00Z');
-  const let_in = await admit({ store: world.store, allowance: ALLOWANCES.pdfProcess, authorization: SESSION, now });
-  assert(let_in.ok && let_in.gate.isPro, 'ten PDFs is fine for Pro');
-  assert(world.asked[0].since === '2026-11-01T00:00:00.000Z', 'a month for Pro, where free is ever');
+  const let_in = await admit({ store: world.store, allowance: ALLOWANCES.gradeAnswer, authorization: SESSION, now });
+  assert(let_in.ok, 'ten answers marked today is nowhere near two hundred');
+  assert(world.asked.length === 1 && world.asked[0].feature === 'grade_answer' && world.asked[0].since === '2026-11-18T00:00:00.000Z', JSON.stringify(world.asked));
+  // Pro spends from two thousand: ten of everything is 160.
+  const pro = fake({ pro: true, used: 10 });
+  const paid = await admit({ store: pro.store, allowance: ALLOWANCES.pdfProcess, authorization: SESSION, now });
+  assert(paid.ok && paid.gate.isPro, 'well inside what Pro has');
 });
 
 Deno.test('a use is filed once, with what it cost', async () => {

@@ -6,7 +6,9 @@ import { space, radius, type } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { IconButton } from '@/components/ui/IconButton';
+import { creditGuide } from '@/lib/aiCredits';
 import { dialog } from '@/lib/dialog';
+import { useCredits } from '@/lib/useCredits';
 import { mcpEnabled } from '@/lib/mcp';
 import { layout } from '@/theme/spacing';
 import { Sheet } from '@/components/ui/Sheet';
@@ -74,6 +76,7 @@ const getImagePicker = (): ImagePickerModule | null => {
 export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const navigation = useNavigation();
   const { isPro, showPaywall } = useSubscription();
+  const { credits } = useCredits();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
@@ -750,6 +753,27 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
             <Text style={styles.premiumTitle}>Unlock Your Full Potential</Text>
             <Button size="sm" width="hug" label="Start Free Trial" onPress={showPaywall} />
           </Card>
+        )}
+
+        {/* What is left of the month's AI credits (lib/aiCredits.ts), and what
+            they are for anyone who taps to ask. Here because this is where a
+            person goes to see what their account has; the create screen shows
+            the same number where it is spent. */}
+        {credits && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>AI</Text>
+            <Card pad="none" gap={0} faceStyle={styles.menuRows}>
+              <MenuItem
+                icon="sparkle"
+                iconColor={t.color.muted}
+                iconBgColor={t.color.bg}
+                title="AI credits"
+                value={`${credits.left.toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} left · resets ${credits.resets}`}
+                onPress={() => dialog('AI credits', creditGuide(credits))}
+                showDivider={false}
+              />
+            </Card>
+          </View>
         )}
 
         {/* PERSONAL INFO Section */}

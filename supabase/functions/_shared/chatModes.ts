@@ -77,22 +77,17 @@ export function forcedTool(mode: ChatMode, intent: 'draft' | null): string | nul
 }
 
 /**
- * What one message on this line costs the caller.
+ * What a message on each line is filed under.
  *
- * Two pools rather than one, because a create message is worth about twenty
- * practice messages (§9.3): putting them together would make the cheap line
- * vouch for the dear one. Monthly rather than daily — a daily allowance has a
- * monthly ceiling thirty times its size, and letting someone spend it all on the
- * day they need it reads better anyway (§9.4).
- *
- * The edge function is what enforces these. `lib/aiUsage.ts` in the app shows them,
- * and has to be kept in step by hand; the app cannot import this file.
+ * Each line used to have a quota of its own here — thirty create messages a
+ * month, sixty practice ones. They are paid for now out of the one monthly
+ * allowance everything a person asks for comes from (aiCredits.ts), a credit a
+ * message on either line. The two names are kept apart because what each line
+ * costs us is not the same, and the usage table is how that is watched.
  */
-export const CHAT_QUOTA: Record<ChatMode, { feature: string; free: number; pro: number; period: 'month' }> = {
-  // `pro` is not a plan limit anyone is sold: it is where one account stops being
-  // a person. Past it the answer is "later", not "upgrade".
-  create: { feature: 'ai_chat_create', free: 30, pro: 1000, period: 'month' },
-  practice: { feature: 'ai_chat', free: 60, pro: 1000, period: 'month' },
+export const CHAT_QUOTA: Record<ChatMode, { feature: string }> = {
+  create: { feature: 'ai_chat_create' },
+  practice: { feature: 'ai_chat' },
 };
 
 /** Which model answers. Create is the only line that leans on model ability, and

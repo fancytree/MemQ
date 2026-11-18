@@ -29,6 +29,9 @@ import { createClient, type SupabaseClient } from 'npm:@supabase/supabase-js@^2'
 import OpenAI from 'https://esm.sh/openai@6.49.0';
 import { isDirectUserSession } from '../_shared/directSession.ts';
 import { budgetVerdict, ceilingMicros, costMicros, type TokenUsage } from '../_shared/chatCost.ts';
+import {
+  CREDIT_COST, CREDIT_FEATURES, creditPeriodStart, creditRefusal, creditsSpent, creditVerdict,
+} from '../_shared/aiCredits.ts';
 import { CHAT_QUOTA, forcedTool, modelFor, SYSTEM_PROMPTS, type ChatMode } from '../_shared/chatModes.ts';
 import { contextNote, readRequest } from '../_shared/chatRequest.ts';
 import { LESSONS_IN_CONTEXT, shelfNote, shelve } from '../_shared/chatLessons.ts';
@@ -100,10 +103,6 @@ async function countInputTokens(key: string, model: string, part: FilePart): Pro
   return counted;
 }
 
-function startOfMonthUtc(): string {
-  const now = new Date();
-  return new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString();
-}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
@@ -145,8 +144,13 @@ Deno.serve(async (req) => {
   const [profile, spend, used, history, lessons, remembered, fingerprint] = await Promise.all([
     supabase.from('profiles').select('is_pro').eq('id', user.id).maybeSingle(),
     budgetClient ? budgetClient.rpc('ai_budget_today') : Promise.resolve({ data: 0, error: null }),
-    supabase.from('ai_usage').select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id).eq('feature', quota.feature).gte('created_at', startOfMonthUtc()),
+    /* What they have spent of the month's AI credits. A message costs one, out of
+     * the same allowance as generating cards or reading a PDF (aiCredits.ts), so
+     * every kind of use is counted, not only this line's messages. */
+    Promise.all(CREDIT_FEATURES.map((feature) =>
+      supabase.from('ai_usage').select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id).eq('feature', feature).gte('created_at', creditPeriodStart())
+        .then(({ count, error }) => (error || typeof count !== 'number' ? null : count)))),
     parsed.body.thread_id
       ? supabase.from('chat_messages').select('id, role, content')
           .eq('thread_id', parsed.body.thread_id).eq('user_id', user.id)
@@ -173,15 +177,16 @@ Deno.serve(async (req) => {
   if (!verdict.allowed) {
     return errorStream('daily_budget', 'AI is resting for today. You can still add cards by hand, and it will be back tomorrow.');
   }
-  // A failed count must not hand out free capacity, so treat it as spent.
-  const allowed = isPro ? quota.pro : quota.free;
-  const usedCount = used.count ?? allowed;
-  if (usedCount >= allowed) {
-    // Paying lifts the allowance a long way; it does not make an account an API.
-    return errorStream('quota', isPro
-      ? 'That is more than this account can use for now. It will be back next month.'
-      : 'You have used this month’s AI messages.');
-  }
+  // A count that could not be read comes back as null and is treated as spent:
+  // a failed query must not hand out free capacity.
+  const credits = creditVerdict({
+    isPro, cost: CREDIT_COST[quota.feature] ?? 1,
+    spent: creditsSpent(Object.fromEntries(CREDIT_FEATURES.map((feature, at) => [feature, used[at]]))),
+  });
+  if (!credits.allowed) return errorStream('quota', creditRefusal(credits, isPro));
+  /** How many messages they have sent on this line this month. Not for the
+   *  allowance — that is credits, above — but for how often memory is looked over. */
+  const usedCount = used[CREDIT_FEATURES.indexOf(quota.feature)] ?? 0;
 
   const threadId = parsed.body.thread_id ?? crypto.randomUUID();
   const model = modelFor(mode, (name) => Deno.env.get(name));
