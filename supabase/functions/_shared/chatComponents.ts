@@ -109,10 +109,15 @@ export const CHAT_COMPONENTS = {
   },
   start_practice: {
     title: 'Offer to start practising',
-    description: 'Offer a button that starts a practice round. Use it when the person is ready to practise rather than describing how to get there. Give lesson_id to practise one lesson, or omit it for everything due today.',
+    description: 'A button that starts a practice round and says which one.',
+    /* No label from the model. The button used to take one, and a button whose
+     * words are free text can promise anything; what it starts has to be legible
+     * before it is pressed. So it carries the lesson, resolved on the server from
+     * the person's own list, and the app writes the words: "Practise <lesson>", or
+     * the round of everything due today when there is no lesson. */
     props: z.object({
       lesson_id: z.uuid().optional(),
-      label: z.string().trim().min(1).max(40).optional().describe('What the button says, in the person’s language. Defaults to the app’s own wording.'),
+      lesson_name: z.string().trim().min(1).max(160).optional(),
     }).strict(),
   },
 } as const;

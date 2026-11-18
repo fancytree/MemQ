@@ -14,18 +14,45 @@
 
 import { fetch as streamingFetch } from 'expo/fetch';
 import { createEventParser, type ChatEvent } from '@/lib/chatEvents';
+import { clearThreads, type ChatLine } from '@/lib/chatThread';
 import { functionsUrl, publishableKey, supabase } from '@/lib/supabase';
 
 export type ChatAsk = {
   mode: 'create' | 'practice';
   message: string;
   threadId?: string | null;
+  /** Where the files are, riding on this one message. The function fetches and
+   *  reads them. Not kept for the next one: a document re-sent every turn would be
+   *  paid for every turn, and by then the answer already says what was in it. */
+  attachments?: { name: string; url: string }[];
   context?: {
     lesson_id?: string;
     card_id?: string;
     question?: { text?: string; your_answer?: string; correct_answer?: string };
   };
+  /** The same question again, in place of the answer it got. The function drops
+   *  that exchange from its record before answering. */
+  retry?: boolean;
+  /** A button with one meaning was pressed, so the turn need not guess it. */
+  intent?: 'draft';
 };
+
+/**
+ * Something gone wrong that is already written for the person.
+ *
+ * The screen shows the message of one of these and never of any other error. A
+ * transport failure throws its own sentence — "fetch failed: UnexpectedException:
+ * The network connection was lost. (at ExpoModulesCore/Promise.swift:56)" — and
+ * putting that in a chat bubble tells someone who came to learn Italian that the
+ * app is broken in a way they cannot act on. Same reasoning as the gateway status
+ * below: the detail goes to the console, the sentence goes on the screen.
+ */
+export class ChatError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'ChatError';
+  }
+}
 
 /** Raw text chunks, in whatever pieces they arrive in. */
 export type ChatSource = (ask: ChatAsk, signal: AbortSignal) => Promise<AsyncIterable<string>>;
@@ -35,7 +62,7 @@ export const liveSource: ChatSource = async (ask, signal) => {
   // Reads the stored session rather than asking the network, so this does not put a
   // round trip in front of the first token — the old assistant had three of them.
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('Not signed in.');
+  if (!session?.access_token) throw new ChatError('Sign in to use chat.');
 
   const response = await streamingFetch(`${functionsUrl}/chat`, {
     method: 'POST',
@@ -50,14 +77,26 @@ export const liveSource: ChatSource = async (ask, signal) => {
       message: ask.message,
       thread_id: ask.threadId ?? null,
       ...(ask.context ? { context: ask.context } : {}),
+      ...(ask.attachments?.length
+        ? { attachments: ask.attachments.map(({ name, url }) => ({ name, url })) }
+        : {}),
+      ...(ask.retry ? { retry: true } : {}),
+      ...(ask.intent ? { intent: ask.intent } : {}),
     }),
     signal,
   });
 
-  // The function answers refusals as a one-event stream, so a non-2xx here is a
-  // gateway problem rather than something the person did.
+  /* The function answers refusals as a one-event stream, so a non-2xx here is a
+   * gateway problem rather than something the person did — which is why the
+   * message says nothing about what they should fix.
+   *
+   * The status goes to the console and not to the screen. A number like 404 means
+   * something to whoever deployed this and nothing at all to someone who came to
+   * learn a language; on the page it reads as the app being broken rather than as
+   * a sentence. */
   if (!response.ok || !response.body) {
-    throw new Error(`Chat is unavailable (${response.status}).`);
+    console.warn('chat gateway', response.status);
+    throw new ChatError('Chat could not be reached. Try again in a moment.');
   }
   return readChunks(response.body);
 };
@@ -108,4 +147,18 @@ export function scriptedSource(chunks: string[], gapMs = 40): ChatSource {
       yield chunk;
     }
   })();
+}
+
+/**
+ * Throw away the conversation on one line.
+ *
+ * It is kept until this is called, so this has to really remove it: a screen
+ * that only emptied itself would open on the same conversation next time. False
+ * when it could not be removed, so the screen can say so instead of pretending.
+ */
+export async function clearConversation(line: ChatLine): Promise<boolean> {
+  const { data: { session } } = await supabase.auth.getSession();
+  // Nobody signed in has nothing kept; there is nothing to fail at.
+  if (!session?.user.id) return true;
+  return clearThreads(supabase, session.user.id, line);
 }

@@ -72,7 +72,7 @@ const SCENARIOS: Record<string, { label: string; note: string; source: ChatSourc
       ...prose('I’ll check your lessons for a good fit, then draft about five Italian ordering cards.'),
       frame({ type: 'status', status: 'drafting' }),
       ...prose('\n\nThese go with your Italian basics lesson.'),
-      frame({ type: 'component', name: 'start_practice', props: { label: 'Practise these' } }),
+      frame({ type: 'component', name: 'start_practice', props: { lesson_id: '11111111-1111-4111-8111-111111111111', lesson_name: 'Norse gods' } }),
       frame({ type: 'done', thread_id: 'lab-thread-1' }),
     ]), 55),
   },
@@ -183,7 +183,7 @@ function ChatLabScreen() {
         mode="create"
         source={picked.source}
         opening="Ask for anything — this lab replays a scripted answer."
-        placeholder="Type anything; the answer is scripted"
+        placeholder="Type anything"
         renderComponent={({ name, props }) => {
           if (name === 'show_card_drafts') return <CardDrafts raw={props} />;
           if (name === 'start_practice') {

@@ -1,17 +1,18 @@
-import { componentTokens } from '@/theme';
+import { componentTokens, hairline } from '@/theme';
 import { layout, space, radius } from '@/theme/spacing';
 import { LessonCover } from '@/components/LessonCover';
 import LoadingScreen from '@/components/LoadingScreen';
-import { colors } from '@/theme/colors';
+import { colors, lessonCoverPalettes } from '@/theme/colors';
 import { fonts, oneLine, type } from '@/theme/typography';
 import { Sheet } from '@/components/ui/Sheet';
 import { HomeAsset } from '@/components/HomeAsset';
+import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
 import { MascotRig, type MascotMood } from '@/components/mascot/rig/MascotRig';
 import { loadFromCache, saveToCache } from '@/lib/cache';
 import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
-import { deadlineLeft, planToday } from '@/lib/studyPlan';
+import { deadlineLeft, estimateMinutes as minutesFor, planToday } from '@/lib/studyPlan';
 import { buildLatestProgressMap } from '@/lib/termProgress';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect, useIsFocused } from 'expo-router';
@@ -95,8 +96,6 @@ function GoalRing({ done, goal }: { done: number; goal: number }) {
 }
 const RingArc = Reanimated.createAnimatedComponent(Circle);
 
-/** Implementation extension: the reference frame reads 23min for 37 due cards. */
-const SECONDS_PER_CARD = 37;
 
 /** Today: live learning data in the Figma home composition; course artwork is deferred. */
 export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
@@ -141,7 +140,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
     if (arrived.current.lessons && arrived.current.user) setReady(true);
   }, []);
   // The hero's three lines, then the stats card and the lessons card under them.
-  const heroEntrance = useRef(Array.from({ length: 5 }, () => new Animated.Value(0))).current;
+  const heroEntrance = useRef(Array.from({ length: 6 }, () => new Animated.Value(0))).current;
   /** Counts each time Today comes to the front once it is ready. The numbers and
    * progress bars are keyed by it, so they count and fill again on every arrival
    * rather than only the first. */
@@ -202,7 +201,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
     }
     router.push('/quiz?entry=home');
   };
-  const estimateMinutes = Math.max(1, Math.round((totalDue * SECONDS_PER_CARD) / 60));
+  const estimateMinutes = minutesFor(totalDue);
   const initial = Array.from(username)[0]?.toUpperCase() || 'U';
 
   const loadUserName = useCallback(async () => {
@@ -417,7 +416,62 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
           <View style={styles.stat}><View style={styles.chartIcon}><View style={[styles.bar, { height: 11, opacity: 0.5 }]} /><View style={[styles.bar, { height: 17 }]} /><View style={[styles.bar, { height: 23, opacity: 0.65 }]} /></View><Text style={styles.statValue}>{mastery === null ? '—' : <><CountUp key={`mastery${visit}`} value={mastery} delay={220} style={styles.statValue} />%</>}</Text><Text style={styles.statLabel}>Mastery</Text></View>
           <View style={styles.stat}><View style={styles.goalIcon}><GoalRing key={`ring${visit}`} done={reviewedToday} goal={dailyGoalCards} /></View><Text style={styles.statValue}><CountUp key={`done${visit}`} value={reviewedToday} delay={290} style={styles.statValue} />/{dailyGoalCards}</Text><Text style={styles.statLabel}>Today’s goal</Text></View>
         </View></Animated.View>
-        <Animated.View style={[styles.courses, entranceStyle(4)]}><View style={styles.coursesFace}>
+        {/* Only once there is something to ask about. A standing entry above a
+            screen with no cards in it would be an invitation to nothing, and it
+            would be competing with the hero's own button for attention. */}
+        {/* Two cards, not one with a rule down it: they are two different things
+            and they say so. Separate all the way in, too — they are not one entry
+            that works out which you meant. The allowance is charged before the
+            model runs and the two cost about twenty times differently, so the line
+            has to be known at the door rather than guessed afterwards (§12.1).
+            Wanting the other one mid-conversation is handled by a button that hands
+            over, not by merging them.
+
+            Tinted rather than white: everything else on this screen is a white card
+            on a lime wash, so a pair of coloured ones reads as something offered
+            rather than more of the same list. */}
+        {!lessonsLoading && !lessonsError && (
+          <Animated.View style={[styles.askRow, entranceStyle(4)]}>
+            {/* The app's own card, so these press the way every other card does:
+                the face travels down onto its lip. Opacity would have been a
+                different language on the one screen where everything else is
+                physical. */}
+            <Card onPress={() => router.push('/create-chat' as any)}
+              accessibilityLabel="Learn something"
+              pad="md" gap={space[2]}
+              style={[styles.ask, styles.askLearnShell]} faceStyle={styles.askFace}
+            >
+              {/* A bubble with a sparkle in it: a conversation, and one that writes
+                  something for you. No chip behind it — without the disc it can be
+                  big enough to read as a mark rather than a bullet.
+                  `red` here is a hue, not a state: on peach it reads as terracotta,
+                  and it is the palette's only deep warm that is saturated enough to
+                  look clean. `warn` is the same hue desaturated, which on this face
+                  came out looking like a stain. Nothing on this card is an error. */}
+              <Icon name="chatSparkle" size={30} color={colors.red} />
+              <Text style={[styles.askTitle, styles.askLearnInk]}>Learn something</Text>
+              <Text style={[styles.askHint, styles.askLearnInkSoft]}>Explained, then kept</Text>
+            </Card>
+            {lessonsCount > 0 && (
+              <Card onPress={() => router.push('/practice-chat' as any)}
+                accessibilityLabel="Ask a question about your cards"
+                pad="md" gap={space[2]}
+                style={[styles.ask, styles.askAskShell]} faceStyle={[styles.askFace, styles.askAskFace]}
+              >
+                {/* The same bubble with a question in it rather than a sparkle: a
+                    conversation that answers rather than writes.
+                    Each icon takes the deep end of its own card's hue instead of one
+                    system colour, so the mark belongs to the card it sits on. */}
+                <Icon name="chatQuery" size={30} color={colors.action} />
+                <Text style={styles.askTitle}>Ask a question</Text>
+                {/* What it can actually do today. It has no sight of your progress
+                    yet, so it does not offer to say what you keep missing. */}
+                <Text style={styles.askHint}>About your cards</Text>
+              </Card>
+            )}
+          </Animated.View>
+        )}
+        <Animated.View style={[styles.courses, entranceStyle(5)]}><View style={styles.coursesFace}>
           <View style={styles.heading}><Text accessibilityRole="header" style={styles.sectionTitle}>Continue Learning</Text>{lessonsCount > 0 && <Pressable accessibilityRole="button" onPress={() => router.push('/(tabs)/library')} style={styles.seeAll}><Text style={styles.seeAllText}>See All</Text><HomeAsset name="chevron" /></Pressable>}</View>
           {visibleLessons.map((lesson, row) => <LessonRow key={lesson.id} lesson={lesson} row={row} visit={visit} />)}
           {/* Nothing to continue yet. The place a lesson would be is kept, drawn as
@@ -556,6 +610,10 @@ const MASCOT_TAIL = { x: 6, y: -14 } as const;
 const FOCUS_ICON = 14;
 
 const card = componentTokens.card;
+/** A lesson cover palette by name — [face, a shade down]. By name rather than by
+ *  position, so reordering the palettes cannot quietly repaint these cards. */
+const cover = (id: 'lime' | 'lavender' | 'peach' | 'sky' | 'mint' | 'rose') =>
+  (lessonCoverPalettes.find((item) => item.id === id) ?? lessonCoverPalettes[0]).colors;
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   content: { paddingHorizontal: space[4], paddingBottom: 120 },
@@ -609,6 +667,34 @@ const styles = StyleSheet.create({
   chartIcon: { width: 42, height: 42, backgroundColor: colors.tint, borderRadius: radius.md, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', paddingBottom: space[2], gap: space.hair },
   bar: { width: 6, borderRadius: radius.sm, backgroundColor: colors.chartBar },
   goalIcon: { width: 42, height: 42, borderRadius: radius.md, backgroundColor: colors.swipeGreen, alignItems: 'center', justifyContent: 'center' },
+  askRow: { flexDirection: 'row', gap: space[3], marginTop: space[4] },
+  ask: { flex: 1 },
+  askFace: { alignItems: 'center', backgroundColor: cover('peach')[0] },
+  /* Each card stands on its own colour a shade down, the way the lesson covers are
+   * built — these are those palettes, so no new colours and no neutral grey edge
+   * under a tinted card.
+   *
+   * Lavender for the one that writes something, since that is the accent's family;
+   * peach for the one that answers. Both faces carry about the same weight, which
+   * the earlier pair did not: a near-white second card read as the weaker offer
+   * rather than the other one. */
+  askLearnShell: { backgroundColor: cover('peach')[1] },
+  askAskShell: { backgroundColor: cover('lavender')[1] },
+  askAskFace: { backgroundColor: cover('lavender')[0] },
+  // White on the tint, rather than the lime chip the white cards use: a lime disc
+  // on a lavender card is a third colour for no reason.
+  askMark: {
+    width: 40, height: 40, borderRadius: radius.md,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surf,
+  },
+  /* The right-hand card needs no ink of its own: this app's text colours are
+   * already purple — `text` is #301a50 and `sub` is #4b2c78 — so on lavender they
+   * are the deep end of the card's own hue. That is why that one always looked
+   * settled. The warm card gets the same two steps in its own hue instead. */
+  askTitle: { ...oneLine(type.body), fontFamily: fonts.semibold, color: colors.text, textAlign: 'center' },
+  askHint: { ...type.caption, fontFamily: fonts.regular, color: colors.sub, textAlign: 'center' },
+  askLearnInk: { color: colors.redShell },
+  askLearnInkSoft: { color: colors.red },
   courses: { marginTop: space[4], borderRadius: card.radius.lg, backgroundColor: card.shell, paddingBottom: card.lip },
   // A card's title belongs against its top edge: twenty-four points of room above
   // it read as a gap rather than as the card beginning, and it was the same

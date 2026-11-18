@@ -18,7 +18,13 @@ export type ChatEvent =
   /** The next piece of prose. */
   | { type: 'text'; delta: string }
   /** A finished interface, props already validated. */
-  | { type: 'component'; name: string; props: unknown }
+  /* `id` is the row this interface is kept in, so the app can write back what
+   * became of it (a set of drafts that was handed over) and find it again when
+   * the conversation is reopened. */
+  | { type: 'component'; name: string; props: unknown; id?: string }
+  /** One or two things the person might say next, drawn from this answer. Not an
+   *  interface: they fill the row above the box. */
+  | { type: 'suggest'; suggestions: string[] }
   /** The turn is over. `thread_id` lets a new conversation keep going. */
   | { type: 'done'; thread_id: string | null }
   /** The turn ended badly. Always the last event; the stream then closes. */

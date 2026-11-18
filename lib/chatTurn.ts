@@ -16,7 +16,16 @@ import type { ChatErrorCode, ChatEvent, ChatStatus } from '@/lib/chatEvents';
 
 export type ChatPart =
   | { kind: 'text'; text: string }
-  | { kind: 'component'; name: string; props: unknown };
+  | {
+    kind: 'component'; name: string; props: unknown;
+    /** The stored row this interface is kept in (lib/chatThread.ts). Missing for
+     *  one that is not kept: the lab, or an answer from a server too old to say. */
+    id?: string;
+    /** What became of it since it was drawn, as the component itself wrote it down. */
+    state?: unknown;
+    /** True for one the app put up itself in answer to a tap, with no model call. */
+    local?: boolean;
+  };
 
 export type ChatTurn = {
   /** What the person said, kept beside the answer so the view can draw the pair. */
@@ -30,10 +39,14 @@ export type ChatTurn = {
   done: boolean;
   /** Carried back so the next turn continues the same conversation. */
   threadId: string | null;
+  /** What the model thinks this person might say next, given what it just said.
+   *  Empty when it offered nothing, which is when the screen falls back to the
+   *  moves that are always available. */
+  suggestions: string[];
 };
 
 export function startTurn(question: string, threadId: string | null = null): ChatTurn {
-  return { question, parts: [], status: null, error: null, done: false, threadId };
+  return { question, parts: [], status: null, error: null, done: false, threadId, suggestions: [] };
 }
 
 export function applyEvent(turn: ChatTurn, event: ChatEvent): ChatTurn {
@@ -60,7 +73,18 @@ export function applyEvent(turn: ChatTurn, event: ChatEvent): ChatTurn {
     case 'component':
       // An interface closes whatever prose came before it: a later line starts its
       // own part rather than appending to the text above the card.
-      return { ...turn, parts: [...turn.parts, { kind: 'component', name: event.name, props: event.props }], status: null };
+      return {
+        ...turn, status: null,
+        parts: [...turn.parts, {
+          kind: 'component', name: event.name, props: event.props,
+          ...(event.id ? { id: event.id } : {}),
+        }],
+      };
+
+    case 'suggest':
+      // Kept off `parts`: these are not something the answer contains, they are
+      // what to offer once it is over, and they are drawn somewhere else.
+      return { ...turn, suggestions: event.suggestions };
 
     case 'done':
       return { ...turn, done: true, status: null, threadId: event.thread_id ?? turn.threadId };

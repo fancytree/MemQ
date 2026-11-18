@@ -138,6 +138,70 @@ export type SaveResult = { lessonId: string; saved: number };
  * filled or deleted, whereas rolling it back would throw away the name the person
  * just agreed to.
  */
+/**
+ * What the destination step is handed.
+ *
+ * The cards travel whole rather than as ids: they were never written anywhere, so
+ * there is nothing to look them up by. This is the app passing its own state from
+ * one turn to the next, not something arriving over a wire — but it is read back
+ * defensively all the same, because it goes through the same component channel as
+ * anything the server sends.
+ */
+export type LessonTargetAsk = { cards: DraftCard[]; target: DraftTarget };
+
+export function readLessonTarget(raw: unknown): LessonTargetAsk | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const value = raw as Record<string, unknown>;
+  const drafts = readCardDrafts({ cards: value.cards, target: value.target });
+  if (!drafts) return null;
+  return { cards: drafts.cards, target: drafts.target };
+}
+
+/** A lesson this person already has, as the destination picker needs it. */
+export type LessonChoice = { id: string; name: string; learning_mode: 'knowledge' | 'language' | null };
+
+/**
+ * The lessons a draft could go into.
+ *
+ * Read when the picker opens rather than when the drafts arrive: most drafts are
+ * kept where the model proposed, and a query nobody looks at is a query not worth
+ * making. Newest first, which is where the one you were just working on is.
+ *
+ * `learning_mode` comes from the row and not from the model: it decides whether
+ * the language details are written, and the lesson itself is the authority on
+ * what kind of lesson it is.
+ */
+export async function listLessonsForDrafts(
+  client: DraftWriter,
+  userId: string,
+): Promise<LessonChoice[]> {
+  const result = await (client.from('lessons') as unknown as {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        order: (column: string, options: { ascending: boolean }) => Promise<{
+          data: Array<Record<string, unknown>> | null;
+          error: { message?: string } | null;
+        }>;
+      };
+    };
+  })
+    .select('id, name, learning_mode')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false });
+
+  if (result.error || !result.data) return [];
+  const lessons: LessonChoice[] = [];
+  for (const row of result.data) {
+    const id = text(row.id);
+    const name = text(row.name);
+    if (!id || !name) continue;
+    const mode = row.learning_mode === 'language' || row.learning_mode === 'knowledge'
+      ? row.learning_mode : null;
+    lessons.push({ id, name, learning_mode: mode });
+  }
+  return lessons;
+}
+
 export async function saveDrafts(
   client: DraftWriter,
   userId: string,

@@ -17,12 +17,37 @@ export type ChatContext = {
   question?: { text?: string; your_answer?: string; correct_answer?: string };
 };
 
+export type ChatAttachment = {
+  /** What the file was called, so the answer can refer to it the way they do. */
+  name: string;
+  /** Where it is in storage. Not the file itself: a message carrying a document
+   *  would be megabytes of base64 through a JSON body, and the reference is also
+   *  the thing that can be checked against who is asking. The function fetches it
+   *  and decides what it is — see chatFile.ts. */
+  url: string;
+};
+
 export type ChatRequest = {
   mode: ChatMode;
   thread_id: string | null;
   message: string;
   context?: ChatContext;
+  attachments: ChatAttachment[];
+  /** The same question asked again, in place of the answer it got. The function
+   *  drops that exchange, and whatever followed it, from the record before
+   *  answering — otherwise the model reads the question twice and the answer the
+   *  person threw away. */
+  retry: boolean;
+  /** Set by a button whose meaning is not in doubt. "Make cards from this" is
+   *  pressed, not phrased, so the turn it starts does not have to guess whether
+   *  cards were asked for — see `forcedTool` in chatModes. */
+  intent: 'draft' | null;
 };
+
+/** How many files one message may carry. The real ceiling is what they cost
+ *  together (chatFile.ts); this one only stops an absurd list before any of it is
+ *  fetched. */
+export const ATTACH_MAX = 9;
 
 export function readRequest(raw: unknown): { ok: true; body: ChatRequest } | { ok: false; error: string } {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { ok: false, error: 'Expected a JSON object.' };
@@ -35,7 +60,32 @@ export function readRequest(raw: unknown): { ok: true; body: ChatRequest } | { o
   const threadId = typeof value.thread_id === 'string' && value.thread_id.trim() ? value.thread_id.trim() : null;
   const context = value.context && typeof value.context === 'object' && !Array.isArray(value.context)
     ? value.context as ChatContext : undefined;
-  return { ok: true, body: { mode: value.mode, thread_id: threadId, message: value.message.trim(), context } };
+
+  // Only the shape is checked here. Whether a reference is theirs, and whether it
+  // points at something readable, is decided where it is fetched — this function
+  // has no identity to check it against.
+  const attachments: ChatAttachment[] = [];
+  if (Array.isArray(value.attachments)) {
+    if (value.attachments.length > ATTACH_MAX) {
+      return { ok: false, error: `A message can carry ${ATTACH_MAX} files.` };
+    }
+    for (const raw of value.attachments) {
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
+      const file = raw as Record<string, unknown>;
+      const name = typeof file.name === 'string' ? file.name.replace(/\s+/g, ' ').trim().slice(0, 200) : '';
+      const url = typeof file.url === 'string' ? file.url.trim() : '';
+      if (url && url.length <= 8192) attachments.push({ name: name || 'the attached file', url });
+    }
+  }
+
+  return {
+    ok: true,
+    body: {
+      mode: value.mode, thread_id: threadId, message: value.message.trim(), context, attachments,
+      retry: value.retry === true,
+      intent: value.intent === 'draft' ? 'draft' : null,
+    },
+  };
 }
 
 /** How many characters of the person's own text may be folded into the note. Long

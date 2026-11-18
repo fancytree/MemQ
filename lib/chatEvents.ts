@@ -23,7 +23,8 @@ export type ChatErrorCode =
 export type ChatEvent =
   | { type: 'status'; status: ChatStatus }
   | { type: 'text'; delta: string }
-  | { type: 'component'; name: string; props: unknown }
+  | { type: 'component'; name: string; props: unknown; id?: string }
+  | { type: 'suggest'; suggestions: string[] }
   | { type: 'done'; thread_id: string | null }
   | { type: 'error'; code: ChatErrorCode; message: string };
 
@@ -41,7 +42,21 @@ function readEvent(raw: unknown): ChatEvent | null {
     case 'text':
       return typeof value.delta === 'string' ? { type: 'text', delta: value.delta } : null;
     case 'component':
-      return typeof value.name === 'string' ? { type: 'component', name: value.name, props: value.props } : null;
+      return typeof value.name === 'string'
+        ? {
+          type: 'component', name: value.name, props: value.props,
+          // The row it is kept in, when the server says. Older servers do not.
+          ...(typeof value.id === 'string' && value.id ? { id: value.id } : {}),
+        }
+        : null;
+    case 'suggest': {
+      // Dropped whole rather than half-shown: a row with one unreadable entry in
+      // it is worse than no row.
+      const list = Array.isArray(value.suggestions)
+        ? value.suggestions.filter((one): one is string => typeof one === 'string' && !!one.trim())
+        : [];
+      return list.length ? { type: 'suggest', suggestions: list.slice(0, 2) } : null;
+    }
     case 'done':
       return { type: 'done', thread_id: typeof value.thread_id === 'string' ? value.thread_id : null };
     case 'error':

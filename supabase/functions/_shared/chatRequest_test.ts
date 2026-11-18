@@ -1,4 +1,4 @@
-import { contextNote, MESSAGE_MAX, readRequest } from './chatRequest.ts';
+import { ATTACH_MAX, contextNote, MESSAGE_MAX, readRequest } from './chatRequest.ts';
 
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
 const lessonId = 'fcb0cc9d-94a1-4d66-a748-830fc44fbaee';
@@ -53,4 +53,53 @@ Deno.test('a field cannot pose as more lines of the note, or fill the prompt', (
 
   const huge = contextNote({ question: { text: 'q'.repeat(5000) } });
   assert(huge && huge.length < 1500, `an oversized field should be cut, got ${huge?.length}`);
+});
+
+Deno.test('attachments are read, named, and refused without a reference', () => {
+  const ok = readRequest({ mode: 'create', message: 'what is this', attachments: [
+    { name: '  notes.pdf ', url: 'https://x.test/a.pdf' },
+    { name: 'page.png', url: 'https://x.test/b.png' },
+  ] });
+  assert(ok.ok && ok.body.attachments.length === 2, JSON.stringify(ok));
+  assert(ok.ok && ok.body.attachments[0].name === 'notes.pdf', 'the name is tidied');
+
+  // Without somewhere to fetch it from there is nothing to attach, and one bad
+  // entry drops itself rather than the whole message.
+  const mixed = readRequest({ mode: 'create', message: 'x', attachments: [
+    { name: 'a.pdf' }, { name: 'b', url: '  ' }, { name: 'c', url: 42 },
+    { name: 'd.pdf', url: 'https://x.test/d.pdf' },
+  ] });
+  assert(mixed.ok && mixed.body.attachments.length === 1, JSON.stringify(mixed));
+
+  const unnamed = readRequest({ mode: 'create', message: 'x', attachments: [{ url: 'https://x.test/a.pdf' }] });
+  assert(unnamed.ok && unnamed.body.attachments[0].name === 'the attached file', 'an unnamed file needs a name');
+
+  // A reference long enough to be an attack rather than a path.
+  const huge = readRequest({ mode: 'create', message: 'x', attachments: [{ name: 'a', url: `https://x.test/${'p'.repeat(9000)}` }] });
+  assert(huge.ok && huge.body.attachments.length === 0, 'an absurd reference is not an attachment');
+
+  // Nothing attached is an empty list, not an absent one, so callers need no guard.
+  const none = readRequest({ mode: 'create', message: 'x' });
+  assert(none.ok && Array.isArray(none.body.attachments) && none.body.attachments.length === 0, JSON.stringify(none));
+});
+
+Deno.test('more files than a message may carry is refused outright', () => {
+  const many = Array.from({ length: ATTACH_MAX + 1 }, (_, at) => ({ name: `${at}.png`, url: `https://x.test/${at}.png` }));
+  const parsed = readRequest({ mode: 'create', message: 'x', attachments: many });
+  // Refused rather than trimmed: silently dropping the last one would send a
+  // message missing a file the person watched themselves attach.
+  assert(!parsed.ok, 'should not accept more than the maximum');
+});
+
+Deno.test('a retry and a pressed button are only ever what the app said they were', () => {
+  const plain = readRequest({ mode: 'create', message: 'hello' });
+  assert(plain.ok && plain.body.retry === false && plain.body.intent === null, 'neither is on unless asked for');
+
+  const again = readRequest({ mode: 'create', message: 'hello', retry: true, intent: 'draft' });
+  assert(again.ok && again.body.retry === true && again.body.intent === 'draft', 'both should be read');
+
+  // Truthy is not true, and an intent this build does not know is no intent: a
+  // stray field must not delete history or force a tool.
+  const loose = readRequest({ mode: 'create', message: 'hello', retry: 'yes', intent: 'delete_everything' });
+  assert(loose.ok && loose.body.retry === false && loose.body.intent === null, 'loose values must not count');
 });

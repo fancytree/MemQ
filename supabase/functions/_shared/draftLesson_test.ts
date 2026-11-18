@@ -1,4 +1,4 @@
-import { draftLesson, draftLessonInput, generatorFor, slimForModel, withDetails } from './draftLesson.ts';
+import { draftLesson, draftLessonInput, generatorFor, PASSAGE_FROM } from './draftLesson.ts';
 
 function assert(condition: unknown, message: string): asserts condition { if (!condition) throw new Error(message); }
 
@@ -75,7 +75,7 @@ Deno.test('the tool input defaults to knowledge and refuses an empty topic', () 
   assert(!draftLessonInput.safeParse({ topic: 'x', extra: 1 }).success, 'strict input should reject strays');
 });
 
-Deno.test('language details are drafted, but never handed to the model', async () => {
+Deno.test('language details survive drafting, for the screen', async () => {
   const details = { language_code: 'it-IT', pronunciation: 'eel KON-toh', example: 'Il conto, per favore.' };
   const fake = fakeGenerator({ results: [
     { term: 'il conto', definition: 'the bill', language_data: details },
@@ -84,37 +84,16 @@ Deno.test('language details are drafted, but never handed to the model', async (
   const draft = await draftLesson({ topic: 'Italian', learning_mode: 'language' }, fake.ctx);
   assert(draft.cards[0].language_data?.pronunciation === 'eel KON-toh', 'details should survive drafting');
   assert(draft.cards[1].language_data === null, 'a card without details gets null');
-
-  const slim = slimForModel(draft);
-  assert(!('language_data' in slim.cards[0]), 'the model must not be sent the details');
-  assert(slim.cards[0].term === 'il conto' && slim.cards.length === 2, 'the rest of the card survives slimming');
-  assert(draft.cards[0].language_data !== undefined, 'slimming must not mutate the draft it was given');
 });
 
-Deno.test('details are put back on the right cards, by id', () => {
-  const details = new Map([
-    ['d1', { pronunciation: 'eel KON-toh' }],
-    ['d2', { pronunciation: 'SEN-tsa GLOO-tee-neh' }],
-  ]);
-  // The model reordered them, dropped one and invented one.
-  const props = { cards: [
-    { id: 'd2', term: 'senza glutine', definition: 'gluten free' },
-    { id: 'd9', term: 'invented', definition: 'not from the draft' },
-  ], target: { kind: 'new', name: 'x', learning_mode: 'language' } };
+Deno.test('a subject is written about, and a passage is taken apart', async () => {
+  // A paragraph handed over as a "topic" comes back as cards about its subject at
+  // large rather than about what it says, so the generator is told which it has.
+  const subject = fakeGenerator({ results: [{ term: 'a', definition: 'b' }] });
+  await draftLesson({ topic: 'The planets of the solar system', learning_mode: 'knowledge' }, subject.ctx);
+  assert(subject.calls[0].body.type === 'topic', `a short subject should be a topic, got ${subject.calls[0].body.type}`);
 
-  const merged = withDetails(props, details) as { cards: Array<Record<string, unknown>> };
-  assert((merged.cards[0].language_data as { pronunciation: string }).pronunciation === 'SEN-tsa GLOO-tee-neh', 'd2 got the wrong details');
-  assert(!('language_data' in merged.cards[1]), 'an invented id must not pull in someone else’s details');
-  assert(merged.cards.length === 2 && merged.cards[0].term === 'senza glutine', 'the model’s own fields survive');
-});
-
-Deno.test('merging copes with nothing to merge and with nonsense', () => {
-  const empty = new Map();
-  const props = { cards: [{ id: 'd1', term: 'a', definition: 'b' }] };
-  assert(withDetails(props, empty) === props, 'no details means no work');
-  const some = new Map([['d1', { pronunciation: 'x' }]]);
-  assert(withDetails(null, some) === null && withDetails('nope', some) === 'nope', 'non-objects pass through');
-  assert(withDetails({ target: {} }, some) !== undefined, 'props without cards pass through');
-  const odd = withDetails({ cards: [null, 7] }, some) as { cards: unknown[] };
-  assert(odd.cards[0] === null && odd.cards[1] === 7, 'unusable entries are left alone');
+  const passage = fakeGenerator({ results: [{ term: 'a', definition: 'b' }] });
+  await draftLesson({ topic: 'x'.repeat(PASSAGE_FROM + 1), learning_mode: 'knowledge' }, passage.ctx);
+  assert(passage.calls[0].body.type === 'text', `a passage should be extracted from, got ${passage.calls[0].body.type}`);
 });
