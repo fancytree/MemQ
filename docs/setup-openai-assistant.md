@@ -132,6 +132,10 @@ supabase functions deploy chat-assistant
 
 ## 步骤 5: 测试
 
+> **这个界面已经不在 app 里了。** `AIChatModal` 在 2026-11-13 重做 Today 首页时被摘掉，
+> 组件文件已删除；`chat-assistant` 等 edge function 还在 `supabase/functions/`，但没有
+> 任何客户端调用它们。下面的步骤描述的是当时的测试方式，留作这套后端的参考。
+
 部署完成后，你可以通过 AIChatModal 测试功能。如果一切正常，你应该能够：
 
 1. 打开 AI Chat Modal

@@ -214,3 +214,12 @@ export function takeForRound<T extends { id: string }>(
   }
   return picked;
 }
+
+/** How long a card takes, for saying how long a round will. The reference frame
+ *  reads 23 min for 37 due cards. Here rather than on one screen, because the
+ *  home screen and the practice offer in chat both say it and must not disagree. */
+export const SECONDS_PER_CARD = 37;
+
+/** A round of this many cards, in whole minutes, and never "0 min". */
+export const estimateMinutes = (cards: number): number =>
+  Math.max(1, Math.round((cards * SECONDS_PER_CARD) / 60));
