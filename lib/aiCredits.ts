@@ -81,12 +81,55 @@ export function creditsLabel(credits: Credits): string {
   return `${credits.left} AI ${credits.left === 1 ? 'credit' : 'credits'} left this month`;
 }
 
-/** What credits are, for the person who taps the line to find out. Short: four
- *  prices and the two facts that matter. */
-export function creditGuide(credits: Credits): string {
-  return [
-    'A chat message or a rewritten card uses 1. A set of cards uses 3. A PDF uses 10.',
-    `You get ${credits.limit.toLocaleString('en-US')} a month${credits.isPro ? ' with Pro' : `, or ${CREDIT_LIMIT.pro.toLocaleString('en-US')} with Pro`}. They come back on ${credits.resets}.`,
-    'Practising, and making cards with your own AI, never use any.',
-  ].join('\n\n');
+/* ── The record of what was used ───────────────────────────────────────────────
+ * For the credits page (app/credits.tsx): each use this month, newest first, in
+ * words a person would use for it and with what it took. */
+
+/** What each use is called on the page. */
+export const CREDIT_NAME: Readonly<Record<string, string>> = {
+  ai_chat_create: 'Chat message',
+  ai_chat: 'Chat message',
+  card_fill: 'Card written',
+  lesson_generate: 'Set of cards',
+  pdf_process: 'PDF read',
+};
+
+/** What everything costs, for the page that explains it: one line each, the
+ *  two chat lines being one thing to the person. */
+export const CREDIT_PRICES: readonly { name: string; cost: number }[] = [
+  { name: 'A chat message', cost: CREDIT_COST.ai_chat },
+  { name: 'A card written or rewritten', cost: CREDIT_COST.card_fill },
+  { name: 'A set of cards', cost: CREDIT_COST.lesson_generate },
+  { name: 'A PDF', cost: CREDIT_COST.pdf_process },
+];
+
+export type CreditUse = { id: string; feature: string; created_at: string };
+export type CreditEntry = { id: string; name: string; cost: number; when: string };
+
+const sameDay = (a: Date, b: Date) =>
+  a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+
+/**
+ * The record, newest first: what each use was, what it took, and when — as the
+ * person's own clock has it. "Today 6:20 PM", "Yesterday 3:14 PM", and before
+ * that the date, "Nov 3 11:59 PM".
+ *
+ * One list, with the day written on each line. It was grouped under a heading
+ * for each day, which put a small label ("Today") under another small label
+ * ("Used this month") and made the first thing in the list a heading for one
+ * row. Rows for anything that costs nothing, or with a time that cannot be
+ * read, are left out.
+ */
+export function creditHistory(rows: readonly CreditUse[], now: Date = new Date()): CreditEntry[] {
+  const yesterday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+  return [...rows]
+    .filter((row) => row.feature in CREDIT_COST && !Number.isNaN(Date.parse(row.created_at)))
+    .sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at))
+    .map((row) => {
+      const at = new Date(row.created_at);
+      const day = sameDay(at, now) ? 'Today' : sameDay(at, yesterday) ? 'Yesterday' : `${MONTHS[at.getMonth()]} ${at.getDate()}`;
+      const hour = at.getHours() % 12 || 12;
+      const time = `${hour}:${String(at.getMinutes()).padStart(2, '0')} ${at.getHours() < 12 ? 'AM' : 'PM'}`;
+      return { id: row.id, name: CREDIT_NAME[row.feature], cost: CREDIT_COST[row.feature], when: `${day} ${time}` };
+    });
 }

@@ -11,13 +11,14 @@
  * Never to someone who already pays.
  *
  * The line can be tapped. "Credits" is our word, so the person who wonders what
- * one is gets told in three sentences (lib/aiCredits.ts) rather than being left
- * to work it out from what disappears.
+ * one is can open the page that says — what they are spent on, where this
+ * month's went (app/credits.tsx) — rather than being left to work it out from
+ * what disappears.
  */
 
-import { creditGuide, creditsLabel, type Credits } from '@/lib/aiCredits';
-import { dialog } from '@/lib/dialog';
+import { creditsLabel, type Credits } from '@/lib/aiCredits';
 import { colors, fonts, space, type } from '@/theme';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 export function CreditsLine({ credits, always = false, onUpgrade, style }: {
@@ -37,9 +38,9 @@ export function CreditsLine({ credits, always = false, onUpgrade, style }: {
     <View style={[styles.line, style]}>
       <Pressable
         accessibilityRole="button"
-        accessibilityLabel={`${creditsLabel(credits)}. What are AI credits?`}
+        accessibilityLabel={`${creditsLabel(credits)}. Open AI credits.`}
         hitSlop={space[2]}
-        onPress={() => dialog('AI credits', creditGuide(credits))}
+        onPress={() => router.push('/credits' as never)}
         style={styles.words}
       >
         <Text style={[styles.text, credits.out && styles.out]}>{creditsLabel(credits)}</Text>

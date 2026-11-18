@@ -1,3 +1,5 @@
+import { CreditsCard } from '@/components/CreditsCard';
+import { useCredits } from '@/lib/useCredits';
 import { oneLine } from '@/theme/typography';
 import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
@@ -6,9 +8,7 @@ import { space, radius, type } from '@/theme';
 import { Button } from '@/components/ui/Button';
 import { Chip } from '@/components/ui/Chip';
 import { IconButton } from '@/components/ui/IconButton';
-import { creditGuide } from '@/lib/aiCredits';
 import { dialog } from '@/lib/dialog';
-import { useCredits } from '@/lib/useCredits';
 import { mcpEnabled } from '@/lib/mcp';
 import { layout } from '@/theme/spacing';
 import { Sheet } from '@/components/ui/Sheet';
@@ -755,24 +755,12 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           </Card>
         )}
 
-        {/* What is left of the month's AI credits (lib/aiCredits.ts), and what
-            they are for anyone who taps to ask. Here because this is where a
-            person goes to see what their account has; the create screen shows
-            the same number where it is spent. */}
+        {/* The month's AI credits. A card of its own and not a row under a
+            heading: it is not a setting, it is something the account has
+            (components/CreditsCard). Pressed, it opens the page about them. */}
         {credits && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>AI</Text>
-            <Card pad="none" gap={0} faceStyle={styles.menuRows}>
-              <MenuItem
-                icon="sparkle"
-                iconColor={t.color.muted}
-                iconBgColor={t.color.bg}
-                title="AI credits"
-                value={`${credits.left.toLocaleString('en-US')} of ${credits.limit.toLocaleString('en-US')} left · resets ${credits.resets}`}
-                onPress={() => dialog('AI credits', creditGuide(credits))}
-                showDivider={false}
-              />
-            </Card>
+          <View style={styles.creditsCard}>
+            <CreditsCard credits={credits} onPress={() => router.push('/credits' as any)} />
           </View>
         )}
 
@@ -1124,6 +1112,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   premiumBanner: { marginHorizontal: layout.screenInline, marginBottom: space[5] },
+  creditsCard: { marginHorizontal: layout.screenInline, marginBottom: space[5] },
   premiumHeader: {
     flexDirection: 'row',
     alignItems: 'center',

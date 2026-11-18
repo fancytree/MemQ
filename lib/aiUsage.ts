@@ -13,7 +13,7 @@
  * as an `AIRefused` with a sentence to show.
  */
 
-import { CREDIT_FEATURES, creditPeriodStart, creditsSpent } from '@/lib/aiCredits';
+import { CREDIT_FEATURES, creditPeriodStart, creditsSpent, type CreditUse } from '@/lib/aiCredits';
 import { AIRefused, refusalFrom } from '@/lib/aiRefusal';
 import { supabase } from '@/lib/supabase';
 
@@ -36,6 +36,23 @@ export async function getCreditsSpent(userId: string): Promise<number | null> {
     return error || typeof count !== 'number' ? null : count;
   }));
   return creditsSpent(Object.fromEntries(CREDIT_FEATURES.map((feature, at) => [feature, counts[at]])));
+}
+
+/** Each use of the month's credits, newest first, for the credits page. The
+ *  person's own rows only: row-level security decides that. */
+export async function getCreditUses(userId: string, limit = 100): Promise<CreditUse[]> {
+  const { data, error } = await supabase
+    .from('ai_usage')
+    .select('id, feature, created_at')
+    .eq('user_id', userId)
+    .in('feature', [...CREDIT_FEATURES])
+    .gte('created_at', creditPeriodStart())
+    .order('created_at', { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return (data as Record<string, unknown>[])
+    .filter((row) => typeof row.id === 'string' && typeof row.feature === 'string' && typeof row.created_at === 'string')
+    .map((row) => ({ id: row.id as string, feature: row.feature as string, created_at: row.created_at as string }));
 }
 
 /**
