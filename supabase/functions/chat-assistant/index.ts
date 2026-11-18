@@ -1,4 +1,6 @@
 import { isDirectUserSession } from '../_shared/directSession.ts';
+import { ALLOWANCES, usageOf } from '../_shared/aiGate.ts';
+import { meter, openGate, type Meter } from '../_shared/aiGateStore.ts';
 // Supabase Edge Function - Chat Assistant (使用 OpenAI Chat Completions API)
 // Deno environment
 
@@ -356,6 +358,8 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // What this request has spent, so a failure after the model was paid is still filed.
+  let tab: Meter | null = null;
   try {
     // 获取认证信息
     const authHeader = req.headers.get('Authorization');
@@ -448,6 +452,14 @@ Deno.serve(async (req) => {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    /* This is the chat of app versions already out. It never had a limit and
+     * never recorded what it spent; the new chat does both at its own door.
+     * Here, before anything is written to the thread: a message that is going to
+     * be refused should not be saved as one that was asked. */
+    const door = await openGate(req, ALLOWANCES.legacyChat);
+    if (!door.ok) return door.response;
+    const spent = tab = meter(door.admission.gate);
 
     // 创建 Supabase Admin 客户端（用于数据库操作）
     const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
@@ -657,6 +669,8 @@ IMPORTANT RULES:
       temperature: 0.7,
       response_format: { type: 'json_object' },
     });
+
+    spent.add(openaiModel, usageOf(completion.usage));
 
     const responseContent = completion.choices[0]?.message?.content;
     if (!responseContent) {
@@ -972,6 +986,8 @@ IMPORTANT RULES:
       // 不抛出错误，因为对话已经成功
     }
 
+    spent.done();
+
     // 返回成功响应
     return new Response(
       JSON.stringify({
@@ -988,6 +1004,7 @@ IMPORTANT RULES:
       }
     );
   } catch (error) {
+    tab?.failed();
     // 详细的错误日志
     console.error('Error in chat-assistant:', error);
     console.error('Error type:', typeof error);

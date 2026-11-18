@@ -5,8 +5,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { OpenAI } from 'https://deno.land/x/openai@v4.20.1/mod.ts';
 import { unzipSync } from 'https://esm.sh/fflate@0.8.2';
 
-import { isDirectAppRequest } from '../_shared/directRequest.ts';
-import { signOwnedPdfReference } from '../_shared/pdfReference.ts';
+import { ALLOWANCES, usageOf } from '../_shared/aiGate.ts';
+import { afterResponse, meter, openGate, type Meter } from '../_shared/aiGateStore.ts';
+import { ownedPdfPath, signOwnedPdfReference } from '../_shared/pdfReference.ts';
+import { PDF_MAX_BYTES, pageRange, tooLarge } from '../_shared/pdfLimits.ts';
 
 // CORS 响应头
 const corsHeaders = {
@@ -25,12 +27,11 @@ Deno.serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // What this request has spent, so a failure after the model was paid is still filed.
+  let tab: Meter | null = null;
+  // Removes the uploaded file. Set once the file is known to be theirs.
+  let discard: (() => void) | null = null;
   try {
-    if (!await isDirectAppRequest(req)) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
     // 获取认证信息
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
@@ -57,6 +58,15 @@ Deno.serve(async (req) => {
       );
     }
 
+    /* Who is asking, and whether they have any left. A PDF is the dearest thing
+     * the app does and the only one whose cost grows with what is sent, so free
+     * accounts get three, ever (aiGate.ts). Refused here, before the file is
+     * handed to anyone. */
+    const door = await openGate(req, ALLOWANCES.pdfProcess);
+    if (!door.ok) return door.response;
+    const { gate } = door.admission;
+    tab = meter(gate);
+
     // Legacy app versions send a public URL; newer ones send a signed URL.
     // Neither is trusted as authority: resolve it to this user's object, then
     // mint a fresh short-lived URL under the user's own Storage permissions.
@@ -75,6 +85,27 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ error: 'Invalid or inaccessible PDF' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    /* The file is only needed for this: nothing in the app opens it again once
+     * the cards exist. So it goes when this request ends, whichever way it ends.
+     * Kept, every upload sat in storage for good, and storage is the one cost
+     * here that grows whether anyone is using the app or not. */
+    const path = ownedPdfPath(body.pdf_url, supabaseUrl, gate.userId, Deno.env.get('MEMQ_PUBLIC_SUPABASE_URL'));
+    if (path) {
+      const store = (door.service ?? client).storage.from('pdfs');
+      discard = () => afterResponse(Promise.resolve(store.remove([path])).catch(() => {}));
+
+      // Its size, from storage's own record rather than anything the caller says.
+      const cut = path.lastIndexOf('/');
+      const listed = await client.storage.from('pdfs').list(path.slice(0, cut), { search: path.slice(cut + 1), limit: 1 });
+      const bytes = Number((listed.data?.[0]?.metadata as { size?: unknown } | undefined)?.size ?? 0);
+      if (bytes > PDF_MAX_BYTES) {
+        discard();
+        return new Response(JSON.stringify(tooLarge()), {
+          status: 413, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
     }
 
     // 获取 MinerU API Token
@@ -97,6 +128,9 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         url: signedUrl,
         model_version: 'vlm',
+        // What is read is capped by pages: the processor's cost follows the page
+        // count, and only the first 15,000 characters reach the model anyway.
+        page_ranges: pageRange(gate.isPro),
       }),
     });
 
@@ -197,6 +231,7 @@ Deno.serve(async (req) => {
     }
 
     if (!extractedText || extractedText.trim().length === 0) {
+      discard?.();
       return new Response(
         JSON.stringify({ 
           error: 'Failed to extract text from PDF',
@@ -294,6 +329,8 @@ Identify all important concepts, terminology, and definitions mentioned in the t
       response_format: { type: 'json_object' },
     });
 
+    tab.add(openaiModel, usageOf(completion.usage));
+
     const responseContent = completion.choices[0]?.message?.content;
     if (!responseContent) {
       throw new Error('No response from OpenAI');
@@ -312,6 +349,10 @@ Identify all important concepts, terminology, and definitions mentioned in the t
       throw new Error('Invalid response format from OpenAI');
     }
 
+    // An import that produced no cards is not one of their three.
+    if (parsedResponse.results.length) tab.done(); else tab.failed();
+    discard?.();
+
     // 返回成功响应
     return new Response(
       JSON.stringify({
@@ -327,6 +368,8 @@ Identify all important concepts, terminology, and definitions mentioned in the t
       }
     );
   } catch (error) {
+    tab?.failed();
+    discard?.();
     // Errors from third parties can contain the signed URL or document text.
     console.error('Error processing file');
     return new Response(
