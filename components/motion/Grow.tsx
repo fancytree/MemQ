@@ -30,7 +30,11 @@ export function useEased(target: number, delay = 0, ms = GROW_MS): SharedValue<n
 }
 
 /** A whole number that counts to its value instead of jumping to it. */
-export function CountUp({ value, style, delay = 0 }: { value: number; style?: StyleProp<TextStyle>; delay?: number }) {
+export function CountUp({ value, style, delay = 0, format }: {
+  value: number; style?: StyleProp<TextStyle>; delay?: number;
+  /** How the number is written while it counts and when it arrives: "1,946". */
+  format?: (value: number) => string;
+}) {
   const still = useReducedMotion();
   const [shown, setShown] = useState(still ? value : 0);
   const from = useRef(still ? value : 0);
@@ -47,7 +51,7 @@ export function CountUp({ value, style, delay = 0 }: { value: number; style?: St
     frame = requestAnimationFrame(tick);
     return () => { cancelAnimationFrame(frame); from.current = value; };
   }, [value, still, delay]);
-  return <Text style={style}>{shown}</Text>;
+  return <Text style={style}>{format ? format(shown) : shown}</Text>;
 }
 
 /** The filled part of a progress track, growing from the left to `pct` percent.

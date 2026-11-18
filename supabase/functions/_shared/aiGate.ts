@@ -10,11 +10,12 @@
  * what they spent reached the day's budget, so the ceiling that is meant to stop a
  * bill could only see chat.
  *
- * What is free is written down once, here (ALLOWANCES). The shape of the free tier:
- * what someone does every day and costs next to nothing is not counted in any way
- * they will notice — marking, questions — and carries only a ceiling high enough
- * that it is never met by a person. What is dear per use, or easy to run in a loop,
- * is counted properly: generated lessons, and PDFs most of all.
+ * What is free is written down once (ALLOWANCES here, the credits in aiCredits.ts).
+ * The shape of it: what a person asks for — a set of cards, a card rewritten, a
+ * PDF, a chat message — is paid out of one monthly number they can see. What the
+ * app does on its own account while they practise — marking, questions — is not
+ * counted in any way they will notice, and carries only a ceiling high enough
+ * that it is never met by a person.
  *
  * A use is counted when it worked. A request that failed costs the person nothing;
  * what it cost the project still goes on the day's budget.
@@ -24,13 +25,17 @@
  * only spends their own allowance; they cannot remove one.
  */
 
+import {
+  CREDIT_FEATURES, creditPeriodStart, creditRefusal, creditReset, creditsSpent, creditVerdict,
+} from './aiCredits.ts';
 import { budgetVerdict, ceilingMicros, costMicros, type TokenUsage } from './chatCost.ts';
 import { isDirectUserSession } from './directSession.ts';
 
 export type Period = 'day' | 'month' | 'lifetime';
 export type Limit = { limit: number; period: Period };
 
-export type Allowance = {
+/** Something the app does on its own account, with a ceiling of its own. */
+export type Ceiling = {
   /** What a use is filed under in `ai_usage`. */
   feature: string;
   free: Limit;
@@ -41,22 +46,17 @@ export type Allowance = {
   refusal: string;
 };
 
+/** Something a person asks for, paid out of the month's AI credits
+ *  (aiCredits.ts). What it costs is looked up by its feature. */
+export type Credited = { feature: string; credits: number };
+
+export type Allowance = Ceiling | Credited;
+
 export const ALLOWANCES = {
-  /** A set of cards from a topic or a passage. The thing that costs most per use
-   *  after a PDF, and the first thing a new person tries. */
-  lessonGenerate: {
-    feature: 'lesson_generate',
-    free: { limit: 5, period: 'month' },
-    pro: { limit: 300, period: 'month' },
-    refusal: 'You have used this month’s AI-generated lessons. You can still add cards by hand.',
-  },
-  /** Filling in one card from its term. Small, and part of typing a card. */
-  cardFill: {
-    feature: 'card_fill',
-    free: { limit: 30, period: 'day' },
-    pro: { limit: 300, period: 'day' },
-    refusal: 'That is enough auto-filled cards for today. You can still write them yourself.',
-  },
+  /** A set of cards from a topic or a passage. The first thing a new person tries. */
+  lessonGenerate: { feature: 'lesson_generate', credits: 3 },
+  /** One card written, or rewritten, from its term. */
+  cardFill: { feature: 'card_fill', credits: 1 },
   /** Practice questions for a lesson. Needed to practise cards made by hand too,
    *  so it is not something to run out of in ordinary use. */
   questionGenerate: {
@@ -73,12 +73,7 @@ export const ALLOWANCES = {
     refusal: 'Answers are being marked by their words for the rest of today.',
   },
   /** Reading a PDF. The dearest thing here, and it scales with the document. */
-  pdfProcess: {
-    feature: 'pdf_process',
-    free: { limit: 3, period: 'lifetime' },
-    pro: { limit: 100, period: 'month' },
-    refusal: 'You have used your free PDF imports. You can still paste text, or add cards by hand.',
-  },
+  pdfProcess: { feature: 'pdf_process', credits: 10 },
   /**
    * The chat in versions of the app that are already out. The new chat has its
    * own door (chatModes.ts); these two functions are only reached by builds that
@@ -115,7 +110,13 @@ export function periodStart(period: Period, now: Date = new Date()): string | nu
 
 export type GateVerdict =
   | { allowed: true }
-  | { allowed: false; code: 'quota' | 'daily_budget'; message: string; limit?: number; used?: number; period?: Period };
+  | {
+    allowed: false; code: 'quota' | 'daily_budget'; message: string;
+    limit?: number; used?: number; period?: Period;
+    /** For something paid in credits: how many are left, what this would have
+     *  taken, and when the month's come back. */
+    left?: number; cost?: number; resets?: string;
+  };
 
 const RESTING = 'AI is resting for today. You can still add cards by hand, and it will be back tomorrow.';
 const FAIR_USE = 'That is more than this account can use for now. It will be back later.';
@@ -131,14 +132,25 @@ const FAIR_USE = 'That is more than this account can use for now. It will be bac
 export function decide(input: {
   allowance: Allowance;
   isPro: boolean;
-  /** Null when the count could not be read. */
+  /** For a ceiling: how many uses in its window. For something paid in credits:
+   *  how many credits are spent this month. Null when it could not be read. */
   used: number | null;
   spentMicros: number;
   ceilingMicros: number;
+  now?: Date;
 }): GateVerdict {
   const { allowance, isPro } = input;
   if (!budgetVerdict(input.spentMicros, input.ceilingMicros, isPro).allowed) {
     return { allowed: false, code: 'daily_budget', message: RESTING };
+  }
+  if ('credits' in allowance) {
+    const verdict = creditVerdict({ isPro, spent: input.used, cost: allowance.credits });
+    if (verdict.allowed) return { allowed: true };
+    return {
+      allowed: false, code: 'quota', message: creditRefusal(verdict, isPro),
+      limit: verdict.limit, used: verdict.used, left: verdict.left, cost: verdict.cost,
+      period: 'month', resets: creditReset(input.now),
+    };
   }
   const { limit, period } = isPro ? allowance.pro : allowance.free;
   const used = input.used ?? limit;
@@ -196,6 +208,16 @@ export async function isInternalCall(
 
 /* ── The door itself ─────────────────────────────────────────────────────────── */
 
+/** How many of the month's credits a person has spent: one count per thing that
+ *  costs credits, asked for together. Null if any could not be read. */
+export async function creditsUsed(
+  store: Pick<GateStore, 'used'>, userId: string, now: Date = new Date(),
+): Promise<number | null> {
+  const since = creditPeriodStart(now);
+  const counts = await Promise.all(CREDIT_FEATURES.map((feature) => store.used(userId, feature, since)));
+  return creditsSpent(Object.fromEntries(CREDIT_FEATURES.map((feature, at) => [feature, counts[at]])));
+}
+
 /** What the gate needs from the outside world. The real one is built from the
  *  request (`storeFor`); the tests hand it a fake. */
 export type GateStore = {
@@ -244,12 +266,13 @@ export async function admit(input: {
   const internal = await isInternalCall(input.internalHeader ?? null, input.serviceKey, userId, now.getTime());
 
   const [isPro, spent] = await Promise.all([store.isPro(userId), store.spentToday()]);
-  const limit = isPro ? allowance.pro : allowance.free;
   // A call made for chat was admitted at chat's own door, allowance and budget both.
   if (!internal) {
-    const used = await store.used(userId, allowance.feature, periodStart(limit.period, now));
+    const used = 'credits' in allowance
+      ? await creditsUsed(store, userId, now)
+      : await store.used(userId, allowance.feature, periodStart((isPro ? allowance.pro : allowance.free).period, now));
     const verdict = decide({
-      allowance, isPro, used, spentMicros: spent,
+      allowance, isPro, used, spentMicros: spent, now,
       ceilingMicros: ceilingMicros(input.env ?? (() => undefined)),
     });
     if (!verdict.allowed) {
@@ -258,6 +281,7 @@ export async function admit(input: {
         body: {
           error: verdict.message, code: verdict.code, message: verdict.message,
           ...(verdict.limit !== undefined ? { limit: verdict.limit, used: verdict.used, period: verdict.period } : {}),
+          ...(verdict.left !== undefined ? { left: verdict.left, cost: verdict.cost, resets: verdict.resets } : {}),
         },
       };
     }

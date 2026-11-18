@@ -1,3 +1,5 @@
+import { CreditsCard } from '@/components/CreditsCard';
+import { useCredits } from '@/lib/useCredits';
 import { oneLine } from '@/theme/typography';
 import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
@@ -74,6 +76,7 @@ const getImagePicker = (): ImagePickerModule | null => {
 export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
   const navigation = useNavigation();
   const { isPro, showPaywall } = useSubscription();
+  const { credits } = useCredits();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [signingOut, setSigningOut] = useState(false);
@@ -752,6 +755,15 @@ export default function ProfileScreen({ isTab = false }: { isTab?: boolean }) {
           </Card>
         )}
 
+        {/* The month's AI credits. A card of its own and not a row under a
+            heading: it is not a setting, it is something the account has
+            (components/CreditsCard). Pressed, it opens the page about them. */}
+        {credits && (
+          <View style={styles.creditsCard}>
+            <CreditsCard credits={credits} onPress={() => router.push('/credits' as any)} />
+          </View>
+        )}
+
         {/* PERSONAL INFO Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Personal info</Text>
@@ -1100,6 +1112,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   premiumBanner: { marginHorizontal: layout.screenInline, marginBottom: space[5] },
+  creditsCard: { marginHorizontal: layout.screenInline, marginBottom: space[5] },
   premiumHeader: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -22,7 +22,10 @@ import { ATTACH_MAX, attachFile, AttachError, type Attached } from '@/lib/chatAt
 import { ChatError, chatEvents, type ChatAsk, type ChatSource } from '@/lib/chatClient';
 import { fileTurn, loadThread, refile, rowId } from '@/lib/chatThread';
 import { applyEvent, endWithoutDone, startTurn, type ChatPart, type ChatTurn } from '@/lib/chatTurn';
+import { CreditsLine } from '@/components/CreditsLine';
+import { useSubscription } from '@/context/SubscriptionContext';
 import { dialog } from '@/lib/dialog';
+import { useCredits } from '@/lib/useCredits';
 import { supabase } from '@/lib/supabase';
 import { colors, componentTokens, fonts, radius, space, type } from '@/theme';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
@@ -283,6 +286,9 @@ export function ChatShell({
   mode, context, renderComponent, source, placeholder, opening, starters, onStarted,
   kept = !source, fresh = false,
 }: ChatShellProps) {
+  const { isPro, showPaywall } = useSubscription();
+  /** The month's AI credits (lib/aiCredits.ts): a message here costs one. */
+  const { credits, refresh: refreshCredits, spend } = useCredits();
   const [turns, setTurns] = useState<Shown[]>([]);
   /** True while the kept conversation is being read. The screen opens on nothing
    *  rather than on its greeting, which would be replaced a moment later. */
@@ -459,8 +465,17 @@ export function ChatShell({
         // already been told it failed, and reviving it would contradict that.
         if (settled) return;
         wait(STALL_LIMIT);
-        if (event.type === 'done') { closed = true; threadId.current = event.thread_id ?? threadId.current; }
-        if (event.type === 'error') closed = true;
+        if (event.type === 'done') {
+          closed = true;
+          threadId.current = event.thread_id ?? threadId.current;
+          // An answered message is one of the month's AI credits spent.
+          spend(mode === 'create' ? 'ai_chat_create' : 'ai_chat');
+        }
+        if (event.type === 'error') {
+          closed = true;
+          // Refused: whatever the screen thought was left, it was wrong.
+          refreshCredits();
+        }
         update((turn) => applyEvent(turn, event));
       }
       // The stream ended on its own without saying so: say it stopped rather than
@@ -485,7 +500,7 @@ export function ChatShell({
       if (abort.current === controller) abort.current = null;
       setSending(false);
     }
-  }, [attached, context, mode, restoring, sending, source]);
+  }, [attached, context, mode, refreshCredits, restoring, sending, source, spend]);
 
   /**
    * Picking something to add, and putting it where chat can fetch it.
@@ -722,6 +737,13 @@ export function ChatShell({
                       <Text style={styles.retry}>Try again</Text>
                     </Pressable>
                   )}
+                  {/* Out of the month's credits: the one refusal Pro answers, so
+                      the way to it is here, where they were stopped. */}
+                  {turn.error.code === 'quota' && !isPro && (
+                    <Pressable accessibilityRole="button" onPress={() => void showPaywall()} hitSlop={8}>
+                      <Text style={styles.retry}>See Pro</Text>
+                    </Pressable>
+                  )}
                 </View>
               )}
             </View>
@@ -776,6 +798,10 @@ export function ChatShell({
           }}
         />
       )}
+      {/* What is left of the month's AI credits, once there is little enough
+          for it to matter. Silent before that: a count over every message is a
+          meter running, and this is a conversation. */}
+      <CreditsLine credits={credits} onUpgrade={() => void showPaywall()} style={styles.credits} />
       <View style={styles.bar}>
         {/* One box holding everything: what is riding on this message sits above
             what is being typed, and the row of buttons sits on the bottom edge, so
@@ -989,6 +1015,7 @@ const styles = StyleSheet.create({
   unknown: { ...type.caption, fontFamily: fonts.regular, color: colors.faint },
   waiting: { flexDirection: 'row', alignItems: 'center', gap: space[2] },
   waitingText: { ...type.caption, fontFamily: fonts.regular, color: colors.sub },
+  credits: { paddingHorizontal: space[4], paddingTop: space[1] },
   failed: { gap: space[2] },
   failedText: { ...type.caption, fontFamily: fonts.regular, color: colors.red },
   retry: { ...type.caption, fontFamily: fonts.semibold, color: colors.action },

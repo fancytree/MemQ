@@ -22,7 +22,10 @@ import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, LanguageCardEditor } from '@/components/LanguageCardFields';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { AI_LIMITS, AIRefused, callAI, getAIUsageCount } from '@/lib/aiUsage';
+import { CreditsLine } from '@/components/CreditsLine';
+import { canAfford } from '@/lib/aiCredits';
+import { AIRefused, callAI } from '@/lib/aiUsage';
+import { useCredits } from '@/lib/useCredits';
 import { safeBack } from '@/lib/safeBack';
 import { setPendingTerms } from '@/lib/createStore';
 import { supabase } from '@/lib/supabase';
@@ -132,10 +135,11 @@ export default function CreateScreen() {
   const [regeneratingCardId, setRegeneratingCardId] = useState<string | null>(null);
   const [generateDots, setGenerateDots] = useState('.');
   const [regenerateDots, setRegenerateDots] = useState('.');
-  const [genUsed, setGenUsed] = useState(0);
-  const GEN_LIMIT = AI_LIMITS.lesson_generate.free;
-  const genRemaining = Math.max(0, GEN_LIMIT - genUsed);
-  const genExhausted = !isPro && genRemaining === 0;
+  /* What is left of the month's AI credits (lib/aiCredits.ts). Generating a set
+   * takes three; with fewer than that left the button offers Pro instead of
+   * asking for something the server would refuse. */
+  const { credits, refresh: refreshCredits, spend } = useCredits();
+  const genExhausted = !isPro && !canAfford(credits, 'lesson_generate');
 
 
   const isGenerating = phase === 'generating';
@@ -191,17 +195,6 @@ export default function CreateScreen() {
     return () => clearInterval(t);
   }, [regeneratingCardId, generatingManualId]);
 
-  // Load this month's generate_terms usage count
-  useEffect(() => {
-    if (isPro) return;
-    void (async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const count = await getAIUsageCount('lesson_generate', user.id);
-      setGenUsed(count);
-    })();
-  }, [isPro]);
-
   // ─── Generate from prompt ─────────────────────────────────────────────────
 
   /* A "no" from the server, shown in its own words (lib/aiRefusal.ts). The limits
@@ -209,6 +202,8 @@ export default function CreateScreen() {
    * the screen counted was only ever a guess at it. Returns whether it was one. */
   const refused = (error: unknown): boolean => {
     if (!(error instanceof AIRefused)) return false;
+    // Whatever the screen thought was left, the server has just said otherwise.
+    refreshCredits();
     // Out of the free allowance: the one refusal that Pro answers.
     if (error.code === 'quota' && !isPro) {
       // Two ways on: pay, or let their own AI do the writing, which costs nothing
@@ -247,9 +242,8 @@ export default function CreateScreen() {
         })));
         setPhase('done');
         // The server counted it; this keeps the number on screen in step.
-        if (!isPro && results.length) setGenUsed((prev) => prev + 1);
+        if (results.length) spend('lesson_generate');
       } catch (err) {
-        if (err instanceof AIRefused && err.code === 'quota') setGenUsed(GEN_LIMIT);
         if (!refused(err)) dialog('Error', err instanceof Error ? err.message : 'Something went wrong');
         setPhase('idle');
       }
@@ -292,6 +286,7 @@ export default function CreateScreen() {
         languageData: normalizeLanguageData(item.language_data),
       })));
       setPhase('done');
+      if (results.length) spend('pdf_process');
     } catch (err) {
       if (!refused(err)) dialog('Error', err instanceof Error ? err.message : 'Failed to process PDF');
       setPhase('idle');
@@ -350,6 +345,7 @@ export default function CreateScreen() {
     );
     const first = data?.results?.[0];
     if (!first || typeof first.definition !== 'string') throw new Error('No result for this term');
+    spend('card_fill');
     return { definition: first.definition || '', explanation: first.explanation || '', languageData: normalizeLanguageData(first.language_data) };
   };
 
@@ -363,7 +359,7 @@ export default function CreateScreen() {
         r.id === rowId ? { ...r, definition: generated.definition, explanation: generated.explanation, languageData: generated.languageData, saved: true, editing: false } : r
       ));
     } catch (err) {
-      dialog('Error', err instanceof Error ? err.message : 'Failed to regenerate');
+      if (!refused(err)) dialog('Error', err instanceof Error ? err.message : 'Failed to regenerate');
     } finally {
       setGeneratingManualId((p) => (p === rowId ? null : p));
     }
@@ -379,7 +375,7 @@ export default function CreateScreen() {
         c.n === cardNo ? { ...c, body: generated.definition, ex: generated.explanation, languageData: generated.languageData } : c
       ));
     } catch (err) {
-      dialog('Error', err instanceof Error ? err.message : 'Failed to regenerate');
+      if (!refused(err)) dialog('Error', err instanceof Error ? err.message : 'Failed to regenerate');
     } finally {
       setRegeneratingCardId((p) => (p === cardNo ? null : p));
     }
@@ -520,21 +516,12 @@ export default function CreateScreen() {
               </View>
             </Pressable>
           </View>
-          {/* Quota hint — only shown to free users */}
-          {!isPro && (
+          {/* What is left of the month's AI credits. Always here for a free
+              account — this is where they go three at a time — and for a paying
+              one only when they are nearly gone (components/CreditsLine). */}
+          {credits && (credits.low || !credits.isPro) && (
             <View style={styles.quotaBar}>
-              {genExhausted ? (
-                <>
-                  <Text style={styles.quotaBarText}>Monthly AI limit reached.</Text>
-                  <Pressable accessibilityRole="button" onPress={() => void showPaywall()} style={styles.quotaUpgradeBtn}>
-                    <Text style={styles.quotaUpgradeBtnText}>Upgrade to Pro →</Text>
-                  </Pressable>
-                </>
-              ) : (
-                <Text style={styles.quotaBarText}>
-                  {genRemaining} AI generation{genRemaining !== 1 ? 's' : ''} left this month
-                </Text>
-              )}
+              <CreditsLine credits={credits} always onUpgrade={() => void showPaywall()} style={styles.quotaLine} />
             </View>
           )}
         </Card>
@@ -610,7 +597,7 @@ export default function CreateScreen() {
                     setGeneratingManualId(row.id);
                     return await generateManualFromTerm(term.trim());
                   } catch (err) {
-                    dialog('Error', err instanceof Error ? err.message : 'Failed to generate content');
+                    if (!refused(err)) dialog('Error', err instanceof Error ? err.message : 'Failed to generate content');
                     return null;
                   } finally {
                     setGeneratingManualId((p) => (p === row.id ? null : p));
@@ -892,12 +879,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: space[4], paddingVertical: space[2],
     borderTopWidth: 1, borderTopColor: colors.line,
   },
-  quotaBarText: { ...type.caption, fontFamily: fonts.regular, color: colors.faint },
+  quotaLine: { flex: 1 },
   // Its own side margin: on this page each block pads itself.
   ownAi: { paddingHorizontal: layout.screenInline, paddingTop: space[4] },
   importedList: { paddingHorizontal: layout.screenInline, paddingTop: space[2] },
-  quotaUpgradeBtn: { minHeight: 44, paddingVertical: space.hair, paddingHorizontal: space[1], justifyContent: 'center' },
-  quotaUpgradeBtnText: { ...type.caption, fontFamily: fonts.semibold, color: colors.action },
 
   genHead: {
     paddingHorizontal: layout.screenInline, paddingTop: space[4], paddingBottom: space.hair,

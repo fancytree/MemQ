@@ -1,3 +1,4 @@
+import { CreditsChip } from '@/components/CreditsChip';
 import { componentTokens, hairline } from '@/theme';
 import { layout, space, radius } from '@/theme/spacing';
 import { LessonCover } from '@/components/LessonCover';
@@ -498,7 +499,12 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
         </Animated.View>
         <View pointerEvents="box-none" style={[styles.topBarRow, { paddingTop: insets.top + 10 }]}>
           <StreakPill value={currentStreak} active={focused} seenKey={streakOwner ? `memq:streak-seen:${streakOwner}` : null} />
+          {/* What is left of the month's AI credits, beside the way to the
+              account they belong to. Pressed, it opens the page about them. */}
+          <View style={styles.topBarEnd}>
+          <CreditsChip />
           <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`} onPress={() => router.push('/you')} style={styles.profile}>{avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.profileImage} onError={() => setAvatarUrl(null)} /> : <Text style={styles.profileText}>{initial}</Text>}</Pressable>
+          </View>
         </View>
       </View>
       <Sheet visible={showLessonPicker} onClose={() => setShowLessonPicker(false)}
@@ -630,6 +636,7 @@ const styles = StyleSheet.create({
   top: { height: 145 },
   topBar: { position: 'absolute', top: 0, left: 0, right: 0 },
   topBarSky: { position: 'absolute', top: 0, left: 0, right: 0 },
+  topBarEnd: { flexDirection: 'row', alignItems: 'flex-start', gap: space[2] },
   topBarRow: { paddingHorizontal: space[4], flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: space[2] },
   // The same disc the profile page gives someone with no photo: deep, with the
   // initial reversed out of it. It was the one flat grey on a screen made of lime

@@ -1,3 +1,4 @@
+import { CreditsChip } from '@/components/CreditsChip';
 import { Icon } from '@/components/ui/Icon';
 import { oneLine } from '@/theme/typography';
 import { Card } from '@/components/ui/Card';
@@ -169,13 +170,16 @@ export default function ProfileScreen() {
         )}
         <View style={styles.identity}>
           <Text numberOfLines={1} style={styles.avName}>{displayName}</Text>
-          {isPro && (
-            <View style={styles.memberRow}>
+          {/* What kind of account it is, and what is left of the month's AI
+              credits — a tag that opens the page about them (app/credits.tsx). */}
+          <View style={styles.memberRow}>
+            {isPro && (
               <View style={styles.proBadge}>
                 <Text style={styles.proBadgeText}>PRO</Text>
               </View>
-            </View>
-          )}
+            )}
+            <CreditsChip size="sm" />
+          </View>
         </View>
         {!isPro && (
           <Button size="sm" label="Go Pro" onPress={showPaywall}

@@ -44,12 +44,12 @@ const APPLE_EULA_URL = 'https://www.apple.com/legal/internet-services/itunes/dev
 
 const FEATURES = [
   {
-    title: 'Unlimited PDF uploads',
-    body: 'Break the 5-file lifetime limit. Upload every lecture slide, textbook, and note without worrying about quotas.',
+    title: '2,000 AI credits a month',
+    body: 'Forty times the free allowance, for chat, generated cards and rewrites. They come back on the 1st.',
   },
   {
-    title: 'Unlimited AI chat',
-    body: 'Remove the 8-message daily cap. Ask follow-up questions freely until you fully understand the concept.',
+    title: 'Longer PDFs',
+    body: 'Read up to 200 pages of a document instead of 30, and many more documents a month.',
   },
 ];
 
