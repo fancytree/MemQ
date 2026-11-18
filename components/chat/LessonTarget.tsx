@@ -27,6 +27,9 @@
  * is right, because "where do these go" is one question — and what the model
  * proposed is simply what the box starts with.
  *
+ * That box is components/LessonNameField now, shared with the pages that save
+ * cards outside the chat.
+ *
  * The matches hang over the card rather than sitting in it. In the flow they
  * pushed the description and the button down the moment anyone touched the box,
  * so the card changed height while it was being read and the button moved out
@@ -38,18 +41,18 @@
 import { useKept } from '@/components/chat/ChatShell';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
+import { LessonNameField } from '@/components/LessonNameField';
 import { Field } from '@/components/ui/Field';
-import { Icon } from '@/components/ui/Icon';
 import { clearCache } from '@/lib/cache';
 import {
-  listLessonsForDrafts, readLessonTarget, saveDrafts,
+  readLessonTarget, saveDrafts,
   type DraftTarget, type LessonChoice, type SaveResult,
 } from '@/lib/chatDrafts';
 import { supabase } from '@/lib/supabase';
-import { colors, fonts, hairline, radius, space, type } from '@/theme';
+import { colors, fonts, space, type } from '@/theme';
 import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { StyleSheet, Text } from 'react-native';
 
 /** What a card that had already saved wrote down, read back as carefully as
  *  anything else that comes out of storage. */
@@ -59,13 +62,6 @@ function readSaved(before: { saved?: unknown; name?: unknown } | null): { saved:
   if (typeof before?.name !== 'string' || !before.name.trim()) return null;
   return { saved: { lessonId: saved.lessonId, saved: saved.saved }, name: before.name.trim() };
 }
-
-/** How many of their lessons to offer at once. A search box that answers with a
- *  library is a library, not an answer; the rest are found by typing more. */
-const SUGGEST = 6;
-/** How far the menu may hang. Four rows and a little, so that a fifth is cut off
- *  rather than hidden: a list that scrolls has to look like one. */
-const MENU_DROP = 212;
 
 export function LessonTarget({ raw }: { raw: unknown }) {
   const asked = useMemo(() => readLessonTarget(raw), [raw]);
@@ -86,43 +82,10 @@ export function LessonTarget({ raw }: { raw: unknown }) {
       : null
   ));
   const [blurb, setBlurb] = useState(() => (asked?.target.kind === 'new' ? asked.target.description ?? '' : ''));
-  const [lessons, setLessons] = useState<LessonChoice[] | null>(null);
-  /** Whether the menu is open. It stays shut until the box is touched: on arrival
-   *  the proposal is the answer, and a list under it would be arguing with it. */
-  const [looking, setLooking] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<SaveResult | null>(() => done?.saved ?? null);
   const [failed, setFailed] = useState<string | null>(null);
-  const box = useRef<TextInput>(null);
-
-  /* Read as soon as this is on screen, not when the box is first tapped: the
-   * suggestions have to be there the moment someone starts typing. */
-  useEffect(() => {
-    let live = true;
-    void (async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) return live && setLessons([]);
-      const found = await listLessonsForDrafts(supabase as never, data.user.id);
-      if (live) setLessons(found);
-    })();
-    return () => { live = false; };
-  }, []);
-
   const typed = named.trim();
-  /* What they have that matches. With nothing typed it is simply the most recent
-   * few, so an empty box still offers somewhere to put these. */
-  const matches = useMemo(() => {
-    // Nothing typed, nothing to match. An empty box offering the whole library is
-    // a library, and someone who has fifty lessons gets fifty — the menu is an
-    // answer to what was typed, so with nothing typed there is no answer.
-    //
-    // A picked lesson's own name is not something being searched for either: the
-    // one row it would find is the row already in the box.
-    if (!lessons || !typed || (chosen && typed === chosen.name)) return [];
-    const query = typed.toLowerCase();
-    return lessons.filter((lesson) => lesson.name.toLowerCase().includes(query)).slice(0, SUGGEST);
-  }, [chosen, lessons, typed]);
-
   if (!asked) return null;
 
   const keep = async () => {
@@ -178,92 +141,11 @@ export function LessonTarget({ raw }: { raw: unknown }) {
   }
 
   const count = asked.cards.length;
-  const open = looking && matches.length > 0;
   return (
     <Card pad="md" gap={space[3]}>
-      <View style={styles.combo}>
-        {/* The touch, not the focus, is what opens the menu. Coming back to a box
-            that already holds the cursor only moves the cursor — no focus event —
-            and a box you have to blur before you can reopen is a box that ignores
-            you. The rows are outside this wrapper, so picking one does not reopen
-            what it just closed. */}
-        <View onTouchStart={() => setLooking(true)}>
-        <Field
-          ref={box}
-          label="Lesson"
-          value={named}
-          onChangeText={(text) => {
-            setNamed(text);
-            // Typing over a chosen lesson is leaving it: what is in the box is the
-            // answer, so it cannot still mean the one that used to be there.
-            setChosen(null);
-            setLooking(true);
-          }}
-          onFocus={() => setLooking(true)}
-          // Touching anything else is closing the menu, the way a menu closes.
-          onBlur={() => setLooking(false)}
-          placeholder="Find one, or name a new one"
-          maxLength={160}
-          // Hidden while the menu is over it, since that is what it is saying.
-          hint={open ? undefined
-            : chosen ? 'Adding to a lesson you already have.'
-            : 'A new lesson, unless you pick one of yours.'}
-          // Emptying the box is how you go looking again, so it is one tap rather
-          // than a held backspace. Only there while there is something to clear.
-          trailing={named ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Clear"
-              hitSlop={10}
-              onPress={() => {
-                setNamed('');
-                setChosen(null);
-                setLooking(true);
-                box.current?.focus();
-              }}
-              style={({ pressed }) => pressed && styles.faded}
-            >
-              <Icon name="close" size={18} color={colors.faint} />
-            </Pressable>
-          ) : undefined}
-        />
-        </View>
-
-        {/* Theirs, matching what is typed, hanging under the box. Picking happens
-            on the press going down rather than coming up: the same touch takes the
-            cursor out of the box, and a row that waited for the release would be
-            gone by the time it came. */}
-        {open && (
-          <View style={styles.menu}>
-            <ScrollView
-              style={styles.menuRoll}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {matches.map((lesson, at) => (
-                <Pressable
-                  key={lesson.id}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Add to ${lesson.name}`}
-                  disabled={saving}
-                  onPressIn={() => {
-                    setChosen(lesson);
-                    setNamed(lesson.name);
-                    setLooking(false);
-                    // The question is answered, so the cursor has nothing left to
-                    // do in the box and the keyboard nothing to do over the button
-                    // that acts on it.
-                    box.current?.blur();
-                  }}
-                  style={({ pressed }) => [styles.hit, at > 0 && styles.under, pressed && styles.pressed]}
-                >
-                  <Text numberOfLines={1} style={styles.hitName}>{lesson.name}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-      </View>
+      {/* One box that names a new lesson or finds one of theirs. It started
+          here and is shared now (components/LessonNameField). */}
+      <LessonNameField value={named} onChangeText={setNamed} chosen={chosen} onChoose={setChosen} disabled={saving} />
 
       {/* Only a new lesson has one of these to write. */}
       {!chosen && (
@@ -294,25 +176,6 @@ export function LessonTarget({ raw }: { raw: unknown }) {
 }
 
 const styles = StyleSheet.create({
-  // Over its neighbours rather than between them, so the menu is drawn on top of
-  // the description field instead of behind it.
-  combo: { zIndex: 2 },
-  menu: {
-    position: 'absolute', left: 0, right: 0, top: '100%', marginTop: space[1],
-    borderRadius: radius.lg,
-    borderWidth: hairline,
-    borderColor: colors.line,
-    backgroundColor: colors.surf,
-    // Rows are square-cornered; the corners come from the menu clipping them.
-    overflow: 'hidden',
-  },
-  menuRoll: { maxHeight: MENU_DROP },
-  hit: { paddingVertical: space[3], paddingHorizontal: space[3] },
-  // A line between rows, not around each: the menu is one object.
-  under: { borderTopWidth: hairline, borderTopColor: colors.line },
-  pressed: { backgroundColor: colors.panel },
-  faded: { opacity: 0.5 },
-  hitName: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
   failed: { ...type.caption, fontFamily: fonts.regular, color: colors.red },
   kept: { ...type.body, fontFamily: fonts.regular, color: colors.text },
   keptWhere: { fontFamily: fonts.semibold },

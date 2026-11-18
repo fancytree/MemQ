@@ -8,6 +8,9 @@ export interface PendingTerm {
   definition: string;
   explanation: string | null;
   language_data?: import('./languageCard').LanguageCardData | null;
+  /** Practice questions the card arrived with, when it was pasted in from the
+   *  person's own AI (lib/cardImport). They are saved with it. */
+  questions?: import('./cardImport').ImportedQuestion[];
 }
 
 let pending: PendingTerm[] | null = null;

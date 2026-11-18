@@ -2,6 +2,10 @@ import { Icon } from '@/components/ui/Icon';
 import { oneLine } from '@/theme/typography';
 import { Card } from '@/components/ui/Card';
 import { Field } from '@/components/ui/Field';
+import { OwnAiEntry } from '@/components/OwnAiEntry';
+import { ImportedCards } from '@/components/ImportedCards';
+import { Button } from '@/components/ui/Button';
+import { addPasted, asImported, cardReplyCount, parseImport, saveImport, type ImportedCard } from '@/lib/cardImport';
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
 import { dialog } from '@/lib/dialog';
 import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
@@ -15,7 +19,7 @@ import { EdBase } from '@/components/EdBase';
 import { SectionLabel } from '@/components/SectionLabel';
 import { LanguageCardDetails, LanguageCardEditor } from '@/components/LanguageCardFields';
 import { useSubscription } from '@/context/SubscriptionContext';
-import { AI_LIMITS, getAIUsageCount, recordAIUsage } from '@/lib/aiUsage';
+import { AI_LIMITS, AIRefused, callAI, getAIUsageCount } from '@/lib/aiUsage';
 import { clearCache } from '@/lib/cache';
 import { safeBack } from '@/lib/safeBack';
 import { supabase } from '@/lib/supabase';
@@ -104,9 +108,36 @@ export default function AddTermsScreen() {
   const [generateDots, setGenerateDots] = useState('.');
   const [regenerateDots, setRegenerateDots] = useState('.');
   const [genUsed, setGenUsed] = useState(0);
-  const GEN_LIMIT = AI_LIMITS.generate_terms.free; // 3
+  const GEN_LIMIT = AI_LIMITS.lesson_generate.free;
   const genRemaining = Math.max(0, GEN_LIMIT - genUsed);
   const genExhausted = !isPro && genRemaining === 0;
+
+  /* A reply from their own AI, pasted into this box. It is already cards, so it
+   * is not sent to a model to be made into cards again — that would spend a
+   * generation and lose its questions — and nothing has to be pressed: it is read
+   * on the device the moment it lands, the cards are listed under the box
+   * (components/ImportedCards), and the box is given back empty. The lesson
+   * already is one kind or the other, so here the cards are saved as its kind
+   * whatever the reply calls itself. */
+  const [imported, setImported] = useState<ImportedCard[]>([]);
+
+  // The empty card for writing one by hand is folded to one line once there are
+  // cards from somewhere else, and never over something typed (see app/create).
+  const [manualOpen, setManualOpen] = useState(false);
+  const manualStarted = manualTerms.some((row) => row.saved || row.term.trim() || row.definition.trim() || row.explanation.trim());
+  const manualFolded = !manualOpen && !manualStarted && (imported.length > 0 || cards.length > 0);
+  // Put back as new once emptied this way, so it does not keep the height the
+  // pasted reply gave it (see app/create).
+  const [boxKey, setBoxKey] = useState(0);
+  useEffect(() => {
+    if (!cardReplyCount(prompt)) return;
+    const reply = parseImport(prompt);
+    setImported((listed) => addPasted(listed, reply));
+    setPrompt('');
+    setBoxKey((key) => key + 1);
+    // Only when the box changes; the rest is read as it stands at that moment.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prompt]);
   const isSingleTermEdit = !!termId;
 
   useEffect(() => {
@@ -122,6 +153,26 @@ export default function AddTermsScreen() {
       });
   }, [id]);
 
+  /* A "no" from the server, shown in its own words (lib/aiRefusal.ts). The limits
+   * live there now, so this is where running out is found out for certain: what
+   * the screen counted was only ever a guess at it. Returns whether it was one. */
+  const refused = (error: unknown): boolean => {
+    if (!(error instanceof AIRefused)) return false;
+    // Out of the free allowance: the one refusal that Pro answers.
+    if (error.code === 'quota' && !isPro) {
+      // Two ways on: pay, or let their own AI do the writing, which costs nothing
+      // and has no limit (app/import-cards.tsx).
+      dialog('That is all for now', error.message, [
+        { text: 'Not now', style: 'cancel' },
+        { text: 'Use my own AI', onPress: () => router.push(`/import-cards?lessonId=${id}` as never) },
+        { text: 'See Pro', onPress: () => void showPaywall() },
+      ]);
+    } else {
+      dialog('Not right now', error.message);
+    }
+    return true;
+  };
+
   const generate = () => {
     const run = async () => {
       if (loadingMode || modeLoadFailed) return;
@@ -132,14 +183,10 @@ export default function AddTermsScreen() {
       if (genExhausted) { void showPaywall(); return; }
       setPhase('generating');
       try {
-        const { data: authData } = await supabase.auth.getUser();
-        const { data, error } = await supabase.functions.invoke(learningMode === 'language' ? 'generate-vocab-terms' : 'generate-terms', {
-          body: { type: 'topic', content: prompt.trim() },
-        });
-
-        if (error) {
-          throw new Error(error.message || 'Failed to generate terms');
-        }
+        const data = await callAI<{ results?: unknown }>(
+          learningMode === 'language' ? 'generate-vocab-terms' : 'generate-terms',
+          { type: 'topic', content: prompt.trim() }, 'Failed to generate terms',
+        );
 
         const results: Array<{ term: string; definition: string; explanation?: string; language_data?: LanguageCardData }> =
           Array.isArray(data?.results) ? data.results : [];
@@ -155,13 +202,11 @@ export default function AddTermsScreen() {
 
         setCards(nextCards);
         setPhase('done');
-        if (!isPro && authData.user) {
-          const ok = await recordAIUsage('generate_terms', authData.user.id);
-          if (ok) setGenUsed((prev) => prev + 1);
-        }
+        // The server counted it; this keeps the number on screen in step.
+        if (!isPro && results.length) setGenUsed((prev) => prev + 1);
       } catch (error) {
-        const message = error instanceof Error ? error.message : 'Something went wrong';
-        dialog('Error', message);
+        if (error instanceof AIRefused && error.code === 'quota') setGenUsed(GEN_LIMIT);
+        if (!refused(error)) dialog('Error', error instanceof Error ? error.message : 'Something went wrong');
         setPhase('idle');
       }
     };
@@ -183,7 +228,8 @@ export default function AddTermsScreen() {
 
   const handlePickPdfAndGenerate = async () => {
     if (loadingMode || modeLoadFailed) return;
-    if (genExhausted) { void showPaywall(); return; }
+    // Not gated on generated lessons: a PDF has an allowance of its own, and the
+    // server says when that one is used up.
     try {
       const picker = getDocumentPicker();
       if (!picker) {
@@ -221,23 +267,13 @@ export default function AddTermsScreen() {
       }
 
       const pdfUrl = await createPdfProcessingUrl(supabase.storage.from('pdfs'), fileName);
-      const { data, error } = await supabase.functions.invoke('process-file', {
-        body: { pdf_url: pdfUrl },
-      });
-      if (error) {
-        throw new Error(error.message || 'Failed to process file');
-      }
+      const data = await callAI<{ results?: unknown }>('process-file', { pdf_url: pdfUrl }, 'Failed to process file');
 
       const results: Array<{ term: string; definition: string; explanation?: string }> =
         Array.isArray(data?.results) ? data.results : [];
       applyGeneratedResults(results);
-      if (!isPro && authData.user) {
-        const ok = await recordAIUsage('generate_terms', authData.user.id);
-        if (ok) setGenUsed((prev) => prev + 1);
-      }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to process PDF';
-      dialog('Error', message);
+      if (!refused(error)) dialog('Error', error instanceof Error ? error.message : 'Failed to process PDF');
       setPhase('idle');
     }
   };
@@ -273,7 +309,7 @@ export default function AddTermsScreen() {
     void (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      const count = await getAIUsageCount('generate_terms', user.id);
+      const count = await getAIUsageCount('lesson_generate', user.id);
       setGenUsed(count);
     })();
   }, [isPro]);
@@ -370,6 +406,8 @@ export default function AddTermsScreen() {
     setManualTerms((prev) =>
       prev.map((row) => (row.id === rowId ? { ...row, editing: false } : row))
     );
+    // Cancel on a card nothing was typed into puts it away again (see manualFolded).
+    setManualOpen(false);
   };
 
   const handleManualDiscard = (rowId: string) => {
@@ -459,16 +497,12 @@ export default function AddTermsScreen() {
     term: string
   ): Promise<{ definition: string; explanation: string; languageData: LanguageCardData }> => {
     if (loadingMode || modeLoadFailed) throw new Error('Lesson mode is unavailable');
-    const { data, error } = await supabase.functions.invoke(learningMode === 'language' ? 'generate-vocab-terms' : 'generate-terms', {
-        body: {
-          type: 'topic',
-        content: term,
-        },
-      });
-
-      if (error) {
-      throw new Error(error.message || 'Failed to generate content');
-    }
+    // `purpose: 'card'` asks for the one card and is counted as one, not as a
+    // generated lesson.
+    const data = await callAI<{ results?: Array<{ definition?: string; explanation?: string; language_data?: unknown }> }>(
+      learningMode === 'language' ? 'generate-vocab-terms' : 'generate-terms',
+      { type: 'topic', content: term, purpose: 'card' }, 'Failed to generate content',
+    );
 
     const first = data?.results?.[0];
     if (!first || typeof first.definition !== 'string') {
@@ -527,8 +561,20 @@ export default function AddTermsScreen() {
           explanation: (card.ex || '').trim() || null,
           language_data: learningMode === 'language' && card.languageData && hasLanguageData(card.languageData) ? card.languageData : null,
         }));
+      // Pasted in with their questions, which are saved with them.
+      const pastedTerms = imported.map((card) => {
+        const details = normalizeLanguageData(card.language_data);
+        return {
+          term: card.term,
+          definition: card.definition,
+          explanation: card.explanation || null,
+          language_data: learningMode === 'language' && hasLanguageData(details) ? details : null,
+          ...(card.questions.length ? { questions: card.questions } : {}),
+        };
+      });
 
       const allTerms = [
+        ...pastedTerms,
         ...validGeneratedTerms,
         ...validManualTerms.map((row) => ({
           term: row.term.trim(),
@@ -540,6 +586,17 @@ export default function AddTermsScreen() {
 
       if (allTerms.length === 0) {
         dialog('Error', 'Please add at least one Term and Definition');
+        return;
+      }
+
+      // Cards that came with their own questions are saved with them, through the
+      // database functions the MCP endpoint uses (lib/cardImport): a card and its
+      // questions go in together or not at all. Those functions take the plain
+      // cards beside them too, so one call covers the lot.
+      if (allTerms.some((row) => 'questions' in row)) {
+        await saveImport(supabase as never, asImported(allTerms), { kind: 'existing', lesson_id: id as string, learning_mode: learningMode });
+        void clearCache('LESSON_DETAIL', id as string);
+        router.replace(`/lessons/${id}` as any);
         return;
       }
 
@@ -616,6 +673,7 @@ export default function AddTermsScreen() {
             What do you want to learn?
           </SectionLabel>
           <TextInput accessibilityLabel="Type what you want to learn, paste text, or enter a topic."
+            key={boxKey}
             value={prompt}
             onChangeText={setPrompt}
             placeholder="Type what you want to learn, paste text, or enter a topic."
@@ -678,6 +736,22 @@ export default function AddTermsScreen() {
         </Card>
       )} />
 
+      {/* The way with no limit (components/OwnAiEntry). Opened from here it adds
+          to this lesson rather than making a new one. */}
+      <View style={styles.ownAi}><OwnAiEntry lessonId={id} topic={prompt} /></View>
+
+      {/* What was pasted in from their own AI: short, and only removable. */}
+      {imported.length > 0 && (
+        <>
+          <View style={styles.genHead}>
+            <SectionLabel>{`Imported — ${imported.length} ${imported.length === 1 ? 'card' : 'cards'}`}</SectionLabel>
+          </View>
+          <View style={styles.importedList}>
+            <ImportedCards cards={imported} onRemove={(cardId) => setImported((listed) => listed.filter((card) => card.id !== cardId))} />
+          </View>
+        </>
+      )}
+
       {/* Nothing is said while the box is empty: the character is already watching
           it, and a heading over an empty dashed box only names the emptiness. */}
       {cards.length > 0 && (
@@ -703,7 +777,14 @@ export default function AddTermsScreen() {
       ))}
 
       {/* Manual terms */}
-      <View style={styles.manualSection}>
+      {manualFolded && (
+        <View style={styles.manualOffer}>
+          <Button variant="quiet" size="sm" label="Add a card by hand"
+            icon={<Icon name="plus" size={16} color={colors.action} />}
+            onPress={() => setManualOpen(true)} />
+        </View>
+      )}
+      {!manualFolded && <View style={styles.manualSection}>
         <View style={styles.manualList}>
           {manualTerms.map((row, index) => (
             <ManualCard
@@ -744,7 +825,7 @@ export default function AddTermsScreen() {
             />
           ))}
         </View>
-      </View>
+      </View>}
 
       <View style={{ height: 24 }} />
       </ScrollView>
@@ -1169,9 +1250,11 @@ const styles = StyleSheet.create({
     letterSpacing: -0.1,
     color: colors.text,
   },
+  // Grows up to about six lines, then scrolls inside itself (see app/create).
   textarea: {
     ...type.body,
     minHeight: 76,
+    maxHeight: 148,
     letterSpacing: -0.1,
     color: colors.text,
     padding: space[0],
@@ -1197,6 +1280,9 @@ const styles = StyleSheet.create({
     color: colors.sub,
   },
   quotaUpgradeBtn: { minHeight: 44, paddingVertical: space.hair, paddingHorizontal: space[1] },
+  // Its own side margin: on this page each block pads itself.
+  ownAi: { paddingHorizontal: layout.screenInline, paddingTop: space[4] },
+  importedList: { paddingHorizontal: layout.screenInline, paddingTop: space[2] },
   quotaUpgradeBtnText: {
     ...type.caption, fontFamily: fonts.bold,
     color: colors.action,
@@ -1269,6 +1355,7 @@ const styles = StyleSheet.create({
     marginTop: space[2],
     marginHorizontal: layout.screenInline,
   },
+  manualOffer: { marginTop: space[3], alignItems: 'center' },
   manualSectionHead: {
     marginBottom: space[2],
     flexDirection: 'row',

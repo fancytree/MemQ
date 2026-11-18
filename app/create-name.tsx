@@ -18,6 +18,10 @@ import {
   clearPendingTerms, getPendingLearningMode, getPendingSource, getPendingTerms, lessonFromSource,
 } from '@/lib/createStore';
 import { supabase } from '@/lib/supabase';
+import { asImported, saveImport } from '@/lib/cardImport';
+import { notHeld } from '@/lib/lessonMatch';
+import type { LessonChoice } from '@/lib/chatDrafts';
+import { LessonNameField } from '@/components/LessonNameField';
 import { colors, fonts } from '@/theme';
 import { router } from 'expo-router';
 import { useRef, useState } from 'react';
@@ -65,9 +69,53 @@ export default function CreateNameScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const nameInputRef = useRef<TextInput>(null);
 
-  const canCreate = lessonName.trim().length > 0;
+  /* Where the cards go. Usually a new lesson, named here — but the name box also
+   * finds the lessons they already have (components/LessonNameField, the same
+   * box the chat asks this with), for the person who made cards and then saw
+   * they belong with an old one. With one picked, this page stops being about a
+   * new lesson: its description and deadline are that lesson's own business and
+   * are not asked for. */
+  const [existing, setExisting] = useState<LessonChoice | null>(null);
+  const [cardCount] = useState(() => getPendingTerms()?.length ?? 0);
+  const canCreate = !!existing || lessonName.trim().length > 0;
+  const action = existing ? 'Add to lesson' : cardCount ? `Save ${cardCount} ${cardCount === 1 ? 'card' : 'cards'}` : 'Create lesson';
+
+  const addToExisting = async (lesson: LessonChoice) => {
+    const terms = getPendingTerms() ?? [];
+    setSaving(true);
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+      if (!user) { dialog('Error', 'Please log in first.'); return; }
+      // A card the lesson already has is not added again: this is where the same
+      // card arrives twice.
+      const { data: held, error: heldError } = await supabase.from('terms').select('term').eq('lesson_id', lesson.id).limit(5000);
+      if (heldError) { dialog('Error', 'That lesson could not be opened just now. Try again in a moment.'); return; }
+      const fresh = notHeld(terms, ((held ?? []) as { term: unknown }[]).map((row) => (typeof row.term === 'string' ? row.term : '')));
+      // The lesson is one kind or the other, and the cards go in as its kind.
+      const mode = lesson.learning_mode ?? learningMode;
+      if (fresh.length) {
+        await saveImport(supabase as never, asImported(fresh), { kind: 'existing', lesson_id: lesson.id, learning_mode: mode });
+      }
+      clearPendingTerms();
+      void clearCache('DASHBOARD', user.id);
+      void clearCache('LESSONS', user.id);
+      void clearCache('LESSON_DETAIL', lesson.id);
+      const skipped = terms.length - fresh.length;
+      if (skipped) {
+        dialog(fresh.length ? 'Added' : 'Already there',
+          fresh.length
+            ? `${fresh.length} added. ${skipped} ${skipped === 1 ? 'was' : 'were'} already in “${lesson.name}”.`
+            : `“${lesson.name}” already has ${terms.length === 1 ? 'this card' : 'all of these cards'}.`);
+      }
+      router.replace(`/lessons/${lesson.id}` as any);
+    } catch (err) {
+      dialog('Error', err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const formatDate = (date: Date | null) => {
     if (!date) return null;
@@ -75,6 +123,8 @@ export default function CreateNameScreen() {
   };
 
   const handleCreate = async () => {
+    if (saving) return;
+    if (existing) return addToExisting(existing);
     const name = lessonName.trim();
     if (!name) { dialog('Required', 'Please enter a lesson name.'); return; }
     if (saving) return;
@@ -105,7 +155,12 @@ export default function CreateNameScreen() {
         return;
       }
 
-      if (terms.length > 0) {
+      if (terms.some((t) => t.questions?.length)) {
+        // Cards pasted in from the person's own AI come with their questions, and
+        // are saved with them (lib/cardImport): the same database functions the MCP
+        // endpoint writes through, which take the plain cards beside them as well.
+        await saveImport(supabase as never, asImported(terms), { kind: 'existing', lesson_id: lesson.id, learning_mode: learningMode });
+      } else if (terms.length > 0) {
         const { error: termsError } = await supabase.from('terms').insert(
           terms.map((t) => ({
             lesson_id: lesson.id,
@@ -151,8 +206,8 @@ export default function CreateNameScreen() {
       {/* Top bar */}
       <View style={styles.topbar}>
         <BackButton onPress={() => router.back()} label="Back to the first step" />
-        <Text style={styles.title}>New Lesson</Text>
-        <ConfirmButton onPress={() => void handleCreate()} label="Create lesson"
+        <Text style={styles.title}>{cardCount ? 'Save Cards' : 'New Lesson'}</Text>
+        <ConfirmButton onPress={() => void handleCreate()} label={action}
           disabled={!canCreate} busy={saving} />
       </View>
 
@@ -173,32 +228,31 @@ export default function CreateNameScreen() {
           <Card pad="none" gap={0} style={[styles.formCard, { marginTop: CARD_LIFT, marginLeft: bleed, marginRight: bleed }]}>
             <View style={styles.formFace}>
 
-            <Field accessibilityLabel="Lesson name"
-              label={<>Lesson Name <Text style={styles.required}>*</Text></>}
-              ref={nameInputRef}
+            <LessonNameField
+              label={<>Lesson <Text style={styles.required}>*</Text></>}
               autoFocus
               value={lessonName}
               onChangeText={setLessonName}
-              placeholder="e.g. French Vocabulary, Biology Ch.3…"
-              autoCapitalize="words"
-              returnKeyType="next"
-              maxLength={80}
-              style={styles.inputGroup}
+              chosen={existing}
+              onChoose={setExisting}
+              // With no cards there is nothing to add to a lesson they have.
+              search={cardCount > 0}
+              style={existing ? styles.inputGroupLast : styles.inputGroup}
             />
 
-            <Field label="Description"
+            {!existing && <Field label="Description"
               accessibilityLabel="Enter description (optional)"
               value={description}
               onChangeText={setDescription}
               placeholder="Enter description (optional)"
               multiline
               style={styles.inputGroup}
-            />
+            />}
 
             {/* Shaped like the two fields above it, because it belongs with them —
                 but it opens a picker instead of taking a cursor, which is what the
                 calendar glyph is there to say. */}
-            <View style={[fieldGroup, styles.inputGroup, styles.inputGroupLast]}>
+            {!existing && <View style={[fieldGroup, styles.inputGroup, styles.inputGroupLast]}>
               <View style={styles.labelRow}>
                 <FieldLabel>Deadline</FieldLabel>
                 {deadline && (
@@ -218,14 +272,14 @@ export default function CreateNameScreen() {
                 <Icon name="calendar" size={18}
                   color={deadline ? colors.sub : colors.faint} />
               </TouchableOpacity>
-            </View>
+            </View>}
             </View>
           </Card>
             )} />
 
           {/* CTA */}
           <Button size="xl"
-            label={saving ? 'Creating…' : 'Create Lesson →'}
+            label={saving ? 'Saving…' : `${action} →`}
             onPress={() => void handleCreate()}
             disabled={!canCreate || saving}
           />

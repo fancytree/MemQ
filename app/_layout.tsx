@@ -45,6 +45,7 @@ export default function RootLayout() {
             <Stack.Screen name="(tabs)" />
             <Stack.Screen name="create" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
             <Stack.Screen name="create-name" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
+            <Stack.Screen name="import-cards" options={{ presentation: 'card', animation: 'slide_from_bottom' }} />
             {/* The two chat lines come up the same way as /create: stepped into and
                 left, which is why they close with a cross rather than go back. */}
             {/* No swipe back out of a conversation.
