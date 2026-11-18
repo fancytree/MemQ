@@ -43,6 +43,10 @@
   - `assets/images/splash-icon.png`
 
 ### 功能测试
+- [ ] **在最新的 iOS 版本上启动一次 Release 构建，iPhone 和 iPad 各一台。**
+      3.0.0 (9) 被拒就是因为只在 iOS 26 的模拟器上测过：用 Xcode 27 构建的包没有接入 UIScene
+      生命周期，在 iOS 27 上一启动就退（审核机是 iPad，但 iPhone 也一样）。日常用的模拟器停在
+      旧系统上时，这类问题看不出来。见 `plugins/withSceneLifecycle.js`。
 - [ ] 测试用户注册和登录流程
 - [ ] 测试创建课程和添加术语
 - [ ] 测试 AI 功能（生成术语、问题、聊天）
