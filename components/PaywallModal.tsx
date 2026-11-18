@@ -381,7 +381,7 @@ export default function PaywallModal({ visible, onClose }: PaywallModalProps) {
                   <Text style={styles.footerLead}>
                     {selectedPlan === 'monthly'
                       ? `7 days on us, then ${monthlyPackage?.product.priceString || '$5.99'}/month`
-                      : `7 days on us, then ${yearlyPackage?.product.priceString || '$49.99'}/year`}
+                      : `7 days on us, then ${yearlyPackage?.product.priceString || '$34.99'}/year`}
                   </Text>
                   <Text style={styles.autoRenewText}>
                     Auto-renews. Cancel in App Store settings at least 24 hours before renewal.

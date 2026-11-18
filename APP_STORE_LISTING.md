@@ -78,7 +78,7 @@ Transform how you learn. Download MemQ today.
 **Subscription Information**
 MemQ Pro is available as an auto-renewable subscription with a 7-day free trial:
 • Monthly: $4.99/month
-• Yearly: $49.99/year (Save 17%)
+• Yearly: $34.99/year (Save 42%)
 
 Payment will be charged to your App Store account at confirmation of purchase. Subscription automatically renews unless canceled at least 24 hours before the end of the current period. Your account will be charged for renewal within 24 hours prior to the end of the current period. You can manage and cancel your subscriptions in your App Store account settings after purchase.
 
