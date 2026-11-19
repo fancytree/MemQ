@@ -13,7 +13,7 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       },
-      "buildNumber": "11",
+      "buildNumber": "12",
       "icon": {
         "light": "./assets/images/icon-ios-light.png",
         "dark": "./assets/images/icon-ios-dark.png",
