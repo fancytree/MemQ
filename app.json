@@ -30,7 +30,12 @@
       ],
       "expo-router",
       "expo-font",
-      "expo-audio",
+      [
+        "expo-audio",
+        {
+          "enableBackgroundPlayback": false
+        }
+      ],
       "@react-native-community/datetimepicker",
       "./plugins/withSceneLifecycle"
     ],
