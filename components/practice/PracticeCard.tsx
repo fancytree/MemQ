@@ -21,16 +21,22 @@
  */
 
 import { Card } from '@/components/ui/Card';
-import { colors, fonts, radius, space, type } from '@/theme';
+import { colors, fonts, interaction, radius, space, type } from '@/theme';
 import { oneLine } from '@/theme/typography';
 import type { ReactNode } from 'react';
 import {
-  StyleSheet, Text, View,
+  Pressable, StyleSheet, Text, View,
   type AccessibilityActionEvent, type AccessibilityActionInfo, type StyleProp, type ViewStyle,
 } from 'react-native';
 
+/** The hint is one small line, and a line is not a target. The room it needs to
+ *  be one is taken outside the layout rather than inside it: given as height, the
+ *  line sat a finger's width off the bottom edge of the card and read as a gap
+ *  somebody had left by mistake. */
+const HINT_SLOP = Math.round((interaction.minTarget - type.caption.lineHeight) / 2);
+
 export function PracticeCard({
-  topic, kind, hint, children, onPress, style, faceStyle,
+  topic, kind, hint, onHintPress, children, onPress, style, faceStyle,
   accessibilityLabel, accessibilityHint, accessibilityActions, onAccessibilityAction,
 }: {
   /** Which lesson the card came from. */
@@ -39,6 +45,12 @@ export function PracticeCard({
   kind: string;
   /** Along the bottom edge, when the card itself is the thing to press. */
   hint?: string;
+  /** Makes that line the control instead of the whole card. A card whose face is
+   *  the thing to read — a turned-over card, with more on it than fits — cannot
+   *  also be the thing to press: a drag down the middle of it is somebody reading
+   *  on, and it came back as a tap that turned the card over. So the line along
+   *  the bottom says what it does and is the only part that does it. */
+  onHintPress?: () => void;
   children: ReactNode;
   onPress?: () => void;
   /** Where the card sits. */
@@ -61,7 +73,13 @@ export function PracticeCard({
         {!!kind && <View style={styles.kind}><Text style={styles.kindLabel}>{kind}</Text></View>}
       </View>
       {children}
-      {!!hint && <Text style={styles.hint}>{hint}</Text>}
+      {!!hint && (onHintPress
+        ? (
+          <Pressable accessibilityRole="button" accessibilityLabel={hint} onPress={onHintPress} hitSlop={HINT_SLOP}>
+            <Text style={styles.hint}>{hint}</Text>
+          </Pressable>
+        )
+        : <Text style={styles.hint}>{hint}</Text>)}
     </Card>
   );
 }

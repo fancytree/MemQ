@@ -822,7 +822,7 @@ export default function AddTermsScreen() {
                 )}
 
       {isSingleTermEdit && !loadingTerm && (
-        <ScrollView style={styles.singleEditWrap} contentContainerStyle={{ paddingBottom: space[8] }} keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.singleEditWrap} contentContainerStyle={{ paddingBottom: space[8] }} keyboardShouldPersistTaps="handled">
           <View style={styles.manualSection}>
             <View style={styles.manualList}>
               {manualTerms.map((row, index) => (

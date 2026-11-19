@@ -649,7 +649,7 @@ export function ChatShell({
           below can be positioned against the bottom of the conversation rather
           than the bottom of the screen, which is where the box is. */}
       <View style={styles.list}>
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false}
           ref={scroller}
           style={styles.scroll}
           contentContainerStyle={styles.content}
@@ -808,7 +808,7 @@ export function ChatShell({
             the box grows upward and they stay put. */}
         <View style={styles.box}>
           {(attached.length > 0 || reading) && (
-            <ScrollView
+            <ScrollView showsVerticalScrollIndicator={false}
               ref={tray}
               horizontal
               showsHorizontalScrollIndicator={false}

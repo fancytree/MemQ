@@ -83,7 +83,14 @@ export function Card({
 
   // A card that opens something is a button, and presses like one; one that only
   // holds content is not asking to be pushed.
-  if (!onPress) return <View style={shell}>{face}</View>;
+  if (!onPress) return (
+    // Not pressed, but it can still answer the actions a screen gives it — a
+    // flashcard keeps "I got it" and "Need review" once its face is for reading.
+    <View style={shell} accessibilityLabel={accessibilityLabel} accessibilityHint={accessibilityHint}
+      accessibilityActions={accessibilityActions} onAccessibilityAction={onAccessibilityAction}>
+      {face}
+    </View>
+  );
   return (
     <LedgePressable onPress={onPress} disabled={disabled}
       accessibilityRole="button" accessibilityLabel={accessibilityLabel}

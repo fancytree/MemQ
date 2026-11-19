@@ -714,18 +714,25 @@ export default function QuizScreen() {
   if (isAudio && firstHeard.current === null) firstHeard.current = heardKey;
   const mcqRight = q.mode === 'mcq' && selected === q.correct;
   const buildRight = q.mode === 'build' && isBuiltCorrectly(q, placed);
+  const correctAnswerText = q.mode === 'mcq' ? q.opts[q.correct] : q.mode === 'recall' ? q.answer : q.mode === 'build' ? q.answer.join(' ') : '';
+  /** What the card means, for the back — unless that is what was just answered.
+   *  A question typed from hearing the word, or spelled, or picked out of four
+   *  answers the word, not what it means, and somebody who has just heard a word
+   *  wants to know what it was. Where the answer already is the meaning, repeating
+   *  it under its own heading says the same thing twice. */
+  const backMeaning = q.mode !== 'flip' && q.mode !== 'match'
+    && q.meaning?.trim() && q.meaning.trim() !== correctAnswerText.trim()
+    ? q.meaning.trim() : undefined;
   /** The card can be turned over — but only when there is something behind it.
-   *  A card with no explanation written and nothing language-specific to show has
-   *  only its correct answer back there, and the answer is already on this face:
-   *  offering to turn it over promised something and delivered a line saying there
-   *  was nothing. */
+   *  A card whose back would hold nothing but the answer already on this face has
+   *  nothing to show: offering to turn it over promised something and delivered a
+   *  line saying there was nothing. */
   const canExplain = (q.mode === 'mcq' || q.mode === 'recall' || q.mode === 'build')
     // hasLanguageData, not merely having the object: a card carrying an empty
     // `{}` would otherwise open a back with nothing on it.
-    && (!!q.explain?.trim() || (!!q.languageData && hasLanguageData(q.languageData)));
+    && (!!q.explain?.trim() || !!backMeaning || (!!q.languageData && hasLanguageData(q.languageData)));
   /** The card is turned over and showing what is behind the answer. */
   const onExplanation = showExplanation && revealed && canExplain;
-  const correctAnswerText = q.mode === 'mcq' ? q.opts[q.correct] : q.mode === 'recall' ? q.answer : q.mode === 'build' ? q.answer.join(' ') : '';
   const chip = q.mode === 'match' ? 'Match' : q.mode === 'build' ? 'Build' : q.mode === 'flip' ? '' : q.chip;
   const questionText = q.mode === 'match' || q.mode === 'flip' ? '' : q.q;
   /** A question that is a sentence or a definition, not a word, is set smaller. */
@@ -798,7 +805,13 @@ export default function QuizScreen() {
       {/* Nothing here scrolls. A question is one screenful: what does not fit
           scrolls inside the card that holds it, so a sideways swipe on a flashcard
           is never fighting a page that wants to move up and down. */}
-      <ScrollView style={styles.practiceScroll} contentContainerStyle={[styles.practiceScrollContent, styles.fixedCardContent]} scrollEnabled={false} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      {/* A plain box, not a scroller. It was a ScrollView with scrolling switched
+          off, and a ScrollView's content is measured by what is in it: a card
+          taller than the screen made the content taller than the screen instead
+          of making the card fit, so the card's own scroller had no height to
+          shrink into and its last lines were simply cut off the bottom. A box
+          with a height bounds the card, and what does not fit scrolls inside it. */}
+      <View style={styles.practiceArea}>
       {q.mode !== 'flip' ? (
         <Animated.View style={[styles.fixedQuestionCard, { transform: [{ perspective: 1000 }, { rotateY: explanationRotation }] }]}>
         <PracticeCard topic={q.topic} kind={chip} style={styles.questionCard}
@@ -811,15 +824,15 @@ export default function QuizScreen() {
               {q.mode === 'mcq' && <View style={styles.retryBadgeSlot}>{revealed && !mcqRight && <Text style={styles.retryBadge}>Let’s try again</Text>}</View>}
               {isAudio && !revealed
                 ? <ListenPrompt key={heardKey} text={q.termText || q.q} languageCode={q.languageData?.language_code} onCannotListen={checking || !firstHeard.current || firstHeard.current !== heardKey ? undefined : cannotListen} />
-                : <ScrollView style={[styles.questionTextScroll, q.mode !== 'mcq' && { maxHeight: 120 * fontScale }]} nestedScrollEnabled showsVerticalScrollIndicator><Text style={[styles.qText, longQuestion && styles.qTextLong]}>{questionText}</Text></ScrollView>}
+                : <ScrollView style={[styles.questionTextScroll, q.mode !== 'mcq' && { maxHeight: 120 * fontScale }]} nestedScrollEnabled showsVerticalScrollIndicator={false}><Text style={[styles.qText, longQuestion && styles.qTextLong]}>{questionText}</Text></ScrollView>}
               {showPlay && <PlayButton text={q.termText!} languageCode={q.languageData?.language_code} label={`Play ${q.termText}`} />}
             </View>
           </View>)}
           {onExplanation ? <View style={[styles.answerArea, styles.explanationArea]}>
-            <ScrollView style={styles.backExplanationScroll} nestedScrollEnabled showsVerticalScrollIndicator>
+            <ScrollView style={styles.backExplanationScroll} nestedScrollEnabled showsVerticalScrollIndicator={false}>
               <View style={styles.backExplanationContent}>
                 <PracticeBack answerLabel="Correct answer" answer={correctAnswerText}
-                  explain={q.explain} languageData={q.languageData} />
+                  meaning={backMeaning} explain={q.explain} languageData={q.languageData} />
               </View>
             </ScrollView>
             <Button variant="quiet" size="sm" label="Tap to see your answer again" accessibilityLabel="Return to answers" onPress={flipExplanation} />
@@ -873,7 +886,7 @@ export default function QuizScreen() {
         />
       )}
 
-      </ScrollView>
+      </View>
       {/* The recall composer stays above the keyboard; feedback uses the fixed Continue action. */}
       {q.mode === 'recall' && !revealed && !checking ? <Card pad="sm" gap={space[2]}
         style={styles.recallComposer} faceStyle={styles.recallComposerRow}>
@@ -953,7 +966,7 @@ interface MCQViewProps {
 function MCQView({ q, selected, revealed, onSelect }: MCQViewProps) {
   const answeredIncorrectly = revealed && selected !== q.correct;
   return (
-    <ScrollView style={mcqStyles.scroll} contentContainerStyle={mcqStyles.wrap} nestedScrollEnabled showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
+    <ScrollView style={mcqStyles.scroll} contentContainerStyle={mcqStyles.wrap} nestedScrollEnabled showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       {q.opts.map((opt, i) => {
         const isSelected = selected === i;
         const isCorrect = i === q.correct;
@@ -1118,14 +1131,17 @@ function FlipView({ q, flipped, onFlip, onConfidence, swipeProgress }: FlipViewP
       </View>
       <Animated.View {...swipe.panHandlers} style={[flipStyles.cardMotion, { transform: [{ translateX }, { rotate }] }]}>
       <Animated.View style={[flipStyles.cardMotion, { transform: [{ perspective: 1000 }, { rotateY: flipRotation }] }]}>
+      {/* Turned over, only the line along the bottom turns it back: the face above
+          it is a card being read, and a drag down it is reading on, not a tap. */}
       <PracticeCard topic={q.topic} kind="Flashcard"
         hint={shownBack ? 'Tap to see question again' : 'Tap to reveal answer'}
-        onPress={() => { if (!flipping.current) onFlip(); }}
+        onHintPress={shownBack ? () => { if (!flipping.current) onFlip(); } : undefined}
+        onPress={shownBack ? undefined : () => { if (!flipping.current) onFlip(); }}
         accessibilityLabel={shownBack ? 'Show front of card' : 'Reveal answer'}
         accessibilityHint="Swipe right if you remember, or left if you need review."
         accessibilityActions={[{ name: 'remembered', label: 'I got it' }, { name: 'review', label: 'Need review' }]}
         onAccessibilityAction={(event) => { if (event.nativeEvent.actionName === 'remembered') onConfidence('I got it'); else if (event.nativeEvent.actionName === 'review') onConfidence('Need review'); }}>
-        {shownBack ? <ScrollView style={flipStyles.faceScroll} contentContainerStyle={flipStyles.backContent} nestedScrollEnabled showsVerticalScrollIndicator>
+        {shownBack ? <ScrollView style={flipStyles.faceScroll} contentContainerStyle={flipStyles.backContent} nestedScrollEnabled showsVerticalScrollIndicator={false}>
           {/* The word and the button that says it read as one thing: a label over
               them and a tall button under them had pushed the three apart. */}
           <View style={flipStyles.termRow}>
@@ -1134,7 +1150,7 @@ function FlipView({ q, flipped, onFlip, onConfidence, swipeProgress }: FlipViewP
           </View>
           <PracticeBack answerLabel="Meaning" answer={q.back}
             explain={q.explain} languageData={q.languageData} />
-        </ScrollView> : <ScrollView style={flipStyles.faceScroll} contentContainerStyle={flipStyles.frontContent} nestedScrollEnabled showsVerticalScrollIndicator>
+        </ScrollView> : <ScrollView style={flipStyles.faceScroll} contentContainerStyle={flipStyles.frontContent} nestedScrollEnabled showsVerticalScrollIndicator={false}>
           <View style={flipStyles.cardContent}>
             <View style={flipStyles.frontTerm}>
               <Text style={flipStyles.term}>{q.q}</Text>
@@ -1280,9 +1296,7 @@ const styles = StyleSheet.create({
   pageSwipeBackground: { position: 'absolute', top: 0, left: 0, right: 0 },
   pageSwipeGradient: { position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 },
   practiceLayout: { flex: 1 },
-  practiceScroll: { flex: 1 },
-  practiceScrollContent: { flexGrow: 1, paddingBottom: space[2] },
-  fixedCardContent: { flexShrink: 1 },
+  practiceArea: { flex: 1, minHeight: 0, paddingBottom: space[2] },
   practiceFooter: { paddingHorizontal: layout.screenInline, paddingTop: space[2], paddingBottom: space[2] },
   recallComposer: { marginHorizontal: layout.screenInline, marginTop: space[2], marginBottom: space[2] },
   recallComposerRow: { flexDirection: 'row', alignItems: 'center' },

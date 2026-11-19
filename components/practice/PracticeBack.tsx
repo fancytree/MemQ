@@ -20,17 +20,23 @@ import { Answer, AnswerNote } from '@/components/practice/Answer';
 import { LanguageCardDetails } from '@/components/LanguageCardFields';
 import type { LanguageCardData } from '@/lib/languageCard';
 
-export function PracticeBack({ answerLabel, answer, explain, languageData }: {
+export function PracticeBack({ answerLabel, answer, meaning, explain, languageData }: {
   /** `Meaning` when a card was turned over, `Correct answer` when one was answered. */
   answerLabel: string;
   answer: string;
+  /** What the card means, when the answer is not already that — the word typed from
+   *  hearing it, the spelling, the word chosen from four. The back of a card is the
+   *  same card whichever face was asked, so the meaning belongs here too. */
+  meaning?: string;
   explain?: string;
   languageData?: LanguageCardData;
 }) {
   const note = explain?.trim();
+  const sense = meaning?.trim();
   return (
     <>
       <Answer label={answerLabel}>{answer}</Answer>
+      {!!sense && <AnswerNote label="Meaning">{sense}</AnswerNote>}
       {!!note && <AnswerNote label="Explanation">{note}</AnswerNote>}
       {languageData && <LanguageCardDetails data={languageData} variant="practice" />}
     </>

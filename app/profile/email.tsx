@@ -251,7 +251,7 @@ export default function EmailEditScreen() {
       >
         {/* Above the scroll view, not in it: the way back stays where it is. */}
         <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
-        <ScrollView
+        <ScrollView showsVerticalScrollIndicator={false}
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           keyboardShouldPersistTaps="handled"
