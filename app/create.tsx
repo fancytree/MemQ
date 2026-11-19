@@ -7,7 +7,7 @@ import { ImportedCards } from '@/components/ImportedCards';
 import { Button } from '@/components/ui/Button';
 import { addPasted, cardReplyCount, parseImport, type ImportedCard } from '@/lib/cardImport';
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
-import { dialog } from '@/lib/dialog';
+import { confirmRemoveCard, dialog } from '@/lib/dialog';
 import { LearningModeSelector } from '@/components/ui/LearningModeSelector';
 import { McpSetupSheet } from '@/components/McpSetupSheet';
 import { mcpEnabled, mcpGuidanceDismissed } from '@/lib/mcp';
@@ -149,9 +149,13 @@ export default function CreateScreen() {
 
   /* A reply from their own AI, pasted into this box. It is already cards, so it
    * is not sent to a model to be made into cards again — that would spend a
-   * generation and lose its questions — and nothing has to be pressed: it is read
-   * on the device the moment it lands, the cards are listed under the box
-   * (components/ImportedCards), and the box is given back empty. The reply says
+   * generation and lose its questions — it is read on the device instead. That
+   * reading is done by Generate, like everything else this box holds: it used to
+   * happen on the keystroke the paste landed on, which emptied the box and put
+   * cards on the screen before anybody had pressed anything, so what had just
+   * been pasted could not be looked at or corrected. The cards are listed under
+   * the box (components/ImportedCards), and the box is given back empty once it
+   * has been read. The reply says
    * which kind of lesson it is, so the switch above follows it; the list stays
    * whichever way the switch is then turned, because these cards are not made
    * again for the other kind the way generated ones are. */
@@ -170,17 +174,6 @@ export default function CreateScreen() {
    * taken away by the screen rather than deleted by hand, and sat there six
    * lines tall with one line of placeholder in it. */
   const [boxKey, setBoxKey] = useState(0);
-  useEffect(() => {
-    if (!cardReplyCount(prompt)) return;
-    const reply = parseImport(prompt);
-    if (reply.lesson.learning_mode) setLearningMode(reply.lesson.learning_mode);
-    setImported((listed) => addPasted(listed, reply));
-    if (reply.lesson.name) setSourceName(reply.lesson.name);
-    setPrompt('');
-    setBoxKey((key) => key + 1);
-    // Only when the box changes; the rest is read as it stands at that moment.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prompt]);
 
   useEffect(() => {
     if (!isGenerating) { setGenerateDots('.'); return; }
@@ -222,12 +215,24 @@ export default function CreateScreen() {
   const generate = () => {
     void (async () => {
       if (!prompt.trim()) { dialog('Tip', 'Please enter text or a topic first'); return; }
+      // A reply from their own AI is already cards, so it is read here instead of
+      // being sent anywhere. That costs nothing, which is why it comes before the
+      // credit check and before anything is marked as generating.
+      if (cardReplyCount(prompt)) {
+        const reply = parseImport(prompt);
+        if (reply.lesson.learning_mode) setLearningMode(reply.lesson.learning_mode);
+        setImported((listed) => addPasted(listed, reply));
+        if (reply.lesson.name) setSourceName(reply.lesson.name);
+        setPrompt('');
+        setBoxKey((key) => key + 1);
+        return;
+      }
       if (genExhausted) { void showPaywall(); return; }
       setPhase('generating');
       try {
         const data = await callAI<{ results?: unknown }>(
           learningMode === 'language' ? 'generate-vocab-terms' : 'generate-terms',
-          { type: 'topic', content: prompt.trim() }, 'Failed to generate terms',
+          { type: 'topic', content: prompt.trim() }, 'Failed to generate cards',
         );
         const results: Array<{ term: string; definition: string; explanation?: string; language_data?: LanguageCardData }> =
           Array.isArray(data?.results) ? data.results : [];
@@ -645,9 +650,16 @@ function FullCard({
           <SectionLabel style={{ marginBottom: space[1] }}>Card {c.n} · {c.tag}</SectionLabel>
           {!isEditing && <Text style={styles.fullCardTitle}>{c.title}</Text>}
         </View>
-        {!isEditing && <Pressable accessibilityRole="button" onPress={startEdit}><Text style={styles.editLink}>Edit</Text></Pressable>}
+        {/* A bin, in the corner every card keeps it in (components/ImportedCards).
+            Editing and writing it again are what this card has beyond one that
+            arrived finished, and they are the row along its foot. */}
+        {!isEditing && (
+          <IconButton variant="quiet" size="sm" label={`Remove ${c.title}`} onPress={() => confirmRemoveCard(c.title, onDiscard)}>
+            <Icon name="delete" size={18} color={colors.faint} />
+          </IconButton>
+        )}
       </View>
-      <View style={{ paddingHorizontal: space[3], paddingVertical: space[3] }}>
+      <View style={styles.fullCardFace}>
         {isEditing ? (
           <View>
             <Field label="Term" style={styles.manualInputGroup}
@@ -660,7 +672,7 @@ function FullCard({
             {isLanguage && <LanguageCardEditor value={editLanguage} onChange={setEditLanguage} term={editTitle} />}
           </View>
         ) : (
-          c.body && <Text style={styles.fullCardBody}>{c.body}</Text>
+          c.body && <View style={styles.meaning}><Text style={styles.fullCardBody}>{c.body}</Text></View>
         )}
         {!isEditing && c.ex && (
           <View style={styles.exBlock}>
@@ -681,15 +693,15 @@ function FullCard({
                 </Text>
               </Pressable>
             ))
-          : (['discard', 'regen'] as const).map((key, j, arr) => (
-              <Pressable accessibilityRole="button" key={key} onPress={key === 'discard' ? onDiscard : onRegenerate}
+          : (['edit', 'regen'] as const).map((key, j, arr) => (
+              <Pressable accessibilityRole="button" key={key} onPress={key === 'edit' ? startEdit : onRegenerate}
                 disabled={isRegenerating}
                 style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.line },
                   isRegenerating && key === 'regen' && { opacity: 0.6 }]}>
                 <Text style={[styles.fullCardActionLabel,
                   { color: key === 'regen' ? colors.action : colors.faint,
                     fontFamily: key === 'regen' ? fonts.semibold : fonts.medium }]}>
-                  {key === 'discard' ? 'Discard' : isRegenerating ? `Regenerating${regenerateDots}` : 'Regenerate'}
+                  {key === 'edit' ? 'Edit' : isRegenerating ? `Regenerating${regenerateDots}` : 'Regenerate'}
                 </Text>
               </Pressable>
             ))}
@@ -743,9 +755,13 @@ function ManualCard({
           {row.saved && !row.editing && <Text style={styles.manualSavedTitle}>{row.term}</Text>}
         </View>
         {row.saved && !row.editing ? (
-          <Pressable accessibilityRole="button" onPress={onEdit}><Text style={styles.editLink}>Edit</Text></Pressable>
+          <IconButton variant="quiet" size="sm" label={`Remove ${row.term}`} onPress={() => confirmRemoveCard(row.term, onDiscard)}>
+            <Icon name="delete" size={18} color={colors.faint} />
+          </IconButton>
         ) : !disableDelete ? (
-          <IconButton variant="quiet" size="sm" label="Remove draft card" onPress={onDelete}>
+          <IconButton variant="quiet" size="sm" label="Remove draft card"
+            onPress={() => (row.term.trim() || row.definition.trim() || row.explanation.trim()
+              ? confirmRemoveCard(row.term.trim(), onDelete) : onDelete())}>
             <Icon name="close" size={18} color={colors.faint} />
           </IconButton>
         ) : null}
@@ -754,7 +770,7 @@ function ManualCard({
       <View style={styles.manualCardBody}>
         {row.saved && !row.editing ? (
           <>
-            <Text style={styles.fullCardBody}>{row.definition}</Text>
+            <View style={styles.meaning}><Text style={styles.fullCardBody}>{row.definition}</Text></View>
             {!!row.explanation && (
               <View style={styles.exBlock}>
                 <SectionLabel style={{ marginBottom: space[1] }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
@@ -786,15 +802,15 @@ function ManualCard({
         </View>
       ) : (
         <View style={styles.fullCardActions}>
-          {(['discard', 'regen'] as const).map((key, j, arr) => (
-            <Pressable accessibilityRole="button" key={key} onPress={key === 'discard' ? onDiscard : onRegenerate}
+          {(['edit', 'regen'] as const).map((key, j, arr) => (
+            <Pressable accessibilityRole="button" key={key} onPress={key === 'edit' ? onEdit : onRegenerate}
               disabled={isGenerating}
               style={[styles.fullCardAction, j < arr.length - 1 && { borderRightWidth: 1, borderRightColor: colors.line },
                 isGenerating && key === 'regen' && { opacity: 0.6 }]}>
               <Text style={[styles.fullCardActionLabel,
                 { color: key === 'regen' ? colors.action : colors.faint,
                     fontFamily: key === 'regen' ? fonts.semibold : fonts.medium }]}>
-                {key === 'discard' ? 'Discard' : isGenerating ? `Regenerating${regenerateDots}` : 'Regenerate'}
+                {key === 'edit' ? 'Edit' : isGenerating ? `Regenerating${regenerateDots}` : 'Regenerate'}
               </Text>
             </Pressable>
           ))}
@@ -892,19 +908,23 @@ const styles = StyleSheet.create({
     marginHorizontal: layout.screenInline, marginTop: space[4],
   },
   fullCardHead: {
-    paddingHorizontal: space[4], paddingVertical: space[4],
+    paddingHorizontal: space[4], paddingTop: space[4],
     flexDirection: 'row', alignItems: 'flex-start',
   },
   fullCardHeadEditing: { flexDirection: 'column', alignItems: 'stretch' },
   fullCardTitle: { ...type.body, fontFamily: fonts.semibold, color: colors.text },
   editLink: { ...type.small, fontFamily: fonts.semibold, color: colors.action, marginLeft: space[2] },
+  fullCardFace: { paddingHorizontal: space[4], paddingTop: space[3], paddingBottom: space[4] },
+  /* What the card means, on the panel a card keeps for what is inside it, so
+   * every card here — pasted, generated, typed — has a face and a content
+   * rather than lines of text on white (components/ImportedCards). */
+  meaning: { borderRadius: radius.md, backgroundColor: colors.panel, paddingHorizontal: space[3], paddingVertical: space[3] },
   fullCardBody: {
     ...type.small,
-    color: colors.faint,
-    marginBottom: space[3],
+    color: colors.sub,
   },
   // A well sunk into the card's face, the way every other quoted block is drawn.
-  exBlock: { borderRadius: radius.md, paddingHorizontal: space[3], paddingVertical: space[3], backgroundColor: colors.bg },
+  exBlock: { borderRadius: radius.md, paddingHorizontal: space[3], paddingVertical: space[3], backgroundColor: colors.panel, marginTop: space[3] },
   exText: { ...type.small, color: colors.faint },
   fullCardActions: { flexDirection: 'row', borderTopWidth: 1, borderTopColor: colors.line },
   fullCardAction: { flex: 1, paddingVertical: space[4], alignItems: 'center' },
@@ -916,7 +936,7 @@ const styles = StyleSheet.create({
   manualCard: {
   },
   manualCardHead: {
-    paddingHorizontal: space[4], paddingTop: space[4], paddingBottom: space[3],
+    paddingHorizontal: space[4], paddingTop: space[4],
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   manualSavedTitle: {
@@ -924,7 +944,7 @@ const styles = StyleSheet.create({
     marginTop: space[1],
     color: colors.text,
   },
-  manualCardBody: { paddingHorizontal: space[4], paddingBottom: space[4] },
+  manualCardBody: { paddingHorizontal: space[4], paddingTop: space[3], paddingBottom: space[4] },
   manualCardActions: { borderTopWidth: 1, borderTopColor: colors.line, flexDirection: 'row' },
   manualCardAction: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: space[4] },
   manualCardActionBorder: { borderLeftWidth: 1, borderLeftColor: colors.line },

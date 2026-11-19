@@ -62,6 +62,22 @@ export function dialog(title: string, message?: string, buttons?: DialogButton[]
   store.hosts[store.hosts.length - 1]?.();
 }
 
+/** The question the bin asks before a card is thrown away.
+ *
+ * A card on a create screen has not been saved anywhere yet, so taking it off
+ * the list is the end of it: there is no lesson to find it in again and no undo.
+ * The bin is also small and sits beside the words of the card, which is exactly
+ * where a thumb lands on the way past. Every bin on those screens asks this —
+ * generated, typed by hand, pasted in (app/create, app/lessons/[id]/add-terms,
+ * components/ImportedCards) — so the answer never depends on which kind of card
+ * it was. */
+export function confirmRemoveCard(term: string, remove: () => void) {
+  dialog('Remove this card?', term ? `“${term}” will not be kept.` : 'It will not be kept.', [
+    { text: 'Keep', style: 'cancel' },
+    { text: 'Remove', style: 'destructive', onPress: remove },
+  ]);
+}
+
 /** Mounted once, at the root. */
 export function DialogHost() {
   const [current, setCurrent] = useState<Dialog | null>(null);

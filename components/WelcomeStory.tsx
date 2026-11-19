@@ -251,7 +251,7 @@ function Screen({ scene, i, k, width, top, foot, onSkip }: {
       )}
 
       <Text accessibilityRole="header" style={{
-        ...type.caption, fontFamily: 'Geist_800ExtraBold',
+        ...type.title, fontFamily: 'Geist_800ExtraBold',
         position: 'absolute',
         left: 24 * k,
         top: top + (140 - DESIGN_TOP) * k,
@@ -262,7 +262,7 @@ function Screen({ scene, i, k, width, top, foot, onSkip }: {
 
       {!!scene.body && (
         <Text style={{
-          ...type.caption, fontFamily: 'Geist_400Regular',
+          ...type.small, fontFamily: 'Geist_400Regular',
           position: 'absolute',
           left: 24 * k,
           top: top + (scene.bodyTop! - DESIGN_TOP) * k,
