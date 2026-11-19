@@ -22,6 +22,7 @@ import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
 import { IconButton } from '@/components/ui/IconButton';
 import type { ImportedCard } from '@/lib/cardImport';
+import { confirmRemoveCard } from '@/lib/dialog';
 import { colors, fonts, radius, space, type } from '@/theme';
 import { StyleSheet, Text, View } from 'react-native';
 
@@ -40,8 +41,11 @@ export function ImportedCards({ cards, onRemove }: { cards: ImportedCard[]; onRe
               <Text style={styles.term}>{card.term}</Text>
             </View>
             {/* A bin, not a cross: a cross on a card reads as "close this",
-                and what it does is throw the card away. */}
-            <IconButton variant="quiet" size="sm" label={`Remove ${card.term}`} onPress={() => onRemove(card.id)}>
+                and what it does is throw the card away. It asks first: the card
+                is not saved anywhere yet, so there is nothing to undo it from
+                (lib/dialog, confirmRemoveCard). */}
+            <IconButton variant="quiet" size="sm" label={`Remove ${card.term}`}
+              onPress={() => confirmRemoveCard(card.term, () => onRemove(card.id))}>
               <Icon name="delete" size={18} color={colors.faint} />
             </IconButton>
           </View>

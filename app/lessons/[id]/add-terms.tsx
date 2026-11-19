@@ -7,7 +7,7 @@ import { ImportedCards } from '@/components/ImportedCards';
 import { Button } from '@/components/ui/Button';
 import { addPasted, asImported, cardReplyCount, parseImport, saveImport, type ImportedCard } from '@/lib/cardImport';
 import { ManualTermFields } from '@/components/ui/ManualTermFields';
-import { dialog } from '@/lib/dialog';
+import { confirmRemoveCard, dialog } from '@/lib/dialog';
 import { CloseButton, ConfirmButton } from '@/components/ui/RoundButtons';
 import { HomeAsset } from '@/components/HomeAsset';
 import { MascotRig, RIG_HAND_LINE } from '@/components/mascot/rig/MascotRig';
@@ -116,8 +116,9 @@ export default function AddTermsScreen() {
 
   /* A reply from their own AI, pasted into this box. It is already cards, so it
    * is not sent to a model to be made into cards again — that would spend a
-   * generation and lose its questions — and nothing has to be pressed: it is read
-   * on the device the moment it lands, the cards are listed under the box
+   * generation and lose its questions — it is read on the device instead, and
+   * Generate is what reads it (see app/create), so a paste stays in the box to be
+   * seen before it turns into cards. The cards are then listed under the box
    * (components/ImportedCards), and the box is given back empty. The lesson
    * already is one kind or the other, so here the cards are saved as its kind
    * whatever the reply calls itself. */
@@ -131,15 +132,6 @@ export default function AddTermsScreen() {
   // Put back as new once emptied this way, so it does not keep the height the
   // pasted reply gave it (see app/create).
   const [boxKey, setBoxKey] = useState(0);
-  useEffect(() => {
-    if (!cardReplyCount(prompt)) return;
-    const reply = parseImport(prompt);
-    setImported((listed) => addPasted(listed, reply));
-    setPrompt('');
-    setBoxKey((key) => key + 1);
-    // Only when the box changes; the rest is read as it stands at that moment.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prompt]);
   const isSingleTermEdit = !!termId;
 
   useEffect(() => {
@@ -184,12 +176,21 @@ export default function AddTermsScreen() {
         dialog('Tip', 'Please enter text or a topic first');
         return;
       }
+      // Already cards, so it is read here rather than sent: that spends nothing,
+      // which is why it comes before the credit check.
+      if (cardReplyCount(prompt)) {
+        const reply = parseImport(prompt);
+        setImported((listed) => addPasted(listed, reply));
+        setPrompt('');
+        setBoxKey((key) => key + 1);
+        return;
+      }
       if (genExhausted) { void showPaywall(); return; }
       setPhase('generating');
       try {
         const data = await callAI<{ results?: unknown }>(
           learningMode === 'language' ? 'generate-vocab-terms' : 'generate-terms',
-          { type: 'topic', content: prompt.trim() }, 'Failed to generate terms',
+          { type: 'topic', content: prompt.trim() }, 'Failed to generate cards',
         );
 
         const results: Array<{ term: string; definition: string; explanation?: string; language_data?: LanguageCardData }> =
@@ -318,7 +319,7 @@ export default function AddTermsScreen() {
           .eq('id', termId)
           .single();
         if (error || !data) {
-          dialog('Error', 'Failed to load term');
+          dialog('Error', 'Failed to load card');
           return;
         }
         const legacyLanguageData = languageDataFromLegacyExplanation(data.explanation);
@@ -536,7 +537,7 @@ export default function AddTermsScreen() {
           })
           .eq('id', termId);
         if (error) {
-          dialog('Error', `Failed to update term: ${error.message}`);
+          dialog('Error', `Failed to update card: ${error.message}`);
         return;
       }
         void clearCache('LESSON_DETAIL', id as string);
@@ -579,7 +580,7 @@ export default function AddTermsScreen() {
       ];
 
       if (allTerms.length === 0) {
-        dialog('Error', 'Please add at least one Term and Definition');
+        dialog('Error', 'Add at least one card first');
         return;
       }
 
@@ -642,8 +643,8 @@ export default function AddTermsScreen() {
       {/* Top bar */}
       <View style={styles.topbar}>
         <CloseButton onPress={handleCancel} label="Cancel" />
-        <Text style={styles.title}>{isSingleTermEdit ? 'Edit Term' : 'Add Terms'}</Text>
-        <ConfirmButton onPress={handleSave} label="Save terms"
+        <Text style={styles.title}>{isSingleTermEdit ? 'Edit Card' : 'New Cards'}</Text>
+        <ConfirmButton onPress={handleSave} label="Save cards"
           disabled={loadingMode || modeLoadFailed} busy={saving} />
         </View>
 
@@ -816,7 +817,7 @@ export default function AddTermsScreen() {
 
       {loadingTerm && (
         <View style={styles.loadingWrap}>
-          <Text style={styles.loadingText}>Loading term...</Text>
+          <Text style={styles.loadingText}>Loading card...</Text>
                 </View>
                 )}
 
@@ -931,12 +932,13 @@ function FullCard({
           {!isEditing && <Text style={styles.fullCardTitle}>{c.title}</Text>}
         </View>
           {!isEditing && (
-          <Pressable accessibilityRole="button" onPress={startEdit}>
-            <Text style={styles.editLink}>Edit</Text>
-          </Pressable>
+          <IconButton variant="quiet" size="sm" label={`Remove ${c.title}`}
+            onPress={() => confirmRemoveCard(c.title, onDiscard)}>
+            <Icon name="delete" size={18} color={colors.sub} />
+          </IconButton>
         )}
       </View>
-      <View style={{ paddingHorizontal: space[3], paddingVertical: space[3] }}>
+      <View style={styles.fullCardFace}>
         {isEditing ? (
               <View>
             <Field label="Term" style={styles.manualInputGroup}
@@ -949,7 +951,7 @@ function FullCard({
             {isLanguage && <LanguageCardEditor value={editLanguage} onChange={setEditLanguage} term={editTitle} />}
                       </View>
         ) : (
-          c.body && <Text style={styles.fullCardBody}>{c.body}</Text>
+          c.body && <View style={styles.meaning}><Text style={styles.fullCardBody}>{c.body}</Text></View>
         )}
         {!isEditing && c.ex && (
           <View style={styles.exBlock}>
@@ -985,13 +987,13 @@ function FullCard({
                 </Pressable>
               );
             })
-          : (['discard', 'regen'] as const).map((key, j, arr) => {
+          : (['edit', 'regen'] as const).map((key, j, arr) => {
               const isRegen = key === 'regen';
-              const label = key === 'discard' ? 'Discard' : isRegenerating ? `Regenerating${regenerateDots}` : 'Regenerate';
+              const label = key === 'edit' ? 'Edit' : isRegenerating ? `Regenerating${regenerateDots}` : 'Regenerate';
               return (
                 <Pressable accessibilityRole="button"
                   key={key}
-                  onPress={key === 'discard' ? onDiscard : onRegenerate}
+                  onPress={key === 'edit' ? startEdit : onRegenerate}
                   disabled={isRegenerating}
                   style={[
                     styles.fullCardAction,
@@ -1109,11 +1111,14 @@ function ManualCard({
             {row.saved && !row.editing && <Text style={styles.manualSavedTitle}>{row.term}</Text>}
                   </View>
           {row.saved && !row.editing ? (
-            <Pressable accessibilityRole="button" onPress={onEdit}>
-              <Text style={styles.editLink}>Edit</Text>
-            </Pressable>
+            <IconButton variant="quiet" size="sm" label={`Remove ${row.term}`}
+              onPress={() => confirmRemoveCard(row.term, onDiscard)}>
+              <Icon name="delete" size={18} color={colors.sub} />
+            </IconButton>
           ) : !hideDeleteButton && !disableDelete ? (
-            <IconButton variant="quiet" size="sm" label="Remove draft card" onPress={onDelete}>
+            <IconButton variant="quiet" size="sm" label="Remove draft card"
+              onPress={() => (row.term.trim() || row.definition.trim() || row.explanation.trim()
+                ? confirmRemoveCard(row.term.trim(), onDelete) : onDelete())}>
               <Icon name="close" size={18} color={colors.sub} />
             </IconButton>
           ) : null}
@@ -1123,7 +1128,7 @@ function ManualCard({
       <View style={styles.manualCardBody}>
         {row.saved && !row.editing ? (
           <>
-            <Text style={styles.fullCardBody}>{row.definition}</Text>
+            <View style={styles.meaning}><Text style={styles.fullCardBody}>{row.definition}</Text></View>
             {!!row.explanation && (
               <View style={styles.exBlock}>
                 <SectionLabel style={{ marginBottom: space[1] }}>{isLanguage ? 'Usage note' : 'Explanation'}</SectionLabel>
@@ -1156,13 +1161,13 @@ function ManualCard({
                       </View>
                     ) : (
         <View style={styles.fullCardActions}>
-          {(['discard', 'regen'] as const).map((key, j, arr) => {
+          {(['edit', 'regen'] as const).map((key, j, arr) => {
             const isRegen = key === 'regen';
-            const label = key === 'discard' ? 'Discard' : isGenerating ? `Regenerating${regenerateDots}` : 'Regenerate';
+            const label = key === 'edit' ? 'Edit' : isGenerating ? `Regenerating${regenerateDots}` : 'Regenerate';
             return (
               <Pressable accessibilityRole="button"
                 key={key}
-                onPress={key === 'discard' ? onDiscard : onRegenerate}
+                onPress={key === 'edit' ? onEdit : onRegenerate}
                 disabled={isGenerating}
                     style={[
                   styles.fullCardAction,
@@ -1292,33 +1297,34 @@ const styles = StyleSheet.create({
   skeletonBar: { height: 8, backgroundColor: colors.line, borderRadius: radius.sm, opacity: 0.5 },
 
   fullCard: { marginHorizontal: layout.screenInline, marginTop: space[2] },
+  // The measures every card on these two screens is drawn to; the one they came
+  // from is components/ImportedCards, and app/create holds the same set.
   fullCardHead: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[3],
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
     flexDirection: 'row',
     alignItems: 'flex-start',
   },
+  fullCardFace: { paddingHorizontal: space[4], paddingTop: space[3], paddingBottom: space[4] },
+  /* What the card means, on the panel a card keeps for what is inside it. */
+  meaning: { borderRadius: radius.md, backgroundColor: colors.panel, paddingHorizontal: space[3], paddingVertical: space[3] },
   fullCardHeadEditing: {
     flexDirection: 'column',
     alignItems: 'stretch',
   },
   fullCardTitle: {
-    ...type.small, fontFamily: fonts.bold,
-    letterSpacing: -0.3,
+    ...type.body, fontFamily: fonts.semibold,
     color: colors.text,
   },
   editLink: { ...type.caption, fontFamily: fonts.semibold, color: colors.action, marginLeft: space[2] },
 
-  fullCardBody: { ...type.caption, fontFamily: fonts.regular, color: colors.sub, marginBottom: space[3] },
+  fullCardBody: { ...type.small, color: colors.sub },
   exBlock: {
-    borderWidth: 1,
-    borderColor: colors.line,
-    borderRadius: radius.sm,
+    borderRadius: radius.md,
     paddingHorizontal: space[3],
     paddingVertical: space[3],
-    backgroundColor: colors.bg,
+    backgroundColor: colors.panel,
+    marginTop: space[3],
   },
   exText: { ...type.caption, fontFamily: fonts.utility, color: colors.sub },
 
@@ -1342,22 +1348,21 @@ const styles = StyleSheet.create({
   },
   manualCard: {},
   manualCardHead: {
-    paddingHorizontal: space[3],
-    paddingVertical: space[2],
+    paddingHorizontal: space[4],
+    paddingTop: space[4],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    borderBottomWidth: 1,
-    borderBottomColor: colors.line,
   },
   manualSavedTitle: {
-    ...type.small, fontFamily: fonts.bold,
+    ...type.body, fontFamily: fonts.semibold,
     marginTop: space[1],
-    letterSpacing: -0.3,
     color: colors.text,
   },
   manualCardBody: {
-    padding: space[5],
+    paddingHorizontal: space[4],
+    paddingTop: space[3],
+    paddingBottom: space[4],
   },
   manualCardActions: {
     borderTopWidth: 1,

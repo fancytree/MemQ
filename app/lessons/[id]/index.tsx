@@ -364,7 +364,7 @@ export default function LessonDetailScreen() {
   // 处理编辑词条
   const handleEditTerm = (termId: string) => {
     if (lesson?.learning_mode === 'language') return;
-    // 跳转到 Add Terms 页面，带上 termId 参数用于编辑
+    // 跳转到 New Cards 页面，带上 termId 参数用于编辑
     router.push({
       pathname: `/lessons/[id]/add-terms`,
       params: { id, termId },
