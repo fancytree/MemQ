@@ -33,7 +33,7 @@ export default function PrivacyPolicyScreen() {
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={styles.pageGradient} />
       <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false}
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
       >

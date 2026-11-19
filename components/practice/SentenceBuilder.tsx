@@ -32,7 +32,7 @@ export function SentenceBuilder({ question, placed, onChange, revealed, correct 
   // placed would push the words still to be tapped out from under the finger.
   const rows = Math.max(2, Math.ceil(question.tiles.length / 3));
   return (
-    <ScrollView style={styles.scroll} contentContainerStyle={styles.wrap} nestedScrollEnabled showsVerticalScrollIndicator keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.scroll} contentContainerStyle={styles.wrap} nestedScrollEnabled showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
       <View accessibilityLabel={`Your sentence: ${placed.map((tile) => question.tiles[tile]).join(' ') || 'empty'}`}
         style={[styles.line, !revealed && { minHeight: 24 + rows * 52 }, revealed && (correct ? styles.lineRight : styles.lineWrong)]}>
         {placed.length === 0 && <Text style={styles.placeholder}>Your sentence</Text>}

@@ -41,6 +41,10 @@ type Shared = {
   explain?: string;
   languageData?: LanguageCardData;
   termText?: string;
+  /** What the card means. Every question carries it, because the back of a card is
+   *  the same card whichever question was asked on its face: a word typed from
+   *  hearing it is still a word somebody wants the meaning of. */
+  meaning?: string;
 };
 
 export type FlipQuestion = Shared & { mode: 'flip'; q: string; back: string };
@@ -215,6 +219,7 @@ const shared = (term: RoundTerm, context: RoundContext): Shared => ({
   explain: term.explanation?.trim() || undefined,
   languageData: languageOf(term),
   termText: term.term,
+  meaning: term.definition?.trim() || undefined,
 });
 
 const sameLesson = (term: RoundTerm, context: RoundContext) =>

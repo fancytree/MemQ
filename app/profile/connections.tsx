@@ -80,7 +80,7 @@ export default function ConnectionsScreen() {
   return <SafeAreaView style={styles.screen} edges={['top', 'bottom']}>
     <LinearGradient pointerEvents="none" colors={[colors.limePale, colors.limeBright, colors.bg]} locations={[0, 0.42, 1]} style={styles.gradient} />
     <SecondaryPageNav onBack={() => safeBack('/profile/settings')} />
-    <ScrollView contentContainerStyle={styles.content}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.content}>
       <Text accessibilityRole="header" style={styles.title}>Connected apps</Text>
       <Text style={styles.intro}>Manage the apps you’ve connected to your MemQ account.</Text>
       {/* The half this screen was missing: it could show what was connected and take

@@ -495,7 +495,7 @@ export default function LessonDetailScreen() {
             onPress={() => router.push(`/lessons/${id}/settings` as any)} />
         </View>
 
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false}
         style={styles.scrollView}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: space[6] + insets.bottom }]}
       >

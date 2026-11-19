@@ -98,7 +98,7 @@ export function Dialog({
           {head}
           {/* The copy scrolls and the choices do not: a long message must not push
               the way out of the dialog off the bottom of the screen. */}
-          <ScrollView bounces={false} style={styles.copyScroll} contentContainerStyle={styles.copy}>
+          <ScrollView showsVerticalScrollIndicator={false} bounces={false} style={styles.copyScroll} contentContainerStyle={styles.copy}>
             <Text accessibilityRole="header" style={styles.title}>{title}</Text>
             {!!subject && <Text style={styles.subject}>{subject}</Text>}
             {!!message && <Text style={styles.message}>{message}</Text>}

@@ -640,7 +640,7 @@ export default function LoginScreen() {
         locations={[0, 0.21154, 0.44712, 1]} style={styles.background} />
       <Flow name="waveBack" style={styles.waveBack} seconds={13} shiftX={-15} shiftY={16} />
       <Flow name="waveFront" style={styles.waveFront} seconds={9} shiftX={15} shiftY={-20} />
-      <ScrollView
+      <ScrollView showsVerticalScrollIndicator={false}
         contentContainerStyle={[styles.scrollContent, { paddingTop: insets.top + 28, paddingBottom: insets.bottom + 16 }]}
         keyboardShouldPersistTaps="handled">
         <View style={styles.content}>

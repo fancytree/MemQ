@@ -256,7 +256,7 @@ export default function ImportCardsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <ChatTopBar title="Use your own AI" onClose={() => safeBack('/(tabs)')} started={false} onClear={() => {}} />
       <KeyboardAvoidingView style={styles.root} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView ref={scroller} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScrollView showsVerticalScrollIndicator={false} ref={scroller} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           <Text style={styles.lead}>Your AI writes the cards. Free, no limit.</Text>
 
           <Card pad="md" gap={space[3]}>

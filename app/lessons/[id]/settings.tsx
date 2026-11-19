@@ -142,11 +142,11 @@ export default function LessonSettingsScreen() {
           </View>
           {showCoverPicker && <View style={styles.coverOptions}>
             <Text style={styles.coverOptionLabel}>Color</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverChoices}>
+            <ScrollView showsVerticalScrollIndicator={false} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverChoices}>
               {lessonCoverPalettes.map((palette) => <Pressable key={palette.id} accessibilityRole="radio" accessibilityLabel={palette.label} accessibilityState={{ selected: coverChoice.palette === palette.id }} onPress={() => setCoverStyle(encodeLessonCover({ ...coverChoice, palette: palette.id }))} style={[styles.coverChoice, coverChoice.palette === palette.id && styles.coverChoiceSelected]}><LinearGradient colors={palette.colors} style={styles.coverSwatch} /></Pressable>)}
             </ScrollView>
             <Text style={styles.coverOptionLabel}>{learningMode === 'language' ? 'Language' : 'Icon'}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverChoices}>
+            <ScrollView showsVerticalScrollIndicator={false} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.coverChoices}>
               {(learningMode === 'language' ? languageSymbols : knowledgeSymbols).map((symbol) => <Pressable key={symbol} accessibilityRole="radio" accessibilityLabel={symbol} accessibilityState={{ selected: coverChoice.symbol === symbol }} onPress={() => setCoverStyle(encodeLessonCover({ ...coverChoice, symbol }))} style={[styles.coverChoice, coverChoice.symbol === symbol && styles.coverChoiceSelected]}><LessonCover id={id || ''} mode={learningMode} width={38} height={38} choice={{ ...coverChoice, symbol }} /></Pressable>)}
             </ScrollView>
           </View>}
