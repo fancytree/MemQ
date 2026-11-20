@@ -25,6 +25,30 @@ export function activityDaysFromProgressUpdates(
   return activityDays;
 }
 
+/** How far back the answer log is read for a streak. Longer than any streak the
+ *  app has had, and one query either way. */
+export const STREAK_WINDOW_DAYS = 400;
+
+/**
+ * Every day this person studied on, as well as the app can know it.
+ *
+ * `user_term_progress.last_reviewed_at` is the only review a card remembers: the
+ * last one. Study the same cards on Monday, Tuesday and Wednesday and all three
+ * rows end up saying Wednesday — Monday and Tuesday are gone, and a streak counted
+ * off those rows reads 1 for somebody who has not missed a day. That is the bug
+ * this exists to fix: the days now come from review_events, which keeps one row per
+ * answer, and the progress rows are folded in only to reach back past the day that
+ * log began.
+ */
+export function activityDaysOf(
+  reviewDays: Iterable<string> | null | undefined,
+  progressRows: { last_reviewed_at?: string | null; updated_at?: string | null }[] = [],
+): Set<string> {
+  const days = activityDaysFromProgressUpdates(progressRows);
+  for (const day of reviewDays ?? []) days.add(day);
+  return days;
+}
+
 /** 历史最长连续天数 */
 export function computeBestStreak(activityDays: Set<string>): number {
   const sortedDays = Array.from(activityDays).sort();

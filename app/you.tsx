@@ -11,9 +11,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { HomeAsset } from '@/components/HomeAsset';
 import { useSubscription } from '@/context/SubscriptionContext';
 import {
-  activityDaysFromProgressUpdates,
+  activityDaysOf,
   computeBestStreak,
   computeCurrentStreak,
+  STREAK_WINDOW_DAYS,
 } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { buildLatestProgressMap } from '@/lib/termProgress';
@@ -91,7 +92,6 @@ export default function ProfileScreen() {
         : { data: [] as { term_id: string; status: string | null; last_reviewed_at: string | null; next_review_at: string | null }[] };
 
       const progressMap = buildLatestProgressMap(progressData || []);
-      const activityDays = activityDaysFromProgressUpdates(progressData || []);
 
       setStages(stageCounts(termIds, progressMap));
       setForecast(dueForecast((progressData || []).map((row) => row.next_review_at)));
@@ -107,6 +107,10 @@ export default function ProfileScreen() {
       const keys = recentDays(Math.round((dayStart(0, today).getTime() - since.getTime()) / 86400000) + 1, today);
       setHeat(studyLevels(keys, days, cardsByLastReview((progressData || []).map((row) => row.last_reviewed_at))));
 
+      // The days themselves come from the answer log, which keeps every answer;
+      // the progress rows only say when each card was last seen (lib/streak).
+      const streakLog = await loadReviewDays(dayStart(-STREAK_WINDOW_DAYS, today));
+      const activityDays = activityDaysOf(streakLog?.keys(), progressData || []);
       setCurrentStreak(computeCurrentStreak(activityDays));
       setBestStreak(computeBestStreak(activityDays));
 

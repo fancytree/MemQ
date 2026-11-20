@@ -4,7 +4,7 @@ import { space, radius, fonts, colors, type } from '@/theme';
 import { SpeakingGlyph } from '@/components/SpeakingPulse';
 import { Field } from '@/components/ui/Field';
 import { useSpeech } from '@/lib/speech';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 const textFields: Array<{ key: keyof LanguageCardData; label: string; hint: string; multiline?: boolean }> = [
@@ -106,12 +106,17 @@ function LanguageListInput({ value, onChange, placeholder, label }: {
   );
 }
 
-export function PlayButton({ text, languageCode, label, iconOnly = false, iconSize = 18, centred = false }: {
+export function PlayButton({ text, languageCode, label, iconOnly = false, iconSize = 18, centred = false, autoPlay = false }: {
   text: string;
   languageCode?: string;
   label: string;
   iconOnly?: boolean;
   iconSize?: number;
+  /** Say it once, as soon as it is on screen. A card with a voice is a card that
+   *  is meant to be heard: waiting to be asked makes hearing it the exception
+   *  rather than the point. The button stays, for hearing it again. Said once per
+   *  word — coming back to the same card does not say it twice. */
+  autoPlay?: boolean;
   /** Stand it in the middle of what it is under, rather than at the start of a
    *  row. It used to carry the "why can't I hear it" note as well; that note now
    *  points at the volume keys on the edge of the screen, so the button only has
@@ -122,6 +127,15 @@ export function PlayButton({ text, languageCode, label, iconOnly = false, iconSi
   useEffect(() => {
     if (unavailable) dialog('Speech unavailable', 'Install a new iOS development build to enable pronunciation.');
   }, [unavailable]);
+
+  const said = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoPlay || unavailable || !text || said.current === text) return;
+    said.current = text;
+    void speak(text, { languageCode });
+    // `speak` is new on every render; the word is what decides.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPlay, text, languageCode, unavailable]);
 
   const button = (
     <Pressable

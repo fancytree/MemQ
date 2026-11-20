@@ -8,6 +8,7 @@ import { LoadingProvider } from '@/context/LoadingContext';
 import { SubscriptionProvider } from '@/context/SubscriptionContext';
 import { SoundHintHost } from '@/components/SpeakingPulse';
 import { DialogHost } from '@/lib/dialog';
+import { sendHeldAnswers } from '@/lib/updateTermProgress';
 import { colors } from '@/theme';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -24,6 +25,11 @@ export default function RootLayout() {
   useEffect(() => {
     if (fontsLoaded || fontError) void SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
+
+  // Answers a dead connection held on to, going up now that there is an app to send
+  // them with (lib/answerQueue). Nothing waits on this: it is last week's reviews
+  // arriving, not this screen's.
+  useEffect(() => { void sendHeldAnswers(); }, []);
   if (fontError) throw fontError;
   if (!fontsLoaded) return null;
 

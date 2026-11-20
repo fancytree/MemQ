@@ -23,7 +23,12 @@ const INSET = 12;
 /** The highlight's trip from one tab to the other. Under-damped on purpose: it
  * arrives a little past the tab and comes back, which is what makes it read as a
  * thing with weight rather than a fill that changed places. */
-const TRAVEL = { damping: 15, stiffness: 190, mass: 0.9 } as const;
+const TRAVEL = { damping: 12, stiffness: 190, mass: 0.9 } as const;
+/** How far past a slot the block may run: into the padding the bar keeps around
+ *  its items, and not past it. The overshoot has to be seen to be felt — clamped
+ *  dead at the slot, the spring was there in the numbers and gone from the screen
+ *  — but the bar is the room it has to play in. */
+const GIVE = INSET - 2;
 /** How much longer it gets at the middle of the trip, and how much it is squeezed
  * when it runs past either end. */
 const STRETCH = 0.22;
@@ -75,7 +80,8 @@ export function BottomNavigation({ active, onNavigate }: { active: Destination; 
   const still = useReducedMotion();
   const [face, setFace] = useState({ width: 0, height: 0 });
   /** Where the highlight is: 0 under Today, 1 under Library, and briefly outside
-   * that when it overshoots. */
+   * that when it overshoots — which the block takes as a squeeze rather than as
+   * somewhere to go. */
   const at = active === 'library' ? 1 : 0;
   const pos = useSharedValue(at);
   useEffect(() => {
@@ -88,8 +94,14 @@ export function BottomNavigation({ active, onNavigate }: { active: Destination; 
     const inside = Math.min(1, Math.max(0, p));
     const past = Math.abs(p - inside);
     // Longest half way across; shorter than itself where it has run past an end.
-    const long = 1 + STRETCH * Math.sin(Math.PI * inside) - Math.min(0.1, past * SQUEEZE);
-    return { transform: [{ translateX: p * item * 2 }, { scaleX: long }] };
+    const long = 1 + STRETCH * Math.sin(Math.PI * inside) - Math.min(0.14, past * SQUEEZE);
+    /* The overshoot used to be taken literally — `p * item * 2` — and the block
+     * ran out past the rounded end of the bar and sat there, for a moment, on the
+     * screen behind it. It is not thrown away either: it is let out into the bar's
+     * own padding, through a curve that approaches GIVE and never reaches it, so
+     * however hard the spring overshoots the block stops inside the bar. */
+    const give = GIVE * (1 - Math.exp(-past * 8)) * (p > inside ? 1 : -1);
+    return { transform: [{ translateX: inside * item * 2 + give }, { scaleX: long }] };
   });
 
   const measured = face.width > 0;

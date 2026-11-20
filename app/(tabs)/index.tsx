@@ -11,7 +11,8 @@ import { Card } from '@/components/ui/Card';
 import { Icon } from '@/components/ui/Icon';
 import { MascotRig, type MascotMood } from '@/components/mascot/rig/MascotRig';
 import { loadFromCache, saveToCache } from '@/lib/cache';
-import { activityDaysFromProgressUpdates, computeCurrentStreak } from '@/lib/streak';
+import { loadReviewDays } from '@/lib/reviewLog';
+import { activityDaysOf, computeCurrentStreak, STREAK_WINDOW_DAYS } from '@/lib/streak';
 import { supabase } from '@/lib/supabase';
 import { deadlineLeft, estimateMinutes as minutesFor, planToday } from '@/lib/studyPlan';
 import { buildLatestProgressMap } from '@/lib/termProgress';
@@ -296,7 +297,14 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
     const carried = (termsData || []).reduce(
       (sum, term) => sum + getStatusWeight(progressMap.get(term.id)), 0);
     setMastery(termIds.length ? Math.round((carried / termIds.length) * 100) : null);
-    const activityDays = activityDaysFromProgressUpdates(progressData || []);
+    // Which days were studied on comes from the answer log: a card remembers only
+    // the last time it was seen, so three days of the same cards look like one
+    // (lib/streak).
+    const streakSince = new Date();
+    streakSince.setHours(0, 0, 0, 0);
+    streakSince.setDate(streakSince.getDate() - STREAK_WINDOW_DAYS);
+    const streakLog = await loadReviewDays(streakSince);
+    const activityDays = activityDaysOf(streakLog?.keys(), progressData || []);
     setCurrentStreak(computeCurrentStreak(activityDays));
     setStreakOwner(user.id);
 
@@ -503,7 +511,7 @@ export default function TodayScreen({ demo = false }: { demo?: boolean } = {}) {
               account they belong to. Pressed, it opens the page about them. */}
           <View style={styles.topBarEnd}>
           <CreditsChip />
-          <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`} onPress={() => router.push('/you')} style={styles.profile}>{avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.profileImage} onError={() => setAvatarUrl(null)} /> : <Text style={styles.profileText}>{initial}</Text>}</Pressable>
+          <Pressable accessibilityRole="button" accessibilityLabel={`Open profile for ${username}`} onPress={() => router.push('/you')} style={styles.profile}><View style={styles.profileFace}>{avatarUrl ? <Image source={{ uri: avatarUrl }} style={styles.profileImage} onError={() => setAvatarUrl(null)} /> : <Text style={styles.profileText}>{initial}</Text>}</View></Pressable>
           </View>
         </View>
       </View>
@@ -641,8 +649,13 @@ const styles = StyleSheet.create({
   // The same disc the profile page gives someone with no photo: deep, with the
   // initial reversed out of it. It was the one flat grey on a screen made of lime
   // and colors.sub, and next to the streak it read as something still loading.
-  profile: { width: 40, height: 40, borderRadius: radius.lg, backgroundColor: colors.actionShell, alignItems: 'center', justifyContent: 'center' },
-  profileImage: { width: 40, height: 40, borderRadius: radius.lg },
+  /* On the same lip as the streak pill and the credits chip it shares the row
+   * with (components/ui/StreakPill): a darker shell with the face sitting on it,
+   * and a band of the shell along the bottom. Flat, it was the one thing up there
+   * that did not stand on anything, which is what made it look thin beside them. */
+  profile: { width: 40, height: 40, borderRadius: radius.lg, backgroundColor: colors.actionShell, paddingBottom: space.hair },
+  profileFace: { flex: 1, borderRadius: radius.lg, backgroundColor: colors.action, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  profileImage: { width: '100%', height: '100%' },
   profileText: { ...type.small, fontFamily: 'Geist_600SemiBold', color: colors.surf },
   // Three sizes, not three shouts: a small eyebrow, the count as the one large
   // thing on the screen, and an action that hugs its label. The button was as wide
