@@ -189,7 +189,15 @@ const LANGUAGE_CARD = {
   term: 'il conto',
   definition: 'the bill',
   explanation: 'What you ask for when you want to pay.',
-  language_data: { pronunciation: 'il ˈkonto', part_of_speech: 'noun', example: 'Il conto, per favore.' },
+  language_data: {
+    pronunciation: 'il ˈkonto',
+    part_of_speech: 'noun',
+    forms: 'plural: i conti',
+    example: 'Il conto, per favore.',
+    synonyms: ['la ricevuta', 'lo scontrino'],
+    antonyms: ['il preventivo'],
+    collocations: ['chiedere il conto', 'pagare il conto'],
+  },
 };
 
 /**
@@ -229,13 +237,14 @@ export function buildPrompt(options: PromptOptions = {}): string {
     ] : ['The lesson has no cards yet.', '']) : []),
     ...(topic ? [lesson ? 'What I have in mind to add:' : 'What I have in mind:', topic, ''] : []),
     '- If we were already talking before this message, offer to make the cards from what we discussed, and say in one line what they would cover.',
-    '- If I gave you notes, a document or a word list, work from that and only from that.',
+    '- If I gave you notes, a document or a word list — typed here or attached as a file — work from that and only from that.',
     topic
       ? '- If what I have in mind is clear enough to start, start. If something that matters is open, ask.'
       : lesson
         ? '- Otherwise, ask me what I want to add. You may suggest, in one line, what the lesson is still missing.'
         : '- Otherwise, ask me what I want to learn.',
     '- You may ask up to three short questions in one message, only if the answers would change the cards: for example how much I already know, what it is for (an exam, a trip, my work), or how many cards. Never ask about the format.',
+    '- When you ask, say in the same message that I can also paste the material or attach a file — a PDF, a document, slides, a photo of a page, a word list — if it is already written down somewhere.',
     '- If I say "just go", stop asking and use your judgment.',
     '',
     `STEP 2. Make the cards. About ${PROMPT_CARDS_DEFAULT}${lesson ? ' new ones' : ''} unless I asked for a number. Use only what is true, and nothing the material does not support.`,
@@ -244,7 +253,13 @@ export function buildPrompt(options: PromptOptions = {}): string {
     '- "definition": what it is, or what it means, in one or two plain sentences in my language.',
     '- "explanation": optional. One sentence that helps it stick.',
     ...(fixed === 'knowledge' ? [] : [
-      `- Language cards only: add "language_data" with "pronunciation" (IPA, pinyin or another reading guide) and "example" (one natural sentence in the language being learned), like this: ${JSON.stringify(LANGUAGE_CARD)}`,
+      '- Language cards only: add "language_data". The app has a screen for each of these and shows what is there, so fill in everything the word actually has:',
+      '  - "pronunciation": IPA, pinyin or another reading guide.',
+      '  - "part_of_speech": noun, verb, adjective, a particle, whatever it is.',
+      '  - "forms": the forms worth knowing, in one line — a plural, a gender, an irregular past, a measure word. Leave it out for a word that has none.',
+      '  - "example": one natural sentence in the language being learned, with the word in it, short enough to say out loud.',
+      '  - "synonyms", "antonyms", "collocations": two to four each, as arrays, in the language being learned. Collocations are the words it is normally used with. Leave out any of the three the word has none of; do not pad them.',
+      `  Like this: ${JSON.stringify(LANGUAGE_CARD)}`,
     ]),
     'Every card needs practice questions, in "questions":',
     '- At least one multiple-choice question ("question_type": "mcq") with exactly 5 options: the correct answer and 4 wrong ones that someone could plausibly pick. "correct_answer" must be copied exactly from one of the options.',

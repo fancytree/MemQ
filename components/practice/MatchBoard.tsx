@@ -93,11 +93,18 @@ export function MatchBoard({ question, onDone }: {
 
   // A long word must not be broken across lines: "accommodat / e" is not a word. The
   // word column is narrow, so a term is set as large as its longest word allows.
+  //
+  // One size for the whole board, taken from the longest word in the question — not
+  // per tile. Sized tile by tile, a board came out with its words at four different
+  // sizes, the long one visibly smaller than the one beside it, and the size of a
+  // word changed as it moved rows. What a word is set in says nothing about the
+  // word, so it had better not vary.
   const termWidth = Math.max(0, (width - COLUMN_GAP) * (WORDS_SHARE / (WORDS_SHARE + MEANINGS_SHARE)) - 2 * TILE_INLINE - 3);
-  const termSize = (text: string) => {
-    const longest = Math.max(1, ...text.split(/\s+/).map((word) => Array.from(word).reduce((sum, char) => sum + (WIDE.test(char) ? 2 : 1), 0)));
-    return termWidth > 0 ? Math.max(TERM_SIZE_MIN, Math.min(TERM_SIZE, Math.floor(termWidth / (longest * LETTER_WIDTH)))) : TERM_SIZE;
-  };
+  const longestWord = Math.max(1, ...question.pairs.flatMap((pair) => pair.left.split(/\s+/)
+    .map((word) => Array.from(word).reduce((sum, char) => sum + (WIDE.test(char) ? 2 : 1), 0))));
+  const termSize = termWidth > 0
+    ? Math.max(TERM_SIZE_MIN, Math.min(TERM_SIZE, Math.floor(termWidth / (longestWord * LETTER_WIDTH))))
+    : TERM_SIZE;
 
   const press = (side: Side, tile: Tile) => {
     if (!board || wrong || leaving.includes(tile.id)) return;
@@ -138,8 +145,8 @@ export function MatchBoard({ question, onDone }: {
         accessibilityState={{ disabled: done, selected: chosen }}
         disabled={done} onPress={() => press(side, tile)}
         style={[styles.tile, { height: rowHeight }, chosen && styles.chosen, mistaken && styles.mistaken, done && styles.done]}>
-        <Text numberOfLines={side === 'left' ? 2 : 3} adjustsFontSizeToFit minimumFontScale={0.8}
-          style={[side === 'left' ? [styles.term, { fontSize: termSize(text), lineHeight: Math.round(termSize(text) * 1.375) }] : styles.meaning, done && styles.doneText]}>{text}</Text>
+        <Text numberOfLines={side === 'left' ? 2 : 3}
+          style={[side === 'left' ? [styles.term, { fontSize: termSize, lineHeight: Math.round(termSize * 1.375) }] : styles.meaning, done && styles.doneText]}>{text}</Text>
       </Pressable>
     );
   };

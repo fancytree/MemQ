@@ -761,7 +761,8 @@ export default function QuizScreen() {
       Animated.timing(explanationAngle, { toValue: 0, duration: 150, useNativeDriver: true }).start(() => { explanationTurning.current = false; });
     });
   };
-  const explanationRotation = explanationAngle.interpolate({ inputRange: [-90, 0, 90], outputRange: ['-90deg', '0deg', '90deg'] });
+  // Turned the same way as a flashcard, and for the same reason (see flipScale).
+  const explanationScale = explanationAngle.interpolate({ inputRange: [-90, 0, 90], outputRange: [0, 1, 0] });
 
   const onCheckOrNext = () => {
     if (checking) return;
@@ -813,7 +814,7 @@ export default function QuizScreen() {
           with a height bounds the card, and what does not fit scrolls inside it. */}
       <View style={styles.practiceArea}>
       {q.mode !== 'flip' ? (
-        <Animated.View style={[styles.fixedQuestionCard, { transform: [{ perspective: 1000 }, { rotateY: explanationRotation }] }]}>
+        <Animated.View style={[styles.fixedQuestionCard, { transform: [{ scaleX: explanationScale }] }]}>
         <PracticeCard topic={q.topic} kind={chip} style={styles.questionCard}
           faceStyle={[styles.questionFace, q.mode === 'match' && styles.matchCard]}>
           {/* A matching board is its own question: the card is all board. */}
@@ -825,7 +826,7 @@ export default function QuizScreen() {
               {isAudio && !revealed
                 ? <ListenPrompt key={heardKey} text={q.termText || q.q} languageCode={q.languageData?.language_code} onCannotListen={checking || !firstHeard.current || firstHeard.current !== heardKey ? undefined : cannotListen} />
                 : <ScrollView style={[styles.questionTextScroll, q.mode !== 'mcq' && { maxHeight: 120 * fontScale }]} nestedScrollEnabled showsVerticalScrollIndicator={false}><Text style={[styles.qText, longQuestion && styles.qTextLong]}>{questionText}</Text></ScrollView>}
-              {showPlay && <PlayButton text={q.termText!} languageCode={q.languageData?.language_code} label={`Play ${q.termText}`} />}
+              {showPlay && <PlayButton autoPlay={!revealed} text={q.termText!} languageCode={q.languageData?.language_code} label={`Play ${q.termText}`} />}
             </View>
           </View>)}
           {onExplanation ? <View style={[styles.answerArea, styles.explanationArea]}>
@@ -1110,7 +1111,13 @@ function FlipView({ q, flipped, onFlip, onConfidence, swipeProgress }: FlipViewP
     },
     onPanResponderTerminate: () => Animated.spring(translateX, { toValue: 0, useNativeDriver: true }).start(),
   })).current;
-  const flipRotation = flipAngle.interpolate({ inputRange: [-90, 0, 90], outputRange: ['-90deg', '0deg', '90deg'] });
+  /* The turn is a width, not a rotation in space. rotateY looked right in the
+   * simulator and wrong on a phone: a card is a stack of layers — the shell under
+   * the face, the face, what is written on it — and iOS gives each layer its own
+   * plane under a 3D transform, so they swung at visibly different angles and the
+   * card came apart while it turned. Narrowing to nothing and opening again is
+   * the same gesture in two dimensions, and the card stays one thing. */
+  const flipScale = flipAngle.interpolate({ inputRange: [-90, 0, 90], outputRange: [0, 1, 0] });
   const rotate = translateX.interpolate({ inputRange: [-width, 0, width], outputRange: ['-10deg', '0deg', '10deg'], extrapolate: 'clamp' });
   const rememberedOpacity = translateX.interpolate({ inputRange: [0, 24, 80], outputRange: [0, 0.25, 1], extrapolate: 'clamp' });
   // Mirrored on the one to its right: the left label used to need a hundred points
@@ -1130,7 +1137,7 @@ function FlipView({ q, flipped, onFlip, onConfidence, swipeProgress }: FlipViewP
         <Animated.View style={[flipStyles.swipeFeedback, flipStyles.reviewFeedback, { opacity: reviewOpacity, transform: [{ translateY: reviewOffset }, { scale: reviewScale }] }]}><View style={flipStyles.feedbackIcon}><Icon name="close" size={22} color={colors.red} /></View><Text style={[flipStyles.swipeFeedbackText, { color: colors.red }]}>Need review</Text></Animated.View>
       </View>
       <Animated.View {...swipe.panHandlers} style={[flipStyles.cardMotion, { transform: [{ translateX }, { rotate }] }]}>
-      <Animated.View style={[flipStyles.cardMotion, { transform: [{ perspective: 1000 }, { rotateY: flipRotation }] }]}>
+      <Animated.View style={[flipStyles.cardMotion, { transform: [{ scaleX: flipScale }] }]}>
       {/* Turned over, only the line along the bottom turns it back: the face above
           it is a card being read, and a drag down it is reading on, not a tap. */}
       <PracticeCard topic={q.topic} kind="Flashcard"
@@ -1157,7 +1164,7 @@ function FlipView({ q, flipped, onFlip, onConfidence, swipeProgress }: FlipViewP
               {!!q.languageData?.pronunciation && <Text style={flipStyles.pronunciation}>{q.languageData.pronunciation}</Text>}
             </View>
             {!!q.languageData?.part_of_speech && <View style={flipStyles.wordType}><Text style={flipStyles.wordTypeText}>{q.languageData.part_of_speech}</Text></View>}
-            {q.languageData && !!q.termText && <PlayButton centred text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />}
+            {q.languageData && !!q.termText && <PlayButton centred autoPlay text={q.termText} languageCode={q.languageData.language_code} label={`Play ${q.termText}`} />}
           </View>
         </ScrollView>}
       </PracticeCard>

@@ -68,19 +68,26 @@ export function fill(board: Board, random: () => number = Math.random): Board {
   if (freeLeft.length === 0) return board;
 
   const onBoard = new Set(board.left.filter((tile): tile is Tile => !!tile).map((tile) => tile.pair));
-  const othersShowing = onBoard.size > 0;
   const recent = board.recent;
-  // With a single row free on each side there is nowhere else to put a pair, so one
-  // whose last place is exactly those two rows waits for the next.
-  const backInPlace = (pair: number) => freeLeft.length === 1 && freeRight.length === 1
-    && board.lastAt?.[pair]?.left === freeLeft[0] && board.lastAt?.[pair]?.right === freeRight[0];
   const queue = [...board.queue];
   const arriving: number[] = [];
   while (arriving.length < freeLeft.length) {
-    // Anything waiting but the pair just made; that one only if nothing else is left
-    // and nothing else is on the board.
-    let next = queue.findIndex((pair) => !onBoard.has(pair) && pair !== recent && !backInPlace(pair));
-    if (next < 0 && !othersShowing && arriving.length === 0) next = queue.findIndex((pair) => !onBoard.has(pair));
+    /* Who gets the row, in the order they are asked for:
+     *
+     *  1. anything waiting that is not already on the board and is not the pair
+     *     just made — the ordinary case, and the only one most boards ever need;
+     *  2. the pair just made, coming round again;
+     *  3. a pair that is already showing, which puts the same word on the board
+     *     twice.
+     *
+     * The last two look odd, and they are still better than the row they fill: a
+     * board with a hole in it reads as a game that is over, or broken, while the
+     * cards beside the hole are still waiting to be matched. A repeat is plainly
+     * a repeat, and it goes as soon as it is matched. */
+    let next = queue.findIndex((pair) => !onBoard.has(pair) && pair !== recent);
+    if (next < 0) next = queue.findIndex((pair) => !onBoard.has(pair));
+    if (next < 0) next = queue.findIndex((pair) => pair !== recent);
+    if (next < 0 && queue.length > 0) next = 0;
     if (next < 0) break;
     onBoard.add(queue[next]);
     arriving.push(queue[next]);
